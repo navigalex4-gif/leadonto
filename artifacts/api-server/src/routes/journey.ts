@@ -1,0 +1,715 @@
+/**
+ * /api/journey/next          — next lessons via SM-2 spaced repetition + interleaving
+ * /api/journey/submit-result — record a lesson score; updates SM-2 state
+ *
+ * SM-2 algorithm (same family Anki uses, grounded in Ebbinghaus forgetting-curve
+ * research) decides WHEN a lesson comes back for review.
+ *
+ * Interleaving (Rohrer & Taylor research) mixes skill types so the same skill
+ * never repeats back-to-back in the queue.
+ *
+ * Progress is stored in PostgreSQL (lesson_progress table).
+ * Guest users (userId starts with "guest_") use the same table — no foreign-key
+ * constraint on user_id so any string ID is accepted.
+ */
+import { Router, type Request, type Response } from "express";
+import { db, lessonProgressTable, lessonActivityTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { generateTextWithFallback } from "./ai";
+
+const router = Router();
+
+type Lesson = {
+  id: string;
+  title: string;
+  skill_type: "vocabulary" | "grammar" | "listening" | "speaking" | "reading";
+  description: string;
+};
+
+type LessonState = {
+  ease: number;
+  interval: number;
+  repetitions: number;
+  due_date: string;        // ISO date string "YYYY-MM-DD"
+  last_score: number | null;
+};
+
+type UserProgress = Record<string, LessonState>;
+
+const LESSON_BANK: Lesson[] = [
+  // ── A1 Foundation ──────────────────────────────────────────────────────────
+  { id: "l1",  title: "Greetings & Introductions",           skill_type: "vocabulary", description: "Common phrases for meeting people at work, shops, and trains." },
+  { id: "l2",  title: "Present Simple Tense",                skill_type: "grammar",    description: "I am, You are, He is — daily routines and facts." },
+  { id: "l3",  title: "Listening: Ordering at a Shop",       skill_type: "listening",  description: "Understand and respond to a shopkeeper in English." },
+  { id: "l4",  title: "Speaking: Describe Your Day",         skill_type: "speaking",   description: "Talk about your morning routine in 4–5 sentences." },
+  { id: "l13", title: "Basic Prepositions of Place",         skill_type: "vocabulary", description: "In, on, at, under, next to — essential for giving directions." },
+  { id: "l14", title: "Common Action Verbs",                 skill_type: "vocabulary", description: "Go, come, take, give, want, need — the 20 verbs you use every day." },
+  // ── A2 Elementary ──────────────────────────────────────────────────────────
+  { id: "l5",  title: "Workplace Vocabulary",                skill_type: "vocabulary", description: "200-word core set for offices, factories, and markets." },
+  { id: "l6",  title: "Past Simple Tense",                   skill_type: "grammar",    description: "What happened yesterday — regular and irregular verbs." },
+  { id: "l9",  title: "Numbers, Dates & Times",              skill_type: "vocabulary", description: "Dates for forms, bills, and schedules in English." },
+  { id: "l10", title: "Question Words",                      skill_type: "grammar",    description: "What, Who, Where, When, Why — asking for directions & help." },
+  { id: "l15", title: "Present Continuous Tense",            skill_type: "grammar",    description: "I am working, she is calling — actions happening right now." },
+  { id: "l16", title: "Comparatives & Superlatives",         skill_type: "grammar",    description: "Bigger, better, the best — comparing jobs, salaries, and options." },
+  // ── B1 Intermediate ────────────────────────────────────────────────────────
+  { id: "l7",  title: "Listening: A Job Interview",          skill_type: "listening",  description: "Hear and understand common HR interview questions." },
+  { id: "l8",  title: "Speaking: Answer Interview Questions",skill_type: "speaking",   description: "Practise 'Tell me about yourself' and 3 common follow-ups." },
+  { id: "l11", title: "Reading: A Job Advertisement",        skill_type: "reading",    description: "Extract key information from a real job posting." },
+  { id: "l12", title: "Speaking: Phone & Video Calls",       skill_type: "speaking",   description: "Opening, holding, and closing a professional call." },
+  { id: "l17", title: "Expressing Opinions Politely",        skill_type: "speaking",   description: "I think, In my view, I agree/disagree — professional debate language." },
+  { id: "l18", title: "Writing Professional Emails",         skill_type: "reading",    description: "Subject lines, salutations, clear body text, and polite sign-offs." },
+  // ── B2 Upper-Intermediate ──────────────────────────────────────────────────
+  { id: "l19", title: "Conditional Sentences",               skill_type: "grammar",    description: "If I get this job, I will… / If I had studied harder, I would have… " },
+  { id: "l20", title: "Formal vs. Informal Register",        skill_type: "vocabulary", description: "When to say 'commence' vs 'start', 'assist' vs 'help' — register switching." },
+  { id: "l21", title: "Listening: Meetings & Presentations", skill_type: "listening",  description: "Follow team meetings, extract action points, and catch polite disagreement." },
+  { id: "l22", title: "Speaking: Salary Negotiation",        skill_type: "speaking",   description: "Ask for more, counter an offer, and reach agreement — all professionally." },
+  // ── C1 Advanced ───────────────────────────────────────────────────────────
+  { id: "l23", title: "Passive Voice & Reported Speech",     skill_type: "grammar",    description: "The report was submitted. She said that… — essential for formal writing." },
+  { id: "l24", title: "Idiomatic Expressions at Work",       skill_type: "vocabulary", description: "Hit the ground running, think outside the box — and when not to use them." },
+  { id: "l25", title: "Reading: Business Articles",          skill_type: "reading",    description: "Skim, scan, and critically analyse articles from Economic Times or BBC." },
+  { id: "l26", title: "Presenting Ideas with Confidence",    skill_type: "speaking",   description: "Structure a 3-minute business presentation using signposting language." },
+  // ── C2 Mastery ────────────────────────────────────────────────────────────
+  { id: "l27", title: "Nuance & Precision in Vocabulary",    skill_type: "vocabulary", description: "Subtle differences — affect vs effect, imply vs infer, comprise vs consist of." },
+  { id: "l28", title: "Advanced Grammar: Complex Structures",skill_type: "grammar",    description: "Subjunctive mood, inversion, cleft sentences — writing that impresses." },
+  { id: "l29", title: "Listening: Accents & Rapid Speech",   skill_type: "listening",  description: "Understand British, American, and Australian accents at natural speed." },
+  { id: "l30", title: "Debate & Critical Argumentation",     skill_type: "speaking",   description: "Build, counter, and concede arguments fluently in any professional forum." },
+];
+
+const LESSON_IDS = new Set(LESSON_BANK.map(l => l.id));
+
+// ── CEFR level → lesson IDs ──────────────────────────────────────────────────
+const LEVEL_LESSONS: Record<string, string[]> = {
+  A1: ["l1", "l2", "l3", "l4", "l13", "l14"],
+  A2: ["l5", "l6", "l9", "l10", "l15", "l16"],
+  B1: ["l7", "l8", "l11", "l12", "l17", "l18"],
+  B2: ["l19", "l20", "l21", "l22"],
+  C1: ["l23", "l24", "l25", "l26"],
+  C2: ["l27", "l28", "l29", "l30"],
+};
+
+const CEFR_ORDER_SERVER = ["A1", "A2", "B1", "B2", "C1", "C2"] as const;
+
+/**
+ * Minimum AVERAGE score (%) across all lessons in a level to "pass" it
+ * and unlock the next level. Based on CEFR language benchmarks.
+ */
+const LEVEL_PASSING_SCORE: Record<string, number> = {
+  A1: 60, A2: 65, B1: 70, B2: 75, C1: 80, C2: 85,
+};
+
+type LevelStatus = {
+  level: string;
+  total: number;
+  studied: number;
+  avgScore: number;
+  passed: boolean;
+  passingScore: number;
+};
+
+function computeLevelStatus(progress: UserProgress): LevelStatus[] {
+  return CEFR_ORDER_SERVER.map(level => {
+    const ids = LEVEL_LESSONS[level] ?? [];
+    const total = ids.length;
+    const states = ids.map(id => progress[id]).filter((s): s is LessonState => Boolean(s));
+    const studied = states.length;
+    // Include ALL studied lesson scores (even 0%) so the average can't be
+    // inflated by omitting failures. A lesson counts as scored once it has
+    // been submitted; un-started lessons don't affect the average yet.
+    const scores = states.map(s => s.last_score ?? 0);
+    const avgScore = scores.length > 0
+      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      : 0;
+    const passingScore = LEVEL_PASSING_SCORE[level] ?? 60;
+    const passed = studied >= total && avgScore >= passingScore;
+    return { level, total, studied, avgScore, passed, passingScore };
+  });
+}
+
+/** First CEFR level that is not yet fully passed; falls back to "C2" */
+function getCurrentLevel(progress: UserProgress): string {
+  for (const status of computeLevelStatus(progress)) {
+    if (!status.passed) return status.level;
+  }
+  return "C2";
+}
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * SM-2 update.
+ * quality: 0-5  (0 = complete blank, 5 = perfect instant recall)
+ */
+function sm2Update(
+  ease: number,
+  interval: number,
+  repetitions: number,
+  quality: number,
+): { ease: number; interval: number; repetitions: number } {
+  let newInterval: number;
+  let newReps: number;
+
+  if (quality < 3) {
+    newReps = 0;
+    newInterval = 1;
+  } else {
+    if (repetitions === 0)      newInterval = 1;
+    else if (repetitions === 1) newInterval = 6;
+    else                         newInterval = Math.round(interval * ease);
+    newReps = repetitions + 1;
+  }
+
+  const newEase = Math.max(
+    1.3,
+    ease + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)),
+  );
+
+  return { ease: newEase, interval: newInterval, repetitions: newReps };
+}
+
+// ---------------------------------------------------------------------------
+// DB helpers — all wrapped so a DB error degrades gracefully to empty progress
+// ---------------------------------------------------------------------------
+
+async function loadUserProgress(userId: string): Promise<UserProgress> {
+  try {
+    const rows = await db
+      .select()
+      .from(lessonProgressTable)
+      .where(eq(lessonProgressTable.userId, userId));
+
+    const progress: UserProgress = {};
+    for (const row of rows) {
+      progress[row.lessonId] = {
+        ease: Number(row.ease),
+        interval: row.interval,
+        repetitions: row.repetitions,
+        due_date: row.dueDate,
+        last_score: row.lastScore ?? null,
+      };
+    }
+    return progress;
+  } catch {
+    // DB unavailable — return empty so the route still works
+    return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// In-memory retry buffer for failed DB writes.
+//
+// Keyed by `userId|lessonId` (Map) so only the LATEST state is retained per
+// lesson — a stale queued entry can never overwrite a newer successful write.
+//
+// On a successful direct write, the key is removed from the map (dedup).
+// On overflow (> RETRY_BUFFER_MAX unique keys), the oldest inserted key is
+// evicted with a warning.  A background loop retries every 30 seconds.
+// ---------------------------------------------------------------------------
+const RETRY_BUFFER_MAX = 20;
+const RETRY_INTERVAL_MS = 30_000;
+
+/** Map<`userId|lessonId`, state> — insertion-order preserved by JS Map */
+const retryBuffer = new Map<string, LessonState>();
+
+function retryKey(userId: string, lessonId: string): string {
+  return `${userId}|${lessonId}`;
+}
+
+function enqueueRetry(userId: string, lessonId: string, state: LessonState): void {
+  const key = retryKey(userId, lessonId);
+  // If the key already exists, updating it moves it to the tail in insertion
+  // order, so delete-then-set gives us accurate LRU eviction of *other* keys.
+  retryBuffer.delete(key);
+
+  if (retryBuffer.size >= RETRY_BUFFER_MAX) {
+    // Evict the oldest key (first in insertion order)
+    const oldestKey = retryBuffer.keys().next().value;
+    if (oldestKey !== undefined) {
+      retryBuffer.delete(oldestKey);
+      const [evictedUser, evictedLesson] = oldestKey.split("|");
+      console.warn(
+        `[journey] retry buffer full (${RETRY_BUFFER_MAX}); dropped oldest entry userId=${evictedUser} lessonId=${evictedLesson}`,
+      );
+    }
+  }
+
+  retryBuffer.set(key, state);
+}
+
+async function writeLessonToDB(userId: string, lessonId: string, state: LessonState): Promise<void> {
+  await db
+    .insert(lessonProgressTable)
+    .values({
+      userId,
+      lessonId,
+      ease: String(state.ease),
+      interval: state.interval,
+      repetitions: state.repetitions,
+      dueDate: state.due_date,
+      lastScore: state.last_score ?? undefined,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [lessonProgressTable.userId, lessonProgressTable.lessonId],
+      set: {
+        ease: String(state.ease),
+        interval: state.interval,
+        repetitions: state.repetitions,
+        dueDate: state.due_date,
+        lastScore: state.last_score ?? undefined,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+async function flushRetryBuffer(): Promise<void> {
+  if (retryBuffer.size === 0) return;
+  // Snapshot the keys so new failures added during this flush don't extend it
+  const keys = [...retryBuffer.keys()];
+  for (const key of keys) {
+    const state = retryBuffer.get(key);
+    if (!state) continue; // evicted while we were iterating
+    const [userId, lessonId] = key.split("|") as [string, string];
+    try {
+      await writeLessonToDB(userId, lessonId, state);
+      // Only delete if the map still holds the exact same object we just wrote.
+      // If a newer state was enqueued during the await (event-loop turn), the
+      // reference will differ — leave the newer entry intact.
+      if (retryBuffer.get(key) === state) {
+        retryBuffer.delete(key);
+      }
+    } catch {
+      // Still failing — leave it in the map (already holds the latest state)
+    }
+  }
+}
+
+// Start background retry loop (fire-and-forget; never crashes the server)
+setInterval(() => {
+  flushRetryBuffer().catch((err: unknown) =>
+    console.error("[journey] retry flush error", err),
+  );
+}, RETRY_INTERVAL_MS);
+
+async function saveLesson(
+  userId: string,
+  lessonId: string,
+  state: LessonState,
+): Promise<void> {
+  try {
+    await writeLessonToDB(userId, lessonId, state);
+    // On success, clear any queued entry for this lesson — it would be stale now
+    retryBuffer.delete(retryKey(userId, lessonId));
+  } catch (err) {
+    // DB unavailable — queue for retry so progress is not lost
+    console.warn("[journey] saveLesson failed, queuing for retry", { userId, lessonId, err });
+    enqueueRetry(userId, lessonId, state);
+  }
+}
+
+/**
+ * mergeGuestProgress — copy all lesson_progress rows from a guest ID into an
+ * authenticated user's rows.  Called once at login/signup so the learner's
+ * SM-2 schedule carries over to their account.
+ *
+ * Conflict resolution: if the authenticated user already has a row for the
+ * same lesson (e.g. they previously studied on another device), keep whichever
+ * has the higher repetition count; on a tie, prefer the more-recently-scheduled
+ * due_date so the SM-2 curve is not reset.
+ */
+export async function mergeGuestProgress(guestId: string, userId: string): Promise<void> {
+  if (!guestId || !userId || guestId === userId) return;
+  try {
+    const guestRows = await db
+      .select()
+      .from(lessonProgressTable)
+      .where(eq(lessonProgressTable.userId, guestId));
+
+    if (guestRows.length === 0) return;
+
+    const userRows = await db
+      .select()
+      .from(lessonProgressTable)
+      .where(eq(lessonProgressTable.userId, userId));
+
+    const userMap = new Map(userRows.map(r => [r.lessonId, r]));
+
+    for (const guestRow of guestRows) {
+      const existing = userMap.get(guestRow.lessonId);
+      // Skip if the authenticated user already has more practice on this lesson
+      if (existing && existing.repetitions >= guestRow.repetitions) continue;
+
+      await db
+        .insert(lessonProgressTable)
+        .values({
+          userId,
+          lessonId: guestRow.lessonId,
+          ease: guestRow.ease,
+          interval: guestRow.interval,
+          repetitions: guestRow.repetitions,
+          dueDate: guestRow.dueDate,
+          lastScore: guestRow.lastScore ?? undefined,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [lessonProgressTable.userId, lessonProgressTable.lessonId],
+          set: {
+            ease: guestRow.ease,
+            interval: guestRow.interval,
+            repetitions: guestRow.repetitions,
+            dueDate: guestRow.dueDate,
+            lastScore: guestRow.lastScore ?? undefined,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  } catch (err) {
+    // Non-fatal — authenticated user keeps their existing progress
+    console.error("[journey] mergeGuestProgress error", err);
+  }
+}
+
+// ------------------------------------------------------------------
+// GET /journey/next?userId=<id>
+// Returns due reviews (any level) + all remaining new lessons in
+// the student's current CEFR level. No hard 5-lesson cap on new
+// lessons so an entire level (e.g. all 6 A1 lessons) is accessible
+// in a single session. Reviews are capped at 5 to avoid overwhelm.
+// ------------------------------------------------------------------
+router.get("/journey/next", async (req: Request, res: Response) => {
+  const userId = (req.query["userId"] as string) || "guest";
+  const progress = await loadUserProgress(userId);
+  const today = todayStr();
+
+  // Determine which CEFR level the student is currently working on
+  const levelStatuses = computeLevelStatus(progress);
+  const currentLevel = getCurrentLevel(progress);
+  const currentLevelIds = new Set(LEVEL_LESSONS[currentLevel] ?? []);
+
+  const due: Lesson[] = [];
+  const newLessons: Lesson[] = [];
+
+  for (const lesson of LESSON_BANK) {
+    const state = progress[lesson.id];
+    if (!state) {
+      // New lessons: only from the current CEFR level — never jump ahead
+      if (currentLevelIds.has(lesson.id)) newLessons.push(lesson);
+    } else if (state.due_date <= today) {
+      due.push(lesson); // Reviews from any level always come back
+    }
+  }
+
+  /**
+   * Priority contract: due reviews ALWAYS come before new lessons.
+   * Interleaving is applied within each group independently so the
+   * same skill type never repeats back-to-back.
+   */
+  function interleaveBySkillType(lessons: Lesson[]): Lesson[] {
+    const byType = new Map<string, Lesson[]>();
+    for (const lesson of lessons) {
+      const bucket = byType.get(lesson.skill_type) ?? [];
+      bucket.push(lesson);
+      byType.set(lesson.skill_type, bucket);
+    }
+    const result: Lesson[] = [];
+    while ([...byType.values()].some(b => b.length > 0)) {
+      for (const [type, bucket] of byType) {
+        if (bucket.length > 0) result.push(bucket.shift()!);
+        if (byType.get(type)?.length === 0) byType.delete(type);
+      }
+    }
+    return result;
+  }
+
+  // Reviews capped at 5/session; new lessons: ALL remaining in current level
+  const interleavedDue = interleaveBySkillType(due).slice(0, 5);
+  const interleavedNew = interleaveBySkillType(newLessons);
+  let interleaved = [...interleavedDue, ...interleavedNew];
+  let mode: "due" | "ahead" | "improve_score" = "due";
+
+  if (interleaved.length === 0) {
+    const currentStatus = levelStatuses.find(ls => ls.level === currentLevel);
+
+    if (currentStatus && currentStatus.studied >= currentStatus.total && !currentStatus.passed) {
+      // All lessons in current level studied but average score is below passing —
+      // surface lowest-scoring lessons for re-practice so the student can improve.
+      const toRepractice = LESSON_BANK
+        .filter(l => currentLevelIds.has(l.id) && progress[l.id])
+        .sort((a, b) => (progress[a.id]!.last_score ?? 0) - (progress[b.id]!.last_score ?? 0));
+      interleaved = interleaveBySkillType(toRepractice).slice(0, 5);
+      if (interleaved.length > 0) mode = "improve_score";
+    } else {
+      // Everything done and on-schedule — surface upcoming reviews for practice ahead
+      const upcoming = LESSON_BANK
+        .filter(l => progress[l.id])
+        .sort((a, b) => progress[a.id]!.due_date.localeCompare(progress[b.id]!.due_date))
+        .slice(0, 5);
+      interleaved = interleaveBySkillType(upcoming);
+      if (interleaved.length > 0) mode = "ahead";
+    }
+  }
+
+  const result = interleaved.map(lesson => {
+    const state = progress[lesson.id];
+    const status =
+      mode === "ahead" ? "practice ahead"
+      : mode === "improve_score" ? "due for review"
+      : state ? "due for review"
+      : "new lesson";
+    return { ...lesson, status, last_score: state?.last_score ?? null, next_review: state?.due_date ?? null };
+  });
+
+  // Soonest future review date — lets the UI say "next review on <date>".
+  const nextDueDate = LESSON_BANK
+    .map(l => progress[l.id]?.due_date)
+    .filter((d): d is string => Boolean(d) && (d as string) > today)
+    .sort()[0] ?? null;
+
+  res.json({
+    lessons: result,
+    total_due: due.length,
+    total_new: newLessons.length,
+    mode,
+    next_due_date: nextDueDate,
+    current_level: currentLevel,
+    level_status: levelStatuses,
+  });
+});
+
+// ------------------------------------------------------------------
+// POST /journey/submit-result
+// Body: { lesson_id, score (0–100), userId? }
+// ------------------------------------------------------------------
+router.post("/journey/submit-result", async (req: Request, res: Response) => {
+  const { lesson_id, score, userId = "guest" } = (req.body ?? {}) as {
+    lesson_id?: string;
+    score?: number;
+    userId?: string;
+  };
+
+  if (!lesson_id || !LESSON_IDS.has(lesson_id)) {
+    res.status(400).json({ error: "Unknown lesson_id" });
+    return;
+  }
+
+  const numScore = Math.min(100, Math.max(0, Number(score ?? 0)));
+  const progress = await loadUserProgress(userId);
+
+  const existing = progress[lesson_id] ?? { ease: 2.5, interval: 0, repetitions: 0 };
+  const quality = Math.round((numScore / 100) * 5); // map 0-100 → 0-5
+
+  const { ease, interval, repetitions } = sm2Update(
+    existing.ease,
+    existing.interval,
+    existing.repetitions,
+    quality,
+  );
+
+  const due_date = addDays(todayStr(), interval);
+  const newState: LessonState = { ease, interval, repetitions, due_date, last_score: numScore };
+
+  await saveLesson(userId, lesson_id, newState);
+
+  // Append an activity-log row so streak calculation has a full per-day history.
+  // This runs fire-and-forget; a failure here must never block the response.
+  db.insert(lessonActivityTable)
+    .values({ userId, lessonId: lesson_id, score: numScore })
+    .catch((err: unknown) => console.error("[journey] lessonActivity insert error", err));
+
+  res.json({ ok: true, next_review: due_date, interval_days: interval });
+});
+
+// -----------------------------------------------------------------------
+// In-memory lesson-content cache: key = `${lessonId}|${level}|${goal}`
+// Max 200 entries; evict oldest when full.
+// TTL: 24 hours — cached content is regenerated once per day so it stays fresh.
+// -----------------------------------------------------------------------
+type CacheEntry = {
+  content: { concept: string; examples: string[]; practice: string };
+  cachedAt: number; // Date.now() ms
+};
+const CONTENT_CACHE = new Map<string, CacheEntry>();
+const CACHE_MAX = 200;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function cacheGet(key: string): { concept: string; examples: string[]; practice: string } | undefined {
+  const entry = CONTENT_CACHE.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
+    CONTENT_CACHE.delete(key);
+    return undefined;
+  }
+  return entry.content;
+}
+
+function cacheSet(key: string, value: { concept: string; examples: string[]; practice: string }) {
+  if (CONTENT_CACHE.size >= CACHE_MAX) {
+    // Evict the oldest inserted entry (Maps preserve insertion order)
+    const firstKey = CONTENT_CACHE.keys().next().value;
+    if (firstKey !== undefined) CONTENT_CACHE.delete(firstKey);
+  }
+  CONTENT_CACHE.set(key, { content: value, cachedAt: Date.now() });
+}
+
+// ------------------------------------------------------------------
+// GET /journey/lesson-content/:lessonId — AI-generated lesson content
+// ------------------------------------------------------------------
+router.get("/journey/lesson-content/:lessonId", async (req: Request, res: Response) => {
+  const { lessonId } = req.params as { lessonId: string };
+  const lesson = LESSON_BANK.find(l => l.id === lessonId);
+  if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
+
+  const level = (req.query["level"] as string) || "Beginner";
+  const goal = (req.query["goal"] as string) || "Private Job";
+  const nativeLang = (req.query["nativeLang"] as string) || "Hindi";
+  const name = (req.query["name"] as string) || "";
+  const skills = (req.query["skills"] as string) || "";
+
+  const cacheKey = `${lessonId}|${level}|${goal}|${nativeLang}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) { res.json(cached); return; }
+
+  try {
+    const profileCtx = [
+      name && `Name: ${name}`,
+      `English level: ${level}`,
+      `Career goal: ${goal}`,
+      `Native language: ${nativeLang}`,
+      skills && `Skills: ${skills}`,
+    ].filter(Boolean).join(" | ");
+
+    const raw = await generateTextWithFallback({
+      prompt: `You are a warm, practical English teacher for Indian job-seekers.
+
+Lesson: "${lesson.title}"
+Skill: ${lesson.skill_type}
+Description: ${lesson.description}
+Student: ${profileCtx}
+
+Create lesson content tailored to this student. Return ONLY valid JSON with these exact keys:
+{
+  "concept": "2–3 plain sentences explaining the core idea. Use Indian contexts — office, shop, phone call, interview. No jargon.",
+  "examples": [
+    "Example 1 with context label in brackets",
+    "Example 2 — different scenario",
+    "Example 3 — career/job relevant"
+  ],
+  "practice": "One specific task the student can do right now in 30–60 seconds. Tie it to ${goal}."
+}`,
+      maxTokens: 450,
+      log: req.log,
+    });
+
+    // Strip accidental markdown fences
+    const clean = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    const content = JSON.parse(clean) as { concept: string; examples: string[]; practice: string };
+    cacheSet(cacheKey, content);
+    res.json(content);
+  } catch (err) {
+    req.log.error({ err }, "Lesson content AI error");
+    res.status(500).json({ error: "Could not generate lesson content" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Mastery level — derived from SM-2 repetitions + ease factor
+// ---------------------------------------------------------------------------
+function computeMastery(repetitions: number, ease: number): "bronze" | "silver" | "gold" | null {
+  if (repetitions === 0) return null;
+  if (repetitions >= 5 && ease >= 2.5) return "gold";
+  if (repetitions >= 3) return "silver";
+  return "bronze";
+}
+
+// ---------------------------------------------------------------------------
+// Streak — consecutive calendar days ending today (or yesterday) on which the
+// user completed at least one lesson.
+//
+// Uses lesson_activity (append-only event log) — NOT lesson_progress.
+// lesson_progress is an upsert table (one row per lesson), so its updatedAt
+// only holds the most-recent study date for that lesson; prior days are lost.
+// lesson_activity appends a row on every submit-result call, giving a full
+// history of which calendar days had at least one study session.
+// ---------------------------------------------------------------------------
+async function computeStreak(userId: string): Promise<number> {
+  try {
+    const rows = await db
+      .select({ completedAt: lessonActivityTable.completedAt })
+      .from(lessonActivityTable)
+      .where(eq(lessonActivityTable.userId, userId));
+
+    if (rows.length === 0) return 0;
+
+    // Unique YYYY-MM-DD strings, sorted newest first
+    const dates = Array.from(
+      new Set(rows.map(r => r.completedAt.toISOString().slice(0, 10)))
+    ).sort().reverse();
+
+    const today = todayStr();
+    const yesterday = addDays(today, -1);
+
+    // Streak must touch today or yesterday — otherwise it's broken
+    if (dates[0] !== today && dates[0] !== yesterday) return 0;
+
+    let streak = 1;
+    let current = dates[0];
+    for (let i = 1; i < dates.length; i++) {
+      if (dates[i] === addDays(current, -1)) {
+        streak++;
+        current = dates[i];
+      } else {
+        break;
+      }
+    }
+    return streak;
+  } catch {
+    return 0;
+  }
+}
+
+// ------------------------------------------------------------------
+// GET /journey/progress?userId=<id>  — full state for all lessons
+// ------------------------------------------------------------------
+router.get("/journey/progress", async (req: Request, res: Response) => {
+  const userId = (req.query["userId"] as string) || "guest";
+  const [progress, streak] = await Promise.all([
+    loadUserProgress(userId),
+    computeStreak(userId),
+  ]);
+  const today = todayStr();
+
+  const items = LESSON_BANK.map(lesson => {
+    const state = progress[lesson.id];
+    return {
+      ...lesson,
+      studied: Boolean(state),
+      last_score: state?.last_score ?? null,
+      due_date: state?.due_date ?? null,
+      overdue: state ? state.due_date <= today : false,
+      repetitions: state?.repetitions ?? 0,
+      mastery: state ? computeMastery(state.repetitions, state.ease) : null,
+    };
+  });
+
+  const studied = items.filter(l => l.studied).length;
+  const overdue = items.filter(l => l.overdue).length;
+
+  const levelStatuses = computeLevelStatus(progress);
+  const currentLevel = getCurrentLevel(progress);
+
+  res.json({
+    lessons: items,
+    summary: { total: LESSON_BANK.length, studied, overdue, streak },
+    level_status: levelStatuses,
+    current_level: currentLevel,
+  });
+});
+
+export default router;

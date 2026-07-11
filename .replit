@@ -1,0 +1,46 @@
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 18855
+externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+"GEMINI API KEY" = "AQ.Ab8RN6IwdQonzDCwWxliqkcFChGhF5j7lII_KQwIpib-yWOE7w"
+"GOOGLE CLIENT ID" = "1073650503727-n4bd44hv5qjknkghlvjnesm3uuha17vj.apps.googleusercontent.com"
+"GOOGLE CLIENT SECRET" = "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"
+"RESENT API KEY" = "re_ew6Bs67K_Pak9N2d7fL9yDtU3QdZivCWH"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = "3b335b336d1df1803c6de4da944f96c116eea3eccbd99dc4185f6ef859c7792e"
+EXPO_PUBLIC_DOMAIN = "9b26a9fa-76bb-4b58-8ef0-a7b78f22b6ca-00-38cjtnu07tpi3.sisko.replit.dev"
+
+[nix]
+channel = "stable-25_05"
