@@ -210,6 +210,9 @@ router.post("/ai/chat", async (req, res) => {
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
 
   try {
+    // Try Claude first; fall back to Gemini if the entire Claude chain fails
+    // (auth error, quota, etc.) just like /ai/stream does.
+    let claudeFailed = false;
     if (hasClaudeKey) {
       const anthropic = getAnthropic();
       if (!anthropic) throw new Error("ANTHROPIC_API_KEY is not configured");
@@ -233,10 +236,17 @@ router.post("/ai/chat", async (req, res) => {
             req.log.warn({ model, err }, "Claude issue — trying fallback model");
             continue;
           }
+          if (isLast) {
+            req.log.warn({ model, err }, "Claude chain exhausted — falling back to Gemini");
+            claudeFailed = true;
+            break;
+          }
           throw err;
         }
       }
-    } else {
+    }
+
+    if (!hasClaudeKey || claudeFailed) {
       const ai = getAI();
       const contents = buildContents(prompt, system);
 
