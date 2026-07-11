@@ -311,7 +311,6 @@ async function fetchAdzuna(q: string, city: string, page: number): Promise<LiveI
     app_id: appId,
     app_key: appKey,
     results_per_page: "20",
-    content_type: "application/json",
   });
   if (q) params.set("what", q);
   if (city) params.set("where", city);
