@@ -36,6 +36,7 @@ externalPort = 3000
 [userenv.shared]
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = "3b335b336d1df1803c6de4da944f96c116eea3eccbd99dc4185f6ef859c7792e"
+GOOGLE_CALLBACK_URL = "https://899c3e69-c269-4aa0-ac21-f73ab21f9273-00-1sap4dfi3f8ih-537i05hg.pike.replit.dev/api/auth/google/callback"
 
 [nix]
 channel = "stable-25_05"
