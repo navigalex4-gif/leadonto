@@ -225,8 +225,9 @@ export function Navbar() {
                   )}
                   <span className="text-xs font-medium text-secondary max-w-[96px] truncate">{user.name ?? user.email}</span>
                 </Link>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={logout} title="Sign out">
-                  <LogOut className="w-3.5 h-3.5 text-muted-foreground" />
+                <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive" onClick={logout}>
+                  <LogOut className="w-3.5 h-3.5 mr-1" />
+                  Sign out
                 </Button>
               </div>
             ) : (
@@ -454,8 +455,9 @@ export function Navbar() {
                 <p className="text-sm font-semibold text-secondary truncate">{user.name ?? "User"}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
-              <Button variant="ghost" size="icon" className="min-h-11 min-w-11 shrink-0" onClick={logout} title="Sign out">
-                <LogOut className="w-4 h-4 text-muted-foreground" />
+              <Button variant="outline" size="sm" className="min-h-11 px-3 shrink-0 text-sm font-semibold text-muted-foreground hover:text-destructive" onClick={() => { void logout(); setOpen(false); }}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign out
               </Button>
             </div>
           ) : (

@@ -37,6 +37,7 @@ export function useAuth() {
   const logout = useCallback(async () => {
     await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
     setUser(null);
+    window.dispatchEvent(new Event("edubharat-auth-changed"));
   }, []);
 
   const loginWithGoogle = useCallback((guestId?: string) => {
