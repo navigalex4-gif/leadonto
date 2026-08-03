@@ -474,6 +474,10 @@ Rules for spoken replies:
     if (!liveChat) return;
     const id = setInterval(() => {
       if (!liveChatRef.current || aiBusyRef.current) return;
+      // Don't retry while the mic is in a hard-error state (e.g. not-allowed).
+      // The user needs to tap "Retry mic" first — auto-retrying just causes
+      // rapid error flickers and masks the real problem.
+      if (speechRef.current.error) return;
       speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
     }, 4000);
     return () => clearInterval(id);
@@ -835,7 +839,23 @@ Rules for spoken replies:
                       variant="ghost"
                       size="sm"
                       className="ml-auto h-7 px-2 text-xs"
-                      onClick={() => {
+                      onClick={async () => {
+                        // Re-check mic permission inside the user gesture before
+                        // restarting recognition — this surfaces a clear browser
+                        // prompt if the permission was previously denied.
+                        if (navigator.mediaDevices?.getUserMedia) {
+                          try {
+                            const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            s.getTracks().forEach(t => t.stop());
+                          } catch {
+                            toast({
+                              title: "Microphone still blocked",
+                              description: "Go to your browser settings, allow the microphone for this site, then try again.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                        }
                         speech.stop();
                         speech.startContinuous(p => handleConvPhraseRef.current?.(p));
                       }}
