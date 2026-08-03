@@ -27,6 +27,10 @@ import {
 import { stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
 
+function normalizeHelperLanguage(language: string): string {
+  return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
+}
+
 export default function EnglishGuru() {
   return (
     <>
@@ -49,7 +53,7 @@ function EnglishGuruContent() {
   const synth = useEdgeTTS();
   const { profile, updateProfile } = useStudentProfile();
 
-  const [uiLang, setUiLang] = useState(profile.preferredLanguage);
+  const [uiLang, setUiLang] = useState(() => normalizeHelperLanguage(profile.preferredLanguage));
 
   const [level, setLevel] = useState(() => mapEnglishLevel(profile.englishLevel));
   const [tutorId, setTutorId] = useState(() => {
@@ -112,7 +116,16 @@ function EnglishGuruContent() {
     if (user?.name && !profile.name) updateProfile({ name: user.name });
   }, [user?.name, profile.name, updateProfile]);
 
-  useEffect(() => { setUiLang(profile.preferredLanguage); }, [profile.preferredLanguage]);
+  useEffect(() => {
+    const normalized = normalizeHelperLanguage(profile.preferredLanguage);
+    setUiLang(normalized);
+    // Older profile records used values such as "GB English", which are not
+    // valid helper-language keys and made the AI prompt unnecessarily
+    // confusing. Normalize them once when the page loads.
+    if (normalized !== profile.preferredLanguage) {
+      updateProfile({ preferredLanguage: normalized });
+    }
+  }, [profile.preferredLanguage, updateProfile]);
 
   useEffect(() => {
     const el = convInputRef.current;
@@ -488,6 +501,22 @@ Rules for spoken replies:
       toast({ title: "One moment…", description: "Checking your account — please try again in a second." });
       return;
     }
+    // Ask for microphone access while still inside the Live button gesture.
+    // SpeechRecognition can otherwise fail silently in Chrome/Brave after a
+    // deployed-origin permission change, leaving only the AI's silence nudges.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream.getTracks().forEach(track => track.stop());
+      } catch {
+        toast({
+          title: "Microphone access is needed",
+          description: "Allow microphone access in your browser, then tap Live again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     // Guests get a free 15-minute trial (no signup); signed-in users spend credits (5/hour).
     if (!user) {
       if (guestLiveSecondsLeft() <= 0) {
@@ -789,6 +818,8 @@ Rules for spoken replies:
                   {convFlowState === "user-speaking" && (
                     speech.interimTranscript
                       ? `"${speech.interimTranscript}"`
+                      : speech.error
+                        ? speech.error
                       : speech.status === "warming"
                         ? "Get ready to speak…"
                         : speech.status === "listening"
@@ -798,6 +829,20 @@ Rules for spoken replies:
                   {convFlowState === "ai-thinking" && `${tutor.name} is thinking...`}
                   {convFlowState === "ai-speaking" && `${tutor.name} is speaking... (mic restarts when done)`}
                   {convFlowState === "idle" && "Live chat off"}
+                  {liveChat && speech.error && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-7 px-2 text-xs"
+                      onClick={() => {
+                        speech.stop();
+                        speech.startContinuous(p => handleConvPhraseRef.current?.(p));
+                      }}
+                    >
+                      Retry mic
+                    </Button>
+                  )}
                 </div>
               )}
               {liveChat && aiError && (

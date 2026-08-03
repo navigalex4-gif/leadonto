@@ -86,6 +86,26 @@ main-reply release paths on the SAME duration or teacher-switch greetings
 self-capture) is still the first line of defence, but the content guard now backs
 it up in native modes too.
 
+## Browser permission and profile compatibility
+
+English Guru should request microphone permission from the Live button gesture
+before starting Web Speech recognition. If permission is denied or revoked,
+show the browser error and offer a retry rather than silently generating
+silence nudges.
+
+Legacy saved helper-language values such as `GB English` must be normalized to
+the canonical `English` value before building the AI prompt; they are display
+labels, not supported helper-language keys.
+
+**Why:** deployed Chrome/Brave origins can retain a revoked microphone
+permission while Web Speech fails without a useful visible state, and older
+profile records may contain a voice-label value that is not an AI helper
+language.
+
+**How to apply:** keep the `getUserMedia({ audio: true })` preflight inside the
+Live button flow, stop its tracks immediately after permission succeeds, and
+normalize legacy English variants when loading the profile.
+
 ## Native-accent explanations use PER-SEGMENT server-side TTS (supersedes the earlier turn-level rule)
 
 When a reply mixes native script + English (e.g. glossing an English word:
