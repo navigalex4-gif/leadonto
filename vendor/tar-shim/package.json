@@ -1,0 +1,7 @@
+{
+  "name": "tar",
+  "version": "7.5.2",
+  "description": "Local Expo-compatible tar extraction shim for Replit",
+  "main": "index.js",
+  "license": "MIT"
+}
