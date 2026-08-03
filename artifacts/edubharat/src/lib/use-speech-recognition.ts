@@ -66,6 +66,23 @@ function resolveRecognitionLang(code: string): string {
  */
 const RECOGNITION_LEASE_MS = 15000;
 
+function recognitionErrorMessage(error: string): string {
+  switch (error) {
+    case "not-allowed":
+      return "Microphone permission denied. Allow the microphone for this site, then retry.";
+    case "audio-capture":
+      return "Microphone is unavailable or busy. Close other apps using it, then retry.";
+    case "network":
+      return "Browser speech service is unavailable. Try Chrome or Edge, then retry.";
+    case "service-not-allowed":
+      return "Browser speech service is blocked. Try Chrome or Edge, then retry.";
+    case "language-not-supported":
+      return "This speech language is not supported by your browser.";
+    default:
+      return `Speech recognition error: ${error}. Try the mic again.`;
+  }
+}
+
 export function useSpeechRecognition(language = "English") {
   const [status, setStatus] = useState<SpeechRecognitionStatus>("idle");
   const [transcript, setTranscript] = useState("");
@@ -140,6 +157,10 @@ export function useSpeechRecognition(language = "English") {
    * recognizer is live, so the continuity watchdog can re-kick it freely.
    */
   const recognitionActiveRef = useRef(false);
+  // Hard failures must stop the continuous loop. Without this, errors such as
+  // "network" are silently followed by endless respawns and the UI falsely says
+  // "Speak now" even though the browser speech service is unavailable.
+  const recognitionHardErrorRef = useRef(false);
 
   /**
    * recognitionGenRef — monotonically increasing token identifying the CURRENT
@@ -274,6 +295,7 @@ export function useSpeechRecognition(language = "English") {
       // be permanently killed because start() sets shouldContinueRef to false.
       if (shouldContinueRef.current) return;
       shouldContinueRef.current = false;
+      recognitionHardErrorRef.current = false;
       const recognition = createRecognitionInstance();
       if (!recognition) return;
 
@@ -326,7 +348,9 @@ export function useSpeechRecognition(language = "English") {
         if (event.error === "language-not-supported" && spawnLang !== LAST_RESORT_LANG) {
           unsupportedRecognitionLangs.add(spawnLang);
         }
-        if (event.error !== "aborted") { setError(`Error: ${event.error}`); setStatus("error"); }
+        if (event.error === "aborted" || event.error === "no-speech") return;
+        setError(recognitionErrorMessage(event.error));
+        setStatus("error");
       };
 
       recognition.onend = () => { setStatus("idle"); setInterimTranscript(""); };
@@ -348,6 +372,7 @@ export function useSpeechRecognition(language = "English") {
       }
       shouldContinueRef.current = true;
       onPhraseRef.current = onPhrase;
+      recognitionHardErrorRef.current = false;
 
       const spawnRecognition = () => {
         // Expose to blockFor so direct wakeups call back into this closure
@@ -463,16 +488,27 @@ export function useSpeechRecognition(language = "English") {
           // ignore it so it can't release the live instance's slot.
           if (!isCurrent()) return;
           recognitionActiveRef.current = false; // Release slot on error too
-          if (event.error === "not-allowed") {
-            shouldContinueRef.current = false;
-            setError("Microphone permission denied.");
-            setStatus("error");
-          } else if (event.error === "language-not-supported" && spawnLang !== LAST_RESORT_LANG) {
-            // The engine has no model for this language (e.g. Assamese, Odia).
-            // Remember it and fall back to English on the next spawn — onend
-            // fires right after and reschedules — so the mic keeps working
-            // instead of looping on a code that never returns a result.
+          if (event.error === "aborted" || event.error === "no-speech") {
+            // These are normal transient outcomes of the non-continuous
+            // recognition loop. onend will start the next instance.
+            return;
+          }
+          if (event.error === "network" && spawnLang !== LAST_RESORT_LANG) {
+            // Brave/Chromium speech engines sometimes report a locale model
+            // mismatch as the generic "network" error. Try the terminal
+            // English model once before treating it as a service failure.
             unsupportedRecognitionLangs.add(spawnLang);
+            return;
+          }
+          if (event.error === "language-not-supported" && spawnLang !== LAST_RESORT_LANG) {
+            // The engine has no model for this language (e.g. Assamese, Odia).
+            // Remember it and fall back to English on the next spawn.
+            unsupportedRecognitionLangs.add(spawnLang);
+          } else {
+            recognitionHardErrorRef.current = true;
+            shouldContinueRef.current = false;
+            setError(recognitionErrorMessage(event.error));
+            setStatus("error");
           }
         };
 
@@ -483,8 +519,10 @@ export function useSpeechRecognition(language = "English") {
           if (!isCurrent()) return;
           recognitionActiveRef.current = false; // Always release on end
           setInterimTranscript("");
-          if (shouldContinueRef.current) {
+          if (shouldContinueRef.current && !recognitionHardErrorRef.current) {
             setTimeout(spawnRecognition, 120);
+          } else if (recognitionHardErrorRef.current) {
+            setStatus("error");
           } else {
             setStatus("idle");
           }
@@ -508,6 +546,7 @@ export function useSpeechRecognition(language = "English") {
 
   const stop = useCallback(() => {
     shouldContinueRef.current = false;
+    recognitionHardErrorRef.current = false;
     onPhraseRef.current = null;
     if (wakeTimerRef.current !== null) {
       clearTimeout(wakeTimerRef.current);

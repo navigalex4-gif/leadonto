@@ -106,6 +106,19 @@ language.
 Live button flow, stop its tracks immediately after permission succeeds, and
 normalize legacy English variants when loading the profile.
 
+## Brave/Chromium speech-service compatibility
+
+Some Brave/Chromium speech engines report an unsupported `en-IN` recognition
+locale as the generic `network` error even when microphone permission is
+granted. Retry once with terminal `en-US` before treating `network` as a
+blocked speech service; hard failures must stop the loop and be visible.
+
+**Why:** otherwise the UI can claim the mic is listening while the browser
+continuously respawns recognizers that can never return a transcript.
+
+**How to apply:** keep locale fallback separate from permission handling, and
+never auto-retry a terminal speech-service failure indefinitely.
+
 ## Native-accent explanations use PER-SEGMENT server-side TTS (supersedes the earlier turn-level rule)
 
 When a reply mixes native script + English (e.g. glossing an English word:

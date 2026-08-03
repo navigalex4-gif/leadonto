@@ -649,6 +649,23 @@ function InterviewAceContent() {
     // Unlock browser autoplay policy synchronously within the user-gesture stack.
     // Must run before any await so Chrome still considers this a gesture-initiated play.
     unlockAudio();
+    // Interview Ace requires a live microphone. Ask for it before the opening AI
+    // request, while this function is still running from the Begin button gesture.
+    // Waiting until after the AI request can make Chrome/Brave reject Speech-
+    // Recognition without a useful permission prompt.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream.getTracks().forEach(track => track.stop());
+      } catch {
+        toast({
+          title: "Microphone access is needed",
+          description: "Allow microphone access for this site, then tap Begin again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     // Don't decide guest vs. paid until auth has resolved — otherwise a signed-in
     // user could slip onto the free path before /api/auth/me returns.
     if (authLoading) {
@@ -1895,7 +1912,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           }`}>
             {isRecording ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
             {isRecording
-              ? speech.status === "warming"
+              ? speech.error
+                ? speech.error
+                : speech.status === "warming"
                 ? "Get ready…"
                 : "Speak now 🎤"
               : speech.isSupported
@@ -1912,6 +1931,40 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           >
             {autoListenEnabled ? "Pause mic" : "Resume mic"}
           </Button>
+
+          {isRecording && speech.error && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-amber-300 hover:text-white hover:bg-white/10 text-xs shrink-0"
+              onClick={async () => {
+                if (navigator.mediaDevices?.getUserMedia) {
+                  try {
+                    const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    micStream.getTracks().forEach(track => track.stop());
+                  } catch {
+                    toast({
+                      title: "Microphone still unavailable",
+                      description: "Allow the microphone in browser site settings, then try again.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+                // Reset the hook error and let the existing auto-listen effect
+                // start one fresh recognizer. This avoids competing instances.
+                speech.reset();
+                setIsRecording(false);
+                setTimeout(() => {
+                  if (phaseRef.current === "interview" && autoListenEnabled) {
+                    setIsRecording(true);
+                  }
+                }, 0);
+              }}
+            >
+              Retry mic
+            </Button>
+          )}
 
           <div className="flex-1" />
 
