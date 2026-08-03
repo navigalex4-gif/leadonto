@@ -28,6 +28,11 @@ export function useAuth() {
   }, []);
 
   useEffect(() => { fetchMe(); }, [fetchMe]);
+  useEffect(() => {
+    const onAuthChanged = () => { void fetchMe(); };
+    window.addEventListener("edubharat-auth-changed", onAuthChanged);
+    return () => window.removeEventListener("edubharat-auth-changed", onAuthChanged);
+  }, [fetchMe]);
 
   const logout = useCallback(async () => {
     await fetch(`${BASE}/api/auth/logout`, { method: "POST", credentials: "include" });
@@ -64,5 +69,24 @@ export function useAuth() {
     return data;
   }, []);
 
-  return { user, isLoading, logout, loginWithGoogle, sendOtp, verifyOtp, refetch: fetchMe };
+  const adminLogin = useCallback(async (username: string, password: string) => {
+    const res = await fetch(`${BASE}/api/auth/admin-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ username, password }),
+    });
+    const data = (await res.json()) as {
+      success?: boolean;
+      user?: AuthUser;
+      error?: string;
+    };
+    if (data.success && data.user) {
+      setUser({ ...data.user, isAdmin: true });
+      window.dispatchEvent(new Event("edubharat-auth-changed"));
+    }
+    return data;
+  }, []);
+
+  return { user, isLoading, logout, loginWithGoogle, sendOtp, verifyOtp, adminLogin, refetch: fetchMe };
 }

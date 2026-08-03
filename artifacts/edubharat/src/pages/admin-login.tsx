@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/use-auth";
 import { Loader2, Lock } from "lucide-react";
-
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 export default function AdminLogin() {
   const [username, setUsername] = useState("");
@@ -15,20 +14,15 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { adminLogin } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/auth/admin-login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username: username.trim(), password }),
-      });
-      const data = await res.json() as { success?: boolean; error?: string };
-      if (res.ok && data.success) {
+      const data = await adminLogin(username.trim(), password);
+      if (data.success) {
         toast({ title: "Logged in", description: "Welcome to the admin panel." });
         navigate("/admin");
       } else {
