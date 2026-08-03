@@ -371,7 +371,9 @@ function SectionCard({
     const prompt = `${prompts[section.id]}\n\nGround the summary in these live items:\n${liveContext}`;
     await stream(
       prompt,
-      `You are India's best career journalist writing the "${section.title}" section. Be specific, practical, and actionable. Today's date: ${new Date().toLocaleDateString("en-IN")}.`
+      `You are India's best career journalist writing the "${section.title}" section. Be specific, practical, and actionable. Today's date: ${new Date().toLocaleDateString("en-IN")}. Use only the supplied live items for current facts; never invent a job, employer, date, salary, vacancy, or headline. If the live list is empty, say that fresh items are unavailable and give general guidance clearly labelled as general guidance.`,
+      undefined,
+      { endpoint: "/api/ai/gemini-stream", maxTokens: 8192 },
     );
   }, [loadLive, loaded, isStreaming, profile, section, stream, track]);
 
@@ -606,6 +608,12 @@ function RozgarSamacharContent() {
   const { toast } = useToast();
   const { profile: studentProfile, updateProfile: updateStudentProfile } = useStudentProfile();
   const { saveJob, unsaveJob, isJobSaved, savedJobs, count: savedCount } = useSavedJobs();
+  const {
+    text: matchBrief,
+    isStreaming: matchBriefLoading,
+    stream: streamMatchBrief,
+    reset: resetMatchBrief,
+  } = useGeminiStream();
 
   const derivedDefault = useMemo<Profile>(() => ({
     name: studentProfile.name || DEFAULT_PROFILE.name,
@@ -725,6 +733,34 @@ function RozgarSamacharContent() {
 
   const enrichedJobs = useMemo(() => allJobs.map(enrichJob), [allJobs]);
   const filteredJobs = useMemo(() => filterJobs(enrichedJobs, filters, studentProfile).filter(j => !hiddenJobIds.has(j.jobId)), [enrichedJobs, filters, studentProfile, hiddenJobIds]);
+
+  const explainMatches = useCallback(async () => {
+    if (filteredJobs.length === 0 || matchBriefLoading) return;
+    resetMatchBrief();
+    const listingContext = filteredJobs.slice(0, 8).map((job, index) => [
+      `${index + 1}. ${job.title}`,
+      job.company ? `Company: ${job.company}` : "",
+      job.location ? `Location: ${job.location}` : "",
+      job.requiredSkills.length ? `Skills: ${job.requiredSkills.join(", ")}` : "",
+      job.summary ? `Summary: ${job.summary.slice(0, 240)}` : "",
+      `Source: ${job.source}`,
+    ].filter(Boolean).join(" | " )).join("\n");
+    await streamMatchBrief(
+      `Candidate profile: role goal=${studentProfile.preferredRole || studentProfile.careerGoal || "not specified"}, skills=${studentProfile.skills.join(", ") || "not specified"}, location=${studentProfile.preferredCity || studentProfile.location || "India"}, experience=${studentProfile.experienceLevel || "Fresher"}.
+
+These are the real listings currently shown after the candidate's filters:
+${listingContext}
+
+Write a concise 3-part brief:
+1) the strongest matches and why,
+2) one skill or eligibility gap to check,
+3) the next action the candidate should take today.
+Use only facts present above. Do not invent employers, salaries, deadlines, eligibility, or application details. If a fact is missing, say "check the listing".`,
+      "You are a careful Indian career advisor. Analyze only the supplied live job listings and candidate profile. Keep the answer under 120 words, practical, and clearly distinguish missing information from verified facts.",
+      undefined,
+      { endpoint: "/api/ai/gemini-stream", maxTokens: 300 },
+    );
+  }, [filteredJobs, matchBriefLoading, resetMatchBrief, streamMatchBrief, studentProfile]);
 
   // Source breakdown for the "X verified listings · Y from Adzuna · Z from news" summary
   const sourceCounts = useMemo(() => {
@@ -1148,6 +1184,32 @@ function RozgarSamacharContent() {
                           </span>
                         ))}
                     </div>
+                  )}
+
+                  {!jobsLoading && filteredJobs.length > 0 && (
+                    <Card className="border-indigo-100 bg-indigo-50/50">
+                      <CardContent className="p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-wider text-indigo-700 font-bold">AI match brief</p>
+                            <p className="text-sm text-secondary">A short Gemini-backed read of the live listings above.</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full border-indigo-200 bg-white"
+                            disabled={matchBriefLoading}
+                            onClick={() => void explainMatches()}
+                          >
+                            {matchBriefLoading && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                            {matchBriefLoading ? "Checking matches…" : matchBrief ? "Refresh brief" : "Explain my matches"}
+                          </Button>
+                        </div>
+                        {matchBrief && (
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-secondary">{matchBrief}</p>
+                        )}
+                      </CardContent>
+                    </Card>
                   )}
 
                   {/* Active filter chips */}

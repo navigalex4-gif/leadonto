@@ -902,7 +902,7 @@ Rules:
 
     // Hard deadline: if the AI hasn't replied in 3 800 ms, inject a fallback so
     // the interviewer ALWAYS starts speaking within 4 s of the candidate stopping.
-    const STREAM_DEADLINE_MS = 3800;
+    const STREAM_DEADLINE_MS = 3000;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1011,7 +1011,7 @@ Next: <the interview question only>`,
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     // Step 2: wait any remaining time up to naturalPauseMs, but hard-clamp against
     // the absolute wall-clock budget (4 000 ms from thinkStart) to prevent drift.
-    const wallRemaining = 4000 - (Date.now() - thinkStart);
+    const wallRemaining = 3500 - (Date.now() - thinkStart);
     const targetRemaining = naturalPauseMs - (Date.now() - thinkStart);
     const remainingWait = Math.min(wallRemaining, targetRemaining);
     if (remainingWait > 0) {
@@ -1029,7 +1029,7 @@ Next: <the interview question only>`,
     setAnswer("");
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(`${acknowledgment} ${nextQuestion}`, { voiceGender: coach.gender, pitch: pitchVariation });
+    speakCoach(`${acknowledgment} ${nextQuestion}`, { voiceGender: coach.gender, pitch: pitchVariation, rate: 0.98 });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
@@ -1120,12 +1120,13 @@ Next: <the interview question only>`,
     // coachSpeaking guard: don't start mic while the AI coach is speaking — prevents
     // the mic from activating between when the stream ends and when TTS actually starts.
     if (phase !== "interview" || !autoListenEnabled || !speech.isSupported || !currentQ || isStreaming || synth.isSpeaking || isRecording || coachSpeaking) return;
-    // Silence window before auto-submit: 5 s max. Once the candidate starts
-    // talking, 5 s of continuous quiet ends their turn and submits the answer.
+    // Silence window before auto-submit: 4.5 s. Once the candidate starts
+    // talking, this natural 3–5 s pause gives them room to think and avoids
+    // cutting off a sentence or a normal mid-answer pause.
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 5000;
+    const silenceMs = 4500;
     setIsRecording(true);
     // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
     // this question, conclude the interview and generate feedback. Cleared the
@@ -1142,7 +1143,7 @@ Next: <the interview question only>`,
         return next;
       });
       clearAutoSubmitTimer();
-      // 5 s of quiet → auto-submit. Long enough that a candidate with natural
+      // 4.5 s of quiet → auto-submit. Long enough that a candidate with natural
       // mid-sentence pauses isn't cut off mid-thought, short enough to keep the
       // interview moving. The Submit button stays enabled as a manual override.
       // Uses submitCurrentAnswerRef (not submitCurrentAnswer directly) so the

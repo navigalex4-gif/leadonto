@@ -199,6 +199,43 @@ router.post("/ai/stream", async (req, res) => {
   }
 });
 
+// Gemini-only streaming endpoint for feeds that explicitly need Gemini
+// enrichment. The normal /ai/stream endpoint intentionally keeps its
+// Claude-first fallback for low-latency tutoring and interview turns.
+router.post("/ai/gemini-stream", async (req, res) => {
+  const parseResult = AiChatBody.safeParse(req.body);
+  if (!parseResult.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+  const { prompt, system, maxTokens } = parseResult.data;
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const state = { wrote: false };
+
+  try {
+    await streamGemini(req, res, prompt, system, maxTokens ?? 8192, state);
+  } catch (err) {
+    req.log.error({ err }, "Gemini feed streaming error");
+    // Rozgar should remain useful during Gemini quota/model outages. If Gemini
+    // failed before emitting any content, use the normal Claude provider as a
+    // server-side fallback while keeping this endpoint Gemini-first.
+    if (!state.wrote && process.env["ANTHROPIC_API_KEY"]) {
+      try {
+        await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state);
+        return;
+      } catch (fallbackErr) {
+        req.log.error({ err: fallbackErr }, "Gemini feed fallback error");
+      }
+    }
+    if (!state.wrote) {
+      res.write(`data: ${JSON.stringify({ error: userFriendlyError(err) })}\n\n`);
+    }
+    res.end();
+  }
+});
+
 router.post("/ai/chat", async (req, res) => {
   const parseResult = AiChatBody.safeParse(req.body);
   if (!parseResult.success) {

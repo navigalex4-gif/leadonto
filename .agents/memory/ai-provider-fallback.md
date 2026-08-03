@@ -5,9 +5,11 @@ description: Why Claude is the primary AI provider and Gemini only a fallback, a
 
 # AI provider fallback (Claude primary → Gemini fallback)
 
-Every AI feature route in `api-server` MUST go through the shared
+Every general AI feature route in `api-server` MUST go through the shared
 `generateTextWithFallback` helper (streaming) or the shared chat helpers in
-`routes/ai.ts` — never a hand-rolled single-provider loop.
+`routes/ai.ts` — never a hand-rolled single-provider loop. Rozgar has one
+intentional exception: its dedicated feed endpoint is Gemini-first, with
+Claude fallback, because the product explicitly requests Gemini enrichment.
 
 **Order: Claude is PRIMARY, Gemini is the FALLBACK.** `/ai/stream` tries Claude
 first and only falls back to Gemini if Claude produced nothing (a
@@ -28,8 +30,9 @@ dropped `/ai/stream` from 5+s to ~1.7s and made responses reliable.
 
 **How to apply:** `generateTextWithFallback({ prompt, system, maxTokens, onDelta, log })`
 tries Claude, then Gemini, calling `onDelta` per fragment so SSE `content` events
-still stream. If Gemini is ever given a real key and made primary again, that is a
-deliberate reversal of this decision — update this note.
+still stream. Only use the Gemini-first route for Rozgar content that is grounded
+in fetched live listings/feed items; keep tutoring, interviews, and other
+general AI calls on Claude-first fallback.
 
 **Related parsing rule:** never set `responseMimeType: "application/json"` with
 gemini-2.5-flash — it suppresses streamed text entirely. Isolate the JSON object

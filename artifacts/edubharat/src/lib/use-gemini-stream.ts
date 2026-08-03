@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 
 export type StreamOptions = {
   maxTokens?: number;
+  endpoint?: string;
 };
 
 async function* parseSSE(response: Response, signal: AbortSignal): AsyncGenerator<string> {
@@ -59,7 +60,7 @@ export function useGeminiStream() {
 
       try {
         const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
-        const response = await fetch(`${base}/api/ai/stream`, {
+        const response = await fetch(`${base}${options?.endpoint ?? "/api/ai/stream"}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           // Clamp default token budget for all UI streams to keep Claude/Gemini calls cheap
