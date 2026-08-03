@@ -4,7 +4,9 @@ import type { StudentProfile } from "./use-student-profile";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
-// Sections to fetch from /api/rozgar/live when the primary endpoint fails
+// Sections to fetch from /api/rozgar/live when the primary endpoint fails.
+// The fallback is filtered to actual vacancy records; career/news headlines
+// must not appear in the jobs tab.
 const JOB_SECTIONS = ["top_jobs", "govt_jobs", "private_jobs", "internships"] as const;
 
 export type JobFetchState = {
@@ -46,6 +48,10 @@ function dedup(items: RozgarLiveItem[]): RozgarLiveItem[] {
   });
 }
 
+function onlyRealJobs(items: RozgarLiveItem[]): RozgarLiveItem[] {
+  return items.filter(item => item.kind === "vacancy" && Boolean(item.link));
+}
+
 // ─── Primary source: /api/jobs/search ────────────────────────────────────────
 
 async function fetchFromSearch(
@@ -82,7 +88,7 @@ async function fetchFromSearch(
   if (!isSearchResponse(json)) return null;
   if (json.items.length === 0 && json.error) return null; // signal failure so we fall back
 
-  return json.items;
+  return onlyRealJobs(json.items);
 }
 
 // ─── Fallback source: /api/rozgar/live (multi-section) ───────────────────────
@@ -112,7 +118,7 @@ async function fetchFromLive(profile: StudentProfile, cityOverride?: string): Pr
     const json = (await r.value.json()) as unknown;
     if (!isRozgarResponse(json)) continue;
     anyOk = true;
-    allItems.push(...json.items);
+    allItems.push(...onlyRealJobs(json.items));
   }
 
   if (!anyOk) throw new Error("All live job sources are unavailable right now.");
@@ -146,7 +152,7 @@ export function useRozgarJobs(
     setState({ data: [], isLoading: true, error: null, source: null });
 
     try {
-      // 1. Primary: real job search endpoint (Adzuna + Jobicy)
+      // 1. Primary: verified job search endpoint (Adzuna + Remotive)
       let items: RozgarLiveItem[] | null = null;
       let source: JobFetchState["source"] = null;
 
