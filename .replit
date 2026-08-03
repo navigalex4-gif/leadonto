@@ -36,7 +36,7 @@ externalPort = 3000
 [userenv.shared]
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = "3b335b336d1df1803c6de4da944f96c116eea3eccbd99dc4185f6ef859c7792e"
-GOOGLE_CALLBACK_URL = "https://workspace.jobseekerpath.replit.app/api/auth/google/callback"
+GOOGLE_CALLBACK_URL = "https://253b1260-26a5-43db-965d-8bf7a47f04a8-00-1lxzezmjyzdv5.pike.replit.dev/api/auth/google/callback"
 
 [nix]
 channel = "stable-25_05"
