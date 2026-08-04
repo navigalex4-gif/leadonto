@@ -1271,7 +1271,7 @@ function RozgarSamacharContent() {
                     <label className="block space-y-1.5">
                       <span className="text-xs font-bold">Salary Expectation</span>
                       <Select value={profile.salaryExpectation} onValueChange={update("salaryExpectation")}>
-                        <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Not set" /></SelectTrigger>
                         <SelectContent>{["₹2-3 LPA", "₹3-5 LPA", "₹5-8 LPA", "₹8-12 LPA", "₹12+ LPA"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </label>
@@ -1315,8 +1315,8 @@ function RozgarSamacharContent() {
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-xl bg-muted/40 p-3"><p className="text-muted-foreground">Location</p><p className="font-semibold text-secondary">{profile.location}</p></div>
-                    <div className="rounded-xl bg-muted/40 p-3"><p className="text-muted-foreground">Salary</p><p className="font-semibold text-secondary">{profile.salaryExpectation}</p></div>
-                    <div className="rounded-xl bg-muted/40 p-3 col-span-2"><p className="text-muted-foreground">Skills</p><p className="font-semibold text-secondary truncate">{profile.skills}</p></div>
+                    <div className="rounded-xl bg-muted/40 p-3"><p className="text-muted-foreground">Salary</p><p className="font-semibold text-secondary">{profile.salaryExpectation || "Not set"}</p></div>
+                    <div className="rounded-xl bg-muted/40 p-3 col-span-2"><p className="text-muted-foreground">Skills</p><p className="font-semibold text-secondary truncate">{profile.skills || "Not set"}</p></div>
                   </div>
                   <Button variant="outline" className="w-full rounded-full font-semibold" onClick={() => setShowProfile(true)}>Refine profile for better results</Button>
                 </CardContent>
