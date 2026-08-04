@@ -77,6 +77,34 @@ const VACANCY_SECTIONS = new Set<SectionId>([
   "top_jobs", "govt_jobs", "private_jobs", "internships", "scholarships",
 ]);
 
+// Location changes the usefulness of vacancies, local schemes, market signals,
+// and salary benchmarks. It should not be repeated in learning and practice
+// feeds where the candidate's goal and skill level matter more.
+const LOCATION_AWARE_SECTIONS = new Set<SectionId>([
+  "top_jobs", "govt_jobs", "private_jobs", "internships",
+  "govt_schemes", "business_news", "salary_insights",
+]);
+
+function usesLocation(sectionId: SectionId): boolean {
+  return LOCATION_AWARE_SECTIONS.has(sectionId);
+}
+
+function sectionAudienceLine(section: typeof SECTIONS[number], profile: Profile): string {
+  if (usesLocation(section.id)) {
+    return `Built for ${profile.status.toLowerCase()} candidates in ${profile.location}`;
+  }
+  if (["english_corner", "vocab", "quiz"].includes(section.id)) {
+    return `Practical practice for ${profile.status.toLowerCase()}s targeting ${profile.industry} roles`;
+  }
+  return `Personalized for your ${profile.industry} career goals`;
+}
+
+function liveSourceLabel(section: typeof SECTIONS[number], profile: Profile): string {
+  if (usesLocation(section.id)) return `Reference items for ${profile.location}`;
+  if (["english_corner", "vocab", "quiz"].includes(section.id)) return "Reference items for this learning brief";
+  return "Reference items for this career brief";
+}
+
 const INDIAN_STATES = [
   "Andhra Pradesh", "Assam", "Bihar", "Delhi", "Gujarat", "Haryana",
   "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Odisha",
@@ -301,7 +329,7 @@ function parseFeedText(raw: string) {
     .split(/\n+/)
     .map(line => line.trim())
     .filter(Boolean);
-  const headingPattern = /^(?:WHY IT MATTERS|WHAT MATTERS|YOUR NEXT MOVE|NEXT MOVE|KEY TAKEAWAYS?|THIS WEEK|TRY THIS|PRACTICE|SOURCE SIGNALS?)\s*:?\s*/i;
+  const headingPattern = /^(?:WHY IT MATTERS|WHAT MATTERS|YOUR NEXT MOVE|NEXT MOVE|KEY TAKEAWAYS?|THIS WEEK|TRY THIS|PRACTICE|PRACTICE IT|SOURCE SIGNALS?|PLAIN-LANGUAGE EXPLANATION|EXPLAIN IT|IN SIMPLE WORDS|REAL-WORLD EXAMPLE|EXAMPLE|COMMON MISTAKE|WATCH OUT)\s*:?\s*/i;
   const headings = lines.filter(line => headingPattern.test(line));
   const withoutHeadings = lines.filter(line => !headingPattern.test(line));
   const bullets = withoutHeadings.filter(line => /^(?:•|\d+[.)])\s+/.test(line));
@@ -323,6 +351,10 @@ function parseFeedText(raw: string) {
     next: sectionText(["YOUR NEXT MOVE", "NEXT MOVE"]),
     takeaways: sectionText(["KEY TAKEAWAYS?", "KEY TAKEAWAY"]),
     week: sectionText(["THIS WEEK", "TRY THIS", "PRACTICE"]),
+    explanation: sectionText(["PLAIN-LANGUAGE EXPLANATION", "EXPLAIN IT", "IN SIMPLE WORDS"]),
+    example: sectionText(["REAL-WORLD EXAMPLE", "EXAMPLE"]),
+    mistake: sectionText(["COMMON MISTAKE", "WATCH OUT"]),
+    practice: sectionText(["PRACTICE IT", "PRACTICE TASK"]),
     hasHeadings: headings.length > 0,
   };
 }
@@ -343,6 +375,10 @@ function StructuredFeedOutput({
   const nextMove = parsed.next[0] || parsed.week[0] || parsed.bullets[0] || parsed.paragraphs[1] || "Review the source cards and choose one small action to complete today.";
   const takeaways = parsed.takeaways.length > 0 ? parsed.takeaways : parsed.bullets.slice(0, 6);
   const weekPlan = parsed.week.length > 0 ? parsed.week : parsed.bullets.slice(0, 3);
+  const explanation = parsed.explanation[0] || parsed.paragraphs[1];
+  const example = parsed.example[0];
+  const mistake = parsed.mistake[0];
+  const practice = parsed.practice[0];
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
@@ -355,9 +391,7 @@ function StructuredFeedOutput({
               Personalized career brief
             </div>
             <h3 className="font-display text-xl font-bold leading-tight">{section.title}</h3>
-            <p className="mt-1 text-xs text-white/80">
-              Built for {profile.status.toLowerCase()}s in {profile.location}
-            </p>
+            <p className="mt-1 text-xs text-white/80">{sectionAudienceLine(section, profile)}</p>
           </div>
           {isStreaming && <Loader2 className="mt-1 h-5 w-5 animate-spin text-white" />}
         </div>
@@ -395,6 +429,35 @@ function StructuredFeedOutput({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {(explanation || example || mistake || practice) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {explanation && (
+              <div className="rounded-xl border bg-background p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-primary">In simple words</p>
+                <p className="text-sm leading-relaxed text-secondary">{explanation}</p>
+              </div>
+            )}
+            {example && (
+              <div className="rounded-xl border bg-background p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600">Real-world example</p>
+                <p className="text-sm leading-relaxed text-secondary">{example}</p>
+              </div>
+            )}
+            {mistake && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">Common mistake</p>
+                <p className="text-sm leading-relaxed text-secondary">{mistake}</p>
+              </div>
+            )}
+            {practice && (
+              <div className="rounded-xl border border-teal-100 bg-teal-50/50 p-4">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-teal-700">Try it now</p>
+                <p className="text-sm leading-relaxed text-secondary">{practice}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -488,8 +551,8 @@ function SectionCard({
       `Skills: ${profile.skills}`,
       `Salary expectation: ${profile.salaryExpectation}`,
       `Goal: ${profile.careerGoal}`,
-      `Location: ${profile.location}`,
       `Industry: ${profile.industry}`,
+      ...(usesLocation(section.id) ? [`Location: ${profile.location}`] : []),
     ].join(" | ");
 
     const prompts: Record<SectionId, string> = {
@@ -506,9 +569,9 @@ function SectionCard({
       govt_schemes: `Explain up to 3 supplied government schemes or training programs that fit this candidate. State who may qualify and what to verify on the official site; do not invent benefits.`,
       salary_insights: `Use supplied salary signals where present; otherwise clearly label general guidance. Explain realistic research and negotiation steps for this candidate's experience, location, and target role.`,
       interview_qs: `Create 5 role-relevant interview questions for this candidate's target role and skills. Give a short answer framework and one practice task for each.`,
-      english_corner: `Create a short workplace-English lesson for this candidate's level and target role: one correction, 5 useful phrases, a mini dialogue, and a practice task.`,
-      vocab: `Teach 5 job-market words relevant to this candidate's industry and skills. Give a simple meaning, a role-specific example, and a quick recall exercise.`,
-      quiz: `Create a 5-question interactive quiz about this candidate's target role and skills. Include answers, brief explanations, and a score action.`,
+      english_corner: `Teach a useful workplace-English lesson, not a generic news summary. Start with a relatable situation for this candidate's target role, explain one correction in simple language, teach 5 useful phrases with when to use each, write a short mini-dialogue, and finish with a practice task.`,
+      vocab: `Teach 5 job-market words relevant to this candidate's industry and skills. For every word give pronunciation help, a simple meaning, a role-specific example, a common misuse, and a quick recall exercise.`,
+      quiz: `Create a 5-question interactive quiz about this candidate's target role and skills. Include the answer, a brief explanation of why it is correct, and a score-based next step.`,
       jokes: `Create 3 clean, relatable workplace jokes for an Indian job seeker in this industry, then add one useful career lesson from the theme.`,
       success_stories: `Share a realistic, clearly labelled illustrative success story matching this candidate's stage, location, and industry. Extract 3 repeatable actions; do not present invented facts as news.`,
       motivation: `Write an encouraging but practical message for this candidate. Tie it to their goal and location, then give a concrete 7-day challenge rather than generic inspiration.`,
@@ -530,10 +593,10 @@ function SectionCard({
         ].join("\n")
       : "No live items were available. Say that fresh source items are unavailable and provide clearly labelled general guidance only.";
 
-    const prompt = `${prompts[section.id]}\n\nGround every current fact in these live items:\n${liveContext}\n\nReturn plain text in exactly this structure:\nWHY IT MATTERS:\nOne concise candidate-specific explanation.\nKEY TAKEAWAYS:\n1. Fact or insight tied to the source or clearly labelled general guidance.\n2. Another useful insight.\n3. Another useful insight.\nYOUR NEXT MOVE:\nOne concrete action the candidate can take today.\nTHIS WEEK:\n1. Day 1-2 action.\n2. Day 3-5 action.\n3. Day 6-7 proof/check-in.\nKeep it specific, varied, and interesting. Do not repeat the title or write generic filler.`;
+    const prompt = `${prompts[section.id]}\n\nGround every current fact in these live items:\n${liveContext}\n\nReturn plain text in exactly this structure:\nWHY IT MATTERS:\nExplain why this is useful for the candidate in 2-3 natural sentences. Do not mention location unless it is included in the candidate context for this section.\nPLAIN-LANGUAGE EXPLANATION:\nExplain the idea as if a helpful mentor is sitting beside the candidate. Define unfamiliar terms instead of assuming prior knowledge.\nKEY TAKEAWAYS:\n1. A source-backed fact or clearly labelled general insight.\n2. A practical implication for the candidate.\n3. One detail worth remembering.\nREAL-WORLD EXAMPLE:\nShow how the candidate could use this in a real job, interview, workplace conversation, or learning situation.\nCOMMON MISTAKE:\nName one realistic mistake beginners make and how to avoid it.\nYOUR NEXT MOVE:\nGive one concrete action the candidate can complete today.\nPRACTICE IT:\nGive a small exercise, sentence, mini-task, or portfolio action with enough detail to actually do it.\nTHIS WEEK:\n1. Day 1-2 action.\n2. Day 3-5 action.\n3. Day 6-7 proof/check-in.\nKeep the tone warm and human, vary the advice by section, explain rather than merely label, and never pad the answer with generic filler.`;
     await stream(
       prompt,
-      `You are EduBharat's careful career editor writing "${section.title}" for one Indian candidate. Today's date: ${new Date().toLocaleDateString("en-IN")}. Be warm, concrete, and useful. Never invent a current job, employer, date, salary, vacancy, scheme, or news fact. Distinguish source-backed facts from general advice. Avoid repeating the same advice across sections. Use the candidate's location, goal, experience, industry, and skills naturally.`,
+      `You are EduBharat's warm, observant career mentor writing "${section.title}" for one Indian candidate. Today's date: ${new Date().toLocaleDateString("en-IN")}. Sound like a thoughtful human who understands a learner's confidence level, not like a search engine. Never invent a current job, employer, date, salary, vacancy, scheme, or news fact. Distinguish source-backed facts from general advice. Avoid repeating the same advice across sections. Mention location only when it changes the usefulness of the section; for English, vocabulary, quizzes, skills, interviews, AI, and technology, focus on the candidate's target role, level, and skills without naming their city.`,
       undefined,
       { endpoint: "/api/ai/stream", maxTokens: 2200 },
     );
@@ -570,7 +633,7 @@ function SectionCard({
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Live sources</p>
-                    <p className="mt-0.5 text-xs text-secondary">Verified items for your {profile.location} feed</p>
+                    <p className="mt-0.5 text-xs text-secondary">{liveSourceLabel(section, profile)}</p>
                   </div>
                   {liveLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                 </div>
@@ -1241,7 +1304,7 @@ function RozgarSamacharContent() {
             <div className="rounded-2xl border bg-muted/30 p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Today's brief</p>
               <p className="mt-1 text-sm text-secondary leading-relaxed">
-                A personalized newspaper view built for {profile.status.toLowerCase()}s in {profile.location}. Focus on hiring, salary, and next-step actions.
+                A personalized newspaper for {profile.status.toLowerCase()} candidates. It mixes verified opportunities, useful career signals, and small actions you can take next.
               </p>
             </div>
 

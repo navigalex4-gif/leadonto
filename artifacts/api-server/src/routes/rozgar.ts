@@ -182,7 +182,6 @@ function sectionContext(params: URLSearchParams) {
 }
 
 function feedSourcesForSection(section: RozgarSection, ctx: ReturnType<typeof sectionContext>): FeedSource[] {
-  const region = `${ctx.location} India`;
   const skills = ctx.skills.split(",").map((s) => s.trim()).filter(Boolean).join(" ");
   const industry = ctx.industry;
 
@@ -204,7 +203,7 @@ function feedSourcesForSection(section: RozgarSection, ctx: ReturnType<typeof se
       { name: "Entry-level experience", query: `${skills} internship fresher India` },
     ],
     scholarships: [
-      { name: "Scholarships", query: `scholarship fellowship ${ctx.industry} India ${ctx.location}` },
+      { name: "Scholarships", query: `scholarship fellowship ${ctx.industry} India` },
       { name: "Education funding", query: `student scholarship skill training India ${ctx.status}` },
     ],
     skill_trends: [
@@ -256,11 +255,11 @@ function feedSourcesForSection(section: RozgarSection, ctx: ReturnType<typeof se
       { name: "Professional humor", query: `Indian office work humor careers` },
     ],
     success_stories: [
-      { name: "Career stories", query: `${ctx.location} ${industry} career success story India` },
+      { name: "Career stories", query: `${industry} career success story India` },
       { name: "Industry stories", query: `${skills} professional success story India` },
     ],
     motivation: [
-      { name: "Motivation", query: `${ctx.location} job seeker career motivation India` },
+      { name: "Motivation", query: `job seeker career motivation India` },
       { name: "Career inspiration", query: `${industry} career inspiration ${ctx.status} India` },
     ],
   };
