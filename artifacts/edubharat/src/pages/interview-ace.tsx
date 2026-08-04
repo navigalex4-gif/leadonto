@@ -374,14 +374,14 @@ function InterviewAceContent() {
       const safetyMs = Math.max(text.length * 50 + 5_000, 16_000);
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
-        speech.suppressUntil(Date.now() + 1100);
-        speech.blockFor(1100); // leave a longer speaker tail before reopening the mic
+        speech.suppressUntil(Date.now() + 800);
+        speech.blockFor(800); // leave a short speaker tail before reopening the mic
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
-        speech.suppressUntil(Date.now() + 1100);
-        speech.blockFor(1100);
+        speech.suppressUntil(Date.now() + 800);
+        speech.blockFor(800);
         setCoachSpeaking(false);
       }, { ...opts, rate: opts.rate ?? 1.05 });
     },
@@ -397,8 +397,8 @@ function InterviewAceContent() {
   const interruptCoach = useCallback(() => {
     if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
     synth.stop();
-    speech.suppressUntil(Date.now() + 1100);
-    speech.blockFor(1100);
+    speech.suppressUntil(Date.now() + 800);
+    speech.blockFor(800);
     setCoachSpeaking(false);
   }, [speech, synth]);
   const { profile } = useStudentProfile();

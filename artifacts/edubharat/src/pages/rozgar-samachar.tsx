@@ -279,6 +279,7 @@ function CareerNewsCard({ item }: { item: RozgarLiveItem }) {
 // ─── Section card ─────────────────────────────────────────────────────────────
 
 function SectionCard({
+  id,
   section,
   profile,
   studentProfile,
@@ -290,6 +291,7 @@ function SectionCard({
   isJobSaved,
   hiddenJobIds,
 }: {
+  id?: string;
   section: typeof SECTIONS[number];
   profile: Profile;
   studentProfile: StudentProfile;
@@ -395,7 +397,7 @@ function SectionCard({
         {isStreaming && <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto shrink-0" />}
       </button>
       {expanded && (VACANCY_SECTIONS.has(section.id) ? (liveLoading || visibleLiveItems.length > 0 || Boolean(liveError)) : (text || isStreaming || liveLoading || visibleLiveItems.length > 0 || Boolean(liveError))) && (
-        <Card className="overflow-hidden border shadow-sm rounded-2xl">
+        <Card id={id} className="overflow-hidden border shadow-sm rounded-2xl scroll-mt-24">
           <CardContent className="p-5 bg-muted/20">
           {(liveLoading || visibleLiveItems.length > 0 || liveError) && (
             <div className="mb-4 rounded-2xl border bg-background p-4">
@@ -608,12 +610,6 @@ function RozgarSamacharContent() {
   const { toast } = useToast();
   const { profile: studentProfile, updateProfile: updateStudentProfile } = useStudentProfile();
   const { saveJob, unsaveJob, isJobSaved, savedJobs, count: savedCount } = useSavedJobs();
-  const {
-    text: matchBrief,
-    isStreaming: matchBriefLoading,
-    stream: streamMatchBrief,
-    reset: resetMatchBrief,
-  } = useGeminiStream();
 
   const derivedDefault = useMemo<Profile>(() => ({
     name: studentProfile.name || DEFAULT_PROFILE.name,
@@ -733,34 +729,6 @@ function RozgarSamacharContent() {
 
   const enrichedJobs = useMemo(() => allJobs.map(enrichJob), [allJobs]);
   const filteredJobs = useMemo(() => filterJobs(enrichedJobs, filters, studentProfile).filter(j => !hiddenJobIds.has(j.jobId)), [enrichedJobs, filters, studentProfile, hiddenJobIds]);
-
-  const explainMatches = useCallback(async () => {
-    if (filteredJobs.length === 0 || matchBriefLoading) return;
-    resetMatchBrief();
-    const listingContext = filteredJobs.slice(0, 8).map((job, index) => [
-      `${index + 1}. ${job.title}`,
-      job.company ? `Company: ${job.company}` : "",
-      job.location ? `Location: ${job.location}` : "",
-      job.requiredSkills.length ? `Skills: ${job.requiredSkills.join(", ")}` : "",
-      job.summary ? `Summary: ${job.summary.slice(0, 240)}` : "",
-      `Source: ${job.source}`,
-    ].filter(Boolean).join(" | " )).join("\n");
-    await streamMatchBrief(
-      `Candidate profile: role goal=${studentProfile.preferredRole || studentProfile.careerGoal || "not specified"}, skills=${studentProfile.skills.join(", ") || "not specified"}, location=${studentProfile.preferredCity || studentProfile.location || "India"}, experience=${studentProfile.experienceLevel || "Fresher"}.
-
-These are the real listings currently shown after the candidate's filters:
-${listingContext}
-
-Write a concise 3-part brief:
-1) the strongest matches and why,
-2) one skill or eligibility gap to check,
-3) the next action the candidate should take today.
-Use only facts present above. Do not invent employers, salaries, deadlines, eligibility, or application details. If a fact is missing, say "check the listing".`,
-      "You are a careful Indian career advisor. Analyze only the supplied live job listings and candidate profile. Keep the answer under 120 words, practical, and clearly distinguish missing information from verified facts.",
-      undefined,
-      { endpoint: "/api/ai/gemini-stream", maxTokens: 300 },
-    );
-  }, [filteredJobs, matchBriefLoading, resetMatchBrief, streamMatchBrief, studentProfile]);
 
   // Source breakdown for the "X verified listings · Y from Adzuna · Z from news" summary
   const sourceCounts = useMemo(() => {
@@ -1165,32 +1133,6 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
                     </div>
                   )}
 
-                  {!jobsLoading && filteredJobs.length > 0 && (
-                    <Card className="border-indigo-100 bg-indigo-50/50">
-                      <CardContent className="p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase tracking-wider text-indigo-700 font-bold">AI match brief</p>
-                            <p className="text-sm text-secondary">A short Gemini-backed read of the live listings above.</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-full border-indigo-200 bg-white"
-                            disabled={matchBriefLoading}
-                            onClick={() => void explainMatches()}
-                          >
-                            {matchBriefLoading && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-                            {matchBriefLoading ? "Checking matches…" : matchBrief ? "Refresh brief" : "Explain my matches"}
-                          </Button>
-                        </div>
-                        {matchBrief && (
-                          <p className="mt-3 text-sm leading-6 text-secondary whitespace-pre-wrap">{formatGeneratedText(matchBrief)}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-
                   {/* Active filter chips */}
                   {activeCount > 0 && (
                     <div className="flex flex-wrap items-center gap-2">
@@ -1348,20 +1290,33 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
             )}
 
             {activeTab === "feed" && (
-              <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                <div className="rounded-2xl border bg-primary/5 p-4">
-                  <p className="text-xs uppercase tracking-wider text-primary font-bold">Career intelligence for you</p>
-                  <p className="mt-1 text-sm text-secondary leading-relaxed">
-                    Live career news first, followed by practical guidance for {profile.careerGoal} roles in {profile.location}. Open a brief to get the same listen and save actions used across Tools Pro.
-                  </p>
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                <div className="rounded-2xl bg-gradient-to-r from-teal-600 to-indigo-600 p-5 text-white shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/70 font-bold">Your career desk</p>
+                  <h2 className="mt-1 text-xl font-display font-bold">Fresh guidance for {profile.careerGoal}</h2>
+                  <p className="mt-1 text-sm text-white/80">Live career updates and practical next steps for {profile.location}.</p>
+                </div>
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+                  {SECTIONS.filter(s => !["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(s.id)).map(section => (
+                    <button
+                      key={section.id}
+                      onClick={() => {
+                        const el = document.getElementById(`rozgar-section-${section.id}`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="group rounded-2xl border bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md transition-all"
+                    >
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-2xl">{section.emoji}</span>
+                      <span className="mt-3 block text-sm font-bold text-secondary group-hover:text-primary">{section.title}</span>
+                      <span className="mt-1 block text-[11px] text-muted-foreground">Open live brief →</span>
+                    </button>
+                  ))}
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 items-start">
-                  {SECTIONS.filter(s => [
-                    "skill_trends", "career_growth", "salary_insights",
-                    "ai_news", "business_news", "interview_qs",
-                  ].includes(s.id)).map(section => (
+                  {SECTIONS.filter(s => !["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(s.id)).map(section => (
                     <SectionCard
                       key={section.id}
+                      id={`rozgar-section-${section.id}`}
                       section={section}
                       profile={profile}
                       studentProfile={studentProfile}

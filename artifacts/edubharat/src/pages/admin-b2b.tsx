@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Building2, CheckCircle2, XCircle, RefreshCw, IndianRupee, RotateCcw } from "lucide-react";
+import { Loader2, Building2, CheckCircle2, XCircle, RefreshCw, IndianRupee, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
 import { AdminNav } from "@/components/admin-nav";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -138,9 +139,19 @@ export default function AdminB2B() {
           <h1 className="text-2xl font-display font-bold text-secondary">B2B Payments</h1>
           <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{pending.length} pending</span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void fetchPayments()} disabled={fetching}>
-          <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(payments.map(p => ({
+            id: p.id, companyId: p.companyId, companyName: p.companyName,
+            companyEmail: p.companyEmail, credits: p.credits, amountInr: p.amountInr,
+            utr: p.utr, status: p.status, rejectionReason: p.rejectionReason,
+            createdAt: p.createdAt, reversedAt: p.reversedAt,
+          })), "edubharat-b2b-payments")} disabled={!payments.length}>
+            <Download className="w-4 h-4 mr-1.5" />Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchPayments()} disabled={fetching}>
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />Refresh
+          </Button>
+        </div>
       </div>
 
       {fetching && payments.length === 0 ? (

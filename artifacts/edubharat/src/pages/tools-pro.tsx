@@ -17,6 +17,7 @@ import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
 import { MODES, type Mode, stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, ResultPanel, TutorSelector } from "@/components/english/shared-ui";
+import { downloadText } from "@/lib/export-data";
 import {
   Volume2, SpellCheck, PenLine, BookOpen, GraduationCap, Briefcase, Loader2, Users,
 } from "lucide-react";
@@ -128,6 +129,10 @@ function ToolsProContent() {
 
   const displayed = isStreaming ? aiText : result;
   const activeMode = MODES.find(m => m.value === mode);
+  const downloadResult = useCallback((title: string) => {
+    if (!displayed) return;
+    downloadText(stripMarkdownForSpeech(displayed), `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.txt`);
+  }, [displayed]);
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 max-w-5xl">
@@ -264,7 +269,8 @@ function ToolsProContent() {
                 {aiError && <p className="text-sm text-destructive">{aiError}</p>}
                 {displayed && <ResultPanel title="Corrections:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
-                  onSave={() => saveResult("grammar", `Grammar: "${grammarInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["grammar"]} />}
+                  onSave={() => saveResult("grammar", `Grammar: "${grammarInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["grammar"]}
+                  onDownload={() => downloadResult("grammar-fix")} />}
               </CardContent>
             </Card>
           )}
@@ -291,7 +297,8 @@ function ToolsProContent() {
                 </div>
                 {displayed && <ResultPanel title="Improved Version:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
-                  onSave={() => saveResult("write", `Write Better: "${writeInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["write"]} />}
+                  onSave={() => saveResult("write", `Write Better: "${writeInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["write"]}
+                  onDownload={() => downloadResult("write-better")} />}
               </CardContent>
             </Card>
           )}
@@ -314,7 +321,8 @@ function ToolsProContent() {
                 </Button>
                 {displayed && <ResultPanel title={`Vocabulary (${uiLang} meanings):`} content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
-                  onSave={() => saveResult("vocab", `Vocabulary: ${vocabTopic}`, displayed)} saved={!!savedMap["vocab"]} />}
+                  onSave={() => saveResult("vocab", `Vocabulary: ${vocabTopic}`, displayed)} saved={!!savedMap["vocab"]}
+                  onDownload={() => downloadResult("vocabulary")} />}
               </CardContent>
             </Card>
           )}
@@ -344,7 +352,8 @@ function ToolsProContent() {
                 </Button>
                 {displayed && <ResultPanel title="Pronunciation Guide:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
-                  onSave={() => saveResult("pronounce", `Pronunciation: ${pronounceWord}`, displayed)} saved={!!savedMap["pronounce"]} />}
+                  onSave={() => saveResult("pronounce", `Pronunciation: ${pronounceWord}`, displayed)} saved={!!savedMap["pronounce"]}
+                  onDownload={() => downloadResult("pronunciation-guide")} />}
               </CardContent>
             </Card>
           )}
@@ -399,7 +408,8 @@ Teach warmly and directly. No markdown at all.`,
                 </Button>
                 {displayed && <ResultPanel title={`${level} English Lesson:`} content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(stripMarkdownForSpeech(displayed), "English")} onStop={synth.stop}
-                  onSave={() => saveResult("lesson", `Daily Lesson: ${level}`, displayed)} saved={!!savedMap["lesson"]} />}
+                  onSave={() => saveResult("lesson", `Daily Lesson: ${level}`, displayed)} saved={!!savedMap["lesson"]}
+                  onDownload={() => downloadResult("daily-lesson")} />}
               </CardContent>
             </Card>
           )}
@@ -420,7 +430,8 @@ Teach warmly and directly. No markdown at all.`,
                 </Button>
                 {displayed && <ResultPanel title="Interview Phrases:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(stripMarkdownForSpeech(displayed), "English")} onStop={synth.stop}
-                  onSave={() => saveResult("interview_eng", "Interview English Phrases", displayed)} saved={!!savedMap["interview_eng"]} />}
+                  onSave={() => saveResult("interview_eng", "Interview English Phrases", displayed)} saved={!!savedMap["interview_eng"]}
+                  onDownload={() => downloadResult("interview-english")} />}
               </CardContent>
             </Card>
           )}

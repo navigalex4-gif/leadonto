@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TUTORS } from "@/lib/tutors";
 import { formatGeneratedText } from "@/lib/english-tools";
-import { Mic, MicOff, Volume2, VolumeX, Bookmark, BookmarkCheck } from "lucide-react";
+import { Mic, MicOff, Volume2, VolumeX, Bookmark, BookmarkCheck, Download } from "lucide-react";
 
 export function MicButton({ isListening, isSupported, onStart, onStop, disabled }: {
   isListening: boolean; isSupported: boolean; onStart: () => void; onStop: () => void; disabled?: boolean;
@@ -17,9 +17,9 @@ export function MicButton({ isListening, isSupported, onStart, onStop, disabled 
   );
 }
 
-export function ResultPanel({ title, content, isSpeaking, onSpeak, onStop, onSave, saved }: {
+export function ResultPanel({ title, content, isSpeaking, onSpeak, onStop, onSave, saved, onDownload }: {
   title: string; content: string; isSpeaking: boolean;
-  onSpeak: () => void; onStop: () => void; onSave: () => void; saved: boolean;
+  onSpeak: () => void; onStop: () => void; onSave: () => void; saved: boolean; onDownload?: () => void;
 }) {
   return (
     <div className="mt-3 p-3 bg-primary/5 rounded-xl border border-primary/20 animate-in fade-in slide-in-from-bottom-2">
@@ -32,6 +32,11 @@ export function ResultPanel({ title, content, isSpeaking, onSpeak, onStop, onSav
           <Button variant="outline" size="sm" onClick={onSave} disabled={saved} className="text-xs font-semibold h-8">
             {saved ? <><BookmarkCheck className="w-3.5 h-3.5 mr-1 text-primary" />Saved</> : <><Bookmark className="w-3.5 h-3.5 mr-1" />Save</>}
           </Button>
+          {onDownload && (
+            <Button variant="ghost" size="sm" onClick={onDownload} className="text-xs font-semibold h-8">
+              <Download className="w-3.5 h-3.5 mr-1" />Download
+            </Button>
+          )}
         </div>
       </div>
       <div className="text-sm text-secondary leading-relaxed space-y-2">

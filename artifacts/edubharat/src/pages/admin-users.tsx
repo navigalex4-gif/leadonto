@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import {
   Loader2, Users as UsersIcon, ChevronDown, ChevronRight, Search, MapPin,
   Globe, Coins, RefreshCw, Clock,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
 import { AdminNav } from "@/components/admin-nav";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -167,10 +169,21 @@ export default function AdminUsers() {
           <h1 className="text-2xl font-display font-bold text-secondary">Users</h1>
           <span className="bg-muted text-secondary text-xs font-bold px-2 py-0.5 rounded-full">{users.length}</span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void fetchUsers()} disabled={fetching}>
-          <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(filtered.map(u => ({
+            id: u.id, name: u.name, email: u.email, authProvider: u.authProvider,
+            credits: u.credits, location: u.location, careerGoal: u.careerGoal,
+            experienceLevel: u.experienceLevel, preferredRole: u.preferredRole,
+            preferredCity: u.preferredCity, createdAt: u.createdAt,
+            lastLoginAt: u.lastLoginAt, lastLoginIp: u.lastLoginIp,
+          })), "edubharat-users")} disabled={!filtered.length}>
+            <Download className="w-4 h-4 mr-1.5" />Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchUsers()} disabled={fetching}>
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="relative mb-4">

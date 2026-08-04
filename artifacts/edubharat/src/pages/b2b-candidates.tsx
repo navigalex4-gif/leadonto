@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Users, Search, CheckCircle2, XCircle, MapPin, Globe, Award, RefreshCw } from "lucide-react";
+import { Loader2, Users, Search, CheckCircle2, XCircle, MapPin, Globe, Award, RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
 import { B2BNav } from "@/components/b2b-nav";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const PASS_BAR = 60;
@@ -111,9 +112,22 @@ export default function B2BCandidates() {
             <CheckCircle2 className="w-3.5 h-3.5" />{selected} selected
           </span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void fetchCandidates()} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(filtered.map(c => ({
+            inviteId: c.inviteId, campaignId: c.campaignId, candidateName: c.candidateName,
+            candidateEmail: c.candidateEmail, candidateLocation: c.candidateLocation,
+            campaignTitle: c.campaignTitle, campaignRole: c.campaignRole,
+            overallScore: c.overallScore, communicationScore: c.communicationScore,
+            grammarScore: c.grammarScore, confidenceScore: c.confidenceScore,
+            technicalScore: c.technicalScore, durationSeconds: c.durationSeconds,
+            completedAt: c.completedAt,
+          })), "edubharat-b2b-candidates")} disabled={!filtered.length}>
+            <Download className="w-4 h-4 mr-1.5" />Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchCandidates()} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

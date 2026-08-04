@@ -70,6 +70,7 @@ function EnglishGuruContent() {
   const [convHistory, setConvHistory] = useState<{ role: "user" | "ai"; text: string }[]>([]);
   const [convInput, setConvInput] = useState("");
   const [liveChat, setLiveChat] = useState(false);
+  const [livePaused, setLivePaused] = useState(false);
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
@@ -94,6 +95,7 @@ function EnglishGuruContent() {
   useEffect(() => { speechRef.current = speech; }, [speech]);
   const convHistoryRef = useRef(convHistory);
   const liveChatRef = useRef(liveChat);
+  const livePausedRef = useRef(false);
   useEffect(() => { liveChatRef.current = liveChat; }, [liveChat]);
   const handleConvPhraseRef = useRef<((p: string) => void) | null>(null);
   /**
@@ -266,8 +268,8 @@ function EnglishGuruContent() {
         // suppress any recognised result for 2s so room echo of the greeting
         // (which lingers on laptop/phone speakers) is never processed.
         lastAiSpeechEndRef.current = Date.now();
-        speechRef.current.suppressUntil(Date.now() + 3200);
-        speechRef.current.blockFor(1200);
+        speechRef.current.suppressUntil(Date.now() + 1800);
+        speechRef.current.blockFor(700);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -285,7 +287,7 @@ function EnglishGuruContent() {
   const handleConvPhrase = useCallback((phrase: string) => {
     const isSilenceProbe = phrase === SILENCE_MARKER;
     // Guard: normal phrases need content; silence probes just need the channel to be free.
-    if (!isSilenceProbe && (!phrase.trim() || (!liveChatRef.current && isStreaming) || aiBusyRef.current)) return;
+    if (!isSilenceProbe && (!phrase.trim() || (!liveChatRef.current && isStreaming) || aiBusyRef.current || livePausedRef.current)) return;
     if (isSilenceProbe && (aiBusyRef.current || !liveChatRef.current)) return;
     // Echo guard: a phrase arriving within ~3.5s of the AI finishing, that closely
     // matches what the AI just said, is the mic hearing the speaker — not the user.
@@ -401,8 +403,8 @@ Rules for spoken replies:
             // The content-based echo guard (6s, 85% overlap) is an additional
             // backstop for devices with slow echo decay.
             lastAiSpeechEndRef.current = Date.now();
-            speechRef.current.suppressUntil(Date.now() + 3200);
-            speechRef.current.blockFor(1200);
+            speechRef.current.suppressUntil(Date.now() + 1800);
+            speechRef.current.blockFor(700);
             setConvFlowState("user-speaking");
           } else {
             setConvFlowState("idle");
@@ -476,7 +478,7 @@ Rules for spoken replies:
   useEffect(() => {
     if (!liveChat) return;
     const id = setInterval(() => {
-      if (!liveChatRef.current || aiBusyRef.current) return;
+      if (!liveChatRef.current || livePausedRef.current || aiBusyRef.current) return;
       // Don't retry while the mic is in a hard-error state (e.g. not-allowed).
       // The user needs to tap "Retry mic" first — auto-retrying just causes
       // rapid error flickers and masks the real problem.
@@ -492,6 +494,8 @@ Rules for spoken replies:
     unlockAudio();
     if (liveChat) {
       setLiveChat(false);
+      setLivePaused(false);
+      livePausedRef.current = false;
       setConvFlowState("idle");
       speech.stop();
       synth.stop();
@@ -548,11 +552,33 @@ Rules for spoken replies:
     speech.startContinuous(p => handleConvPhraseRef.current?.(p));
   }, [liveChat, speech, synth, user, authLoading, toast]);
 
+  const togglePauseLiveChat = useCallback(() => {
+    if (!liveChat) return;
+    const next = !livePausedRef.current;
+    livePausedRef.current = next;
+    setLivePaused(next);
+    speech.stop();
+    synth.stop();
+    aiBusyRef.current = false;
+    if (speakSafetyTimerRef.current) {
+      clearTimeout(speakSafetyTimerRef.current);
+      speakSafetyTimerRef.current = null;
+    }
+    if (next) {
+      setConvFlowState("idle");
+    } else {
+      setConvFlowState("user-speaking");
+      speech.startContinuous(p => handleConvPhraseRef.current?.(p));
+    }
+  }, [liveChat, speech, synth]);
+
   // Keep a live reference to the "stop everything" action for the metering timer.
   const stopLiveRef = useRef<() => void>(() => {});
   useEffect(() => {
     stopLiveRef.current = () => {
       setLiveChat(false);
+      setLivePaused(false);
+      livePausedRef.current = false;
       setConvFlowState("idle");
       speech.stop();
       synth.stop();
@@ -785,6 +811,16 @@ Rules for spoken replies:
                   disabled={!speech.isSupported}>
                   {liveChat ? <><StopCircle className="w-4 h-4 mr-1.5" />End</> : <><Mic className="w-4 h-4 mr-1.5" />Live</>}
                 </Button>
+                {liveChat && (
+                  <Button
+                    onClick={togglePauseLiveChat}
+                    variant="outline"
+                    size="sm"
+                    className="font-bold shrink-0 w-full sm:w-auto"
+                  >
+                    {livePaused ? <><Mic className="w-4 h-4 mr-1.5" />Resume</> : <><StopCircle className="w-4 h-4 mr-1.5" />Pause</>}
+                  </Button>
+                )}
               </div>
               {!liveChat && (
                 <p className="text-xs text-muted-foreground">
@@ -835,7 +871,7 @@ Rules for spoken replies:
                   )}
                   {convFlowState === "ai-thinking" && `${tutor.name} is thinking...`}
                   {convFlowState === "ai-speaking" && `${tutor.name} is speaking... (mic restarts when done)`}
-                  {convFlowState === "idle" && "Live chat off"}
+                  {convFlowState === "idle" && (livePaused ? "Live chat paused" : "Live chat off")}
                   {liveChat && speech.error && (
                     <Button
                       type="button"

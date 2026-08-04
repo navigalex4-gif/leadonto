@@ -16,6 +16,7 @@ import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useEdgeTTS } from "@/lib/use-edge-tts";
 import { useHistory } from "@/lib/use-history";
 import { formatGeneratedText } from "@/lib/english-tools";
+import { downloadText } from "@/lib/export-data";
 import {
   BookOpen, CheckCircle2, RotateCcw, ChevronRight, ChevronUp, ChevronDown,
   Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2,
@@ -1263,6 +1264,15 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
                         }}
                       >
                         {planSaved ? "Saved" : "Save"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs font-semibold"
+                        disabled={planStreaming}
+                        onClick={() => downloadText(formatGeneratedText(planText), `learning-journey-${effectiveStage}-plan.txt`)}
+                      >
+                        Download
                       </Button>
                     </div>
                     {planStreaming && (

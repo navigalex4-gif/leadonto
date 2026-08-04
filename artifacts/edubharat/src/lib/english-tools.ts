@@ -18,6 +18,8 @@ export function stripMarkdownForSpeech(text: string) {
   return formatGeneratedText(text)
     .replace(/^\s*[•·]\s+/gm, "")
     .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/\bOH\b/g, "Oh")
+    .replace(/\bYEAH\b/g, "Yeah")
     .replace(/\s{2,}/g, " ")
     .trim();
 }

@@ -54,3 +54,4 @@
 - [DB package build & push gotchas](db-package-build-push.md) — api-server typechecks against @workspace/db's EMITTED .d.ts (rebuild after schema edits); drizzle push goes interactive on runtime-owned tables — exclude via tablesFilter.
 - [CMS content overrides](cms-content-overrides.md) — DB stores ONLY overrides; client inline fallback is the source of truth; registry is editor-discovery only; never seed defaults into DB.
 - [Publish package firewall](publish-package-firewall.md) — Replit publish blocks npm's tar package; Expo's Linux path uses system tar, so keep a local tar shim override.
+- [Live learning exports](live-learning-exports.md) — shared text/CSV downloads and Pause-vs-End semantics keep learning outputs portable and sessions recoverable.

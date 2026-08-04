@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, Briefcase, Plus, ArrowRight, Users, CheckCircle2, RefreshCw, Search } from "lucide-react";
+import { Loader2, Briefcase, Plus, ArrowRight, Users, CheckCircle2, RefreshCw, Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
 import { B2BNav } from "@/components/b2b-nav";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -73,6 +74,14 @@ export default function B2BCampaigns() {
           <span className="bg-muted text-secondary text-xs font-bold px-2 py-0.5 rounded-full">{campaigns.length}</span>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(filtered.map(c => ({
+            id: c.id, title: c.title, role: c.role, experienceLevel: c.experienceLevel,
+            interviewType: c.interviewType, durationMinutes: c.durationMinutes,
+            isActive: c.isActive, inviteCount: c.inviteCount, completedCount: c.completedCount,
+            createdAt: c.createdAt,
+          })), "edubharat-b2b-campaigns")} disabled={!filtered.length}>
+            <Download className="w-4 h-4 mr-1.5" />Export CSV
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void fetchCampaigns()} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
           </Button>
