@@ -52,9 +52,9 @@ export default function ToolsScreen() {
 
   function handlePress(id: string) {
     if (id === 'my-journey') {
-      router.push('/(tabs)/progress');
+      router.push('/learning-journey' as never);
     } else {
-      router.push(`/tool/${id}`);
+      router.push(`/${id}` as never);
     }
   }
 

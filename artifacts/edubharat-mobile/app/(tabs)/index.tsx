@@ -50,9 +50,9 @@ export default function HomeScreen() {
 
   function handleToolPress(id: string) {
     if (id === 'my-journey') {
-      router.push('/(tabs)/progress');
+      router.push('/learning-journey' as never);
     } else {
-      router.push(`/tool/${id}`);
+      router.push(`/${id}` as never);
     }
   }
 

@@ -8,6 +8,7 @@ import { Header } from '@/components/Header';
 import { ActionButton } from '@/components/ActionButton';
 import { LoadingPlaceholder } from '@/components/LoadingPlaceholder';
 import { getProfile, saveProfile, type Profile } from '@/lib/storage';
+import { apiRequest } from '@/lib/api';
 
 const FIELDS: { key: keyof Profile; label: string; placeholder: string }[] = [
   { key: 'name', label: 'Full name', placeholder: 'Your name' },
@@ -43,6 +44,19 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     if (!profile) return;
     await saveProfile(profile);
+    await apiRequest('/profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: profile.name,
+        degree: profile.education,
+        careerGoal: profile.careerGoal,
+        skills: profile.skills.split(',').map((item) => item.trim()).filter(Boolean),
+        location: profile.location,
+        preferredCity: profile.location,
+        expectedSalary: profile.salaryExpectation,
+        preferredLanguage: profile.language,
+      }),
+    }).catch(() => undefined);
     setSaved(true);
   };
 

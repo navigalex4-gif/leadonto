@@ -12,6 +12,7 @@
 - [Interview structured format](interview-structured-format.md) — weighted 9-competency BFSI scorecard (1–5); ALL parameters scored every interview (no length-gating); Functional is recurring core (breadth-first rotation, never back-to-back); areaForBeat NEEDS ctx {durationMin,experience,type,roleLabel}; 2-attempt rule; warm tone; ~5s think; web-only.
 - [Interview report generation](interview-report-generation.md) — split into 2 AI calls (ratings survive truncation); AI gives per-competency 1–5 ratings ONLY (all 9) — weighted/overall(×20)/recommendation computed client-side, never AI; competencies in feedbackJson; back-compat improvements↔concerns, old depthProbe key ignored.
 - [Rozgar profile feed](rozgar-profile-feed.md) — Rozgar should stay candidate-driven, with profile basics shaping every section and a live hiring pulse before AI summaries.
+- [Rozgar tile feed layout](rozgar-tiles.md) — Career Feed opens as a compact reference-style tile matrix; selected feeds use structured visual briefs, not raw paragraphs.
 - [Generated content display](generated-content-display.md) — normalize AI output into readable plain text and keep listen/save actions consistent across reusable generated content.
 - [Voice switching should stop playback](voice-switch-stop-playback.md) — changing tutor voice must cancel active speech immediately so male/female voices never mix.
 - [Compact page scroll shells](compact-page-scroll-shells.md) — full-viewport routes still need a real scroll path; inner panes alone can make the page feel frozen.
@@ -56,3 +57,4 @@
 - [Publish package firewall](publish-package-firewall.md) — Replit publish blocks npm's tar package; Expo's Linux path uses system tar, so keep a local tar shim override.
 - [Live learning exports](live-learning-exports.md) — shared text/CSV downloads and Pause-vs-End semantics keep learning outputs portable and sessions recoverable.
 - [Expo publish Metro port](expo-publish-metro-port.md) — static mobile builds must avoid fixed Metro 8081 conflicts in the multi-artifact workspace.
+- [Mobile parity runtime](mobile-parity-runtime.md) — stack screens need safe-area-only fallback; API calls must use injected Replit host, not the Expo preview host.

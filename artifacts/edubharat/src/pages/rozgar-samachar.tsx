@@ -24,7 +24,8 @@ import { PageMeta } from "@/components/page-meta";
 import {
   Newspaper, Volume2, Bookmark, BookmarkCheck, Loader2, ChevronDown, ChevronUp,
   User, Settings, Search, ExternalLink, X, Briefcase, SlidersHorizontal, MapPin,
-  Share2, EyeOff, Filter, Calendar, IndianRupee, Trash2,
+  Share2, EyeOff, Filter, Calendar, IndianRupee, Trash2, Sparkles, Lightbulb,
+  CheckCircle2, ArrowUpRight, ListChecks, Clock3,
 } from "lucide-react";
 import { formatGeneratedText } from "@/lib/english-tools";
 
@@ -53,6 +54,24 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = typeof SECTIONS[number]["id"];
+type FeedFilter = "all" | "jobs" | "career" | "news" | "english" | "inspire";
+
+const FEED_FILTERS: Array<{ id: FeedFilter; label: string; emoji: string }> = [
+  { id: "all", label: "All", emoji: "✨" },
+  { id: "jobs", label: "Jobs", emoji: "💼" },
+  { id: "career", label: "Career", emoji: "🚀" },
+  { id: "news", label: "News", emoji: "📰" },
+  { id: "english", label: "English", emoji: "🇬🇧" },
+  { id: "inspire", label: "Inspire", emoji: "⭐" },
+];
+
+function sectionFeedCategory(section: typeof SECTIONS[number]): FeedFilter {
+  if (VACANCY_SECTIONS.has(section.id)) return "jobs";
+  if (["english_corner", "vocab", "quiz"].includes(section.id)) return "english";
+  if (["jokes", "success_stories", "motivation"].includes(section.id)) return "inspire";
+  if (["ai_news", "tech_news", "business_news", "govt_schemes"].includes(section.id)) return "news";
+  return "career";
+}
 
 const VACANCY_SECTIONS = new Set<SectionId>([
   "top_jobs", "govt_jobs", "private_jobs", "internships", "scholarships",
@@ -276,6 +295,110 @@ function CareerNewsCard({ item }: { item: RozgarLiveItem }) {
   );
 }
 
+function parseFeedText(raw: string) {
+  const clean = formatGeneratedText(raw);
+  const lines = clean
+    .split(/\n+/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const bullets = lines.filter(line => /^(?:•|\d+[.)])\s+/.test(line));
+  const paragraphs = lines.filter(line => !/^(?:•|\d+[.)])\s+/.test(line));
+  return {
+    paragraphs: paragraphs.slice(0, 4),
+    bullets: bullets.map(line => line.replace(/^(?:•|\d+[.)])\s+/, "")).slice(0, 8),
+  };
+}
+
+function StructuredFeedOutput({
+  section,
+  text,
+  isStreaming,
+  profile,
+}: {
+  section: typeof SECTIONS[number];
+  text: string;
+  isStreaming: boolean;
+  profile: Profile;
+}) {
+  const parsed = parseFeedText(text);
+  const lead = parsed.paragraphs[0] || `A focused ${section.title.toLowerCase()} brief for your career goals.`;
+  const nextMove = parsed.bullets[0] || parsed.paragraphs[1] || "Review this brief and choose one small action to complete today.";
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
+      <div className="relative overflow-hidden bg-gradient-to-r from-teal-600 via-cyan-600 to-indigo-600 px-5 py-5 text-white">
+        <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
+              <Sparkles className="h-3.5 w-3.5" />
+              Personalized career brief
+            </div>
+            <h3 className="font-display text-xl font-bold leading-tight">{section.title}</h3>
+            <p className="mt-1 text-xs text-white/80">
+              Built for {profile.status.toLowerCase()}s in {profile.location}
+            </p>
+          </div>
+          {isStreaming && <Loader2 className="mt-1 h-5 w-5 animate-spin text-white" />}
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 sm:p-5">
+        <div className="grid gap-3 md:grid-cols-[1.35fr_.65fr]">
+          <div className="rounded-2xl border border-teal-100 bg-teal-50/70 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-700">
+              <Lightbulb className="h-4 w-4" />
+              What matters
+            </div>
+            <p className="text-sm leading-relaxed text-secondary">{lead}</p>
+          </div>
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-700">
+              <ArrowUpRight className="h-4 w-4" />
+              Your next move
+            </div>
+            <p className="text-sm leading-relaxed text-secondary">{nextMove}</p>
+          </div>
+        </div>
+
+        {parsed.bullets.length > 0 && (
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <ListChecks className="h-4 w-4 text-primary" />
+              Key takeaways
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {parsed.bullets.slice(0, 6).map((bullet, index) => (
+                <div key={`${bullet}-${index}`} className="flex gap-2 rounded-xl border bg-slate-50/80 p-3">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+                  <p className="text-xs leading-relaxed text-secondary">{bullet}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {parsed.paragraphs.slice(1, 4).length > 0 && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {parsed.paragraphs.slice(1, 4).map((paragraph, index) => (
+              <div key={`${paragraph}-${index}`} className="rounded-xl border bg-background p-3">
+                <p className="text-xs leading-relaxed text-secondary">{paragraph}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isStreaming && !text && (
+          <div className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-xs text-muted-foreground">
+            <Clock3 className="h-4 w-4 animate-pulse text-primary" />
+            Preparing your live brief…
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Section card ─────────────────────────────────────────────────────────────
 
 function SectionCard({
@@ -384,66 +507,77 @@ function SectionCard({
   return (
     <div className={`space-y-2 ${expanded ? "col-span-full" : ""}`}>
       <button
-        className={`w-full flex items-center gap-2 p-3 rounded-xl border text-left transition-colors ${
+        className={`group w-full flex min-h-[58px] items-center gap-3 rounded-xl border px-3 py-2.5 text-left shadow-sm transition-all ${
           expanded
-            ? "bg-primary/10 border-primary/40 text-primary"
-            : "bg-card hover:bg-muted/60 border-border"
+            ? "border-primary/50 bg-primary/10 text-primary shadow-md"
+            : "border-border/80 bg-white hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         }`}
         onClick={load}
         data-testid={`section-${section.id}`}
       >
-        <span className="text-xl shrink-0">{section.emoji}</span>
-        <span className="font-semibold text-secondary text-xs leading-tight line-clamp-2">{section.title}</span>
-        {isStreaming && <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto shrink-0" />}
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${expanded ? "bg-white" : "bg-primary/10"}`}>
+          {section.emoji}
+        </span>
+        <span className={`font-semibold text-xs leading-tight line-clamp-2 ${expanded ? "text-primary" : "text-secondary group-hover:text-primary"}`}>
+          {section.title}
+        </span>
+        {isStreaming
+          ? <Loader2 className="ml-auto h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+          : <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />}
       </button>
       {expanded && (VACANCY_SECTIONS.has(section.id) ? (liveLoading || visibleLiveItems.length > 0 || Boolean(liveError)) : (text || isStreaming || liveLoading || visibleLiveItems.length > 0 || Boolean(liveError))) && (
-        <Card id={id} className="overflow-hidden border shadow-sm rounded-2xl scroll-mt-24">
-          <CardContent className="p-5 bg-muted/20">
-          {(liveLoading || visibleLiveItems.length > 0 || liveError) && (
-            <div className="mb-4 rounded-2xl border bg-background p-4">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <p className="text-xs uppercase tracking-wider font-bold text-muted-foreground">Live source</p>
-                {liveLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+        <Card id={id} className="scroll-mt-24 overflow-hidden rounded-2xl border bg-muted/20 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            {(liveLoading || visibleLiveItems.length > 0 || liveError) && (
+              <div className="rounded-2xl border bg-background p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Live sources</p>
+                    <p className="mt-0.5 text-xs text-secondary">Verified items for your {profile.location} feed</p>
+                  </div>
+                  {liveLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                </div>
+                {liveError && <p className="mb-3 text-xs text-muted-foreground">{liveError}</p>}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {visibleLiveItems.slice(0, 4).map(item => {
+                    const enriched = enrichJob(item);
+                    return VACANCY_SECTIONS.has(section.id) ? (
+                      <JobCard
+                        key={`${item.title}-${item.link}`}
+                        item={enriched}
+                        onSave={onSaveJob}
+                        onUnsave={onUnsaveJob}
+                        onShare={onShare}
+                        onHide={onHide}
+                        saved={isJobSaved(makeJobId(item.link))}
+                        matchScore={computeMatchScore(enriched, studentProfile)}
+                      />
+                    ) : <CareerNewsCard key={`${item.title}-${item.link}`} item={item} />;
+                  })}
+                </div>
               </div>
-              {liveError && <p className="text-xs text-muted-foreground mb-3">{liveError}</p>}
-              <div className="space-y-3">
-                {visibleLiveItems.slice(0, 4).map(item => {
-                  const enriched = enrichJob(item);
-                  return VACANCY_SECTIONS.has(section.id) ? (
-                    <JobCard
-                      key={`${item.title}-${item.link}`}
-                      item={enriched}
-                      onSave={onSaveJob}
-                      onUnsave={onUnsaveJob}
-                      onShare={onShare}
-                      onHide={onHide}
-                      saved={isJobSaved(makeJobId(item.link))}
-                      matchScore={computeMatchScore(enriched, studentProfile)}
-                    />
-                  ) : <CareerNewsCard key={`${item.title}-${item.link}`} item={item} />;
-                })}
+            )}
+
+            {!VACANCY_SECTIONS.has(section.id) && (text || isStreaming) && (
+              <StructuredFeedOutput section={section} text={text} isStreaming={isStreaming} profile={profile} />
+            )}
+
+            {!VACANCY_SECTIONS.has(section.id) && (
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <Button variant="ghost" size="sm" className="text-xs" disabled={isStreaming || !text}
+                  onClick={() => { synth.stop(); synth.speak(formatGeneratedText(text), profile.language); }}>
+                  <Volume2 className="mr-1 h-3.5 w-3.5" />{isStreaming ? "Loading…" : "Listen"}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-xs" disabled={saved || !text}
+                  onClick={() => { save({ tool: "Rozgar Samachar", title: `${section.title} — ${new Date().toLocaleDateString("en-IN")}`, content: text }); setSaved(true); }}>
+                  {saved
+                    ? <><BookmarkCheck className="mr-1 h-3.5 w-3.5 text-primary" />Saved</>
+                    : <><Bookmark className="mr-1 h-3.5 w-3.5" />Save</>}
+                </Button>
               </div>
-            </div>
-          )}
-          {!VACANCY_SECTIONS.has(section.id) && (
-            <div className="flex justify-end gap-2 py-2 flex-wrap">
-              <Button variant="ghost" size="sm" className="text-xs" disabled={isStreaming || !text}
-                onClick={() => { synth.stop(); synth.speak(formatGeneratedText(text), profile.language); }}>
-                <Volume2 className="w-3.5 h-3.5 mr-1" />{isStreaming ? "Loading…" : "Listen"}
-              </Button>
-              <Button variant="ghost" size="sm" className="text-xs" disabled={saved}
-                onClick={() => { save({ tool: "Rozgar Samachar", title: `${section.title} — ${new Date().toLocaleDateString("en-IN")}`, content: text }); setSaved(true); }}>
-                {saved
-                  ? <><BookmarkCheck className="w-3.5 h-3.5 mr-1 text-primary" />Saved</>
-                  : <><Bookmark className="w-3.5 h-3.5 mr-1" />Save</>}
-              </Button>
-            </div>
-          )}
-          {!VACANCY_SECTIONS.has(section.id) && (
-            <div className="text-sm text-secondary leading-relaxed whitespace-pre-wrap">{formatGeneratedText(text)}</div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -644,7 +778,8 @@ function RozgarSamacharContent() {
     profile.location && profile.location.trim().length > 1
   );
   const needsGate = !hasValidProfile;
-  const [activeTab, setActiveTab] = useState<"jobs" | "feed" | "saved">("jobs");
+  const [activeTab, setActiveTab] = useState<"jobs" | "feed" | "saved">("feed");
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
 
   const [filters, setFilters] = useState<FilterState>(() => readFiltersFromUrl());
@@ -741,6 +876,10 @@ function RozgarSamacharContent() {
   }, [allJobs]);
 
   const visibleLivePulse = useMemo(() => (livePulse?.items ?? []).filter(item => !hiddenJobIds.has(makeJobId(item.link))).slice(0, 3), [livePulse, hiddenJobIds]);
+  const visibleFeedSections = useMemo(
+    () => SECTIONS.filter(section => feedFilter === "all" || sectionFeedCategory(section) === feedFilter),
+    [feedFilter],
+  );
 
   const update = (key: keyof Profile) => (val: string) => setProfile(p => ({ ...p, [key]: val }));
 
@@ -924,7 +1063,7 @@ function RozgarSamacharContent() {
           </div>
         </div>
 
-        <div className="grid flex-1 min-h-0 gap-5 lg:grid-cols-[280px_1fr]">
+        <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[210px_1fr]">
           {/* ── Left rail ── */}
           <aside className="flex min-h-0 flex-col gap-4">
             {showProfile ? (
@@ -1045,6 +1184,32 @@ function RozgarSamacharContent() {
 
           {/* ── Right feed ── */}
           <section className="flex min-h-0 flex-col rounded-2xl border shadow-sm overflow-hidden bg-card">
+            <div className="flex items-center gap-2 overflow-x-auto border-b bg-white px-3 py-2">
+              <span className="max-w-[90px] shrink-0 truncate text-xs font-semibold text-secondary">{profile.name}</span>
+              <span className="shrink-0 text-muted-foreground/40">•</span>
+              <div className="relative shrink-0">
+                <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filters.city}
+                  onChange={e => updateFilters({ city: e.target.value })}
+                  placeholder="City"
+                  className="h-8 w-[112px] rounded-full pl-7 text-xs"
+                />
+              </div>
+              <Select value={filters.workMode} onValueChange={v => updateFilters({ workMode: v as FilterState["workMode"] })}>
+                <SelectTrigger className="h-8 w-[86px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{WORK_MODES.map(mode => <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={filters.sector} onValueChange={v => updateFilters({ sector: v as FilterState["sector"] })}>
+                <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{SECTORS.map(sector => <SelectItem key={sector.value} value={sector.value}>{sector.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={filters.experience} onValueChange={v => updateFilters({ experience: v as FilterState["experience"] })}>
+                <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{EXPERIENCES.map(experience => <SelectItem key={experience.value} value={experience.value}>{experience.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="ml-auto shrink-0">{filterSheet}</div>
+            </div>
             {/* Tab bar */}
             <div className="flex items-center gap-1 px-4 pt-4 border-b overflow-x-auto">
               {[
@@ -1290,30 +1455,42 @@ function RozgarSamacharContent() {
             )}
 
             {activeTab === "feed" && (
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                <div className="rounded-2xl bg-gradient-to-r from-teal-600 to-indigo-600 p-5 text-white shadow-sm">
+              <div className="flex-1 overflow-y-auto space-y-5 p-5">
+                <div className="rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-indigo-600 p-5 text-white shadow-sm">
                   <p className="text-xs uppercase tracking-[0.18em] text-white/70 font-bold">Your career desk</p>
                   <h2 className="mt-1 text-xl font-display font-bold">Fresh guidance for {profile.careerGoal}</h2>
                   <p className="mt-1 text-sm text-white/80">Live career updates and practical next steps for {profile.location}.</p>
                 </div>
-                <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
-                  {SECTIONS.filter(s => !["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(s.id)).map(section => (
-                    <button
-                      key={section.id}
-                      onClick={() => {
-                        const el = document.getElementById(`rozgar-section-${section.id}`);
-                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }}
-                      className="group rounded-2xl border bg-white p-4 text-left shadow-sm hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md transition-all"
-                    >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-2xl">{section.emoji}</span>
-                      <span className="mt-3 block text-sm font-bold text-secondary group-hover:text-primary">{section.title}</span>
-                      <span className="mt-1 block text-[11px] text-muted-foreground">Open live brief →</span>
-                    </button>
-                  ))}
+                <div className="rounded-2xl border bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Filter sections</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Choose a tile to open its live, personalized brief.</p>
+                    </div>
+                    <Badge variant="outline" className="hidden rounded-full text-[10px] sm:inline-flex">
+                      {visibleFeedSections.length} feeds
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {FEED_FILTERS.map(filter => (
+                      <button
+                        key={filter.id}
+                        onClick={() => setFeedFilter(filter.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                          feedFilter === filter.id
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+                        }`}
+                      >
+                        <span>{filter.emoji}</span>
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 items-start">
-                  {SECTIONS.filter(s => !["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(s.id)).map(section => (
+
+                <div className="grid items-start gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {visibleFeedSections.map(section => (
                     <SectionCard
                       key={section.id}
                       id={`rozgar-section-${section.id}`}
