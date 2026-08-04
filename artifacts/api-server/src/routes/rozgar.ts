@@ -102,6 +102,19 @@ function textFromTag(block: string, tag: string) {
   return match ? cleanText(match[1] ?? "") : "";
 }
 
+function summaryFromRss(block: string) {
+  const match = block.match(/<description>([\s\S]*?)<\/description>/i);
+  if (!match) return "";
+  const raw = decodeHtmlEntities(decodeHtmlEntities(match[1] ?? ""));
+  return stripTags(raw)
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/&(?:nbsp|amp|quot|apos);/gi, " ")
+    .replace(/\b(?:read more|view full coverage|google news)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 360);
+}
+
 function extractLinks(itemBlock: string) {
   const matches = [...itemBlock.matchAll(/<link>([\s\S]*?)<\/link>/gi)];
   const link = matches[0] ? cleanText(matches[0][1] ?? "") : "";
@@ -113,20 +126,19 @@ function extractLinks(itemBlock: string) {
 
 function parseRss(xml: string): LiveItem[] {
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
-  return items
-    .map((match) => {
+  const parsed: Array<LiveItem | null> = items.map((match): LiveItem | null => {
       const block = match[1] ?? "";
       const title = textFromTag(block, "title");
       const link = extractLinks(block);
       const source = textFromTag(block, "source") || "Google News";
-      const summary = textFromTag(block, "description");
+      const summary = summaryFromRss(block);
       const publishedAt = textFromTag(block, "pubDate") || null;
 
       return title && link
         ? { title, link, source, summary, publishedAt, kind: "news" }
         : null;
-    })
-    .filter((item): item is LiveItem => Boolean(item));
+    });
+  return parsed.filter((item): item is LiveItem => item !== null);
 }
 
 function buildGoogleNewsFeed(query: string) {
@@ -176,84 +188,121 @@ function feedSourcesForSection(section: RozgarSection, ctx: ReturnType<typeof se
 
   const map: Record<RozgarSection, FeedSource[]> = {
     top_jobs: [
-      { name: "India hiring", query: `${region} hiring jobs openings` },
-      { name: "Career news", query: `${region} job openings recruitment` },
+      { name: "Local hiring", query: `"${ctx.location}" ${industry} jobs hiring India` },
+      { name: "Skills match", query: `${skills} jobs hiring India ${ctx.status}` },
     ],
     govt_jobs: [
-      { name: "Government recruitment", query: `site:gov.in recruitment vacancy India` },
-      { name: "Employment news", query: `site:ncs.gov.in jobs India government` },
+      { name: "Government recruitment", query: `site:gov.in recruitment vacancy ${ctx.location} ${ctx.status}` },
+      { name: "Employment news", query: `site:ncs.gov.in government jobs ${ctx.location} India` },
     ],
     private_jobs: [
-      { name: "Private hiring", query: `${region} private jobs hiring ${industry}` },
-      { name: "Company careers", query: `${region} company careers hiring` },
+      { name: "Private hiring", query: `"${ctx.location}" private jobs hiring ${industry}` },
+      { name: "Company careers", query: `${skills} private jobs India ${ctx.status}` },
     ],
     internships: [
-      { name: "Internships", query: `${region} internships apprenticeship` },
-      { name: "Student jobs", query: `${region} internship opening freshers` },
+      { name: "Internships", query: `${industry} internship apprenticeship India ${ctx.location}` },
+      { name: "Entry-level experience", query: `${skills} internship fresher India` },
     ],
     scholarships: [
-      { name: "Scholarships", query: `${region} scholarship fellowship` },
-      { name: "Education funding", query: `${region} scholarship india` },
+      { name: "Scholarships", query: `scholarship fellowship ${ctx.industry} India ${ctx.location}` },
+      { name: "Education funding", query: `student scholarship skill training India ${ctx.status}` },
     ],
     skill_trends: [
-      { name: "Skills news", query: `${industry} skills hiring India` },
-      { name: "Hiring market", query: `${region} skill trends jobs` },
+      { name: "Skills employers want", query: `${industry} skills hiring India ${skills}` },
+      { name: "Hiring market", query: `${skills} in-demand skills jobs India ${ctx.status}` },
     ],
     career_growth: [
-      { name: "Career advice", query: `${region} career growth salary jobs` },
-      { name: "Upskilling", query: `${industry} upskilling India` },
+      { name: "Career moves", query: `${industry} career growth promotion skills India ${ctx.status}` },
+      { name: "Upskilling", query: `${skills} upskilling certification India jobs` },
     ],
     ai_news: [
-      { name: "AI news", query: `${region} AI jobs hiring` },
-      { name: "AI market", query: `India AI hiring layoffs jobs` },
+      { name: "AI at work", query: `AI tools ${industry} jobs hiring India ${skills}` },
+      { name: "AI market", query: `generative AI hiring India ${industry} careers` },
     ],
     tech_news: [
-      { name: "Tech news", query: `${region} technology jobs hiring` },
-      { name: "Software careers", query: `India software engineering hiring` },
+      { name: "Industry technology", query: `${industry} technology tools hiring India ${skills}` },
+      { name: "Career technology", query: `${skills} technology jobs India` },
     ],
     business_news: [
-      { name: "Business news", query: `${region} business hiring salary` },
-      { name: "Career market", query: `India employment salary trends` },
+      { name: "Local market", query: `${ctx.location} ${industry} business hiring India` },
+      { name: "Career market", query: `${ctx.goal} ${industry} employment salary trends India` },
     ],
     govt_schemes: [
-      { name: "Government schemes", query: `${region} skilling scheme employment` },
-      { name: "Public programs", query: `India employment scheme training` },
+      { name: "Local schemes", query: `site:gov.in ${ctx.location} skilling employment scheme ${ctx.status}` },
+      { name: "Public programs", query: `site:myscheme.gov.in skill training employment ${industry} India` },
     ],
     salary_insights: [
-      { name: "Salary news", query: `${region} salary hiring market` },
-      { name: "Compensation", query: `India salary trends jobs` },
+      { name: "Role pay", query: `${industry} salary ${ctx.status} India ${skills}` },
+      { name: "Compensation", query: `${ctx.location} ${industry} salary hiring market India` },
     ],
     interview_qs: [
-      { name: "Interview prep", query: `${region} interview hiring tips` },
-      { name: "Career advice", query: `${industry} interview questions India` },
+      { name: "Role interviews", query: `${industry} interview questions hiring India ${skills}` },
+      { name: "Interview advice", query: `${ctx.goal} interview preparation ${ctx.status} India` },
     ],
     english_corner: [
-      { name: "English learning", query: `${region} english communication jobs` },
-      { name: "Workplace English", query: `India workplace english interview` },
+      { name: "Workplace English", query: `${industry} workplace English interview phrases India` },
+      { name: "Communication", query: `${ctx.goal} English communication ${ctx.status} India` },
     ],
     vocab: [
-      { name: "Workplace language", query: `${industry} vocabulary career` },
-      { name: "Interview language", query: `${region} interview language tips` },
+      { name: "Role vocabulary", query: `${industry} workplace vocabulary ${skills}` },
+      { name: "Interview language", query: `${ctx.goal} interview communication vocabulary India` },
     ],
     quiz: [
-      { name: "Career quiz", query: `${industry} quiz jobs India` },
-      { name: "Skills practice", query: `${region} aptitude interview quiz` },
+      { name: "Role practice", query: `${industry} skills assessment interview India ${skills}` },
+      { name: "Skills practice", query: `${ctx.goal} aptitude interview practice ${ctx.status} India` },
     ],
     jokes: [
-      { name: "Work culture", query: `${region} office culture career` },
-      { name: "Professional humor", query: `${region} work humor` },
+      { name: "Work culture", query: `${industry} workplace culture India` },
+      { name: "Professional humor", query: `Indian office work humor careers` },
     ],
     success_stories: [
-      { name: "Career stories", query: `${region} career success story` },
-      { name: "Industry stories", query: `${industry} success story India` },
+      { name: "Career stories", query: `${ctx.location} ${industry} career success story India` },
+      { name: "Industry stories", query: `${skills} professional success story India` },
     ],
     motivation: [
-      { name: "Motivation", query: `${region} job motivation career` },
-      { name: "Career inspiration", query: `${industry} career inspiration India` },
+      { name: "Motivation", query: `${ctx.location} job seeker career motivation India` },
+      { name: "Career inspiration", query: `${industry} career inspiration ${ctx.status} India` },
     ],
   };
 
   return map[section];
+}
+
+const FEED_RELEVANCE_TERMS: Record<RozgarSection, string[]> = {
+  top_jobs: ["job", "hiring", "recruit", "vacancy", "opening", "career"],
+  govt_jobs: ["government", "govt", "recruit", "vacancy", "notification", "exam", "public sector"],
+  private_jobs: ["private", "company", "corporate", "hiring", "recruit", "job", "career"],
+  internships: ["intern", "apprent", "trainee", "fresher", "entry level"],
+  scholarships: ["scholarship", "fellowship", "grant", "student", "education", "stipend"],
+  skill_trends: ["skill", "hiring", "demand", "learn", "upskill", "training", "course"],
+  career_growth: ["career", "growth", "promotion", "skill", "upskill", "salary", "job"],
+  ai_news: ["ai", "artificial intelligence", "machine learning", "genai", "automation"],
+  tech_news: ["technology", "tech", "software", "digital", "cloud", "data", "cyber"],
+  business_news: ["business", "company", "market", "hiring", "employment", "salary", "industry"],
+  govt_schemes: ["scheme", "skilling", "skill", "training", "employment", "government", "pm ", "yojana"],
+  salary_insights: ["salary", "pay", "compensation", "wage", "income", "ctc", "hiring"],
+  interview_qs: ["interview", "hiring", "recruit", "candidate", "career", "question"],
+  english_corner: ["english", "communication", "interview", "workplace", "language"],
+  vocab: ["vocabulary", "word", "english", "communication", "workplace", "interview"],
+  quiz: ["quiz", "assessment", "aptitude", "interview", "skill", "practice"],
+  jokes: ["work", "office", "career", "professional", "workplace"],
+  success_stories: ["success", "career", "professional", " entrepreneur", "achievement"],
+  motivation: ["motivation", "career", "job", "inspiration", "success"],
+};
+
+function profileTerms(ctx: ReturnType<typeof sectionContext>) {
+  return [ctx.location, ctx.industry, ...ctx.skills.split(",")].map(term => term.trim().toLowerCase()).filter(term => term.length >= 3);
+}
+
+function isRelevantFeedItem(item: LiveItem, section: RozgarSection, ctx: ReturnType<typeof sectionContext>) {
+  const haystack = `${item.title} ${item.summary} ${item.source}`.toLowerCase();
+  if (NON_INDIA_TITLE_TERMS.some(term => haystack.includes(term))) return false;
+  const sectionMatch = FEED_RELEVANCE_TERMS[section].some(term => haystack.includes(term));
+  const candidateMatch = profileTerms(ctx).some(term => haystack.includes(term));
+  // Keep a source when it is on-topic and either profile-specific or from a
+  // query already narrowed to the candidate. This removes unrelated Google
+  // News noise without making a useful general career brief empty.
+  return sectionMatch && (candidateMatch || item.source.toLowerCase().includes("google news"));
 }
 
 function normalizeJobicy(job: Record<string, unknown>): LiveItem | null {
@@ -309,7 +358,7 @@ async function fetchJobicyItems(): Promise<LiveItem[]> {
 function mergeItems(items: LiveItem[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.title}::${item.link}`;
+    const key = item.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -327,6 +376,8 @@ const NON_INDIA_TITLE_TERMS = [
   "dach", "benelux", "nordics", "mena", "gcc", "cis", "cee",
   "europe", "european", "americas", "africa", "middle east",
   "australia", "canadian", "uk market", "us market",
+  "malta", "new zealand", "ireland job market", "qatar", "saudi job market",
+  "dubai job market", "uae job market", "overseas careers",
 ];
 
 function isIndiaRelevantJob(item: LiveItem): boolean {
@@ -417,7 +468,9 @@ router.get("/rozgar/live", async (req: Request, res: Response) => {
         if (vacancySections.has(section) && item.source !== "Jobicy API") return false;
         if (vacancySections.has(section) && !isIndiaRelevantJob(item)) return false;
 
-        if (!vacancySections.has(section)) return true;
+        if (!vacancySections.has(section)) {
+          return isRelevantFeedItem(item, section, ctx);
+        }
 
         const haystack = `${item.title} ${item.company ?? ""} ${item.location ?? ""} ${item.summary ?? ""}`.toLowerCase();
         if (section === "top_jobs") return true;

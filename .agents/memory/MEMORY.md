@@ -13,6 +13,7 @@
 - [Interview report generation](interview-report-generation.md) — split into 2 AI calls (ratings survive truncation); AI gives per-competency 1–5 ratings ONLY (all 9) — weighted/overall(×20)/recommendation computed client-side, never AI; competencies in feedbackJson; back-compat improvements↔concerns, old depthProbe key ignored.
 - [Rozgar profile feed](rozgar-profile-feed.md) — Rozgar should stay candidate-driven, with profile basics shaping every section and a live hiring pulse before AI summaries.
 - [Rozgar tile feed layout](rozgar-tiles.md) — Career Feed opens as a compact reference-style tile matrix; selected feeds use structured visual briefs, not raw paragraphs.
+- [Rozgar feed quality](rozgar-feed-quality.md) — section-specific filters, cleaned sources, deduplication, and source-grounded Claude-first briefs keep feeds relevant.
 - [Generated content display](generated-content-display.md) — normalize AI output into readable plain text and keep listen/save actions consistent across reusable generated content.
 - [Voice switching should stop playback](voice-switch-stop-playback.md) — changing tutor voice must cancel active speech immediately so male/female voices never mix.
 - [Compact page scroll shells](compact-page-scroll-shells.md) — full-viewport routes still need a real scroll path; inner panes alone can make the page feel frozen.

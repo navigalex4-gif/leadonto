@@ -301,11 +301,29 @@ function parseFeedText(raw: string) {
     .split(/\n+/)
     .map(line => line.trim())
     .filter(Boolean);
-  const bullets = lines.filter(line => /^(?:•|\d+[.)])\s+/.test(line));
-  const paragraphs = lines.filter(line => !/^(?:•|\d+[.)])\s+/.test(line));
+  const headingPattern = /^(?:WHY IT MATTERS|WHAT MATTERS|YOUR NEXT MOVE|NEXT MOVE|KEY TAKEAWAYS?|THIS WEEK|TRY THIS|PRACTICE|SOURCE SIGNALS?)\s*:?\s*/i;
+  const headings = lines.filter(line => headingPattern.test(line));
+  const withoutHeadings = lines.filter(line => !headingPattern.test(line));
+  const bullets = withoutHeadings.filter(line => /^(?:•|\d+[.)])\s+/.test(line));
+  const paragraphs = withoutHeadings.filter(line => !/^(?:•|\d+[.)])\s+/.test(line));
+  const sectionText = (names: string[]) => {
+    const start = lines.findIndex(line => names.some(name => new RegExp(`^${name}\\s*:?\\s*$`, "i").test(line)));
+    if (start < 0) return [];
+    const end = lines.findIndex((line, index) => index > start && headingPattern.test(line));
+    return lines
+      .slice(start + 1, end < 0 ? lines.length : end)
+      .filter(Boolean)
+      .map(line => line.replace(/^(?:•|\d+[.)])\s+/, ""))
+      .slice(0, 6);
+  };
   return {
-    paragraphs: paragraphs.slice(0, 4),
+    paragraphs: paragraphs.slice(0, 5),
     bullets: bullets.map(line => line.replace(/^(?:•|\d+[.)])\s+/, "")).slice(0, 8),
+    why: sectionText(["WHY IT MATTERS", "WHAT MATTERS"]),
+    next: sectionText(["YOUR NEXT MOVE", "NEXT MOVE"]),
+    takeaways: sectionText(["KEY TAKEAWAYS?", "KEY TAKEAWAY"]),
+    week: sectionText(["THIS WEEK", "TRY THIS", "PRACTICE"]),
+    hasHeadings: headings.length > 0,
   };
 }
 
@@ -321,8 +339,10 @@ function StructuredFeedOutput({
   profile: Profile;
 }) {
   const parsed = parseFeedText(text);
-  const lead = parsed.paragraphs[0] || `A focused ${section.title.toLowerCase()} brief for your career goals.`;
-  const nextMove = parsed.bullets[0] || parsed.paragraphs[1] || "Review this brief and choose one small action to complete today.";
+  const lead = parsed.why[0] || parsed.paragraphs[0] || `A focused ${section.title.toLowerCase()} brief for your ${profile.careerGoal.toLowerCase()} goal.`;
+  const nextMove = parsed.next[0] || parsed.week[0] || parsed.bullets[0] || parsed.paragraphs[1] || "Review the source cards and choose one small action to complete today.";
+  const takeaways = parsed.takeaways.length > 0 ? parsed.takeaways : parsed.bullets.slice(0, 6);
+  const weekPlan = parsed.week.length > 0 ? parsed.week : parsed.bullets.slice(0, 3);
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
@@ -361,17 +381,34 @@ function StructuredFeedOutput({
           </div>
         </div>
 
-        {parsed.bullets.length > 0 && (
+        {takeaways.length > 0 && (
           <div>
             <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <ListChecks className="h-4 w-4 text-primary" />
               Key takeaways
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              {parsed.bullets.slice(0, 6).map((bullet, index) => (
+              {takeaways.slice(0, 6).map((bullet, index) => (
                 <div key={`${bullet}-${index}`} className="flex gap-2 rounded-xl border bg-slate-50/80 p-3">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
                   <p className="text-xs leading-relaxed text-secondary">{bullet}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {weekPlan.length > 0 && (
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-700">
+              <Clock3 className="h-4 w-4" />
+              7-day action plan
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {weekPlan.slice(0, 3).map((step, index) => (
+                <div key={`${step}-${index}`} className="rounded-xl border border-indigo-100 bg-white/80 p-3">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600">Step {index + 1}</p>
+                  <p className="text-xs leading-relaxed text-secondary">{step}</p>
                 </div>
               ))}
             </div>
@@ -456,25 +493,25 @@ function SectionCard({
     ].join(" | ");
 
     const prompts: Record<SectionId, string> = {
-      top_jobs: `Explain the real job listings supplied below for this candidate: ${profileCtx}. Do not create or suggest any vacancy; the listing cards are the source of truth.`,
-      govt_jobs: `Explain the real government-related listings supplied below for this candidate: ${profileCtx}. Do not invent an exam, deadline, vacancy, eligibility rule, or application path.`,
-      private_jobs: `Explain the real private-sector listings supplied below for this candidate: ${profileCtx}. Do not invent an employer, salary, role, or deadline.`,
-      internships: `Explain the real internship or apprenticeship listings supplied below for this candidate: ${profileCtx}. Do not invent an opportunity, stipend, duration, or deadline.`,
-      scholarships: `Explain the real scholarship-related items supplied below for this candidate: ${profileCtx}. Do not invent a scholarship, amount, eligibility rule, or deadline.`,
-      skill_trends: `Using the live items below, identify 3 skills that matter for ${profile.industry} careers. For each, explain why it matters to a ${profile.status} in ${profile.location}, one free practice idea, and a 7-day action.`,
-      career_growth: `Create a practical 3-step growth plan for ${profileCtx}. Use live items where relevant, label general advice clearly, and avoid promising a salary or outcome.`,
-      ai_news: `Summarize the most useful AI developments in the live items below for Indian job seekers. For each, explain what it changes for ${profile.industry} work and one action the candidate can take.`,
-      tech_news: `Summarize the most useful technology developments in the live items below for Indian job seekers. Explain the effect on ${profile.industry} roles and one practical action.`,
-      business_news: `Summarize the business and hiring signals in the live items below for this candidate. Explain what matters for ${profile.careerGoal} in ${profile.location} and what to do next.`,
-      govt_schemes: `Using the supplied live items, explain up to 3 relevant government schemes for ${profileCtx}. If a fact is missing, tell the reader to verify it on the official site.`,
-      salary_insights: `Give salary negotiation and research guidance for ${profileCtx}. Use only salary facts in the supplied live items; otherwise label all ranges as general guidance and tell the reader what to verify.`,
-      interview_qs: `Create 5 useful interview questions for ${profile.careerGoal} in ${profile.industry}, tailored to ${profile.status}. Give a short answer structure and one practice action for each.`,
-      english_corner: `Write a short English lesson for ${profile.status} in India who speaks ${profile.language}. Include a grammar tip, 5 useful phrases, and a practice exercise.`,
-      vocab: `Give 5 English words every ${profile.status} in ${profile.industry} should know. Include meaning in ${profile.language} and a job-market example sentence.`,
-      quiz: `Create a 5-question quiz testing knowledge relevant to ${profile.industry} careers. Include answers and explanations. Language: ${profile.language}.`,
-      jokes: `Share 3 light-hearted workplace or career jokes relevant to Indian professionals. Keep them clean and funny. Language: ${profile.language}.`,
-      success_stories: `Share a motivating success story of an Indian professional from ${profile.industry} who started as a ${profile.status} from ${profile.location}. Make it realistic and inspiring.`,
-      motivation: `Write a powerful motivational message in ${profile.language} for a ${profile.status} in ${profile.location} pursuing ${profile.careerGoal}. Include a daily action tip and one practical next step.`,
+      top_jobs: `Explain only the real job cards supplied below for this candidate. Compare the best 2-3 matches by role, location, skills, and entry fit; do not create vacancies.`,
+      govt_jobs: `Explain only the supplied government recruitment items. Highlight eligibility clues, location, deadline/application facts only when present, and what to verify on the official source.`,
+      private_jobs: `Explain only the supplied private-sector job cards. Rank the best matches for the candidate's skills and goal; never invent employer, salary, deadline, or role details.`,
+      internships: `Explain only the supplied internship/apprenticeship items. Identify who each suits, what skill it builds, and what the candidate should verify before applying.`,
+      scholarships: `Explain only the supplied scholarship/fellowship items. Highlight likely fit, study/career relevance, and verification steps; never invent amounts or deadlines.`,
+      skill_trends: `Turn the supplied live hiring signals into 3 specific skills for this candidate's target roles. For each, connect the signal to the candidate, give a free practice task, and a portfolio proof idea.`,
+      career_growth: `Create a realistic 3-step growth plan using the supplied signals. Prioritize the candidate's current skills, target goal, and next reachable role; label general advice clearly.`,
+      ai_news: `Use the supplied AI items to explain what changes for this candidate's target work. Include one tool or workflow to try safely and one portfolio/interview proof.`,
+      tech_news: `Use the supplied technology items to explain what changes for this candidate's target roles. Focus on practical skills, not broad headlines, and give one small project idea.`,
+      business_news: `Use the supplied business and hiring items to explain the local and industry signal for this candidate. Connect it to roles, skills, and a practical action this week.`,
+      govt_schemes: `Explain up to 3 supplied government schemes or training programs that fit this candidate. State who may qualify and what to verify on the official site; do not invent benefits.`,
+      salary_insights: `Use supplied salary signals where present; otherwise clearly label general guidance. Explain realistic research and negotiation steps for this candidate's experience, location, and target role.`,
+      interview_qs: `Create 5 role-relevant interview questions for this candidate's target role and skills. Give a short answer framework and one practice task for each.`,
+      english_corner: `Create a short workplace-English lesson for this candidate's level and target role: one correction, 5 useful phrases, a mini dialogue, and a practice task.`,
+      vocab: `Teach 5 job-market words relevant to this candidate's industry and skills. Give a simple meaning, a role-specific example, and a quick recall exercise.`,
+      quiz: `Create a 5-question interactive quiz about this candidate's target role and skills. Include answers, brief explanations, and a score action.`,
+      jokes: `Create 3 clean, relatable workplace jokes for an Indian job seeker in this industry, then add one useful career lesson from the theme.`,
+      success_stories: `Share a realistic, clearly labelled illustrative success story matching this candidate's stage, location, and industry. Extract 3 repeatable actions; do not present invented facts as news.`,
+      motivation: `Write an encouraging but practical message for this candidate. Tie it to their goal and location, then give a concrete 7-day challenge rather than generic inspiration.`,
     };
 
     const live = await loadLive(section.id, profile);
@@ -485,20 +522,20 @@ function SectionCard({
 
     const liveContext = live?.items?.length
       ? [
-          `Live sources fetched at ${new Date(live.fetchedAt).toLocaleString("en-IN")}.`,
+          `Live sources fetched at ${new Date(live.fetchedAt).toLocaleString("en-IN")}. Candidate context: ${profileCtx}.`,
           ...live.items.slice(0, 5).map((item, index) => {
             const published = item.publishedAt ? ` | ${new Date(item.publishedAt).toLocaleDateString("en-IN")}` : "";
-            return `${index + 1}. ${item.title} — ${item.source}${published}`;
+            return `${index + 1}. ${item.title} — ${item.source}${published}\nSummary: ${item.summary || "No summary supplied."}\nLocation/company: ${item.location || item.company || "Not stated"}\nLink: ${item.link}`;
           }),
         ].join("\n")
-      : "No live items were available. Write a concise fallback summary only.";
+      : "No live items were available. Say that fresh source items are unavailable and provide clearly labelled general guidance only.";
 
-    const prompt = `${prompts[section.id]}\n\nGround the summary in these live items:\n${liveContext}`;
+    const prompt = `${prompts[section.id]}\n\nGround every current fact in these live items:\n${liveContext}\n\nReturn plain text in exactly this structure:\nWHY IT MATTERS:\nOne concise candidate-specific explanation.\nKEY TAKEAWAYS:\n1. Fact or insight tied to the source or clearly labelled general guidance.\n2. Another useful insight.\n3. Another useful insight.\nYOUR NEXT MOVE:\nOne concrete action the candidate can take today.\nTHIS WEEK:\n1. Day 1-2 action.\n2. Day 3-5 action.\n3. Day 6-7 proof/check-in.\nKeep it specific, varied, and interesting. Do not repeat the title or write generic filler.`;
     await stream(
       prompt,
-      `You are India's best career journalist writing the "${section.title}" section. Be specific, practical, and actionable. Today's date: ${new Date().toLocaleDateString("en-IN")}. Use only the supplied live items for current facts; never invent a job, employer, date, salary, vacancy, or headline. If the live list is empty, say that fresh items are unavailable and give general guidance clearly labelled as general guidance.`,
+      `You are EduBharat's careful career editor writing "${section.title}" for one Indian candidate. Today's date: ${new Date().toLocaleDateString("en-IN")}. Be warm, concrete, and useful. Never invent a current job, employer, date, salary, vacancy, scheme, or news fact. Distinguish source-backed facts from general advice. Avoid repeating the same advice across sections. Use the candidate's location, goal, experience, industry, and skills naturally.`,
       undefined,
-      { endpoint: "/api/ai/gemini-stream", maxTokens: 8192 },
+      { endpoint: "/api/ai/stream", maxTokens: 2200 },
     );
   }, [loadLive, loaded, isStreaming, profile, section, stream, track]);
 
