@@ -93,7 +93,7 @@ export default function InterviewDetailScreen() {
     );
   }
 
-  if (error || session === 'not-found') {
+  if (error || session === null || session === 'not-found') {
     return (
       <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
         <Header title="Interview Detail" showBack />

@@ -55,3 +55,4 @@
 - [CMS content overrides](cms-content-overrides.md) — DB stores ONLY overrides; client inline fallback is the source of truth; registry is editor-discovery only; never seed defaults into DB.
 - [Publish package firewall](publish-package-firewall.md) — Replit publish blocks npm's tar package; Expo's Linux path uses system tar, so keep a local tar shim override.
 - [Live learning exports](live-learning-exports.md) — shared text/CSV downloads and Pause-vs-End semantics keep learning outputs portable and sessions recoverable.
+- [Expo publish Metro port](expo-publish-metro-port.md) — static mobile builds must avoid fixed Metro 8081 conflicts in the multi-artifact workspace.
