@@ -41,6 +41,7 @@ export function useGeminiStream() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const stream = useCallback(
     async (
@@ -53,6 +54,7 @@ export function useGeminiStream() {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      const requestId = ++requestIdRef.current;
 
       setIsStreaming(true);
       setText("");
@@ -73,6 +75,7 @@ export function useGeminiStream() {
 
         let fullText = "";
         for await (const chunk of parseSSE(response, controller.signal)) {
+          if (requestId !== requestIdRef.current) return "";
           fullText += chunk;
           setText(fullText);
           onChunk?.(chunk, fullText);
@@ -89,7 +92,9 @@ export function useGeminiStream() {
         setError(friendly);
         return "";
       } finally {
-        setIsStreaming(false);
+        if (requestId === requestIdRef.current) {
+          setIsStreaming(false);
+        }
       }
     },
     []
@@ -101,12 +106,12 @@ export function useGeminiStream() {
    * Safe to call even when no stream is running.
    */
   const reset = useCallback(() => {
+    requestIdRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
     setText("");
     setError(null);
-    // isStreaming is cleared by the aborted stream's finally block;
-    // if no stream is running it's already false, so nothing to do.
+    setIsStreaming(false);
   }, []);
 
   return { text, isStreaming, error, stream, reset };

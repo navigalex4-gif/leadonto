@@ -175,13 +175,31 @@ const DEFAULT_PROFILE: Profile = {
   age: "22",
   education: "Graduate",
   status: "Fresher",
-  skills: "Communication, MS Excel",
-  salaryExpectation: "₹3-5 LPA",
+  skills: "",
+  salaryExpectation: "",
   careerGoal: "Private Job",
   language: "English",
   location: "Maharashtra",
   industry: "Technology",
 };
+
+function feedProfileContext(section: typeof SECTIONS[number], profile: Profile): string {
+  const fields: string[] = [];
+  const add = (label: string, value: string) => {
+    if (value.trim()) fields.push(`${label}: ${value}`);
+  };
+
+  add("Status", profile.status);
+  add("Education", profile.education);
+  add("Goal", profile.careerGoal);
+  add("Industry", profile.industry);
+  add("Skills", profile.skills);
+  if (usesLocation(section.id)) add("Location", profile.location);
+  if (VACANCY_SECTIONS.has(section.id) || section.id === "salary_insights") {
+    add("Salary expectation", profile.salaryExpectation);
+  }
+  return fields.join(" | ");
+}
 
 function scoreColor(score: number): string {
   if (score >= 80) return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -543,17 +561,7 @@ function SectionCard({
     setLoaded(true);
     track("Rozgar Samachar", section.id);
 
-    const profileCtx = [
-      `Name: ${profile.name || "Indian professional"}`,
-      `Age: ${profile.age}`,
-      `Education: ${profile.education}`,
-      `Status: ${profile.status}`,
-      `Skills: ${profile.skills}`,
-      `Salary expectation: ${profile.salaryExpectation}`,
-      `Goal: ${profile.careerGoal}`,
-      `Industry: ${profile.industry}`,
-      ...(usesLocation(section.id) ? [`Location: ${profile.location}`] : []),
-    ].join(" | ");
+    const profileCtx = feedProfileContext(section, profile);
 
     const prompts: Record<SectionId, string> = {
       top_jobs: `Explain only the real job cards supplied below for this candidate. Compare the best 2-3 matches by role, location, skills, and entry fit; do not create vacancies.`,
@@ -573,11 +581,17 @@ function SectionCard({
       vocab: `Teach 5 job-market words relevant to this candidate's industry and skills. For every word give pronunciation help, a simple meaning, a role-specific example, a common misuse, and a quick recall exercise.`,
       quiz: `Create a 5-question interactive quiz about this candidate's target role and skills. Include the answer, a brief explanation of why it is correct, and a score-based next step.`,
       jokes: `Create 3 clean, relatable workplace jokes for an Indian job seeker in this industry, then add one useful career lesson from the theme.`,
-      success_stories: `Share a realistic, clearly labelled illustrative success story matching this candidate's stage, location, and industry. Extract 3 repeatable actions; do not present invented facts as news.`,
-      motivation: `Write an encouraging but practical message for this candidate. Tie it to their goal and location, then give a concrete 7-day challenge rather than generic inspiration.`,
+      success_stories: `Share a realistic, clearly labelled illustrative success story matching this candidate's stage, goal, and industry. Extract 3 repeatable actions; do not present invented facts as news.`,
+      motivation: `Write an encouraging but practical message for this candidate. Tie it to their goal and current stage, then give a concrete 7-day challenge rather than generic inspiration.`,
     };
 
-    const live = await loadLive(section.id, profile);
+    const live = await loadLive(section.id, {
+      ...(usesLocation(section.id) ? { location: profile.location } : {}),
+      industry: profile.industry,
+      status: profile.status,
+      goal: profile.careerGoal,
+      skills: profile.skills,
+    });
     if (VACANCY_SECTIONS.has(section.id)) {
       setLoaded(true);
       return;
@@ -602,7 +616,10 @@ function SectionCard({
     );
   }, [loadLive, loaded, isStreaming, profile, section, stream, track]);
 
-  const visibleLiveItems = (liveData?.items ?? []).filter(item => !hiddenJobIds.has(makeJobId(item.link)));
+  const visibleLiveItems = (liveData?.items ?? []).filter(item =>
+    !hiddenJobIds.has(makeJobId(item.link)) &&
+    (!VACANCY_SECTIONS.has(section.id) || item.kind === "vacancy"),
+  );
 
   return (
     <div className={`space-y-2 ${expanded ? "col-span-full" : ""}`}>
@@ -852,8 +869,8 @@ function RozgarSamacharContent() {
     status: studentProfile.experienceLevel || DEFAULT_PROFILE.status,
     skills: Array.isArray(studentProfile.skills) && studentProfile.skills.length > 0
       ? studentProfile.skills.join(", ")
-      : DEFAULT_PROFILE.skills,
-    salaryExpectation: studentProfile.expectedSalary || DEFAULT_PROFILE.salaryExpectation,
+      : "",
+    salaryExpectation: studentProfile.expectedSalary || "",
     careerGoal: studentProfile.careerGoal || DEFAULT_PROFILE.careerGoal,
     language: studentProfile.preferredLanguage || DEFAULT_PROFILE.language,
     location: studentProfile.preferredCity || studentProfile.location || DEFAULT_PROFILE.location,
@@ -919,8 +936,8 @@ function RozgarSamacharContent() {
       status: studentProfile.experienceLevel || p.status,
       skills: Array.isArray(studentProfile.skills) && studentProfile.skills.length > 0
         ? studentProfile.skills.join(", ")
-        : p.skills,
-      salaryExpectation: studentProfile.expectedSalary || p.salaryExpectation,
+        : "",
+      salaryExpectation: studentProfile.expectedSalary || "",
       careerGoal: studentProfile.careerGoal || p.careerGoal,
       language: studentProfile.preferredLanguage || p.language,
       location: studentProfile.preferredCity || studentProfile.location || p.location,
@@ -929,7 +946,7 @@ function RozgarSamacharContent() {
   }, [studentProfile]);
 
   useEffect(() => {
-    if (hasValidProfile) void loadLivePulse("business_news", profile);
+    if (hasValidProfile) void loadLivePulse("top_jobs", profile);
   }, [
     hasValidProfile,
     loadLivePulse,
@@ -975,7 +992,12 @@ function RozgarSamacharContent() {
     return counts;
   }, [allJobs]);
 
-  const visibleLivePulse = useMemo(() => (livePulse?.items ?? []).filter(item => !hiddenJobIds.has(makeJobId(item.link))).slice(0, 3), [livePulse, hiddenJobIds]);
+  const visibleLivePulse = useMemo(
+    () => (livePulse?.items ?? [])
+      .filter(item => item.kind === "vacancy" && !hiddenJobIds.has(makeJobId(item.link)))
+      .slice(0, 3),
+    [livePulse, hiddenJobIds],
+  );
   const visibleFeedSections = useMemo(
     () => SECTIONS.filter(section => feedFilter === "all" || sectionFeedCategory(section) === feedFilter),
     [feedFilter],
@@ -1573,7 +1595,7 @@ function RozgarSamacharContent() {
                 <div className="rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-indigo-600 p-5 text-white shadow-sm">
                   <p className="text-xs uppercase tracking-[0.18em] text-white/70 font-bold">Your career desk</p>
                   <h2 className="mt-1 text-xl font-display font-bold">Fresh guidance for {profile.careerGoal}</h2>
-                  <p className="mt-1 text-sm text-white/80">Live career updates and practical next steps for {profile.location}.</p>
+                  <p className="mt-1 text-sm text-white/80">Live career updates and practical next steps for your goal and target roles.</p>
                 </div>
                 <div className="rounded-2xl border bg-white p-4 shadow-sm">
                   <div className="mb-3 flex items-center justify-between gap-3">

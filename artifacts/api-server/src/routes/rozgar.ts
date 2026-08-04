@@ -177,9 +177,14 @@ function sectionContext(params: URLSearchParams) {
     industry: params.get("industry")?.trim() || "technology",
     status: params.get("status")?.trim() || "candidate",
     goal: params.get("goal")?.trim() || "Private Job",
-    skills: params.get("skills")?.trim() || "communication, Excel",
+    skills: params.get("skills")?.trim() || "",
   };
 }
+
+const LOCATION_AWARE_SECTIONS = new Set<RozgarSection>([
+  "top_jobs", "govt_jobs", "private_jobs", "internships", "govt_schemes",
+  "business_news", "salary_insights",
+]);
 
 function feedSourcesForSection(section: RozgarSection, ctx: ReturnType<typeof sectionContext>): FeedSource[] {
   const skills = ctx.skills.split(",").map((s) => s.trim()).filter(Boolean).join(" ");
@@ -289,15 +294,19 @@ const FEED_RELEVANCE_TERMS: Record<RozgarSection, string[]> = {
   motivation: ["motivation", "career", "job", "inspiration", "success"],
 };
 
-function profileTerms(ctx: ReturnType<typeof sectionContext>) {
-  return [ctx.location, ctx.industry, ...ctx.skills.split(",")].map(term => term.trim().toLowerCase()).filter(term => term.length >= 3);
+function profileTerms(section: RozgarSection, ctx: ReturnType<typeof sectionContext>) {
+  return [
+    ...(LOCATION_AWARE_SECTIONS.has(section) ? [ctx.location] : []),
+    ctx.industry,
+    ...ctx.skills.split(","),
+  ].map(term => term.trim().toLowerCase()).filter(term => term.length >= 3);
 }
 
 function isRelevantFeedItem(item: LiveItem, section: RozgarSection, ctx: ReturnType<typeof sectionContext>) {
   const haystack = `${item.title} ${item.summary} ${item.source}`.toLowerCase();
   if (NON_INDIA_TITLE_TERMS.some(term => haystack.includes(term))) return false;
   const sectionMatch = FEED_RELEVANCE_TERMS[section].some(term => haystack.includes(term));
-  const candidateMatch = profileTerms(ctx).some(term => haystack.includes(term));
+  const candidateMatch = profileTerms(section, ctx).some(term => haystack.includes(term));
   // Keep a source when it is on-topic and either profile-specific or from a
   // query already narrowed to the candidate. This removes unrelated Google
   // News noise without making a useful general career brief empty.

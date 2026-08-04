@@ -98,6 +98,10 @@ function EnglishGuruContent() {
   const livePausedRef = useRef(false);
   useEffect(() => { liveChatRef.current = liveChat; }, [liveChat]);
   const handleConvPhraseRef = useRef<((p: string) => void) | null>(null);
+  // Every live turn captures this generation. Pause/end invalidates the
+  // generation before aborting the fetch, so a late promise resolution cannot
+  // append or speak an answer from the cancelled turn.
+  const liveTurnGenerationRef = useRef(0);
   /**
    * aiBusyRef — true from the moment a phrase is accepted until the AI finishes
    * thinking AND speaking. Guards against a late/echoed recognition result
@@ -221,6 +225,19 @@ function EnglishGuruContent() {
   const lastAiSpeechRef = useRef("");
   const lastAiSpeechEndRef = useRef(0);
 
+  const cancelActiveTurn = useCallback(() => {
+    liveTurnGenerationRef.current += 1;
+    resetAI();
+    synth.stop();
+    speechRef.current.stop();
+    aiBusyRef.current = false;
+    if (speakSafetyTimerRef.current) {
+      clearTimeout(speakSafetyTimerRef.current);
+      speakSafetyTimerRef.current = null;
+    }
+    silenceProbeActiveRef.current = false;
+  }, [resetAI, synth]);
+
   const handleSelectTutor = useCallback((id: string) => {
     const t = getTutorById(id);
     if (!t) return;
@@ -259,6 +276,7 @@ function EnglishGuruContent() {
       // the mic and busy flag can't stay stuck — otherwise the conversation would
       // freeze right after a teacher switch.
       const releaseGreeting = () => {
+        if (!liveChatRef.current || livePausedRef.current) return;
         if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
         aiBusyRef.current = false;
         if (!liveChatRef.current) return;
@@ -310,6 +328,7 @@ function EnglishGuruContent() {
     // Real user phrase resets the silence-nudge counter
     if (!isSilenceProbe) { silenceProbeCountRef.current = 0; silenceProbeActiveRef.current = false; }
     aiBusyRef.current = true;
+    const turnGeneration = liveTurnGenerationRef.current;
     if (liveChatRef.current) {
       // Live voice mode: hard-stop the mic and block it for the whole
       // think+speak cycle so it can never capture the AI's own voice from the
@@ -359,6 +378,13 @@ function EnglishGuruContent() {
             }
           } catch { /* web context is enrichment only — never block conversation */ }
         }
+        if (
+          turnGeneration !== liveTurnGenerationRef.current ||
+          (liveChatRef.current && livePausedRef.current)
+        ) {
+          if (turnGeneration === liveTurnGenerationRef.current) aiBusyRef.current = false;
+          return;
+        }
 
         const isEnglishNative = uiLang === "English";
         const languageGuidance = isEnglishNative
@@ -391,8 +417,19 @@ Rules for spoken replies:
           undefined,
           { maxTokens: 160 }
         );
+        if (
+          turnGeneration !== liveTurnGenerationRef.current ||
+          (liveChatRef.current && livePausedRef.current)
+        ) {
+          if (turnGeneration === liveTurnGenerationRef.current) aiBusyRef.current = false;
+          return;
+        }
         /** Release the busy lock and reopen the mic — called from TTS onEnd OR the safety timer. */
         const releaseTurn = () => {
+          if (
+            turnGeneration !== liveTurnGenerationRef.current ||
+            (liveChatRef.current && livePausedRef.current)
+          ) return;
           if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
           aiBusyRef.current = false;
           if (liveChatRef.current) {
@@ -454,6 +491,7 @@ Rules for spoken replies:
           releaseTurn();
         }
       } catch {
+        if (turnGeneration !== liveTurnGenerationRef.current) return;
         // Never leave the busy flag latched on an unexpected failure, or all
         // future turns (live and typed) would be silently blocked.
         aiBusyRef.current = false;
@@ -493,19 +531,15 @@ Rules for spoken replies:
     // Must run before any await so Chrome still considers this a gesture-initiated play.
     unlockAudio();
     if (liveChat) {
+      cancelActiveTurn();
       setLiveChat(false);
       setLivePaused(false);
       livePausedRef.current = false;
       setConvFlowState("idle");
-      speech.stop();
-      synth.stop();
-      // synth.stop() does not fire the speak() onEnd callback, so clear the
-      // busy flag here or the next session's first turn would be blocked.
-      aiBusyRef.current = false;
-      if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
       silenceProbeCountRef.current = 0;
       return;
     }
+    liveTurnGenerationRef.current += 1;
     // Don't decide guest vs. paid until auth has resolved — otherwise a signed-in
     // user could slip onto the free path before /api/auth/me returns.
     if (authLoading) {
@@ -550,27 +584,23 @@ Rules for spoken replies:
     // Use ref so the callback always calls the latest handleConvPhrase even
     // after its deps (e.g. isStreaming) change — avoids stale closures.
     speech.startContinuous(p => handleConvPhraseRef.current?.(p));
-  }, [liveChat, speech, synth, user, authLoading, toast]);
+  }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn]);
 
   const togglePauseLiveChat = useCallback(() => {
     if (!liveChat) return;
     const next = !livePausedRef.current;
     livePausedRef.current = next;
     setLivePaused(next);
-    speech.stop();
-    synth.stop();
-    aiBusyRef.current = false;
-    if (speakSafetyTimerRef.current) {
-      clearTimeout(speakSafetyTimerRef.current);
-      speakSafetyTimerRef.current = null;
-    }
     if (next) {
+      // Invalidate first, then abort/stop everything. This makes pause
+      // immediate even while the AI fetch is between await points.
+      cancelActiveTurn();
       setConvFlowState("idle");
     } else {
       setConvFlowState("user-speaking");
       speech.startContinuous(p => handleConvPhraseRef.current?.(p));
     }
-  }, [liveChat, speech, synth]);
+  }, [liveChat, speech, cancelActiveTurn]);
 
   // Keep a live reference to the "stop everything" action for the metering timer.
   const stopLiveRef = useRef<() => void>(() => {});
@@ -580,11 +610,9 @@ Rules for spoken replies:
       setLivePaused(false);
       livePausedRef.current = false;
       setConvFlowState("idle");
-      speech.stop();
-      synth.stop();
-      aiBusyRef.current = false;
+      cancelActiveTurn();
     };
-  }, [speech, synth]);
+  }, [cancelActiveTurn]);
 
   // Meter live conversation: signed-in users spend 1 credit per 12-min block;
   // guests burn down a free 15-minute trial. Both end gracefully when exhausted.
