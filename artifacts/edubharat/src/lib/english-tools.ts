@@ -15,6 +15,21 @@ export type Mode = typeof MODES[number]["value"];
 
 /** Remove markdown so the TTS engine reads clean, natural speech. */
 export function stripMarkdownForSpeech(text: string) {
+  return formatGeneratedText(text)
+    .replace(/^\s*[•·]\s+/gm, "")
+    .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * Turn model output into clean, readable text for the UI.
+ *
+ * Models sometimes ignore the plain-text instruction and return Markdown.
+ * Showing the syntax makes lessons and tool results feel unfinished, so keep
+ * one normalizer for every generated-text surface.
+ */
+export function formatGeneratedText(text: string) {
   return text
     .replace(/```[\s\S]*?```/g, "")
     .replace(/`([^`]+)`/g, "$1")
@@ -22,10 +37,14 @@ export function stripMarkdownForSpeech(text: string) {
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_{1,2}([^_]+)_{1,2}/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+[.)]\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
     .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-    .replace(/\s{2,}/g, " ")
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "")
+    .replace(/^\s*\|[-:| ]+\|\s*$/gm, "")
+    .replace(/^\s*\|/gm, "")
+    .replace(/\|\s*$/gm, "")
+    .replace(/[#*_]+/g, "")
+    .replace(/\s+$/gm, "")
     .trim();
 }
 

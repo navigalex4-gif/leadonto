@@ -24,7 +24,7 @@ import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
   Users, FileText, FileDown,
 } from "lucide-react";
-import { stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
+import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
 
 function normalizeHelperLanguage(language: string): string {
@@ -202,6 +202,7 @@ function EnglishGuruContent() {
     synth.speak(firstSentence, language, onEnd, {
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
+      rate: opts.rate ?? 1.04,
       ...opts,
     });
   }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
@@ -265,8 +266,8 @@ function EnglishGuruContent() {
         // suppress any recognised result for 2s so room echo of the greeting
         // (which lingers on laptop/phone speakers) is never processed.
         lastAiSpeechEndRef.current = Date.now();
-        speechRef.current.suppressUntil(Date.now() + 2000);
-        speechRef.current.blockFor(500);
+        speechRef.current.suppressUntil(Date.now() + 3200);
+        speechRef.current.blockFor(1200);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -400,8 +401,8 @@ Rules for spoken replies:
             // The content-based echo guard (6s, 85% overlap) is an additional
             // backstop for devices with slow echo decay.
             lastAiSpeechEndRef.current = Date.now();
-            speechRef.current.suppressUntil(Date.now() + 2000);
-            speechRef.current.blockFor(500);
+            speechRef.current.suppressUntil(Date.now() + 3200);
+            speechRef.current.blockFor(1200);
             setConvFlowState("user-speaking");
           } else {
             setConvFlowState("idle");
@@ -444,7 +445,7 @@ Rules for spoken replies:
           // the English runs on the tutor voice. (speechLang above still drives
           // only which language we LISTEN in next, not the voice.)
           speakRef.current(cleanResponse, "English", releaseTurn, {
-            rate: 0.97,
+            rate: 1.04,
             nativeLanguage: uiLang !== "English" ? uiLang : undefined,
           });
         } else {
@@ -891,13 +892,13 @@ Rules for spoken replies:
                   )}
                   {isStreaming && aiText && (
                     <div className="flex gap-2 justify-start">
-                      <div className="max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">{stripMarkdownForSpeech(aiText)}</div>
+                      <div className="max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">{formatGeneratedText(aiText)}</div>
                     </div>
                   )}
                   {[...convHistory].reverse().map((msg, i) => (
                     <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
-                        {msg.text}
+                         {msg.role === "user" ? msg.text : formatGeneratedText(msg.text)}
                       </div>
                     </div>
                   ))}

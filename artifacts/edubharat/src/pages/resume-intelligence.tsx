@@ -14,6 +14,7 @@ import {
   ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
+import { formatGeneratedText } from "@/lib/english-tools";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -561,7 +562,7 @@ ${paragraphs}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-4">
             <p className="text-sm font-semibold text-primary mb-2">Analysing your resume…</p>
-            <div className="text-sm text-secondary whitespace-pre-wrap leading-relaxed line-clamp-10">{streamText}</div>
+            <div className="text-sm text-secondary whitespace-pre-wrap leading-relaxed line-clamp-10">{formatGeneratedText(streamText)}</div>
           </CardContent>
         </Card>
       )}
@@ -590,7 +591,7 @@ ${paragraphs}
                 <Briefcase className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-blue-800 mb-1">Experience Summary</p>
-                  <p className="text-sm text-blue-900 leading-relaxed">{analysis.experienceSummary}</p>
+                  <p className="text-sm text-blue-900 leading-relaxed">{formatGeneratedText(analysis.experienceSummary)}</p>
                 </div>
               </CardContent>
             </Card>

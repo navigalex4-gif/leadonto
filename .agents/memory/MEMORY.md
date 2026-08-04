@@ -12,6 +12,7 @@
 - [Interview structured format](interview-structured-format.md) — weighted 9-competency BFSI scorecard (1–5); ALL parameters scored every interview (no length-gating); Functional is recurring core (breadth-first rotation, never back-to-back); areaForBeat NEEDS ctx {durationMin,experience,type,roleLabel}; 2-attempt rule; warm tone; ~5s think; web-only.
 - [Interview report generation](interview-report-generation.md) — split into 2 AI calls (ratings survive truncation); AI gives per-competency 1–5 ratings ONLY (all 9) — weighted/overall(×20)/recommendation computed client-side, never AI; competencies in feedbackJson; back-compat improvements↔concerns, old depthProbe key ignored.
 - [Rozgar profile feed](rozgar-profile-feed.md) — Rozgar should stay candidate-driven, with profile basics shaping every section and a live hiring pulse before AI summaries.
+- [Generated content display](generated-content-display.md) — normalize AI output into readable plain text and keep listen/save actions consistent across reusable generated content.
 - [Voice switching should stop playback](voice-switch-stop-playback.md) — changing tutor voice must cancel active speech immediately so male/female voices never mix.
 - [Compact page scroll shells](compact-page-scroll-shells.md) — full-viewport routes still need a real scroll path; inner panes alone can make the page feel frozen.
 - [Progress tab shell gating](progress-tab-gating.md) — multi-tab dashboards should always render the tab shell; per-tab empty states handle missing data.

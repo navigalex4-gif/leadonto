@@ -26,6 +26,7 @@ import {
   User, Settings, Search, ExternalLink, X, Briefcase, SlidersHorizontal, MapPin,
   Share2, EyeOff, Filter, Calendar, IndianRupee, Trash2,
 } from "lucide-react";
+import { formatGeneratedText } from "@/lib/english-tools";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -56,26 +57,6 @@ type SectionId = typeof SECTIONS[number]["id"];
 const VACANCY_SECTIONS = new Set<SectionId>([
   "top_jobs", "govt_jobs", "private_jobs", "internships", "scholarships",
 ]);
-
-type FilterTabId = "all" | "jobs" | "career" | "news" | "english" | "inspire";
-
-const SECTION_CATEGORIES: Record<FilterTabId, SectionId[]> = {
-  all: [],
-  jobs: ["top_jobs", "govt_jobs", "private_jobs", "internships", "scholarships"],
-  career: ["skill_trends", "career_growth", "salary_insights", "govt_schemes"],
-  news: ["ai_news", "tech_news", "business_news"],
-  english: ["english_corner", "vocab", "quiz", "interview_qs"],
-  inspire: ["success_stories", "motivation", "jokes"],
-};
-
-const FILTER_TABS: { id: FilterTabId; label: string; emoji: string }[] = [
-  { id: "all", label: "All", emoji: "🗂️" },
-  { id: "jobs", label: "Jobs", emoji: "💼" },
-  { id: "career", label: "Career", emoji: "🚀" },
-  { id: "news", label: "News", emoji: "📰" },
-  { id: "english", label: "English", emoji: "🇬🇧" },
-  { id: "inspire", label: "Inspire", emoji: "⭐" },
-];
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Assam", "Bihar", "Delhi", "Gujarat", "Haryana",
@@ -276,6 +257,25 @@ function JobCard({
   );
 }
 
+function CareerNewsCard({ item }: { item: RozgarLiveItem }) {
+  return (
+    <article className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-colors">
+      <div className="flex items-center gap-2 mb-2">
+        <Badge variant="outline" className="rounded-full text-[10px] text-blue-700 border-blue-200 bg-blue-50">Career news</Badge>
+        <span className="text-[11px] text-muted-foreground truncate">{item.source}</span>
+      </div>
+      <h3 className="font-semibold text-secondary text-sm leading-snug">{formatGeneratedText(item.title)}</h3>
+      {item.summary && <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-3">{formatGeneratedText(item.summary)}</p>}
+      <div className="flex items-center justify-between gap-2 mt-3">
+        {item.publishedAt && <span className="text-[11px] text-muted-foreground">{new Date(item.publishedAt).toLocaleDateString("en-IN")}</span>}
+        <a href={item.link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:underline ml-auto">
+          Read source <ExternalLink className="inline w-3 h-3 ml-1" />
+        </a>
+      </div>
+    </article>
+  );
+}
+
 // ─── Section card ─────────────────────────────────────────────────────────────
 
 function SectionCard({
@@ -331,19 +331,19 @@ function SectionCard({
     ].join(" | ");
 
     const prompts: Record<SectionId, string> = {
-      top_jobs: `Create a commercial career bulletin with 5 active-looking opportunities in India today for this profile: ${profileCtx}. Include role, employer type, city, salary range, skills match, and a short apply-now note.`,
-      govt_jobs: `Create a government-job digest with 5 active-looking opportunities in India relevant to: ${profileCtx}. Include exam name, vacancies, last date, eligibility, and the best official application path.`,
-      private_jobs: `Create a private-sector hiring digest with 5 active-looking job openings in India relevant to: ${profileCtx}. Include company type, role, CTC band, skills needed, and why each role fits this candidate.`,
-      internships: `Create 5 internship/apprenticeship opportunities in India for: ${profileCtx}. Include organization type, stipend, duration, preferred skills, and how to apply.`,
-      scholarships: `Create 5 active-looking scholarships in India for: ${profileCtx}. Include scholarship name, amount, eligibility, deadline, and who should apply.`,
-      skill_trends: `Write a market-style skills watch for India's ${profile.industry} industry right now. Focus on the 5 most in-demand skills and how ${profile.status} in ${profile.location} can build them fast.`,
-      career_growth: `Give a personalized 3-step career growth plan for: ${profileCtx}. Include specific actions, timelines, outcomes, and a realistic salary progression path.`,
-      ai_news: `Summarize 3 important AI developments this week relevant to jobs and careers in India. Explain in ${profile.language} with practical impact on hiring.`,
-      tech_news: `Summarize 3 technology news stories relevant to careers and jobs in India. Write in ${profile.language} with a practical newsroom tone.`,
-      business_news: `Summarize 3 business news stories relevant to job seekers in India. Write in ${profile.language} and focus on hiring, growth, and salary impact.`,
-      govt_schemes: `List 3 government schemes in India that can benefit: ${profileCtx}. Include scheme name, benefits, eligibility, how to apply.`,
-      salary_insights: `Explain current salary ranges for ${profile.careerGoal} in ${profile.industry} in ${profile.location}. Give fresher, mid, senior levels and compare 2-3 cities.`,
-      interview_qs: `Give 5 common interview questions for ${profile.careerGoal} in ${profile.industry} with ideal answers. Tailor for ${profile.status}.`,
+      top_jobs: `Explain the real job listings supplied below for this candidate: ${profileCtx}. Do not create or suggest any vacancy; the listing cards are the source of truth.`,
+      govt_jobs: `Explain the real government-related listings supplied below for this candidate: ${profileCtx}. Do not invent an exam, deadline, vacancy, eligibility rule, or application path.`,
+      private_jobs: `Explain the real private-sector listings supplied below for this candidate: ${profileCtx}. Do not invent an employer, salary, role, or deadline.`,
+      internships: `Explain the real internship or apprenticeship listings supplied below for this candidate: ${profileCtx}. Do not invent an opportunity, stipend, duration, or deadline.`,
+      scholarships: `Explain the real scholarship-related items supplied below for this candidate: ${profileCtx}. Do not invent a scholarship, amount, eligibility rule, or deadline.`,
+      skill_trends: `Using the live items below, identify 3 skills that matter for ${profile.industry} careers. For each, explain why it matters to a ${profile.status} in ${profile.location}, one free practice idea, and a 7-day action.`,
+      career_growth: `Create a practical 3-step growth plan for ${profileCtx}. Use live items where relevant, label general advice clearly, and avoid promising a salary or outcome.`,
+      ai_news: `Summarize the most useful AI developments in the live items below for Indian job seekers. For each, explain what it changes for ${profile.industry} work and one action the candidate can take.`,
+      tech_news: `Summarize the most useful technology developments in the live items below for Indian job seekers. Explain the effect on ${profile.industry} roles and one practical action.`,
+      business_news: `Summarize the business and hiring signals in the live items below for this candidate. Explain what matters for ${profile.careerGoal} in ${profile.location} and what to do next.`,
+      govt_schemes: `Using the supplied live items, explain up to 3 relevant government schemes for ${profileCtx}. If a fact is missing, tell the reader to verify it on the official site.`,
+      salary_insights: `Give salary negotiation and research guidance for ${profileCtx}. Use only salary facts in the supplied live items; otherwise label all ranges as general guidance and tell the reader what to verify.`,
+      interview_qs: `Create 5 useful interview questions for ${profile.careerGoal} in ${profile.industry}, tailored to ${profile.status}. Give a short answer structure and one practice action for each.`,
       english_corner: `Write a short English lesson for ${profile.status} in India who speaks ${profile.language}. Include a grammar tip, 5 useful phrases, and a practice exercise.`,
       vocab: `Give 5 English words every ${profile.status} in ${profile.industry} should know. Include meaning in ${profile.language} and a job-market example sentence.`,
       quiz: `Create a 5-question quiz testing knowledge relevant to ${profile.industry} careers. Include answers and explanations. Language: ${profile.language}.`,
@@ -407,7 +407,7 @@ function SectionCard({
               <div className="space-y-3">
                 {visibleLiveItems.slice(0, 4).map(item => {
                   const enriched = enrichJob(item);
-                  return (
+                  return VACANCY_SECTIONS.has(section.id) ? (
                     <JobCard
                       key={`${item.title}-${item.link}`}
                       item={enriched}
@@ -418,7 +418,7 @@ function SectionCard({
                       saved={isJobSaved(makeJobId(item.link))}
                       matchScore={computeMatchScore(enriched, studentProfile)}
                     />
-                  );
+                  ) : <CareerNewsCard key={`${item.title}-${item.link}`} item={item} />;
                 })}
               </div>
             </div>
@@ -426,7 +426,7 @@ function SectionCard({
           {!VACANCY_SECTIONS.has(section.id) && (
             <div className="flex justify-end gap-2 py-2 flex-wrap">
               <Button variant="ghost" size="sm" className="text-xs" disabled={isStreaming || !text}
-                onClick={() => { synth.stop(); synth.speak(text, profile.language); }}>
+                onClick={() => { synth.stop(); synth.speak(formatGeneratedText(text), profile.language); }}>
                 <Volume2 className="w-3.5 h-3.5 mr-1" />{isStreaming ? "Loading…" : "Listen"}
               </Button>
               <Button variant="ghost" size="sm" className="text-xs" disabled={saved}
@@ -438,7 +438,7 @@ function SectionCard({
             </div>
           )}
           {!VACANCY_SECTIONS.has(section.id) && (
-            <div className="text-sm text-secondary leading-relaxed whitespace-pre-wrap">{text}</div>
+            <div className="text-sm text-secondary leading-relaxed whitespace-pre-wrap">{formatGeneratedText(text)}</div>
           )}
         </CardContent>
       </Card>
@@ -649,7 +649,6 @@ function RozgarSamacharContent() {
   );
   const needsGate = !hasValidProfile;
   const [activeTab, setActiveTab] = useState<"jobs" | "feed" | "saved">("jobs");
-  const [activeFilterTab, setActiveFilterTab] = useState<FilterTabId>("all");
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
 
   const [filters, setFilters] = useState<FilterState>(() => readFiltersFromUrl());
@@ -657,6 +656,7 @@ function RozgarSamacharContent() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   const hasFilters = !!(
+    hasValidProfile ||
     filters.keyword.trim() ||
     filters.city.trim() ||
     filters.workMode !== "all" ||
@@ -669,7 +669,7 @@ function RozgarSamacharContent() {
   const { data: allJobs, isLoading: jobsLoading, error: jobsError, reload, source: jobsSource } = useRozgarJobs(
     studentProfile,
     { keyword: filters.keyword, city: filters.city, experience: filters.experience, sector: filters.sector },
-    hasFilters,
+    hasValidProfile,
   );
   const {
     data: livePulse,
@@ -698,9 +698,9 @@ function RozgarSamacharContent() {
   }, [studentProfile]);
 
   useEffect(() => {
-    if (hasFilters) void loadLivePulse("top_jobs", profile);
+    if (hasValidProfile) void loadLivePulse("business_news", profile);
   }, [
-    hasFilters,
+    hasValidProfile,
     loadLivePulse,
     profile.location,
     profile.careerGoal,
@@ -927,35 +927,14 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
   return (
     <div className="rozgar-theme min-h-full overflow-y-auto container mx-auto px-4 py-4 max-w-[1400px] bg-gradient-to-br from-teal-50/50 via-white to-indigo-50/50">
       <div className="flex min-h-full flex-col gap-4">
-        {/* ── Sticky profile + filter bar ── */}
+        {/* ── Compact profile bar ── */}
         <div className="sticky top-16 z-20 -mx-4 px-4 py-2 bg-white/95 backdrop-blur-sm border-b flex items-center gap-2 flex-wrap">
           <span className="text-sm font-semibold text-secondary truncate shrink-0">{profile.name || "Guest"}</span>
           <span className="text-muted-foreground/40 shrink-0">•</span>
-          <div className="relative shrink-0">
-            <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="City"
-              value={filters.city}
-              onChange={e => updateFilters({ city: e.target.value })}
-              className="h-7 text-xs pl-6 w-[100px] rounded-full border border-dashed border-input bg-background px-3 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <Select value={filters.sector} onValueChange={v => updateFilters({ sector: v as FilterState["sector"] })}>
-            <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed shrink-0"><SelectValue placeholder="Sector" /></SelectTrigger>
-            <SelectContent>{SECTORS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={filters.experience} onValueChange={v => updateFilters({ experience: v as FilterState["experience"] })}>
-            <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed shrink-0"><SelectValue placeholder="Experience" /></SelectTrigger>
-            <SelectContent>{EXPERIENCES.map(e => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={filters.workMode} onValueChange={v => updateFilters({ workMode: v as FilterState["workMode"] })}>
-            <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed shrink-0"><SelectValue placeholder="Work Mode" /></SelectTrigger>
-            <SelectContent>{WORK_MODES.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
-          </Select>
-          {activeCount > 0 && (
-            <Button variant="ghost" size="sm" className="h-6 text-xs px-2 rounded-full shrink-0" onClick={clearFilters}>Clear</Button>
-          )}
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="w-3 h-3" />{profile.location}
+          </span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">Personalised jobs and career news</span>
           <Button variant="ghost" size="sm" className="h-6 text-xs px-2 ml-auto rounded-full shrink-0" onClick={() => setShowProfile(!showProfile)}>
             <Settings className="w-3 h-3 mr-1" />Profile
           </Button>
@@ -1206,7 +1185,7 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
                           </Button>
                         </div>
                         {matchBrief && (
-                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-secondary">{matchBrief}</p>
+                          <p className="mt-3 text-sm leading-6 text-secondary whitespace-pre-wrap">{formatGeneratedText(matchBrief)}</p>
                         )}
                       </CardContent>
                     </Card>
@@ -1257,7 +1236,7 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
                 </div>
 
                 {/* Gate: prompt until filters are applied */}
-                {!hasFilters ? (
+                {!hasValidProfile ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
                     <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                       <Search className="w-7 h-7 text-primary" />
@@ -1370,48 +1349,17 @@ Use only facts present above. Do not invent employers, salaries, deadlines, elig
 
             {activeTab === "feed" && (
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                <div className="px-1 py-2">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Filter sections</p>
-                  <div className="flex flex-wrap gap-2">
-                    {FILTER_TABS.map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => setActiveFilterTab(f.id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                          activeFilterTab === f.id
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {f.emoji} {f.label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="rounded-2xl border bg-primary/5 p-4">
+                  <p className="text-xs uppercase tracking-wider text-primary font-bold">Career intelligence for you</p>
+                  <p className="mt-1 text-sm text-secondary leading-relaxed">
+                    Live career news first, followed by practical guidance for {profile.careerGoal} roles in {profile.location}. Open a brief to get the same listen and save actions used across Tools Pro.
+                  </p>
                 </div>
-
-                {/* ── Career field tiles — only visible in Career tab ── */}
-                {activeFilterTab === "career" && (
-                  <div className="px-1">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Your Industry</p>
-                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                      {INDUSTRIES.map(industry => (
-                        <button
-                          key={industry}
-                          onClick={() => setProfile(p => ({ ...p, industry }))}
-                          className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${
-                            profile.industry === industry
-                              ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                              : "bg-card text-secondary hover:bg-teal-50 hover:border-teal-300"
-                          }`}
-                        >
-                          {industry}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
-                  {SECTIONS.filter(s => activeFilterTab === "all" || SECTION_CATEGORIES[activeFilterTab].includes(s.id)).map(section => (
+                <div className="grid gap-3 md:grid-cols-2 items-start">
+                  {SECTIONS.filter(s => [
+                    "skill_trends", "career_growth", "salary_insights",
+                    "ai_news", "business_news", "interview_qs",
+                  ].includes(s.id)).map(section => (
                     <SectionCard
                       key={section.id}
                       section={section}

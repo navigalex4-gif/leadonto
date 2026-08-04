@@ -13,6 +13,9 @@ import { mapEnglishLevel, LEVEL_TO_STAGE } from "@/lib/english-roadmap";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useAuth } from "@/lib/use-auth";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
+import { useEdgeTTS } from "@/lib/use-edge-tts";
+import { useHistory } from "@/lib/use-history";
+import { formatGeneratedText } from "@/lib/english-tools";
 import {
   BookOpen, CheckCircle2, RotateCcw, ChevronRight, ChevronUp, ChevronDown,
   Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2,
@@ -371,7 +374,10 @@ export default function LearningJourneyPage() {
   const [nextDueDate, setNextDueDate] = useState<string | null>(null);
 
   const { profile } = useStudentProfile();
+  const synth = useEdgeTTS();
+  const { save } = useHistory();
   const { text: planText, isStreaming: planStreaming, stream: streamPlan } = useGeminiStream();
+  const [planSaved, setPlanSaved] = useState(false);
   const level        = mapEnglishLevel(profile.englishLevel);
   const currentStage = LEVEL_TO_STAGE[level] ?? "A1";
 
@@ -1229,6 +1235,36 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
                 {planText && (
                   <div className="rounded-xl border bg-white p-4">
                     <PlanRenderer text={planText} />
+                    <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs font-semibold"
+                        disabled={planStreaming}
+                        onClick={() => {
+                          synth.stop();
+                          void synth.speak(formatGeneratedText(planText), "English");
+                        }}
+                      >
+                        <Headphones className="w-3.5 h-3.5 mr-1" />Listen
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs font-semibold"
+                        disabled={planStreaming || planSaved}
+                        onClick={() => {
+                          save({
+                            tool: "Learning Journey",
+                            title: `30-Day ${effectiveStage} English Plan`,
+                            content: formatGeneratedText(planText),
+                          });
+                          setPlanSaved(true);
+                        }}
+                      >
+                        {planSaved ? "Saved" : "Save"}
+                      </Button>
+                    </div>
                     {planStreaming && (
                       <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
                         <Loader2 className="w-3 h-3 animate-spin" />Writing your plan…

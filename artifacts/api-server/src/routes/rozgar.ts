@@ -123,7 +123,7 @@ function parseRss(xml: string): LiveItem[] {
       const publishedAt = textFromTag(block, "pubDate") || null;
 
       return title && link
-        ? { title, link, source, summary, publishedAt }
+        ? { title, link, source, summary, publishedAt, kind: "news" }
         : null;
     })
     .filter((item): item is LiveItem => Boolean(item));
@@ -395,10 +395,8 @@ router.get("/rozgar/live", async (req: Request, res: Response) => {
       "scholarships",
     ]);
 
-    // NOTE: Arbeitnow is a Germany/EU job board — its postings (e.g. "Werkstudent"
-    // roles in Magdeburg) are irrelevant to Indian candidates, so it is no longer
-    // used. India-centric live vacancies come from Google News India RSS
-    // (gl=IN, hl=en-IN) plus Jobicy filtered to India-relevant/remote roles.
+    // Google News is useful for the career pulse, but its headlines are not
+    // verified job listings. Only Jobicy records may enter vacancy sections.
     const itemGroups = await Promise.allSettled(
       section === "top_jobs"
         ? [Promise.all(sources.map((source) => fetchFeedItems(source))).then((groups) => groups.flat()), fetchJobicyItems()]
@@ -416,9 +414,8 @@ router.get("/rozgar/live", async (req: Request, res: Response) => {
     const items = mergeItems(
       rawItems.filter((item) => {
         // For job/vacancy sections from external APIs, filter to India-relevant only
-        if (vacancySections.has(section) && item.source === "Jobicy API") {
-          if (!isIndiaRelevantJob(item)) return false;
-        }
+        if (vacancySections.has(section) && item.source !== "Jobicy API") return false;
+        if (vacancySections.has(section) && !isIndiaRelevantJob(item)) return false;
 
         if (!vacancySections.has(section)) return true;
 

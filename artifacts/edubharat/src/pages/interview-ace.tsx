@@ -19,6 +19,7 @@ import { INTERVIEW_COACHES, recommendedCoachFor } from "@/lib/tutors";
 import { COMPETENCIES, coveredCompetencies, weightedScoreFor, areaForBeat, functionalKnowledgeFor, calibrationFor, type CompetencyKey } from "@/lib/interview-format";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
+import { formatGeneratedText } from "@/lib/english-tools";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
@@ -144,6 +145,8 @@ function cleanForSpeech(text: string): string {
     .replace(/^(?:Ack|Next):\s*/gim, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
+    .replace(/\b(hello|hi|hey)(?:[,\s!]+)(?:hello|hi|hey)\b/gi, "$1")
+    .replace(/[#*_]+/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -371,14 +374,16 @@ function InterviewAceContent() {
       const safetyMs = Math.max(text.length * 50 + 5_000, 16_000);
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
-        speech.blockFor(400); // override the 10-min pause window → mic can retry
+        speech.suppressUntil(Date.now() + 1100);
+        speech.blockFor(1100); // leave a longer speaker tail before reopening the mic
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
-        speech.blockFor(400); // mic reopens ~460ms after audio ends (well under 2s target)
+        speech.suppressUntil(Date.now() + 1100);
+        speech.blockFor(1100);
         setCoachSpeaking(false);
-      }, opts);
+      }, { ...opts, rate: opts.rate ?? 1.05 });
     },
     [speech, synth],
   );
@@ -392,7 +397,8 @@ function InterviewAceContent() {
   const interruptCoach = useCallback(() => {
     if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
     synth.stop();
-    speech.blockFor(400);
+    speech.suppressUntil(Date.now() + 1100);
+    speech.blockFor(1100);
     setCoachSpeaking(false);
   }, [speech, synth]);
   const { profile } = useStudentProfile();
@@ -695,7 +701,7 @@ Rules:
       undefined,
       { maxTokens: 120 }
     );
-    const opening = full.replace(/^\s*["']?|["']?\s*$/g, "").trim();
+    const opening = cleanForSpeech(full.replace(/^\s*["']?|["']?\s*$/g, "").trim());
     if (!opening) return;
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
@@ -1120,13 +1126,13 @@ Next: <the interview question only>`,
     // coachSpeaking guard: don't start mic while the AI coach is speaking — prevents
     // the mic from activating between when the stream ends and when TTS actually starts.
     if (phase !== "interview" || !autoListenEnabled || !speech.isSupported || !currentQ || isStreaming || synth.isSpeaking || isRecording || coachSpeaking) return;
-    // Silence window before auto-submit: 4.5 s. Once the candidate starts
-    // talking, this natural 3–5 s pause gives them room to think and avoids
+    // Silence window before auto-submit: 7 s. Once the candidate starts
+    // talking, this longer pause gives them room to think and avoids
     // cutting off a sentence or a normal mid-answer pause.
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 4500;
+    const silenceMs = 7000;
     setIsRecording(true);
     // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
     // this question, conclude the interview and generate feedback. Cleared the
@@ -1143,7 +1149,7 @@ Next: <the interview question only>`,
         return next;
       });
       clearAutoSubmitTimer();
-      // 4.5 s of quiet → auto-submit. Long enough that a candidate with natural
+      // 7 s of quiet → auto-submit. Long enough that a candidate with natural
       // mid-sentence pauses isn't cut off mid-thought, short enough to keep the
       // interview moving. The Submit button stays enabled as a manual override.
       // Uses submitCurrentAnswerRef (not submitCurrentAnswer directly) so the
@@ -1160,6 +1166,13 @@ Next: <the interview question only>`,
     // Unmount cleanup is handled by the dedicated effect above. Clearing here
     // would cancel in-flight auto-submits whenever any dep ticks (e.g. speech.status).
   }, [phase, currentQ, autoListenEnabled, speech.isSupported, speech.startContinuous, isStreaming, synth.isSpeaking, isRecording, coachSpeaking, clearAutoSubmitTimer]);
+
+  // Interim speech means the candidate is still talking, even before the
+  // browser emits a final chunk. Cancel a pending submit immediately so a
+  // long answer cannot be cut off mid-sentence.
+  useEffect(() => {
+    if (speech.interimTranscript.trim() && isRecording) clearAutoSubmitTimer();
+  }, [speech.interimTranscript, isRecording, clearAutoSubmitTimer]);
 
   // Watchdog: if isRecording is true but the recognition has silently died
   // (speech status is "idle" for 4+ seconds while nothing else is blocking),
@@ -2045,7 +2058,7 @@ function QuestionReview({ q, idx, coachName, hasReport }: { q: QA; idx: number; 
           </div>
           <div className="rounded-xl bg-green-50 border border-green-100 p-3">
             <p className="text-xs font-bold text-green-700 mb-1">{coachName}'s Feedback</p>
-            <p className="text-sm text-green-950 whitespace-pre-wrap leading-relaxed">{q.feedback ?? (hasReport ? "See overall analysis above for feedback on this answer." : "Generating your personalised feedback…")}</p>
+            <p className="text-sm text-green-950 whitespace-pre-wrap leading-relaxed">{formatGeneratedText(q.feedback ?? (hasReport ? "See overall analysis above for feedback on this answer." : "Generating your personalised feedback…"))}</p>
           </div>
         </div>
       )}

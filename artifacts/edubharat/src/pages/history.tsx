@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, BookmarkX, Clock, BookOpen, Mic, Newspaper } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
+import { formatGeneratedText } from "@/lib/english-tools";
 
 const TOOL_META: Record<string, { icon: typeof BookOpen; color: string }> = {
   "English Guru": { icon: BookOpen, color: "bg-orange-100 text-orange-600" },
@@ -125,7 +126,7 @@ function HistoryContent() {
                 <CardContent className="px-5 pb-5 pt-0">
                   <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
                     <p className="text-sm text-secondary leading-relaxed whitespace-pre-wrap">
-                      {item.content}
+                      {formatGeneratedText(item.content)}
                     </p>
                   </div>
                 </CardContent>

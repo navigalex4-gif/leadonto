@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TUTORS } from "@/lib/tutors";
+import { formatGeneratedText } from "@/lib/english-tools";
 import { Mic, MicOff, Volume2, VolumeX, Bookmark, BookmarkCheck } from "lucide-react";
 
 export function MicButton({ isListening, isSupported, onStart, onStop, disabled }: {
@@ -33,7 +34,17 @@ export function ResultPanel({ title, content, isSpeaking, onSpeak, onStop, onSav
           </Button>
         </div>
       </div>
-      <div className="text-sm text-secondary whitespace-pre-wrap leading-relaxed">{content}</div>
+      <div className="text-sm text-secondary leading-relaxed space-y-2">
+        {formatGeneratedText(content).split(/\n{2,}/).map((paragraph, index) => (
+          <div key={index} className="whitespace-pre-wrap">
+            {paragraph.split("\n").map((line, lineIndex) => (
+              <span key={lineIndex} className="block">
+                {line}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

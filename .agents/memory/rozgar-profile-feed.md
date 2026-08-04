@@ -7,6 +7,8 @@ Rule: Rozgar content should stay candidate-driven, using education, skills, sala
 
 Rule: the page should front-load live hiring items from external sources, then let the AI summarize or explain those items instead of inventing fresh openings.
 
+Rule: verified vacancy cards and career-news cards are separate content types; news headlines must never be labelled as jobs or vacancies.
+
 **Why:** generic news copy is not useful for job seekers; the page needs to feel actionable for the candidate’s actual situation.
 
-**How to apply:** keep the profile panel prominent, feed those fields into every section prompt, and present the results as a commercial, live-market snapshot with real headlines first.
+**How to apply:** keep the profile panel prominent, feed those fields into every section prompt, present verified listings before career news, and keep one clear job search/filter surface.

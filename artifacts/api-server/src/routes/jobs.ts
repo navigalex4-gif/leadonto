@@ -12,8 +12,11 @@
  *
  * Sources (in order of preference):
  *   1. Adzuna India API  — if ADZUNA_APP_ID + ADZUNA_APP_KEY are set
- *   2. Google News India RSS  — always available, no key needed, real India listings
- *   3. Remotive API     — free remote-job listings, tech-focused
+ *   2. Remotive API     — real remote-job postings, no key required
+ *
+ * Google News is deliberately excluded here. A news headline is not a job
+ * listing and must never be presented as a vacancy. News is served separately
+ * by /api/rozgar/live for the career pulse.
  *
  * Returns items in RozgarLiveItem format (compatible with enrichJob / filterJobs).
  *
@@ -176,7 +179,7 @@ function parseRss(xml: string): LiveItem[] {
       source: textFromTag(b, "source") || "Google News",
       summary: textFromTag(b, "description"),
       publishedAt: textFromTag(b, "pubDate") || null,
-      kind: "vacancy",
+      kind: "news",
     });
   }
   return results;
@@ -463,7 +466,8 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
   const sector = ((req.query["sector"] as string) || "all").trim();
   const page = Math.max(1, parseInt((req.query["page"] as string) || "1", 10));
 
-  const key = JSON.stringify({ q, city, experience, sector, skills: skills.join(","), page });
+  // Version the cache after removing the old Google-News-as-vacancy contract.
+  const key = JSON.stringify({ version: 2, q, city, experience, sector, skills: skills.join(","), page });
 
   // ── L1: in-process memory ──
   const l1 = l1Cache.get(key);
@@ -485,10 +489,9 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
   const allItems: LiveItem[] = [];
   const sources: string[] = [];
 
-  // Run sources in parallel
-  const [adzunaResult, gnewsResult, remotiveResult] = await Promise.allSettled([
+  // Run verified job sources in parallel.
+  const [adzunaResult, remotiveResult] = await Promise.allSettled([
     fetchAdzuna(q, city, page),
-    fetchGoogleNewsJobs(q, city, sector, experience),
     fetchRemotive(q),
   ]);
 
@@ -497,13 +500,6 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
     sources.push("adzuna");
   } else if (adzunaResult.status === "rejected") {
     errors.push(`Adzuna: ${String(adzunaResult.reason)}`);
-  }
-
-  if (gnewsResult.status === "fulfilled" && gnewsResult.value.length > 0) {
-    allItems.push(...gnewsResult.value.filter(isIndiaRelevant));
-    sources.push("gnews");
-  } else if (gnewsResult.status === "rejected") {
-    errors.push(`GNews: ${String(gnewsResult.reason)}`);
   }
 
   if (remotiveResult.status === "fulfilled" && remotiveResult.value.length > 0) {
@@ -517,7 +513,7 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
   }
 
   // Score, deduplicate, and sort
-  const scored = dedup(allItems)
+  const scored = dedup(allItems.filter(item => item.kind === "vacancy" && Boolean(item.link)))
     .map(item => ({
       item,
       score: scoreItem(item, q, city, skills, sector, experience),

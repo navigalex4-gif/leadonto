@@ -3,7 +3,7 @@ import { useAuth } from "./use-auth";
 
 export type HistoryItem = {
   id: string;
-  tool: "English Guru" | "Interview Ace" | "Rozgar Samachar";
+  tool: "English Guru" | "Interview Ace" | "Rozgar Samachar" | "Learning Journey" | "Tools Pro";
   title: string;
   content: string;
   savedAt: string;
