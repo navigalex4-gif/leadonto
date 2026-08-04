@@ -915,6 +915,28 @@ function RozgarSamacharContent() {
     setFilters(f => ({ ...f, ...patch }));
   }, []);
 
+  const handleSaveProfile = useCallback(async () => {
+    const skills = profile.skills
+      .split(",")
+      .map(skill => skill.trim())
+      .filter(Boolean);
+    await updateStudentProfile({
+      name: profile.name.trim(),
+      degree: profile.education,
+      experienceLevel: profile.status,
+      skills,
+      expectedSalary: profile.salaryExpectation,
+      careerGoal: profile.careerGoal,
+      preferredLanguage: profile.language,
+      preferredCity: profile.location,
+      location: profile.location,
+      industryPreference: profile.industry,
+    });
+    setProfileSaved(true);
+    setShowProfile(false);
+    void reload();
+  }, [profile, reload, updateStudentProfile]);
+
   const activeCount = activeFilterCount(filters);
 
   // True when at least one job in the current result set has salary data — used to enable/grey the salary filter
@@ -1034,33 +1056,51 @@ function RozgarSamacharContent() {
   return (
     <div className="rozgar-theme min-h-full overflow-y-auto container mx-auto px-4 py-4 max-w-[1400px] bg-gradient-to-br from-teal-50/50 via-white to-indigo-50/50">
       <div className="flex min-h-full flex-col gap-4">
-        {/* ── Compact profile bar ── */}
-        <div className="sticky top-16 z-20 -mx-4 px-4 py-2 bg-white/95 backdrop-blur-sm border-b flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-secondary truncate shrink-0">{profile.name || "Guest"}</span>
-          <span className="text-muted-foreground/40 shrink-0">•</span>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <MapPin className="w-3 h-3" />{profile.location}
-          </span>
-          <span className="text-xs text-muted-foreground hidden sm:inline">Personalised jobs and career news</span>
-          <Button variant="ghost" size="sm" className="h-6 text-xs px-2 ml-auto rounded-full shrink-0" onClick={() => setShowProfile(!showProfile)}>
-            <Settings className="w-3 h-3 mr-1" />Profile
-          </Button>
-        </div>
-
         {/* ── Header ── */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center shadow-sm">
-              <Newspaper className="w-7 h-7" />
+            <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center shadow-sm">
+              <Newspaper className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-display font-extrabold text-secondary">Rozgar Samachar</h1>
+              <h1 className="text-2xl font-display font-extrabold text-secondary">Rozgar Samachar</h1>
               <p className="text-xs text-muted-foreground font-medium">{today}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {profileSaved && <Badge variant="outline" className="text-xs rounded-full px-3 py-1">Profile ready</Badge>}
+            {hasValidProfile && <Badge variant="outline" className="text-xs rounded-full px-3 py-1">Profile ready</Badge>}
+            <Button variant="ghost" size="sm" className="h-8 text-xs px-3 rounded-full" onClick={() => setShowProfile(!showProfile)}>
+              <Settings className="w-3 h-3 mr-1" />Profile
+            </Button>
           </div>
+        </div>
+
+        {/* ── Reference-style compact filter row ── */}
+        <div className="-mx-4 flex items-center gap-2 overflow-x-auto border-b bg-white/95 px-4 py-2">
+          <span className="max-w-[96px] shrink-0 truncate text-xs font-semibold text-secondary">{profile.name}</span>
+          <span className="shrink-0 text-muted-foreground/40">•</span>
+          <div className="relative shrink-0">
+            <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filters.city}
+              onChange={e => updateFilters({ city: e.target.value })}
+              placeholder="City"
+              className="h-8 w-[112px] rounded-full pl-7 text-xs"
+            />
+          </div>
+          <Select value={filters.workMode} onValueChange={v => updateFilters({ workMode: v as FilterState["workMode"] })}>
+            <SelectTrigger className="h-8 w-[78px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{WORK_MODES.map(mode => <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={filters.sector} onValueChange={v => updateFilters({ sector: v as FilterState["sector"] })}>
+            <SelectTrigger className="h-8 w-[88px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{SECTORS.map(sector => <SelectItem key={sector.value} value={sector.value}>{sector.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={filters.experience} onValueChange={v => updateFilters({ experience: v as FilterState["experience"] })}>
+            <SelectTrigger className="h-8 w-[88px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{EXPERIENCES.map(experience => <SelectItem key={experience.value} value={experience.value}>{experience.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <div className="ml-auto shrink-0">{filterSheet}</div>
         </div>
 
         <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[210px_1fr]">
@@ -1137,7 +1177,7 @@ function RozgarSamacharContent() {
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <Button variant="outline" size="sm" onClick={() => setShowProfile(false)} className="rounded-full">Close</Button>
-                    <Button size="sm" className="font-bold rounded-full" onClick={() => { setProfileSaved(true); setShowProfile(false); void reload(); }}>Save Profile</Button>
+                    <Button size="sm" className="font-bold rounded-full" onClick={() => void handleSaveProfile()}>Save Profile</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1184,32 +1224,6 @@ function RozgarSamacharContent() {
 
           {/* ── Right feed ── */}
           <section className="flex min-h-0 flex-col rounded-2xl border shadow-sm overflow-hidden bg-card">
-            <div className="flex items-center gap-2 overflow-x-auto border-b bg-white px-3 py-2">
-              <span className="max-w-[90px] shrink-0 truncate text-xs font-semibold text-secondary">{profile.name}</span>
-              <span className="shrink-0 text-muted-foreground/40">•</span>
-              <div className="relative shrink-0">
-                <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={filters.city}
-                  onChange={e => updateFilters({ city: e.target.value })}
-                  placeholder="City"
-                  className="h-8 w-[112px] rounded-full pl-7 text-xs"
-                />
-              </div>
-              <Select value={filters.workMode} onValueChange={v => updateFilters({ workMode: v as FilterState["workMode"] })}>
-                <SelectTrigger className="h-8 w-[86px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{WORK_MODES.map(mode => <SelectItem key={mode.value} value={mode.value}>{mode.label}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={filters.sector} onValueChange={v => updateFilters({ sector: v as FilterState["sector"] })}>
-                <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{SECTORS.map(sector => <SelectItem key={sector.value} value={sector.value}>{sector.label}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={filters.experience} onValueChange={v => updateFilters({ experience: v as FilterState["experience"] })}>
-                <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-full px-3 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{EXPERIENCES.map(experience => <SelectItem key={experience.value} value={experience.value}>{experience.label}</SelectItem>)}</SelectContent>
-              </Select>
-              <div className="ml-auto shrink-0">{filterSheet}</div>
-            </div>
             {/* Tab bar */}
             <div className="flex items-center gap-1 px-4 pt-4 border-b overflow-x-auto">
               {[
