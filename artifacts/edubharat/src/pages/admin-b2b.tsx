@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Loader2, Building2, CheckCircle2, XCircle, RefreshCw, IndianRupee, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ export default function AdminB2B() {
   const { toast } = useToast();
   const [payments, setPayments] = useState<B2BPayment[]>([]);
   const [fetching, setFetching] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [acting, setActing] = useState<Record<number, boolean>>({});
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({});
   const [showReject, setShowReject] = useState<Record<number, boolean>>({});
@@ -123,6 +124,11 @@ export default function AdminB2B() {
     }
   };
 
+  const visiblePayments = useMemo(
+    () => statusFilter === "all" ? payments : payments.filter((payment) => payment.status === statusFilter),
+    [payments, statusFilter],
+  );
+
   if (isLoading) return <div className="flex justify-center min-h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground my-auto" /></div>;
   if (!isAdmin) return null;
 
@@ -140,12 +146,12 @@ export default function AdminB2B() {
           <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{pending.length} pending</span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => downloadCsv(payments.map(p => ({
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(visiblePayments.map(p => ({
             id: p.id, companyId: p.companyId, companyName: p.companyName,
             companyEmail: p.companyEmail, credits: p.credits, amountInr: p.amountInr,
             utr: p.utr, status: p.status, rejectionReason: p.rejectionReason,
             createdAt: p.createdAt, reversedAt: p.reversedAt,
-          })), "edubharat-b2b-payments")} disabled={!payments.length}>
+          })), "edubharat-b2b-payments")} disabled={!visiblePayments.length}>
             <Download className="w-4 h-4 mr-1.5" />Export CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => void fetchPayments()} disabled={fetching}>
@@ -153,14 +159,30 @@ export default function AdminB2B() {
           </Button>
         </div>
       </div>
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="b2b-status-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
+        <select
+          id="b2b-status-filter"
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+        >
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="reversed">Reversed</option>
+        </select>
+        <span className="text-xs text-muted-foreground">{visiblePayments.length} shown</span>
+      </div>
 
       {fetching && payments.length === 0 ? (
         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : payments.length === 0 ? (
+      ) : visiblePayments.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No B2B payments yet.</CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {payments.map((p) => (
+          {visiblePayments.map((p) => (
             <Card key={p.id} className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">

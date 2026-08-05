@@ -135,6 +135,8 @@ export default function AdminInterviews() {
   const [fetching, setFetching] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<number | null | "ALL">("ALL");
+  const [selectedType, setSelectedType] = useState("ALL");
+  const [selectedVerdict, setSelectedVerdict] = useState("ALL");
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const isAdmin = user?.isAdmin === true;
@@ -169,6 +171,15 @@ export default function AdminInterviews() {
     if (selectedCandidate !== "ALL") {
       list = list.filter((r) => r.userId === selectedCandidate);
     }
+    if (selectedType !== "ALL") {
+      list = list.filter((r) => (r.interviewType ?? "Unknown") === selectedType);
+    }
+    if (selectedVerdict !== "ALL") {
+      list = list.filter((r) => {
+        if (r.overallScore === null) return selectedVerdict === "Pending";
+        return r.overallScore >= PASS_BAR ? selectedVerdict === "Selected" : selectedVerdict === "Not Selected";
+      });
+    }
     // Text search
     const q = query.trim().toLowerCase();
     if (q) {
@@ -183,7 +194,12 @@ export default function AdminInterviews() {
       );
     }
     return list;
-  }, [interviews, selectedCandidate, query]);
+  }, [interviews, selectedCandidate, selectedType, selectedVerdict, query]);
+
+  const interviewTypes = useMemo(
+    () => Array.from(new Set(interviews.map((row) => row.interviewType ?? "Unknown"))).sort(),
+    [interviews],
+  );
 
   // Stats
   const totalCandidates = useMemo(() => new Set(interviews.map((r) => r.userId)).size, [interviews]);
@@ -257,6 +273,32 @@ export default function AdminInterviews() {
             </option>
           ))}
         </select>
+      </div>
+      <div className="mb-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Interview type
+          <select
+            className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary"
+            value={selectedType}
+            onChange={(event) => setSelectedType(event.target.value)}
+          >
+            <option value="ALL">All types</option>
+            {interviewTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Result
+          <select
+            className="mt-1 block w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary"
+            value={selectedVerdict}
+            onChange={(event) => setSelectedVerdict(event.target.value)}
+          >
+            <option value="ALL">All results</option>
+            <option value="Selected">Selected</option>
+            <option value="Not Selected">Not Selected</option>
+            <option value="Pending">Pending</option>
+          </select>
+        </label>
       </div>
 
       {/* Text search */}

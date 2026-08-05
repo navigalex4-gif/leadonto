@@ -30,6 +30,7 @@
 - [B2B recruiter portal](b2b-portal.md) — separate company auth, own credit ledger, atomic `/complete` tx (FOR UPDATE + spend + session + status), token validation in interview-ace before bypassing charge.
 - [Login-origin capture](login-origin-capture.md) — every login path must record sign-in origin; a blank IP is usually pre-feature rows + a null-hiding admin UI, not broken capture.
 - [Anonymous visitor activity](anonymous-visitor-activity.md) — page views persist server-captured IP, route, user agent, timestamp, and anonymous ID; admins review them separately from signed-in users.
+- [Admin reporting controls](admin-reporting-controls.md) — admin data screens export the currently filtered rows; Quiz is a role-focused learning feed, not a persisted scored assessment.
 - [Email via Resend connector](email-resend-connector.md) — via Replit connector proxy; 403 to non-owner = Resend unverified-domain sandbox limit, not broken wiring; never leak OTP code on failure.
 - [Mobile tool AI calls](mobile-tool-ai.md) — Expo tool/[id].tsx calls /api/ai/chat with {prompt, system, maxTokens} body (NOT messages array); response is {text: string}.
 - [Interview Ace video call UI](interview-video-call.md) — fixed full-screen dark layout (z-30, top:56px); webcam PiP via getUserMedia; camera auto-off on ANY exit from interview phase + post-await race guard; PhoneOff hang-up.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Loader2, CheckCircle2, XCircle, RefreshCw, ShieldAlert, IndianRupee, Clock, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export default function AdminPayments() {
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [fetching, setFetching] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [acting, setActing] = useState<Record<number, boolean>>({});
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({});
   const [showRejectInput, setShowRejectInput] = useState<Record<number, boolean>>({});
@@ -143,6 +144,11 @@ export default function AdminPayments() {
     }
   }, [fetchPayments, reverseReason, toast]);
 
+  const visiblePayments = useMemo(
+    () => statusFilter === "all" ? payments : payments.filter((payment) => payment.status === statusFilter),
+    [payments, statusFilter],
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -153,8 +159,8 @@ export default function AdminPayments() {
 
   if (!isAdmin) return null;
 
-  const pending = payments.filter((p) => p.status === "pending");
-  const done = payments.filter((p) => p.status !== "pending");
+  const pending = visiblePayments.filter((p) => p.status === "pending");
+  const done = visiblePayments.filter((p) => p.status !== "pending");
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
@@ -172,11 +178,11 @@ export default function AdminPayments() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => downloadCsv(payments.map(p => ({
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(visiblePayments.map(p => ({
             id: p.id, userId: p.userId, userName: p.userName, userEmail: p.userEmail,
             credits: p.credits, amountInr: p.amountInr, utr: p.utr, status: p.status,
             rejectionReason: p.rejectionReason, createdAt: p.createdAt, reversedAt: p.reversedAt,
-          })), "edubharat-payments")} disabled={!payments.length}>
+          })), "edubharat-payments")} disabled={!visiblePayments.length}>
             <Download className="w-4 h-4 mr-1.5" />Export CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => void fetchPayments()} disabled={fetching}>
@@ -184,6 +190,22 @@ export default function AdminPayments() {
             Refresh
           </Button>
         </div>
+      </div>
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="payment-status-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
+        <select
+          id="payment-status-filter"
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+        >
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="reversed">Reversed</option>
+        </select>
+        <span className="text-xs text-muted-foreground">{visiblePayments.length} shown</span>
       </div>
 
       {/* Pending payments */}

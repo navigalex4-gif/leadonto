@@ -90,6 +90,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<DirUser[]>([]);
   const [fetching, setFetching] = useState(false);
   const [query, setQuery] = useState("");
+  const [authFilter, setAuthFilter] = useState("all");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, Detail>>({});
   const [loadingDetail, setLoadingDetail] = useState<number | null>(null);
@@ -139,15 +140,21 @@ export default function AdminUsers() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return users;
     return users.filter((u) =>
-      (u.name ?? "").toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      (u.location ?? "").toLowerCase().includes(q) ||
-      (u.signupLocation ?? "").toLowerCase().includes(q) ||
-      (u.lastLoginIp ?? "").includes(q) ||
-      (u.signupIp ?? "").includes(q));
-  }, [users, query]);
+      (authFilter === "all" || (u.authProvider ?? "unknown") === authFilter) &&
+      (!q ||
+        (u.name ?? "").toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.location ?? "").toLowerCase().includes(q) ||
+        (u.signupLocation ?? "").toLowerCase().includes(q) ||
+        (u.lastLoginIp ?? "").includes(q) ||
+        (u.signupIp ?? "").includes(q)));
+  }, [users, query, authFilter]);
+
+  const authOptions = useMemo(
+    () => Array.from(new Set(users.map((u) => u.authProvider ?? "unknown"))).sort(),
+    [users],
+  );
 
   if (isLoading) {
     return (
@@ -194,6 +201,19 @@ export default function AdminUsers() {
           onChange={(e) => setQuery(e.target.value)}
           className="pl-9"
         />
+      </div>
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="user-auth-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sign-in</label>
+        <select
+          id="user-auth-filter"
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary"
+          value={authFilter}
+          onChange={(event) => setAuthFilter(event.target.value)}
+        >
+          <option value="all">All providers</option>
+          {authOptions.map((provider) => <option key={provider} value={provider}>{provider}</option>)}
+        </select>
+        <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
       </div>
 
       {fetching && users.length === 0 ? (

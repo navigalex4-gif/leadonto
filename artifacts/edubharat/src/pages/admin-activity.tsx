@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Clock3, Globe2, Loader2, RefreshCw, Search, UserRound } from "lucide-react";
+import { Activity, Clock3, Download, Globe2, Loader2, RefreshCw, Search, UserRound } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { AdminNav } from "@/components/admin-nav";
 import { useAuth } from "@/lib/use-auth";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -46,6 +47,7 @@ export default function AdminActivity() {
   const { toast } = useToast();
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [query, setQuery] = useState("");
+  const [eventFilter, setEventFilter] = useState("all");
   const [fetching, setFetching] = useState(false);
   const isAdmin = user?.isAdmin === true;
 
@@ -76,13 +78,19 @@ export default function AdminActivity() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) =>
-      [row.event, row.path, row.ipAddress, row.anonymousId, row.userName, row.userEmail, row.userAgent]
+    return rows.filter((row) => {
+      if (eventFilter !== "all" && row.event !== eventFilter) return false;
+      if (!q) return true;
+      return [row.event, row.path, row.ipAddress, row.anonymousId, row.userName, row.userEmail, row.userAgent]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
-    );
-  }, [rows, query]);
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [rows, query, eventFilter]);
+
+  const eventOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.event))).sort(),
+    [rows],
+  );
 
   if (isLoading) {
     return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -100,9 +108,19 @@ export default function AdminActivity() {
           <h1 className="font-display text-2xl font-bold text-secondary">Visitor Activity</h1>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-secondary">{rows.length}</span>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void fetchActivity()} disabled={fetching}>
-          <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadCsv(filtered.map((row) => ({
+            id: row.id, event: row.event, path: row.path, anonymousId: row.anonymousId,
+            userId: row.userId, userName: row.userName, userEmail: row.userEmail,
+            ipAddress: row.ipAddress, userAgent: row.userAgent, createdAt: row.createdAt,
+            properties: row.properties,
+          })), "edubharat-activity")} disabled={!filtered.length}>
+            <Download className="mr-1.5 h-4 w-4" />Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchActivity()} disabled={fetching}>
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
+          </Button>
+        </div>
       </div>
 
       <p className="mb-4 text-sm text-muted-foreground">
@@ -117,6 +135,19 @@ export default function AdminActivity() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+      </div>
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="activity-event-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Event</label>
+        <select
+          id="activity-event-filter"
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary"
+          value={eventFilter}
+          onChange={(event) => setEventFilter(event.target.value)}
+        >
+          <option value="all">All events</option>
+          {eventOptions.map((event) => <option key={event} value={event}>{event}</option>)}
+        </select>
+        <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
       </div>
 
       {fetching && rows.length === 0 ? (

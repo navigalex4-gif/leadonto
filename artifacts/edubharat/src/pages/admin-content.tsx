@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, FileText, Save, RotateCcw, Check } from "lucide-react";
+import { Loader2, FileText, Save, RotateCcw, Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/use-auth";
 import { AdminNav } from "@/components/admin-nav";
 import { CONTENT_REGISTRY, CONTENT_PAGES } from "@/lib/content-registry";
 import { refreshContent } from "@/lib/use-content";
+import { downloadCsv } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -102,6 +103,21 @@ export default function AdminContent() {
         Edit the text shown on your public pages. Changes go live immediately. Leave a field and click
         <span className="font-semibold"> Reset </span> to restore the built-in default.
       </p>
+      <div className="mb-6 flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadCsv(CONTENT_REGISTRY.map((entry) => ({
+            page: entry.page,
+            key: entry.key,
+            label: entry.label,
+            value: overrides[entry.key] ?? entry.defaultValue,
+            source: overrides[entry.key] !== undefined ? "Customised" : "Default",
+          })), "edubharat-content")}
+        >
+          <Download className="mr-1.5 h-4 w-4" />Export content report
+        </Button>
+      </div>
 
       {CONTENT_PAGES.map((page) => {
         const entries = CONTENT_REGISTRY.filter((e) => e.page === page);

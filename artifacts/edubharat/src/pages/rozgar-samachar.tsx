@@ -54,7 +54,7 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = typeof SECTIONS[number]["id"];
-type FeedFilter = "all" | "jobs" | "career" | "news" | "english" | "inspire";
+type FeedFilter = "all" | "jobs" | "career" | "news" | "english" | "quiz" | "inspire";
 
 const FEED_FILTERS: Array<{ id: FeedFilter; label: string; emoji: string }> = [
   { id: "all", label: "All", emoji: "✨" },
@@ -62,12 +62,14 @@ const FEED_FILTERS: Array<{ id: FeedFilter; label: string; emoji: string }> = [
   { id: "career", label: "Career", emoji: "🚀" },
   { id: "news", label: "News", emoji: "📰" },
   { id: "english", label: "English", emoji: "🇬🇧" },
+  { id: "quiz", label: "Quiz", emoji: "❓" },
   { id: "inspire", label: "Inspire", emoji: "⭐" },
 ];
 
 function sectionFeedCategory(section: typeof SECTIONS[number]): FeedFilter {
   if (["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(section.id)) return "jobs";
-  if (["english_corner", "vocab", "quiz"].includes(section.id)) return "english";
+  if (section.id === "quiz") return "quiz";
+  if (["english_corner", "vocab"].includes(section.id)) return "english";
   if (["jokes", "success_stories", "motivation"].includes(section.id)) return "inspire";
   if (["ai_news", "tech_news", "business_news"].includes(section.id)) return "news";
   return "career";
@@ -1571,6 +1573,23 @@ function RozgarSamacharContent() {
                     ))}
                   </div>
                 </div>
+                {feedFilter === "quiz" && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="flex items-start gap-3 p-4">
+                      <div className="rounded-full bg-primary/10 p-2 text-primary">❓</div>
+                      <div>
+                        <p className="font-bold text-secondary">What is the Quiz feed?</p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          Daily Quiz is a role-focused learning brief with five practice questions,
+                          the correct answer, a short explanation, and a suggested next step.
+                          It is generated for your selected career goal and skills. It is not a
+                          formal exam, paid assessment, or saved score unless you use the questions
+                          for your own practice.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="grid items-start gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
                   {visibleFeedSections.map(section => (
