@@ -48,6 +48,7 @@ export default function AdminActivity() {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [query, setQuery] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
+  const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
   const [fetching, setFetching] = useState(false);
   const isAdmin = user?.isAdmin === true;
 
@@ -80,12 +81,14 @@ export default function AdminActivity() {
     const q = query.trim().toLowerCase();
     return rows.filter((row) => {
       if (eventFilter !== "all" && row.event !== eventFilter) return false;
+      if (visitorFilter === "anonymous" && row.userId !== null) return false;
+      if (visitorFilter === "signed-in" && row.userId === null) return false;
       if (!q) return true;
       return [row.event, row.path, row.ipAddress, row.anonymousId, row.userName, row.userEmail, row.userAgent]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [rows, query, eventFilter]);
+  }, [rows, query, eventFilter, visitorFilter]);
 
   const eventOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.event))).sort(),
@@ -108,14 +111,19 @@ export default function AdminActivity() {
           <h1 className="font-display text-2xl font-bold text-secondary">Visitor Activity</h1>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-secondary">{rows.length}</span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => downloadCsv(filtered.map((row) => ({
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            className="font-semibold"
+            onClick={() => downloadCsv(filtered.map((row) => ({
             id: row.id, event: row.event, path: row.path, anonymousId: row.anonymousId,
             userId: row.userId, userName: row.userName, userEmail: row.userEmail,
             ipAddress: row.ipAddress, userAgent: row.userAgent, createdAt: row.createdAt,
             properties: row.properties,
-          })), "edubharat-activity")} disabled={!filtered.length}>
-            <Download className="mr-1.5 h-4 w-4" />Export CSV
+          })), "edubharat-activity")}
+            disabled={!filtered.length}
+          >
+            <Download className="mr-1.5 h-4 w-4" />Download CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => void fetchActivity()} disabled={fetching}>
             <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
@@ -136,18 +144,38 @@ export default function AdminActivity() {
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      <div className="mb-4 flex items-center gap-2">
-        <label htmlFor="activity-event-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Event</label>
-        <select
-          id="activity-event-filter"
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary"
-          value={eventFilter}
-          onChange={(event) => setEventFilter(event.target.value)}
-        >
-          <option value="all">All events</option>
-          {eventOptions.map((event) => <option key={event} value={event}>{event}</option>)}
-        </select>
-        <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
+      <div className="mb-4 rounded-xl border border-border bg-muted/20 p-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-secondary">Filter activity</p>
+          <span className="text-xs text-muted-foreground">{filtered.length} of {rows.length} shown</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label htmlFor="activity-event-filter" className="text-xs font-semibold text-muted-foreground">
+            Event type
+            <select
+              id="activity-event-filter"
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
+              value={eventFilter}
+              onChange={(event) => setEventFilter(event.target.value)}
+            >
+              <option value="all">All events</option>
+              {eventOptions.map((event) => <option key={event} value={event}>{event}</option>)}
+            </select>
+          </label>
+          <label htmlFor="activity-visitor-filter" className="text-xs font-semibold text-muted-foreground">
+            Visitor type
+            <select
+              id="activity-visitor-filter"
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
+              value={visitorFilter}
+              onChange={(event) => setVisitorFilter(event.target.value as typeof visitorFilter)}
+            >
+              <option value="all">All visitors</option>
+              <option value="anonymous">Anonymous visitors</option>
+              <option value="signed-in">Signed-in users</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {fetching && rows.length === 0 ? (
