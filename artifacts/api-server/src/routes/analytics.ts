@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
-import { db, analyticsEventsTable, webVitalsTable } from "@workspace/db";
+import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace/db";
+import { desc, eq } from "drizzle-orm";
+import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 
 const eventSchema = z.object({
@@ -30,6 +32,15 @@ router.post("/analytics/events", async (req, res) => {
   }
   const userId = req.user ? (req.user as { id: number }).id : null;
   const { anonymousId, event, path, properties } = parse.data;
+  const forwarded = req.headers["x-forwarded-for"];
+  const forwardedIp = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+  const ipAddress =
+    (req.headers["cf-connecting-ip"] as string | undefined)?.trim() ||
+    (req.headers["x-real-ip"] as string | undefined)?.trim() ||
+    forwardedIp?.trim() ||
+    req.ip ||
+    null;
+  const userAgent = req.get("user-agent") || null;
   try {
     await db.insert(analyticsEventsTable).values({
       userId,
@@ -37,11 +48,42 @@ router.post("/analytics/events", async (req, res) => {
       event,
       path,
       properties: properties ? JSON.stringify(properties) : null,
+      ipAddress,
+      userAgent,
     });
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "Failed to insert analytics event");
     res.status(500).json({ error: "Failed to store event" });
+  }
+});
+
+// Admin activity view — includes anonymous visitors as well as signed-in users.
+router.get("/admin/visitor-activity", requireAdmin, async (_req, res) => {
+  try {
+    const activities = await db
+      .select({
+        id: analyticsEventsTable.id,
+        event: analyticsEventsTable.event,
+        path: analyticsEventsTable.path,
+        properties: analyticsEventsTable.properties,
+        anonymousId: analyticsEventsTable.anonymousId,
+        ipAddress: analyticsEventsTable.ipAddress,
+        userAgent: analyticsEventsTable.userAgent,
+        createdAt: analyticsEventsTable.createdAt,
+        userId: analyticsEventsTable.userId,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+      })
+      .from(analyticsEventsTable)
+      .leftJoin(usersTable, eq(analyticsEventsTable.userId, usersTable.id))
+      .orderBy(desc(analyticsEventsTable.createdAt))
+      .limit(2000);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ activities });
+  } catch (err) {
+    logger.error({ err }, "Failed to load visitor activity");
+    res.status(500).json({ error: "Failed to load visitor activity" });
   }
 });
 

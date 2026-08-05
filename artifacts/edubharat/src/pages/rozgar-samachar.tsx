@@ -24,7 +24,7 @@ import { PageMeta } from "@/components/page-meta";
 import {
   Newspaper, Volume2, Bookmark, BookmarkCheck, Loader2, ChevronDown, ChevronUp,
   User, Settings, Search, ExternalLink, X, Briefcase, SlidersHorizontal, MapPin,
-  Share2, EyeOff, Filter, Calendar, IndianRupee, Trash2, Sparkles, Lightbulb,
+  Share2, EyeOff, Filter, IndianRupee, Trash2, Sparkles, Lightbulb,
   CheckCircle2, ArrowUpRight, ListChecks, Clock3,
 } from "lucide-react";
 import { formatGeneratedText } from "@/lib/english-tools";
@@ -66,10 +66,10 @@ const FEED_FILTERS: Array<{ id: FeedFilter; label: string; emoji: string }> = [
 ];
 
 function sectionFeedCategory(section: typeof SECTIONS[number]): FeedFilter {
-  if (VACANCY_SECTIONS.has(section.id)) return "jobs";
+  if (["top_jobs", "govt_jobs", "private_jobs", "internships"].includes(section.id)) return "jobs";
   if (["english_corner", "vocab", "quiz"].includes(section.id)) return "english";
   if (["jokes", "success_stories", "motivation"].includes(section.id)) return "inspire";
-  if (["ai_news", "tech_news", "business_news", "govt_schemes"].includes(section.id)) return "news";
+  if (["ai_news", "tech_news", "business_news"].includes(section.id)) return "news";
   return "career";
 }
 
@@ -96,7 +96,9 @@ function sectionAudienceLine(section: typeof SECTIONS[number], profile: Profile)
   if (["english_corner", "vocab", "quiz"].includes(section.id)) {
     return `Practical practice for ${profile.status.toLowerCase()}s targeting ${profile.industry} roles`;
   }
-  return `Personalized for your ${profile.industry} career goals`;
+  return profile.industry.trim()
+    ? `Personalized for your ${profile.industry} career goals`
+    : "Personalized for your career goals";
 }
 
 function liveSourceLabel(section: typeof SECTIONS[number], profile: Profile): string {
@@ -180,7 +182,7 @@ const DEFAULT_PROFILE: Profile = {
   careerGoal: "Private Job",
   language: "English",
   location: "Maharashtra",
-  industry: "Technology",
+  industry: "",
 };
 
 function feedProfileContext(section: typeof SECTIONS[number], profile: Profile): string {
@@ -592,7 +594,7 @@ function SectionCard({
       goal: profile.careerGoal,
       skills: profile.skills,
     });
-    if (VACANCY_SECTIONS.has(section.id)) {
+    if (VACANCY_SECTIONS.has(section.id) && (live?.items?.length ?? 0) > 0) {
       setLoaded(true);
       return;
     }
@@ -642,7 +644,7 @@ function SectionCard({
           ? <Loader2 className="ml-auto h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
           : <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />}
       </button>
-      {expanded && (VACANCY_SECTIONS.has(section.id) ? (liveLoading || visibleLiveItems.length > 0 || Boolean(liveError)) : (text || isStreaming || liveLoading || visibleLiveItems.length > 0 || Boolean(liveError))) && (
+      {expanded && (text || isStreaming || liveLoading || visibleLiveItems.length > 0 || Boolean(liveError)) && (
         <Card id={id} className="scroll-mt-24 overflow-hidden rounded-2xl border bg-muted/20 shadow-sm">
           <CardContent className="p-4 sm:p-5">
             {(liveLoading || visibleLiveItems.length > 0 || liveError) && (
@@ -675,11 +677,11 @@ function SectionCard({
               </div>
             )}
 
-            {!VACANCY_SECTIONS.has(section.id) && (text || isStreaming) && (
+            {(text || isStreaming) && (
               <StructuredFeedOutput section={section} text={text} isStreaming={isStreaming} profile={profile} />
             )}
 
-            {!VACANCY_SECTIONS.has(section.id) && (
+            {(text || isStreaming || !VACANCY_SECTIONS.has(section.id)) && (
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" size="sm" className="text-xs" disabled={isStreaming || !text}
                   onClick={() => { synth.stop(); synth.speak(formatGeneratedText(text), profile.language); }}>
@@ -895,7 +897,7 @@ function RozgarSamacharContent() {
     profile.location && profile.location.trim().length > 1
   );
   const needsGate = !hasValidProfile;
-  const [activeTab, setActiveTab] = useState<"jobs" | "feed" | "saved">("feed");
+  const [activeTab, setActiveTab] = useState<"jobs" | "feed" | "saved">("jobs");
   const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
   const [hiddenJobIds, setHiddenJobIds] = useState<Set<string>>(new Set());
 
@@ -919,13 +921,6 @@ function RozgarSamacharContent() {
     { keyword: filters.keyword, city: filters.city, experience: filters.experience, sector: filters.sector },
     hasValidProfile,
   );
-  const {
-    data: livePulse,
-    isLoading: livePulseLoading,
-    error: livePulseError,
-    load: loadLivePulse,
-  } = useRozgarLive();
-
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   useEffect(() => {
@@ -944,17 +939,6 @@ function RozgarSamacharContent() {
       industry: studentProfile.industryPreference || p.industry,
     }));
   }, [studentProfile]);
-
-  useEffect(() => {
-    if (hasValidProfile) void loadLivePulse("top_jobs", profile);
-  }, [
-    hasValidProfile,
-    loadLivePulse,
-    profile.location,
-    profile.careerGoal,
-    profile.status,
-    profile.industry,
-  ]);
 
   // Sync filters to URL
   useEffect(() => {
@@ -992,12 +976,6 @@ function RozgarSamacharContent() {
     return counts;
   }, [allJobs]);
 
-  const visibleLivePulse = useMemo(
-    () => (livePulse?.items ?? [])
-      .filter(item => item.kind === "vacancy" && !hiddenJobIds.has(makeJobId(item.link)))
-      .slice(0, 3),
-    [livePulse, hiddenJobIds],
-  );
   const visibleFeedSections = useMemo(
     () => SECTIONS.filter(section => feedFilter === "all" || sectionFeedCategory(section) === feedFilter),
     [feedFilter],
@@ -1031,10 +1009,12 @@ function RozgarSamacharContent() {
   const clearFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
     setSearchInput("");
+    setActiveTab("jobs");
   }, []);
 
   const updateFilters = useCallback((patch: Partial<FilterState>) => {
     setFilters(f => ({ ...f, ...patch }));
+    setActiveTab("jobs");
   }, []);
 
   const handleSaveProfile = useCallback(async () => {
@@ -1291,8 +1271,8 @@ function RozgarSamacharContent() {
                     </label>
                     <label className="block space-y-1.5 sm:col-span-2">
                       <span className="text-xs font-bold">Industry</span>
-                      <Select value={profile.industry} onValueChange={update("industry")}>
-                        <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
+                      <Select value={profile.industry || undefined} onValueChange={update("industry")}>
+                        <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="Select industry" /></SelectTrigger>
                         <SelectContent>{INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
                       </Select>
                     </label>
@@ -1496,39 +1476,6 @@ function RozgarSamacharContent() {
                   </div>
                 ) : (
                   <>
-                    {/* Live pulse */}
-                    <div className="rounded-2xl border bg-background p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Live hiring pulse</p>
-                          <p className="text-sm text-secondary">Fresh items from job APIs and official career pages.</p>
-                        </div>
-                        {livePulseLoading && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => loadLivePulse("top_jobs", profile)}>
-                          <Calendar className="w-3.5 h-3.5 mr-1" />Refresh
-                        </Button>
-                      </div>
-                      {livePulseError && <p className="text-xs text-muted-foreground">{livePulseError}</p>}
-                      {visibleLivePulse.length > 0 ? (
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {visibleLivePulse.map(item => (
-                            <JobCard
-                              key={makeJobId(item.link)}
-                              item={enrichJob(item)}
-                              onSave={handleSaveJob}
-                              onUnsave={handleUnsaveJob}
-                              onShare={handleShare}
-                              onHide={handleHide}
-                              saved={isJobSaved(makeJobId(item.link))}
-                              matchScore={computeMatchScore(enrichJob(item), studentProfile)}
-                            />
-                          ))}
-                        </div>
-                      ) : !livePulseLoading && !livePulseError ? (
-                        <p className="text-xs text-muted-foreground">No live items yet — try refreshing.</p>
-                      ) : null}
-                    </div>
-
                     {/* Job results */}
                     {jobsLoading ? (
                       <div className="text-center py-16">

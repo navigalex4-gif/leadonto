@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { CreditCard, Users, FileText, BriefcaseIcon, Building2 } from "lucide-react";
+import { CreditCard, Users, FileText, BriefcaseIcon, Building2, Activity } from "lucide-react";
 
 const TABS = [
   { href: "/admin-payments", label: "Payments", icon: CreditCard },
@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin-interviews", label: "Interviews", icon: BriefcaseIcon },
   { href: "/admin-b2b", label: "B2B", icon: Building2 },
   { href: "/admin-content", label: "Content", icon: FileText },
+  { href: "/admin-activity", label: "Activity", icon: Activity },
 ];
 
 /** Shared tab bar shown across the admin pages. */

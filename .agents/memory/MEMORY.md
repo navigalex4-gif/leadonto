@@ -14,6 +14,7 @@
 - [Rozgar profile feed](rozgar-profile-feed.md) — Rozgar should stay candidate-driven, with profile basics shaping every section and a live hiring pulse before AI summaries.
 - [Rozgar tile feed layout](rozgar-tiles.md) — Career Feed opens as a compact reference-style tile matrix; selected feeds use structured visual briefs, not raw paragraphs.
 - [Rozgar feed quality](rozgar-feed-quality.md) — section-specific filters, cleaned sources, deduplication, and source-grounded Claude-first briefs keep feeds relevant.
+- [Rozgar feed fallback](rozgar-feed-fallback.md) — every feed tile must render source items or a clearly labeled fallback brief; empty live vacancy responses must not leave a blank category.
 - [Generated content display](generated-content-display.md) — normalize AI output into readable plain text and keep listen/save actions consistent across reusable generated content.
 - [Voice switching should stop playback](voice-switch-stop-playback.md) — changing tutor voice must cancel active speech immediately so male/female voices never mix.
 - [Compact page scroll shells](compact-page-scroll-shells.md) — full-viewport routes still need a real scroll path; inner panes alone can make the page feel frozen.
@@ -28,6 +29,7 @@
 - [Admin login pattern](admin-login-pattern.md) — /auth/admin-login uses SHA-256 hash vs ADMIN_USERNAME + ADMIN_PASSWORD_HASH env vars; seeds admin@edubharat.in user on first successful login.
 - [B2B recruiter portal](b2b-portal.md) — separate company auth, own credit ledger, atomic `/complete` tx (FOR UPDATE + spend + session + status), token validation in interview-ace before bypassing charge.
 - [Login-origin capture](login-origin-capture.md) — every login path must record sign-in origin; a blank IP is usually pre-feature rows + a null-hiding admin UI, not broken capture.
+- [Anonymous visitor activity](anonymous-visitor-activity.md) — page views persist server-captured IP, route, user agent, timestamp, and anonymous ID; admins review them separately from signed-in users.
 - [Email via Resend connector](email-resend-connector.md) — via Replit connector proxy; 403 to non-owner = Resend unverified-domain sandbox limit, not broken wiring; never leak OTP code on failure.
 - [Mobile tool AI calls](mobile-tool-ai.md) — Expo tool/[id].tsx calls /api/ai/chat with {prompt, system, maxTokens} body (NOT messages array); response is {text: string}.
 - [Interview Ace video call UI](interview-video-call.md) — fixed full-screen dark layout (z-30, top:56px); webcam PiP via getUserMedia; camera auto-off on ANY exit from interview phase + post-await race guard; PhoneOff hang-up.

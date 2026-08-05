@@ -124,6 +124,8 @@ export const analyticsEventsTable = pgTable("analytics_events", {
   event: text("event").notNull(),
   path: text("path").notNull(),
   properties: text("properties"), // JSON
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -34,7 +34,10 @@ export function canTrack(): boolean {
 }
 
 export function track(event: string, properties?: Record<string, unknown>) {
-  if (!canTrack()) return;
+  sendEvent(event, properties);
+}
+
+function sendEvent(event: string, properties?: Record<string, unknown>) {
   const path = window.location.pathname + window.location.search;
   const payload = {
     anonymousId: getAnonId(),
@@ -56,7 +59,9 @@ export function track(event: string, properties?: Record<string, unknown>) {
 }
 
 export function trackPageView(path?: string) {
-  track("page_view", { path: path ?? window.location.pathname });
+  // Page views are the anonymous visitor activity record. They are sent even
+  // before analytics consent so the admin visitor log covers unsigned visitors.
+  sendEvent("page_view", { path: path ?? window.location.pathname });
 }
 
 export function trackToolEvent(tool: string, action: string, data?: Record<string, unknown>) {

@@ -387,8 +387,8 @@ function EnglishGuruContent() {
         }
 
         const isEnglishNative = uiLang === "English";
-        const languageGuidance = isEnglishNative
-          ? `Speak in clear, simple, natural English throughout. Use small human reactions such as "Oh, nice", "Hmm, I see", "Right", or "Ah, okay" when they genuinely fit, varying them and using them sparingly — never as a repeated template.`
+         const languageGuidance = isEnglishNative
+           ? `Speak in clear, simple, natural English throughout. Use small human reactions such as "Ohh, nice", "Hmm, I see", "Right", or "Ohh, okay" when they genuinely fit, varying them and using them sparingly — never as a repeated template. Never say "aah" or start with "Ah"; prefer "Ohh" or "Hmm". Use one light, natural Gen-Z phrase such as "that's legit", "honestly", "nice", "totally", or "you've got this" only when it genuinely fits — never force slang or sound like a meme.`
           : `The student's ONLY helper language is ${uiLang} — do NOT use any other Indian language (not Hindi, not Kannada, not Tamil, not any other — ONLY ${uiLang} when needed). English is the goal, so speak MOSTLY in simple, clear English and keep them practicing. But use ${uiLang} as a warm helping hand whenever they need it: if the student replies in ${uiLang}, tells you (in any language) that they didn't understand, or clearly seems confused, briefly explain the tricky word or idea in ${uiLang}, then continue in English. You may drop a short ${uiLang} gloss in brackets right after a hard English word. When the student explicitly asks what an English word or sentence MEANS in ${uiLang} (or asks you to translate or explain it in ${uiLang}), immediately give that meaning written MOSTLY in ${uiLang} — keep English down to just the word being explained — so it is spoken aloud in a natural ${uiLang} accent; keep that reply short and focused on the meaning, then switch straight back to English in your very next reply. Never leave them stuck or embarrassed — slow down, simplify, and lean on ${uiLang} to unblock them, then gently guide them back to English. When they're managing fine in English, keep your whole reply in English.`;
 
         const webContextNote = webContext
@@ -404,7 +404,7 @@ This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${t
 Rules for spoken replies:
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
 - Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
-- Vary your opening reactions — never use the same one twice: "Oh interesting!", "Hmm!", "Right, so...", "Actually...", "Oh nice!", "Ah I see!", "Yeah, and...", "Good point!", "That makes sense..."
+         - Vary your opening reactions — never use the same one twice: "Ohh, interesting!", "Hmm!", "Right, so...", "Actually...", "Ohh, nice!", "Ohh, I see!", "Yeah, and...", "Good point!", "That makes sense..."
 - Use natural fillers occasionally: "Hmm...", "You know...", "Actually...", "Let me think..."
 - Use short spoken bridges such as "Oh, right", "Okay, so", or "Yeah, tell me more" when they fit. Do not force a filler into every reply.
 - Ask follow-up questions based on what they just said — never repeat a question already covered in this conversation.
@@ -415,7 +415,7 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}`,
           undefined,
-          { maxTokens: 160 }
+         { maxTokens: 140 }
         );
         if (
           turnGeneration !== liveTurnGenerationRef.current ||
@@ -484,7 +484,7 @@ Rules for spoken replies:
           // the English runs on the tutor voice. (speechLang above still drives
           // only which language we LISTEN in next, not the voice.)
           speakRef.current(cleanResponse, "English", releaseTurn, {
-            rate: 1.04,
+             rate: 1.1,
             nativeLanguage: uiLang !== "English" ? uiLang : undefined,
           });
         } else {
@@ -597,8 +597,29 @@ Rules for spoken replies:
       cancelActiveTurn();
       setConvFlowState("idle");
     } else {
-      setConvFlowState("user-speaking");
-      speech.startContinuous(p => handleConvPhraseRef.current?.(p));
+      liveTurnGenerationRef.current += 1;
+      const recentUser = [...convHistoryRef.current].reverse().find(m => m.role === "user")?.text;
+      const recall = recentUser
+        ? `Okay, we're back. We were talking about "${recentUser.slice(0, 90)}${recentUser.length > 90 ? "…" : ""}". Take your time and continue from there — I'm listening.`
+        : "Okay, we're back. I remember where we were — go ahead and continue. I'm listening.";
+      aiBusyRef.current = true;
+      // pause() intentionally creates a long recognition block. Stop the
+      // current recognizer first, then clear that block so resume never waits
+      // for the old ten-minute pause window.
+      speechRef.current.pause();
+      speechRef.current.blockFor(0);
+      setConvHistory(h => [...h, { role: "ai", text: recall }]);
+      setConvFlowState("ai-speaking");
+      lastAiSpeechRef.current = recall;
+      const releaseResume = () => {
+        aiBusyRef.current = false;
+        if (!liveChatRef.current || livePausedRef.current) return;
+        lastAiSpeechEndRef.current = Date.now();
+        speechRef.current.suppressUntil(Date.now() + 1800);
+        speechRef.current.blockFor(700);
+        setConvFlowState("user-speaking");
+      };
+      speakRef.current(recall, "English", releaseResume, { rate: 1.1 });
     }
   }, [liveChat, speech, cancelActiveTurn]);
 

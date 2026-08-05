@@ -100,15 +100,15 @@ export function inferWorkMode(item: RozgarLiveItem): EnrichedJob["workMode"] {
   const text = normalizeText(item.title, item.summary, item.location, item.jobType);
   if (text.includes("remote") || text.includes("work from home") || text.includes("wfh") || item.remote) return "remote";
   if (text.includes("hybrid")) return "hybrid";
-  if (text.includes("onsite") || text.includes("on-site") || text.includes("in-office")) return "onsite";
+  if (text.includes("onsite") || text.includes("on-site") || text.includes("in-office") || item.remote === false) return "onsite";
   return "unknown";
 }
 
 export function inferSector(item: RozgarLiveItem): EnrichedJob["sector"] {
-  const text = normalizeText(item.title, item.summary, item.source);
-  if (text.includes("government") || text.includes("govt") || text.includes("sarkari") || text.includes("public sector") || text.includes("recruitment") || text.includes("vacancy")) return "government";
+  const text = normalizeText(item.title, item.summary, item.source, item.jobType);
+  if (text.includes("government") || text.includes("govt") || text.includes("sarkari") || text.includes("public sector") || text.includes("recruitment") || text.includes("vacancy") || text.includes("civil service") || text.includes("ministry")) return "government";
   if (text.includes("startup")) return "startup";
-  if (text.includes("private") || text.includes("company") || text.includes("corporate") || text.includes("mnc")) return "private";
+  if (text.includes("private") || text.includes("company") || text.includes("corporate") || text.includes("mnc") || text.includes("adzuna") || text.includes("remotive")) return "private";
   return "unknown";
 }
 
@@ -254,10 +254,10 @@ export function filterJobs(jobs: EnrichedJob[], filters: FilterState, profile: S
     const text = normalizeText(job.title, job.company, job.summary, job.location, job.source, job.jobType);
     if (keyword && !text.includes(keyword)) return false;
     if (city && !(job.location || "").toLowerCase().includes(city)) return false;
-    if (filters.workMode !== "all" && job.workMode !== "unknown" && job.workMode !== filters.workMode) return false;
-    if (filters.sector !== "all" && job.sector !== "unknown" && job.sector !== filters.sector) return false;
-    if (filters.experience !== "all" && job.experience !== "unknown" && job.experience !== filters.experience) return false;
-    if (filters.employmentType !== "all" && job.employmentType !== "unknown" && job.employmentType !== filters.employmentType) return false;
+    if (filters.workMode !== "all" && job.workMode !== filters.workMode) return false;
+    if (filters.sector !== "all" && job.sector !== filters.sector) return false;
+    if (filters.experience !== "all" && job.experience !== filters.experience) return false;
+    if (filters.employmentType !== "all" && job.employmentType !== filters.employmentType) return false;
     // Salary band filter — only exclude when the job has salary data AND it falls outside the band
     if (filters.salaryBand !== "any") {
       if (job.salaryMax > 0 && job.salaryMax < salaryMin) return false;

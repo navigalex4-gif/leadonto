@@ -174,7 +174,10 @@ async function fetchJson<T>(url: string): Promise<T> {
 function sectionContext(params: URLSearchParams) {
   return {
     location: params.get("location")?.trim() || "India",
-    industry: params.get("industry")?.trim() || "technology",
+    // Empty means the candidate has not selected an industry. Use a neutral
+    // search term for provider queries; the UI must never present Technology
+    // as if it were selected.
+    industry: params.get("industry")?.trim() || "career",
     status: params.get("status")?.trim() || "candidate",
     goal: params.get("goal")?.trim() || "Private Job",
     skills: params.get("skills")?.trim() || "",

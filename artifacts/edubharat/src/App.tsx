@@ -29,6 +29,7 @@ const AdminUsers = lazy(() => import("@/pages/admin-users"));
 const AdminInterviews = lazy(() => import("@/pages/admin-interviews"));
 const AdminB2B = lazy(() => import("@/pages/admin-b2b"));
 const AdminContent = lazy(() => import("@/pages/admin-content"));
+const AdminActivity = lazy(() => import("@/pages/admin-activity"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 // B2B portal
 const B2BLogin = lazy(() => import("@/pages/b2b-login"));
@@ -103,6 +104,7 @@ function Router() {
             <Route path="/admin-interviews" component={AdminInterviews} />
             <Route path="/admin-b2b" component={AdminB2B} />
             <Route path="/admin-content" component={AdminContent} />
+            <Route path="/admin-activity" component={AdminActivity} />
             <Route path="/admin" component={AdminPayments} />
             {/* B2B portal */}
             <Route path="/b2b/login" component={B2BLogin} />

@@ -305,22 +305,51 @@ function normalizeAdzuna(job: AdzunaJob): LiveItem {
   };
 }
 
-async function fetchAdzuna(q: string, city: string, page: number): Promise<LiveItem[]> {
+async function fetchAdzuna(q: string, city: string, page: number, experience = "all", sector = "all"): Promise<LiveItem[]> {
   const appId = process.env["ADZUNA_APP_ID"];
   const appKey = process.env["ADZUNA_APP_KEY"];
   if (!appId || !appKey) return [];
 
+  const experienceTerm = experience === "fresher"
+    ? "fresher entry level"
+    : experience === "junior"
+      ? "junior 1-3 years"
+      : experience === "mid"
+        ? "3-6 years experienced"
+        : experience === "senior"
+          ? "senior 6+ years"
+          : "";
+  const sectorTerm = sector === "government"
+    ? "government public sector"
+    : sector === "startup"
+      ? "startup"
+      : "";
+  const searchTerm = [q, experienceTerm, sectorTerm].filter(Boolean).join(" ").trim();
   const params = new URLSearchParams({
     app_id: appId,
     app_key: appKey,
     results_per_page: "20",
   });
-  if (q) params.set("what", q);
+  if (searchTerm) params.set("what", searchTerm);
   if (city) params.set("where", city);
 
   const url = `https://api.adzuna.com/v1/api/jobs/in/search/${page}?${params.toString()}`;
   const data = await fetchJson<AdzunaResponse>(url);
-  return (data.results ?? []).map(normalizeAdzuna);
+  if ((data.results ?? []).length > 0 || !experienceTerm) {
+    return (data.results ?? []).map(normalizeAdzuna);
+  }
+
+  // Some valid Adzuna listings do not contain experience wording in their
+  // index. Retry the same city/role with the sector term only so the client
+  // can still apply its explicit experience filter to the returned records.
+  const broadTerm = [q, sectorTerm].filter(Boolean).join(" ").trim();
+  if (broadTerm === searchTerm) return (data.results ?? []).map(normalizeAdzuna);
+  if (broadTerm) params.set("what", broadTerm);
+  else params.delete("what");
+  const fallback = await fetchJson<AdzunaResponse>(
+    `https://api.adzuna.com/v1/api/jobs/in/search/${page}?${params.toString()}`,
+  );
+  return (fallback.results ?? []).map(normalizeAdzuna);
 }
 
 // ─── Source 3: Remotive (free remote jobs, no key required) ──────────────────
@@ -467,7 +496,7 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
   const page = Math.max(1, parseInt((req.query["page"] as string) || "1", 10));
 
   // Version the cache after removing the old Google-News-as-vacancy contract.
-  const key = JSON.stringify({ version: 2, q, city, experience, sector, skills: skills.join(","), page });
+  const key = JSON.stringify({ version: 3, q, city, experience, sector, skills: skills.join(","), page });
 
   // ── L1: in-process memory ──
   const l1 = l1Cache.get(key);
@@ -491,7 +520,7 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
 
   // Run verified job sources in parallel.
   const [adzunaResult, remotiveResult] = await Promise.allSettled([
-    fetchAdzuna(q, city, page),
+    fetchAdzuna(q, city, page, experience, sector),
     fetchRemotive(q),
   ]);
 
@@ -503,8 +532,10 @@ router.get("/jobs/search", async (req: Request, res: Response) => {
   }
 
   if (remotiveResult.status === "fulfilled" && remotiveResult.value.length > 0) {
-    // Only add Remotive for tech/remote queries
-    if (!q || /tech|software|developer|engineer|design|product|data|ai|ml|remote/i.test(q)) {
+    // Remotive is remote-only and does not support city/sector/experience
+    // filtering. Never mix worldwide remote listings into a city search.
+    if (!city && (sector === "all" || sector === "private" || sector === "startup") &&
+      (experience === "all" || /tech|software|developer|engineer|design|product|data|ai|ml|remote/i.test(q))) {
       allItems.push(...remotiveResult.value);
       sources.push("remotive");
     }
