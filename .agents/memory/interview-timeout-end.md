@@ -3,8 +3,8 @@ name: Interview Ace timed end + in-flight stream race
 description: How Interview Ace must end when the clock runs out, and why async turn handlers must re-check an "ended" ref after every await.
 ---
 
-## Rule — end at time-up even while recording
-Interview Ace must end when `elapsedSeconds >= duration*60` EVEN IF the mic is still recording. End path: set `endingRef=true`, abort the in-flight AI stream (`resetStream()`), clear timers, stop mic, disable auto-listen, capture any pending `answerRef.current` into the current unanswered question, speak a short sign-off via `speakCoach`, then `setPhase("report")` after ~2.6s.
+## Rule — end at time-up or 30 seconds of no reply
+Interview Ace must end when `elapsedSeconds >= duration*60` EVEN IF the mic is still recording, and must also end after 30 seconds of complete silence after a new question. End path: set `endingRef=true`, abort the in-flight AI stream (`resetStream()`), clear timers, stop mic, disable auto-listen, capture any pending `answerRef.current` into the current unanswered question, speak a short sign-off via `speakCoach`, then `setPhase("report")` after ~2.6s.
 
 **Why:** the old auto-end effect was gated on `!isRecording`, so if the candidate went silent near the end the session hung past its duration and NEVER produced feedback. "Generate complete feedback" is really fixed by ensuring the interview reliably ends — the report generator itself was already robust (fallbacks, per-question follow-up call, index-based mapping).
 
@@ -23,4 +23,8 @@ Interview Ace must end when `elapsedSeconds >= duration*60` EVEN IF the mic is s
 **Why:** the auto-listen submit path is already safe (it only fires when the mic yields a final result, which requires `coachSpeaking` false), so the only new vector was the manual button during the artificial pause.
 
 ## Pacing
-Don't cut candidates off: auto-submit only after a LONG silence window (continuous speech keeps resetting the timer). Use most of the selected duration — sign off only in the last ~60s (`elapsedSeconds >= duration*60 - 60`), not minutes early.
+Don't cut candidates off: auto-submit only after a LONG silence window (continuous speech keeps resetting the timer). Use most of the selected duration — sign off only in the last ~60s (`elapsedSeconds >= duration*60 - 60`), not minutes early. After an answer is submitted, keep the deliberate thinking pause roughly 0.7–1.4s and start a real or fallback response early enough that TTS begins within four seconds.
+
+**Why:** a long artificial pause makes a live interview feel broken even when the model is fast; a short pause plus a fallback keeps the conversational promise bounded.
+
+**How to apply:** preserve the immediate filler acknowledgement, the short stream deadline, and post-await ended guards whenever the interview turn flow changes.

@@ -471,7 +471,7 @@ function InterviewAceContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // No-reply watchdog: if the candidate says NOTHING for 33 s after a question is
+  // No-reply watchdog: if the candidate says NOTHING for 30 s after a question is
   // asked (never even starts an answer), we conclude the interview and generate
   // feedback. Armed when the mic starts listening; cleared the instant they speak.
   const noReplyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -558,7 +558,7 @@ function InterviewAceContent() {
   }, []);
 
   // Conclude the interview when the candidate goes completely silent on a new
-  // question (the 33 s no-reply watchdog fired). Mirrors the clock-runout path:
+  // question (the 30 s no-reply watchdog fired). Mirrors the clock-runout path:
   // stop the mic and any in-flight stream, give a short natural sign-off, then
   // move to the report so feedback is generated from whatever was answered.
   const concludeNoReply = useCallback(() => {
@@ -574,7 +574,7 @@ function InterviewAceContent() {
     setTimeout(() => setPhase("report"), 2600);
   }, [resetStream, clearAutoSubmitTimer, speech, profile.name, coach.gender, speakCoach]);
 
-  // Live ref so the 33 s timer (armed inside the auto-listen effect) always calls
+  // Live ref so the 30 s timer (armed inside the auto-listen effect) always calls
   // the latest concludeNoReply without adding it to that effect's deps.
   const concludeNoReplyRef = useRef(concludeNoReply);
   useEffect(() => { concludeNoReplyRef.current = concludeNoReply; }, [concludeNoReply]);
@@ -864,8 +864,9 @@ Rules:
 
     let response: string;
     // ── Thinking-pause guarantee ───────────────────────────────────────────────
-    // Target: interviewer ALWAYS starts speaking within 3 s of the candidate stopping.
-    // Hard cap: NEVER exceed ~2.2 s of deliberate pause on top of network time.
+    // Target: interviewer ALWAYS starts the real reply within 4 s of the
+    // candidate stopping. Keep the deliberate pause short so model + TTS time
+    // still fit inside that promise.
     //
     // Strategy: start a short minimum-wait timer IN PARALLEL with the AI stream
     // call so streaming latency counts toward the pause window, AND fire an
@@ -874,25 +875,25 @@ Rules:
     // This guarantees:
     //   • fast stream (< 1 s)  → still waits at least the short floor (feels natural, not instant/robotic)
     //   • medium stream        → fires within the natural window
-    //   • slow stream (> 2 s)  → fires as soon as it resolves (network-constrained, best effort)
+    //   • slow stream (> 1.6 s) → use a short fallback so the reply starts promptly
     const thinkStart = Date.now();
 
     // Compute target pause length based on answer length (determined before this call).
-    // Range 900–1 800 ms; short answers get quicker replies, long ones a touch more.
+    // Range 700–1 400 ms; short answers get quicker replies, long ones a touch more.
     const naturalPauseMs = (() => {
       let base: number;
       if (wordCount < 15) {
-        base = 900 + Math.random() * 300;    // 0.9–1.2 s
+        base = 700 + Math.random() * 250;    // 0.7–0.95 s
       } else if (wordCount < 50) {
-        base = 1100 + Math.random() * 350;   // 1.1–1.45 s
+        base = 850 + Math.random() * 300;    // 0.85–1.15 s
       } else {
-        base = 1300 + Math.random() * 400;   // 1.3–1.7 s
+        base = 1050 + Math.random() * 350;   // 1.05–1.4 s
       }
       // Hesitation markers → slight extra hesitation (stays within cap)
       if (/\b(um+|uh+|hmm+|err+|like,? you know|i mean|so,? basically|basically)\b/i.test(recordedAnswer)) {
         base += Math.random() * 200;
       }
-      return Math.min(1800, Math.max(900, Math.round(base)));
+      return Math.min(1400, Math.max(700, Math.round(base)));
     })();
 
     // Neutral fallback questions used when the AI stream times out or errors.
@@ -905,11 +906,11 @@ Rules:
     ];
 
     // Kick off the minimum floor immediately — runs while streaming proceeds.
-    const minWaitPromise = new Promise<void>(resolve => setTimeout(resolve, 900));
+    const minWaitPromise = new Promise<void>(resolve => setTimeout(resolve, 700));
 
     // Hard deadline: if the AI hasn't replied in time, inject a fallback so the
-    // interviewer ALWAYS starts speaking within ~2.5 s of the candidate stopping.
-    const STREAM_DEADLINE_MS = 1800;
+    // interviewer ALWAYS starts speaking within ~2 s of the candidate stopping.
+    const STREAM_DEADLINE_MS = 1600;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -939,7 +940,8 @@ ${firstName} answered: "${recordedAnswer}"
 ${directive}
 
 STYLE — important:
-- Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Sprinkle in light, witty humour: a friendly quip, a playful aside or a warm, clever observation now and then to build rapport. Keep it tasteful and never at ${firstName}'s expense, never sarcastic or mocking, and don't force a joke into every turn — a little wit goes a long way.
+- Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Use a light, witty observation only when it genuinely fits; never force a joke, praise, or enthusiasm into every turn.
+- Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
 - Start with a brief, natural reaction tied to something the candidate actually said. It may be a fragment such as "That sounds like a busy launch" or "I can see why that was tricky." Do not use the same stock acknowledgement twice, and do not praise automatically.
 - After that reaction, ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. A short bridge such as "And when that happened…" is fine when it genuinely connects.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
@@ -952,7 +954,7 @@ STYLE — important:
 Output format — exactly two lines, nothing else:
 Ack: <brief, natural reaction tied to the candidate's answer, max ~10 words>
 Next: <the interview question only>`,
-          `You are ${coach.name}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Use light, witty humour — the occasional friendly quip or playful aside — to keep the candidate relaxed, but never sarcasm, never at their expense, and never so much that it undercuts a real interview. Speak in clear, simple, everyday English by default, and use more advanced English only for candidates who clearly speak strongly. Never use markdown, action words, or effusive flattery.`,
+          `You are ${coach.name}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person on a live call: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),
@@ -1019,14 +1021,15 @@ Next: <the interview question only>`,
       acknowledgment = "Understood.";
     }
 
-    // ── Enforce sub-3s thinking window ────────────────────────────────────────
+    // ── Enforce under-4s response window ──────────────────────────────────────
     // Step 1: ensure the short floor has elapsed (timer started BEFORE stream call).
     await minWaitPromise;
     // Guard: interview may have ended during stream/minWait — don't continue.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     // Step 2: wait any remaining time up to naturalPauseMs, but hard-clamp against
-    // the absolute wall-clock budget (2 200 ms from thinkStart) to prevent drift.
-    const wallRemaining = 2200 - (Date.now() - thinkStart);
+    // the absolute wall-clock budget (2 000 ms from thinkStart) so TTS can begin
+    // comfortably before the four-second response promise.
+    const wallRemaining = 2000 - (Date.now() - thinkStart);
     const targetRemaining = naturalPauseMs - (Date.now() - thinkStart);
     const remainingWait = Math.min(wallRemaining, targetRemaining);
     if (remainingWait > 0) {
@@ -1044,7 +1047,7 @@ Next: <the interview question only>`,
     setAnswer("");
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(`${acknowledgment} ${nextQuestion}`, { voiceGender: coach.gender, pitch: pitchVariation, rate: 0.98 });
+    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, pitch: pitchVariation, rate: 1.05 });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
@@ -1143,12 +1146,12 @@ Next: <the interview question only>`,
     // enabled the whole time as a manual override to submit sooner.
     const silenceMs = 7000;
     setIsRecording(true);
-    // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
+    // Arm the no-reply watchdog: if the candidate never says a word for 30 s after
     // this question, conclude the interview and generate feedback. Cleared the
     // moment any speech arrives (clearAutoSubmitTimer in the chunk handler clears
     // it too). Clear any stale timer first so a mic restart can't stack two.
     if (noReplyRef.current) clearTimeout(noReplyRef.current);
-    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 33_000);
+    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 30_000);
     speech.startContinuous(text => {
       const chunk = text.trim();
       if (!chunk) return;
@@ -1206,13 +1209,14 @@ Next: <the interview question only>`,
   useEffect(() => {
     if (phase !== "report" || report || isGeneratingReport) return;
     const answered = questions.filter(q => q.answer);
-    if (answered.length === 0) return;
     setIsGeneratingReport(true);
 
     const generate = async () => {
-      const transcript = answered
-        .map((q, i) => `Q${i + 1}: ${q.question}\nA${i + 1}: ${q.answer ?? ""}`)
-        .join("\n\n");
+      const transcript = answered.length > 0
+        ? answered
+            .map((q, i) => `Q${i + 1}: ${q.question}\nA${i + 1}: ${q.answer ?? ""}`)
+            .join("\n\n")
+        : "(The candidate did not provide any answer before the interview ended. Give honest, clearly labelled feedback about insufficient evidence and recommend practising a complete response.)";
 
       // Build the covered-competency list + JSON template for THIS interview
       // length so the model only scores what the format actually covers.

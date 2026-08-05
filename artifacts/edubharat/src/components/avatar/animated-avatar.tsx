@@ -9,18 +9,6 @@ const sizeClasses: Record<string, { container: string; image: string; ring: stri
   xl: { container: "w-40 h-40", image: "w-40 h-40", ring: "w-40 h-40", px: 160 },
 };
 
-/** Small shared CSS for idle "aliveness" — a slow breathing scale applied to
- * whichever avatar (SVG or real photo) is currently NOT speaking, so it never
- * looks frozen between utterances. Rendered once per mounted avatar; harmless
- * if duplicated across a couple of instances. */
-const IDLE_STYLE = `
-@keyframes ab-breathe {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  50% { transform: scale(1.018) rotate(0.4deg); }
-}
-.ab-idle { animation: ab-breathe 4.8s ease-in-out infinite; }
-`;
-
 /** Fallback cartoon SVG when no real image is available */
 function FallbackSVG({
   gender,
@@ -61,8 +49,7 @@ function FallbackSVG({
   const mouthPath = `M ${100 - halfSpread} 128 Q 100 ${controlY.toFixed(1)} ${100 + halfSpread} 128`;
 
   return (
-    <div className={`${sz.container} relative rounded-2xl overflow-hidden bg-gradient-to-b from-orange-50 via-white to-primary/10 border-2 border-primary/20 ${!isSpeaking ? "ab-idle" : ""}`}>
-      <style>{IDLE_STYLE}</style>
+    <div className={`${sz.container} relative rounded-2xl overflow-hidden bg-gradient-to-b from-orange-50 via-white to-primary/10 border-2 border-primary/20`}>
       <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
           <radialGradient id="skin-fb" cx="50%" cy="40%" r="60%">
@@ -119,8 +106,11 @@ function FallbackSVG({
  * mounts while speaking, so the idle photo is pixel-identical to before.
  */
 function PhotoMouth({ imageSrc, px, mouth }: { imageSrc: string; px: number; mouth: MouthLevel }) {
-  const jawDrop = (mouth.openness * 1.3).toFixed(2);
-  const scaleY = (1 + mouth.openness * 0.05).toFixed(3);
+  // Keep the portrait completely locked in its frame. The previous jaw-drop
+  // translated the masked copy of the whole photo, which made the face bob up
+  // and down. This tiny scale is confined to the mouth band by the mask, so
+  // only the lips/chin give a speaking cue; the head, shoulders, and frame stay still.
+  const scaleY = (1 + mouth.openness * 0.018).toFixed(3);
   const scaleX = (1 - mouth.width * 0.015).toFixed(3);
 
   return (
@@ -142,11 +132,8 @@ function PhotoMouth({ imageSrc, px, mouth }: { imageSrc: string; px: number; mou
         height={px}
         className="w-full h-full object-cover object-top"
         style={{
-          // Hinge at the upper lip: jaw-drop amount tracks real audio loudness
-          // frame-to-frame, so the mouth actually opens wider on louder
-          // syllables and closes between words instead of a fixed beat.
-          transformOrigin: "50% 48%",
-          transform: `translateY(${jawDrop}%) scaleY(${scaleY}) scaleX(${scaleX})`,
+          transformOrigin: "50% 55%",
+          transform: `scaleY(${scaleY}) scaleX(${scaleX})`,
           transition: "transform 70ms linear",
         }}
         draggable={false}
@@ -180,9 +167,8 @@ export function AnimatedAvatar({
       <div className="relative">
         {hasImage ? (
           <div
-            className={`${sz.container} rounded-2xl overflow-hidden shadow-lg relative ${!isSpeaking ? "ab-idle" : ""}`}
+            className={`${sz.container} rounded-2xl overflow-hidden shadow-lg relative`}
           >
-            <style>{IDLE_STYLE}</style>
             <img
               src={imageSrc}
               alt={name}
