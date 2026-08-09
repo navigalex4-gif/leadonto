@@ -12,24 +12,24 @@ function UL({ children }: { children: React.ReactNode }) {
 }
 
 export default function ShippingRefund() {
-  const email = useContent("contact.billing.email", "billing@edubharat.in");
+  const email = useContent("contact.billing.email", "email@leadonto.com");
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
       <PageMeta
-        title="Shipping & Refund Policy · EduBharat"
-        description="EduBharat's shipping and refund policy for digital credit purchases."
+        title="Shipping & Refund Policy · Lead Onto"
+        description="Lead Onto's shipping and refund policy for digital credit purchases."
       />
       <h1 className="text-3xl font-display font-bold text-secondary mb-2">Shipping &amp; Refund Policy</h1>
       <p className="text-sm text-muted-foreground mb-8">Last updated: July 2025</p>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-8 text-sm text-blue-800">
-        EduBharat is a <strong>100% digital platform</strong>. We do not sell or ship any physical products. There are no shipping fees,
+        Lead Onto is a <strong>100% digital platform</strong>. We do not sell or ship any physical products. There are no shipping fees,
         delivery timelines, or physical returns applicable.
       </div>
 
       <H2>1. Credit Purchases</H2>
-      <P>EduBharat uses a credit-based system for premium AI features (1 credit = ₹1). The purchase process:</P>
+      <P>Lead Onto uses a credit-based system for premium AI features (1 credit = ₹1). The purchase process:</P>
       <UL>
         <li>You complete a UPI payment and submit your UTR (Transaction Reference Number) in the app</li>
         <li>Our team verifies the UTR against our payment records within 1–4 business hours</li>
@@ -76,7 +76,7 @@ export default function ShippingRefund() {
         with the following:
       </P>
       <UL>
-        <li>Your registered email address on EduBharat</li>
+        <li>Your registered email address on Lead Onto</li>
         <li>UPI UTR (Transaction Reference Number) — found in your payment app's transaction history</li>
         <li>Amount paid (₹)</li>
         <li>Date of payment</li>
@@ -117,8 +117,8 @@ export default function ShippingRefund() {
       <UL>
         <li>
           Escalate by emailing{" "}
-          <a href="mailto:support@edubharat.in" className="text-primary hover:underline">
-            support@edubharat.in
+          <a href="mailto:email@leadonto.com" className="text-primary hover:underline">
+            email@leadonto.com
           </a>{" "}
           with "ESCALATION" in the subject line
         </li>
@@ -128,7 +128,7 @@ export default function ShippingRefund() {
           online portal at consumerhelpline.gov.in
         </li>
       </UL>
-      <P>EduBharat is committed to resolving all genuine payment disputes fairly and transparently.</P>
+      <P>Lead Onto is committed to resolving all genuine payment disputes fairly and transparently.</P>
 
       <H2>7. Contact</H2>
       <P>

@@ -258,7 +258,7 @@ export default function B2BCampaign() {
 
   return (
     <div className="container mx-auto px-4 max-w-5xl py-8">
-      <PageMeta title={`${campaign.title} · B2B · EduBharat`} description="Campaign detail" />
+      <PageMeta title={`${campaign.title} · B2B · Lead Onto`} description="Campaign detail" />
       <B2BNav />
 
       {/* Header */}

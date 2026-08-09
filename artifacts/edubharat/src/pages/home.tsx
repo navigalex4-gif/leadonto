@@ -32,7 +32,7 @@ const CAREER_TOOLS = [
 
 export default function Home() {
   const heroBadge    = useContent("home.hero.badge",       "AI-powered career platform for India");
-  const heroSubtitle = useContent("home.hero.subtitle",    "EduBharat gives every Indian learner a personal AI mentor — for spoken English, mock interviews, and live career updates.");
+  const heroSubtitle = useContent("home.hero.subtitle",    "Lead Onto gives every Indian learner a personal AI mentor — for spoken English, mock interviews, and live career updates.");
   const ctaPrimary   = useContent("home.hero.ctaPrimary",  "Start Learning Free");
   const ctaSecondary = useContent("home.hero.ctaSecondary","Browse Jobs");
 

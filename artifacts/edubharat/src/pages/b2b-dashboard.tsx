@@ -84,7 +84,7 @@ export default function B2BDashboard() {
 
   return (
     <div className="container mx-auto px-4 max-w-5xl py-8">
-      <PageMeta title="B2B Dashboard · EduBharat" description="Recruiter portal dashboard" />
+      <PageMeta title="B2B Dashboard · Lead Onto" description="Recruiter portal dashboard" />
       <B2BNav />
 
       {/* Header */}

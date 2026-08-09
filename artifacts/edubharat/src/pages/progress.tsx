@@ -96,7 +96,7 @@ export default function ProgressPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl space-y-6">
-      <PageMeta title="My Progress" description="Track your English learning, mock interview scores, saved jobs, and career readiness on EduBharat." />
+      <PageMeta title="My Progress" description="Track your English learning, mock interview scores, saved jobs, and career readiness on Lead Onto." />
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

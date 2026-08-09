@@ -94,7 +94,7 @@ export default function B2BCampaignNew() {
 
   return (
     <div className="container mx-auto px-4 max-w-2xl py-8">
-      <PageMeta title="New Campaign · B2B · EduBharat" description="Create an interview campaign" />
+      <PageMeta title="New Campaign · B2B · Lead Onto" description="Create an interview campaign" />
       <B2BNav />
 
       <div className="flex items-center gap-3 mb-6">

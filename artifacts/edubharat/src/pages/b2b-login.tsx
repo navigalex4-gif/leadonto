@@ -32,7 +32,7 @@ export default function B2BLogin() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <PageMeta title="B2B Portal Login · EduBharat" description="Sign in to your EduBharat recruiter portal" />
+      <PageMeta title="B2B Portal Login · Lead Onto" description="Sign in to your Lead Onto recruiter portal" />
       <Card className="w-full max-w-md shadow-lg">
         <CardContent className="pt-8 pb-8 px-8">
           <div className="text-center mb-8">
@@ -78,7 +78,7 @@ export default function B2BLogin() {
             </Link>
           </p>
           <p className="text-center text-xs text-muted-foreground mt-3">
-            <Link href="/" className="hover:underline">← Back to EduBharat</Link>
+            <Link href="/" className="hover:underline">← Back to Lead Onto</Link>
           </p>
         </CardContent>
       </Card>

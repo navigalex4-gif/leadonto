@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "EduBharat"
+title = "Lead Onto"
 version = "1.0.0"
 id = "artifacts/edubharat"
 router = "path"

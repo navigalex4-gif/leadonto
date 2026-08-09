@@ -67,7 +67,7 @@ export default function B2BCredits() {
   useEffect(() => {
     if (stage !== "qr" || !valid) return;
     setQrLoading(true);
-    const uri = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_DISPLAY_NAME)}&am=${amount.toFixed(2)}&cu=INR&tn=EduBharat+B2B+Credits`;
+    const uri = `upi://pay?pa=${UPI_ID}&pn=${encodeURIComponent(UPI_DISPLAY_NAME)}&am=${amount.toFixed(2)}&cu=INR&tn=Lead+Onto+B2B+Credits`;
     QRCode.toDataURL(uri, { width: 240, margin: 2 })
       .then((url) => { setQrDataUrl(url); setQrLoading(false); })
       .catch(() => setQrLoading(false));
@@ -126,7 +126,7 @@ export default function B2BCredits() {
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-8">
-      <PageMeta title="Credits · B2B · EduBharat" description="Buy B2B interview credits" />
+      <PageMeta title="Credits · B2B · Lead Onto" description="Buy B2B interview credits" />
       <B2BNav />
 
       {/* Balance */}

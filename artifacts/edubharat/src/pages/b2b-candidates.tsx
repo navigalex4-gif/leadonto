@@ -100,7 +100,7 @@ export default function B2BCandidates() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Candidates · B2B · EduBharat" description="Completed interview candidates" />
+      <PageMeta title="Candidates · B2B · Lead Onto" description="Completed interview candidates" />
       <B2BNav />
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">

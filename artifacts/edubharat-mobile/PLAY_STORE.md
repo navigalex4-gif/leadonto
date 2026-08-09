@@ -1,4 +1,4 @@
-# Publishing EduBharat Mobile to the Google Play Store
+# Publishing Lead Onto Mobile to the Google Play Store
 
 This guide takes the Expo app in `artifacts/edubharat-mobile` from source to a
 live Play Store listing. It only needs to be done from a machine with the Expo
@@ -85,7 +85,7 @@ eas build --platform android --profile preview
 
 Google requires the **very first** build to be uploaded manually:
 
-1. In the Play Console, **Create app** → fill in name (**EduBharat**), default
+1. In the Play Console, **Create app** → fill in name (**Lead Onto**), default
    language, app/game = App, free/paid.
 2. Go to **Testing → Internal testing → Create new release**.
 3. Upload the `.aab` from step 4.
@@ -124,10 +124,10 @@ Google won't let you go live until these are filled in:
   `preview` build.
 - **Short description** (≤80 chars) and **full description** (≤4000 chars).
 - **Privacy policy URL** — required because the app has user accounts / Google
-  sign-in. Host one on the EduBharat web app and link it here.
+  sign-in. Host one on the Lead Onto web app and link it here.
 - **Data safety form** — declare what you collect. This app collects: account
   info (name, email via Google sign-in), and app activity (learning progress).
-  Data is sent over HTTPS to the EduBharat API.
+  Data is sent over HTTPS to the Lead Onto API.
 - **Content rating** questionnaire.
 - **Target audience** — select the appropriate age groups.
 
@@ -135,7 +135,7 @@ Google won't let you go live until these are filled in:
 
 ## 8. Before you ship — app config to double-check
 
-- **API base URL**: the mobile app talks to the EduBharat API. Make sure it
+- **API base URL**: the mobile app talks to the Lead Onto API. Make sure it
   points at your **deployed** API domain (not a dev `*.replit.dev` URL) in a
   production build. See `getApiUrl()` in the mobile source.
 - **Google OAuth**: add the production redirect/scheme to the Google Cloud OAuth
