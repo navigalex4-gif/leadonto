@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Copy, Mail, Send } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Copy, Mail, Send, AlertTriangle, Info, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +88,7 @@ export default function AdminEmail() {
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [lastSentTo, setLastSentTo] = useState<string | null>(null);
 
   const isAdmin = user?.isAdmin === true;
 
@@ -129,7 +130,8 @@ export default function AdminEmail() {
       });
       const d = (await res.json()) as { error?: string };
       if (res.ok) {
-        setTestResult({ ok: true, message: `Test OTP delivered to ${testEmail}. Check inbox (and spam folder).` });
+        setLastSentTo(testEmail);
+        setTestResult({ ok: true, message: `Test OTP sent to ${testEmail}. Follow the checklist below to verify inbox delivery.` });
         toast({ title: "Test email sent!" });
       } else {
         setTestResult({ ok: false, message: d.error ?? "Failed to send test email." });
@@ -343,6 +345,88 @@ export default function AdminEmail() {
                       <span>{testResult.message}</span>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Post-send delivery checklist — shown after a test OTP is sent */}
+              {lastSentTo && (
+                <Card className="border-blue-200 bg-blue-50/40">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-blue-600" />
+                      Inbox Delivery Checklist
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Complete these steps to confirm the email reached the inbox and the login flow works end-to-end.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <ol className="space-y-3 text-sm">
+                      <li className="flex gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">1</span>
+                        <div>
+                          <p className="font-medium text-foreground">Open Gmail at <span className="font-mono text-blue-700">{lastSentTo}</span></p>
+                          <p className="text-muted-foreground text-xs mt-0.5">Look for a message from <strong>email@leadonto.com</strong> with subject <strong>"Lead Onto — Test OTP Delivery"</strong>. It should arrive within 1–2 minutes.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">2</span>
+                        <div>
+                          <p className="font-medium text-foreground">Check it landed in the Inbox (not Spam)</p>
+                          <p className="text-muted-foreground text-xs mt-0.5">If it's in spam, the SPF/DKIM records aren't verified yet — see the troubleshooting section below. If the domain shows Verified above, click Refresh and wait a few more minutes.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">3</span>
+                        <div>
+                          <p className="font-medium text-foreground">Verify the email content</p>
+                          <p className="text-muted-foreground text-xs mt-0.5">The email should show the Lead Onto name, a 6-digit OTP code, and an expiry note. The sender name and code must be clearly readable.</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">4</span>
+                        <div>
+                          <p className="font-medium text-foreground">Complete the login flow on leadonto.com</p>
+                          <p className="text-muted-foreground text-xs mt-0.5">Go to <strong>leadonto.com → Login → "Sign in with email"</strong>. Enter <strong>{lastSentTo}</strong>, then paste the OTP from the email. Confirm you reach the dashboard successfully — this verifies the end-to-end auth flow.</p>
+                        </div>
+                      </li>
+                    </ol>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Spam troubleshooting guide */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    If Email Lands in Spam
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 text-sm">
+                    <div>
+                      <p className="font-medium text-foreground mb-1">Step 1 — Verify all three DNS records above are showing <Badge className="bg-green-100 text-green-800 border-green-200 text-xs ml-1">Verified</Badge></p>
+                      <p className="text-muted-foreground">SPF, DKIM, and the Return-Path (CNAME) record must all be verified. If any show <strong>Pending DNS</strong>, the records haven't propagated yet — wait 30–60 minutes and click Verify Now again.</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground mb-1">Step 2 — Check Gmail's spam reasoning</p>
+                      <p className="text-muted-foreground">Open the email in Gmail spam → click the <strong>three-dot menu → Show original</strong>. Look at the Authentication Results header:</p>
+                      <ul className="mt-1.5 space-y-1 text-muted-foreground list-disc list-inside">
+                        <li><strong>spf=fail</strong> or <strong>spf=softfail</strong> → SPF TXT record not propagated or wrong value; re-check the Host/Value from the DNS records table above.</li>
+                        <li><strong>dkim=fail</strong> → DKIM CNAME record not propagated or has a typo; copy the value with the copy button above to avoid errors.</li>
+                        <li><strong>spf=pass dkim=pass</strong> but still in spam → domain reputation is new; send a few test emails over 1–2 days. Gmail warms up new domains automatically.</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground mb-1">Step 3 — Force a re-check</p>
+                      <p className="text-muted-foreground">After fixing any DNS record, click <strong>Verify Now</strong> above to ask Resend to re-check immediately (instead of waiting for its next automatic check). Then send another test OTP.</p>
+                    </div>
+                    <div className="flex gap-2 items-start rounded-md bg-muted/60 px-3 py-2.5 border">
+                      <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">New domains typically reach inbox reliably within 24 hours of SPF/DKIM verification as Gmail's reputation system registers the domain. Until then, test emails to a Gmail address you <em>own</em> may go to spam even with correct DNS — but live user OTP emails sent after a day of warmup will not.</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
