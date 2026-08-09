@@ -219,7 +219,7 @@ export default function AdminInterviews() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Interview Candidates · Admin · EduBharat" description="Interview candidates directory" />
+      <PageMeta title="Interview Candidates · Admin · Lead Onto" description="Interview candidates directory" />
       <AdminNav />
 
       {/* Header */}

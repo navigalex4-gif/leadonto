@@ -21,7 +21,7 @@ export function exportConversationPdf(
   history: ChatTurn[],
   opts: { title?: string; aiName?: string; userName?: string } = {},
 ): void {
-  const title = opts.title ?? "EduBharat — Conversation";
+  const title = opts.title ?? "Lead Onto — Conversation";
   const aiName = opts.aiName ?? "Tutor";
   const userName = opts.userName ?? "You";
 
@@ -68,7 +68,7 @@ export function exportConversationPdf(
     y += 8;
   }
 
-  doc.save(`edubharat-conversation-${fileStamp()}.pdf`);
+  doc.save(`leadonto-conversation-${fileStamp()}.pdf`);
 }
 
 /**
@@ -80,7 +80,7 @@ export function exportConversationWord(
   history: ChatTurn[],
   opts: { title?: string; aiName?: string; userName?: string } = {},
 ): void {
-  const title = opts.title ?? "EduBharat — Conversation";
+  const title = opts.title ?? "Lead Onto — Conversation";
   const aiName = opts.aiName ?? "Tutor";
   const userName = opts.userName ?? "You";
 
@@ -108,7 +108,7 @@ ${rows}
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `edubharat-conversation-${fileStamp()}.doc`;
+  a.download = `leadonto-conversation-${fileStamp()}.doc`;
   a.click();
   URL.revokeObjectURL(url);
 }

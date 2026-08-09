@@ -42,7 +42,7 @@ function buildUpiUri(amount: number): string {
     pn: UPI_DISPLAY_NAME,
     am: amount.toFixed(2),
     cu: "INR",
-    tn: `EduBharat Credits Top-up`,
+    tn: `Lead Onto Credits Top-up`,
   });
   return `upi://pay?${params.toString()}`;
 }
@@ -54,7 +54,7 @@ export default function BuyCredits() {
   const { balance, authenticated, loaded } = useCredits();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const heroTitle = useContent("credits.hero.title", "EduBharat Credits");
+  const heroTitle = useContent("credits.hero.title", "Lead Onto Credits");
   const heroSubtitle = useContent(
     "credits.hero.subtitle",
     "1 credit = ₹1. Pay via UPI — GPay, PhonePe, Paytm, or any UPI app. Credits never expire.",
@@ -342,7 +342,7 @@ export default function BuyCredits() {
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-8">
-      <PageMeta title="Buy Credits · EduBharat" description="Top up EduBharat credits via UPI. 1 credit = ₹1. Credits never expire." />
+      <PageMeta title="Buy Credits · Lead Onto" description="Top up Lead Onto credits via UPI. 1 credit = ₹1. Credits never expire." />
 
       {/* Hero */}
       <div className="text-center mb-8">

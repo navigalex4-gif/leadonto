@@ -12,7 +12,7 @@ function downloadBlob(content: string, filename: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function downloadText(text: string, filename = `edubharat-summary-${fileStamp()}.txt`) {
+export function downloadText(text: string, filename = `leadonto-summary-${fileStamp()}.txt`) {
   downloadBlob(text, filename, "text/plain;charset=utf-8");
 }
 

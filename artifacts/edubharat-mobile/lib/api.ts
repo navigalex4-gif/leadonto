@@ -16,7 +16,7 @@ export async function apiRequest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const base = getApiBase();
-  if (!base) throw new Error('The EduBharat API is not configured for this build.');
+  if (!base) throw new Error('The Lead Onto API is not configured for this build.');
   const response = await fetch(`${base}${path.startsWith('/') ? path : `/${path}`}`, {
     credentials: 'include',
     ...options,
@@ -55,7 +55,7 @@ export async function saveHistory(tool: string, title: string, content: string):
 
 export async function readSSE(path: string, body: Record<string, unknown>): Promise<string> {
   const base = getApiBase();
-  if (!base) throw new Error('The EduBharat API is not configured for this build.');
+  if (!base) throw new Error('The Lead Onto API is not configured for this build.');
   const response = await fetch(`${base}${path}`, {
     method: 'POST',
     credentials: 'include',

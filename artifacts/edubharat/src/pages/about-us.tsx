@@ -54,19 +54,19 @@ const PILLARS = [
 export default function AboutUs() {
   const mission = useContent(
     "about.mission",
-    "We believe every young Indian, whether from a metro city or a small town, deserves access to world-class career preparation. EduBharat makes this possible through AI.",
+    "We believe every young Indian, whether from a metro city or a small town, deserves access to world-class career preparation. Lead Onto makes this possible through AI.",
   );
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-10">
       <PageMeta
-        title="About Us · EduBharat"
-        description="Learn about EduBharat's mission to empower India's youth with AI-driven career tools."
+        title="About Us · Lead Onto"
+        description="Learn about Lead Onto's mission to empower India's youth with AI-driven career tools."
       />
 
       {/* Hero */}
       <div className="text-center mb-12">
-        <p className="font-display font-bold text-4xl text-primary mb-4">EduBharat</p>
+         <p className="font-display font-bold text-4xl text-primary mb-4">Lead Onto</p>
         <h1 className="text-2xl font-display font-bold text-secondary mb-4">Empowering India's Next Generation</h1>
         <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">{mission}</p>
       </div>
@@ -76,12 +76,12 @@ export default function AboutUs() {
         <h2 className="text-xl font-bold text-secondary mb-3">Our Mission</h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
           India produces millions of graduates every year, but access to quality career coaching has always been limited to those who can
-          afford expensive coaching centres or live in big cities. EduBharat changes this with AI-powered tools that give every learner a
+           afford expensive coaching centres or live in big cities. Lead Onto changes this with AI-powered tools that give every learner a
           personal mentor — available 24/7, affordable, and in their language.
         </p>
         <p className="text-sm text-muted-foreground leading-relaxed">
           From a student in Patna preparing for their first job interview, to a professional in Pune improving their English for a
-          promotion — EduBharat is built for real India. Not a city. Not a demographic. Every Indian.
+           promotion — Lead Onto is built for real India. Not a city. Not a demographic. Every Indian.
         </p>
       </section>
 
@@ -107,7 +107,7 @@ export default function AboutUs() {
       <section className="mb-10">
         <h2 className="text-xl font-bold text-secondary mb-3">Our Technology</h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-          EduBharat is powered by the world's most advanced AI — Google Gemini and Anthropic Claude — delivering responses that are
+           Lead Onto is powered by the world's most advanced AI — Google Gemini and Anthropic Claude — delivering responses that are
           contextual, personalised, and genuinely helpful for Indian career contexts. Our Text-to-Speech uses Microsoft Edge Neural TTS
           with Indian voices so the AI tutors sound natural and relatable.
         </p>

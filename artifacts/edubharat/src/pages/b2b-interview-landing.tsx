@@ -123,7 +123,7 @@ export default function B2BInterviewLanding() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
       <PageMeta
-        title={`Interview Invitation — ${invite.campaignRole} · EduBharat`}
+        title={`Interview Invitation — ${invite.campaignRole} · Lead Onto`}
         description={`You've been invited to interview for ${invite.campaignRole} at ${invite.companyName}`}
       />
       <Card className="w-full max-w-lg shadow-xl">
@@ -199,7 +199,7 @@ export default function B2BInterviewLanding() {
           </Button>
 
           <p className="text-center text-xs text-muted-foreground mt-4">
-            Powered by <span className="font-semibold text-primary">EduBharat</span> · AI-powered mock interviews
+            Powered by <span className="font-semibold text-primary">Lead Onto</span> · AI-powered mock interviews
           </p>
         </CardContent>
       </Card>

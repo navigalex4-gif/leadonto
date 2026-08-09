@@ -92,7 +92,7 @@ export default function AdminContent() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Content · Admin · EduBharat" description="Edit page text" />
+      <PageMeta title="Content · Admin · Lead Onto" description="Edit page text" />
       <AdminNav />
 
       <div className="flex items-center gap-3 mb-2">

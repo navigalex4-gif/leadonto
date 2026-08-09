@@ -64,7 +64,7 @@ export default function B2BCampaigns() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Campaigns · B2B · EduBharat" description="Manage your interview campaigns" />
+      <PageMeta title="Campaigns · B2B · Lead Onto" description="Manage your interview campaigns" />
       <B2BNav />
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">

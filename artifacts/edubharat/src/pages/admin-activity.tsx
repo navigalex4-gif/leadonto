@@ -102,7 +102,7 @@ export default function AdminActivity() {
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
-      <PageMeta title="Activity · Admin · EduBharat" description="Anonymous visitor and signed-in activity" />
+      <PageMeta title="Activity · Admin · Lead Onto" description="Anonymous visitor and signed-in activity" />
       <AdminNav />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

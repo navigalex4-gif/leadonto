@@ -16,7 +16,7 @@ function Footer() {
     "footer.tagline",
     "Empowering India's next generation with AI-driven learning tools for English fluency, interview preparation, and career growth.",
   );
-  const contactEmail = useContent("footer.contact.email", "support@edubharat.in");
+  const contactEmail = useContent("footer.contact.email", "email@leadonto.com");
 
   return (
     <footer className="bg-secondary text-secondary-foreground mt-auto">
@@ -26,7 +26,7 @@ function Footer() {
           {/* Brand */}
           <div className="sm:col-span-2 md:col-span-1">
             <Link href="/" className="block font-display font-bold text-xl mb-3 text-primary hover:opacity-80 transition-opacity">
-              EduBharat
+              Lead Onto
             </Link>
             <p className="text-secondary-foreground/60 text-sm leading-relaxed max-w-xs">{tagline}</p>
           </div>
@@ -100,7 +100,7 @@ function Footer() {
 
         {/* Bottom bar */}
         <div className="border-t border-secondary-foreground/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-secondary-foreground/40">
-          <p>© {new Date().getFullYear()} EduBharat. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Lead Onto. All rights reserved.</p>
           <p>Made with ❤️ in India 🇮🇳</p>
         </div>
       </div>

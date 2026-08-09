@@ -41,7 +41,7 @@ function SectionTitle({ icon: Icon, title }: { icon: React.ElementType; title: s
 export default function ProfilePage() {
   return (
     <>
-      <PageMeta title="My Profile" description="Update your EduBharat profile, skills, and career preferences to get personalised coaching and job matches." />
+      <PageMeta title="My Profile" description="Update your Lead Onto profile, skills, and career preferences to get personalised coaching and job matches." />
       <ProfilePageContent />
     </>
   );
@@ -113,7 +113,7 @@ function ProfilePageContent() {
       <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-display font-bold text-secondary">My Profile</h1>
-          <p className="text-muted-foreground text-sm mt-1">Personalise your EduBharat experience</p>
+          <p className="text-muted-foreground text-sm mt-1">Personalise your Lead Onto experience</p>
         </div>
         <div className="text-right">
           <div className="text-sm text-muted-foreground mb-1">Profile complete</div>

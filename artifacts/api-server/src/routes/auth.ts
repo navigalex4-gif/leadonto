@@ -302,12 +302,12 @@ router.post("/auth/otp/send", async (req, res) => {
     await db.insert(otpsTable).values({ email, code: hashed, expiresAt, used: false });
 
     const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-          <h2 style="color:#f97316">EduBharat</h2>
+          <h2 style="color:#f97316">Lead Onto</h2>
           <p>Your one-time login code is:</p>
           <h1 style="font-size:48px;letter-spacing:8px;color:#1e293b">${code}</h1>
           <p style="color:#64748b">This code expires in 10 minutes. Do not share it with anyone.</p>
         </div>`;
-    const sent = await sendEmail({ to: email, subject: "Your EduBharat Login Code", html });
+    const sent = await sendEmail({ to: email, subject: "Your Lead Onto Login Code", html });
     if (sent.dev && process.env.NODE_ENV !== "production") {
       // Connector not attached in local/off-Replit dev — surface the code so login still works.
       res.json({ success: true, dev: code });

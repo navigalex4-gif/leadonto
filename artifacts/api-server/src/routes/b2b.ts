@@ -279,11 +279,11 @@ router.post("/b2b/campaigns/:id/invites", requireB2BAuth, async (req: Request, r
         const link = `${urlBase}/b2b-interview/${invite.token}`;
         void sendEmail({
           to: invite.candidateEmail,
-          subject: `Interview invitation from ${company?.name ?? "a company"} — EduBharat`,
+          subject: `Interview invitation from ${company?.name ?? "a company"} — Lead Onto`,
           html: `<div style="font-family:sans-serif;max-width:520px;margin:auto;color:#1e293b">
-            <h2 style="color:#f97316">EduBharat · Interview Invitation</h2>
+            <h2 style="color:#f97316">Lead Onto · Interview Invitation</h2>
             <p>Hi${invite.candidateName ? ` ${invite.candidateName}` : ""},</p>
-            <p><strong>${company?.name ?? "A company"}</strong> has invited you to complete a <strong>${campaign.role}</strong> interview via EduBharat's AI-powered Interview Ace platform.</p>
+            <p><strong>${company?.name ?? "A company"}</strong> has invited you to complete a <strong>${campaign.role}</strong> interview via Lead Onto's AI-powered Interview Ace platform.</p>
             <p>Duration: <strong>${campaign.durationMinutes} minutes</strong> | Type: <strong>${campaign.interviewType}</strong></p>
             <p style="margin:24px 0">
               <a href="${link}" style="background:#f97316;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Start Your Interview →</a>

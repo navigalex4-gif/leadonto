@@ -180,7 +180,7 @@ router.get("/resume/download", requireAuth, async (req, res) => {
     const fileName = (user.resumeFileName ?? "resume").replace(/\.[^.]+$/, "");
     const lines: string[] = [
       "══════════════════════════════════════════════════════",
-      "          EduBharat — Resume Intelligence Report",
+      "          Lead Onto — Resume Intelligence Report",
       "══════════════════════════════════════════════════════",
       `File: ${user.resumeFileName ?? "N/A"}`,
       `Generated: ${new Date().toLocaleString("en-IN")}`,
@@ -206,13 +206,13 @@ router.get("/resume/download", requireAuth, async (req, res) => {
       ...(Array.isArray(parsed.suggestions) ? (parsed.suggestions as string[]).map((s, i) => `  ${i + 1}. ${s}`) : ["  None available"]),
       "",
       "══════════════════════════════════════════════════════",
-      "    EduBharat — India's AI Career Intelligence Platform",
+      "    Lead Onto — India's AI Career Intelligence Platform",
       "══════════════════════════════════════════════════════",
     ];
 
     const content = lines.join("\n");
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}_edubharat_analysis.txt"`);
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}_leadonto_analysis.txt"`);
     res.send(content);
   } catch (err) {
     req.log.error({ err }, "Resume download error");

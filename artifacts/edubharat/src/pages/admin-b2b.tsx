@@ -136,7 +136,7 @@ export default function AdminB2B() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="B2B Payments · Admin · EduBharat" description="Manage B2B company credit top-ups" />
+      <PageMeta title="B2B Payments · Admin · Lead Onto" description="Manage B2B company credit top-ups" />
       <AdminNav />
 
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">

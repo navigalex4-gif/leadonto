@@ -16,7 +16,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "A1", label: "Foundation", color: "border-slate-300 bg-slate-50 text-slate-700",
     weeks: "Weeks 1–4", dailyGoal: "15 min/day: speak 5 new sentences aloud",
-    resources: "BBC Learning English, Duolingo (Hindi→English), EduBharat Live Chat",
+    resources: "BBC Learning English, Duolingo (Hindi→English), Lead Onto Live Chat",
     milestone: "Can introduce yourself and ask for basic information in a shop or office",
     topics: [
       "Greetings & apologies — used in offices, trains, markets",
@@ -30,7 +30,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "A2", label: "Elementary", color: "border-blue-300 bg-blue-50 text-blue-700",
     weeks: "Weeks 5–10", dailyGoal: "20 min/day: write one short message + speak 5 min",
-    resources: "British Council Learn English, EduBharat Grammar Fix",
+    resources: "British Council Learn English, Lead Onto Grammar Fix",
     milestone: "Can handle a phone call and write a short professional message",
     topics: [
       "Past tense: 'I went', 'I worked', 'I studied' — for interviews",
@@ -44,7 +44,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "B1", label: "Intermediate", color: "border-green-300 bg-green-50 text-green-700",
     weeks: "Weeks 11–20", dailyGoal: "25 min/day: 1 mock conversation + 1 written paragraph",
-    resources: "EduBharat Interview Ace, EduBharat Live Conversation",
+    resources: "Lead Onto Interview Ace, Lead Onto Live Conversation",
     milestone: "Can confidently appear for a job interview and write professional emails",
     topics: [
       "All 12 tenses with real India-context examples",
@@ -58,7 +58,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "B2", label: "Upper-Intermediate", color: "border-yellow-300 bg-yellow-50 text-yellow-700",
     weeks: "Weeks 21–32", dailyGoal: "30 min/day: mock meeting or give a 2-minute talk",
-    resources: "EduBharat Interview Ace (advanced), TED Talks with subtitles",
+    resources: "Lead Onto Interview Ace (advanced), TED Talks with subtitles",
     milestone: "Can lead a meeting, write a formal report, and present ideas confidently",
     topics: [
       "Conditionals: 'If I were', 'Had I known' — for negotiation & persuasion",
@@ -72,7 +72,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "C1", label: "Advanced", color: "border-orange-300 bg-orange-50 text-orange-700",
     weeks: "Weeks 33–44", dailyGoal: "35 min/day: debate a topic or write a 300-word analysis",
-    resources: "Harvard Business Review, EduBharat Write Better (C1 mode), BBC News",
+    resources: "Harvard Business Review, Lead Onto Write Better (C1 mode), BBC News",
     milestone: "Can negotiate, present to senior stakeholders, and write technical documents",
     topics: [
       "Nuanced vocabulary: leverage vs use, facilitate vs help, distinguished vs different",
@@ -86,7 +86,7 @@ export const ROADMAP_STAGES: RoadmapStage[] = [
   {
     level: "C2", label: "Mastery", color: "border-purple-300 bg-purple-50 text-purple-700",
     weeks: "Weeks 45–52+", dailyGoal: "40 min/day: all-English environment challenge",
-    resources: "All-English environment challenge, EduBharat tutor conversations (C2 mode)",
+    resources: "All-English environment challenge, Lead Onto tutor conversations (C2 mode)",
     milestone: "Operates at near-native level in any professional or social situation",
     topics: [
       "Near-native fluency: thinking in English with zero translation delay",

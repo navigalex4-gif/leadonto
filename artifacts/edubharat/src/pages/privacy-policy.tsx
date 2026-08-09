@@ -12,14 +12,14 @@ function UL({ children }: { children: React.ReactNode }) {
 }
 
 export default function PrivacyPolicy() {
-  const email = useContent("contact.privacy.email", "privacy@edubharat.in");
-  const company = useContent("legal.company.name", "EduBharat");
+  const email = useContent("contact.privacy.email", "email@leadonto.com");
+  const company = useContent("legal.company.name", "Lead Onto");
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
       <PageMeta
-        title="Privacy Policy · EduBharat"
-        description="EduBharat's privacy policy — how we collect, use, and protect your personal data."
+        title="Privacy Policy · Lead Onto"
+        description="Lead Onto's privacy policy — how we collect, use, and protect your personal data."
       />
       <h1 className="text-3xl font-display font-bold text-secondary mb-2">Privacy Policy</h1>
       <p className="text-sm text-muted-foreground mb-2">Last updated: July 2025</p>
@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
 
       <P>
         This Privacy Policy describes how {company} ("we", "us", or "our") collects, uses, and protects your personal information when you
-        use our platform. By using EduBharat, you consent to the practices described in this policy.
+         use our platform. By using Lead Onto, you consent to the practices described in this policy.
       </P>
 
       <H2>1. Information We Collect</H2>
@@ -161,8 +161,8 @@ export default function PrivacyPolicy() {
       </UL>
 
       <H2>8. Children's Privacy</H2>
-      <P>
-        EduBharat is not intended for users under 18 years of age without parental or guardian consent. We do not knowingly collect data
+       <P>
+         Lead Onto is not intended for users under 18 years of age without parental or guardian consent. We do not knowingly collect data
         from children under 13. If you believe a child has provided us with personal information without consent, please contact us at{" "}
         <a href={`mailto:${email}`} className="text-primary hover:underline">
           {email}

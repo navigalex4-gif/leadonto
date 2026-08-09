@@ -1,8 +1,8 @@
 import { Helmet } from "react-helmet-async";
 
 const DEFAULT = {
-  title: "EduBharat — AI Career Platform for India",
-  description: "Master English, ace interviews, and land your dream job with EduBharat's AI-powered career tools built for Indian learners.",
+  title: "Lead Onto — AI Career Platform for India",
+  description: "Master English, ace interviews, and land your dream job with Lead Onto's AI-powered career tools built for Indian learners.",
   ogImage: "/opengraph.jpg",
 };
 
@@ -19,7 +19,7 @@ export function PageMeta({
   ogUrl?: string;
   noindex?: boolean;
 }) {
-  const fullTitle = title ? `${title} | EduBharat` : DEFAULT.title;
+  const fullTitle = title ? `${title} | Lead Onto` : DEFAULT.title;
   const image = ogImage ?? DEFAULT.ogImage;
   const url = ogUrl ? `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}${ogUrl}` : undefined;
   return (

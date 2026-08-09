@@ -12,15 +12,15 @@ function UL({ children }: { children: React.ReactNode }) {
 }
 
 export default function Terms() {
-  const email = useContent("legal.contact.email", "support@edubharat.in");
-  const company = useContent("legal.company.name", "EduBharat");
+  const email = useContent("legal.contact.email", "email@leadonto.com");
+  const company = useContent("legal.company.name", "Lead Onto");
   const jurisdiction = useContent("legal.jurisdiction", "Mumbai, Maharashtra, India");
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
       <PageMeta
-        title="Terms & Conditions · EduBharat"
-        description="Terms and conditions for using EduBharat's AI-powered career learning platform."
+        title="Terms & Conditions · Lead Onto"
+        description="Terms and conditions for using Lead Onto's AI-powered career learning platform."
       />
       <h1 className="text-3xl font-display font-bold text-secondary mb-2">Terms &amp; Conditions</h1>
       <p className="text-sm text-muted-foreground mb-8">Last updated: July 2025</p>
@@ -32,7 +32,7 @@ export default function Terms() {
       </P>
 
       <H2>2. Description of Services</H2>
-      <P>EduBharat provides AI-powered career development tools including:</P>
+       <P>Lead Onto provides AI-powered career development tools including:</P>
       <UL>
         <li>English Guru — Conversational AI for English fluency practice</li>
         <li>Interview Ace — Mock interview preparation with AI-generated feedback</li>
@@ -49,7 +49,7 @@ export default function Terms() {
       </P>
 
       <H2>4. Credits and Payments</H2>
-      <P>EduBharat uses a credit-based system for premium features. Key terms:</P>
+       <P>Lead Onto uses a credit-based system for premium features. Key terms:</P>
       <UL>
         <li>1 credit = ₹1 (Indian Rupees)</li>
         <li>Credits are purchased via UPI (GPay, PhonePe, Paytm, or any UPI app)</li>
@@ -59,7 +59,7 @@ export default function Terms() {
         <li>Paid credits may be refunded as per our Refund Policy; signup bonus credits are non-refundable</li>
       </UL>
       <P>
-        Payment transactions are verified manually by EduBharat's team using your UPI Transaction Reference (UTR) number. Submitting
+         Payment transactions are verified manually by Lead Onto's team using your UPI Transaction Reference (UTR) number. Submitting
         fraudulent or incorrect UTR numbers may result in account suspension.
       </P>
 
@@ -79,7 +79,7 @@ export default function Terms() {
         <li>Use the Platform for any unlawful purpose or in violation of these Terms</li>
         <li>Attempt to reverse-engineer, hack, or disrupt the Platform or its AI systems</li>
         <li>Submit false, misleading, or fraudulent payment information or UTR numbers</li>
-        <li>Use AI-generated content for commercial resale without written authorisation from EduBharat</li>
+         <li>Use AI-generated content for commercial resale without written authorisation from Lead Onto</li>
         <li>Create accounts under false identities or on behalf of others without consent</li>
         <li>Use automated scripts, bots, or crawlers to access the Platform</li>
         <li>Harass, abuse, or threaten other users or our staff</li>
@@ -130,7 +130,7 @@ export default function Terms() {
 
       <H2>12. Changes to Terms</H2>
       <P>
-        EduBharat reserves the right to modify these Terms at any time. Changes will be posted on this page with an updated date. Continued
+         Lead Onto reserves the right to modify these Terms at any time. Changes will be posted on this page with an updated date. Continued
         use of the Platform after changes constitutes your acceptance of the revised Terms.
       </P>
 

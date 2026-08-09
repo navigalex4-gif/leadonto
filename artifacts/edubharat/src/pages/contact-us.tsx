@@ -3,9 +3,9 @@ import { useContent } from "@/lib/use-content";
 import { Mail, Clock, Shield, CreditCard } from "lucide-react";
 
 export default function ContactUs() {
-  const email = useContent("contact.email", "support@edubharat.in");
-  const billingEmail = useContent("contact.billing.email", "billing@edubharat.in");
-  const privacyEmail = useContent("contact.privacy.email", "privacy@edubharat.in");
+  const email = useContent("contact.email", "email@leadonto.com");
+  const billingEmail = useContent("contact.billing.email", "email@leadonto.com");
+  const privacyEmail = useContent("contact.privacy.email", "email@leadonto.com");
   const responseTime = useContent("contact.response.time", "2–3 business days");
 
   const channels = [
@@ -32,8 +32,8 @@ export default function ContactUs() {
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
       <PageMeta
-        title="Contact Us · EduBharat"
-        description="Get in touch with EduBharat for support, billing queries, or privacy requests."
+        title="Contact Us · Lead Onto"
+        description="Get in touch with Lead Onto for support, billing queries, or privacy requests."
       />
 
       <div className="text-center mb-10">
@@ -100,7 +100,7 @@ export default function ContactUs() {
       </section>
 
       <p className="text-xs text-muted-foreground text-center mt-8">
-        EduBharat is an online platform registered in India. All response times are in Indian Standard Time (IST).
+         Lead Onto is an online platform registered in India. All response times are in Indian Standard Time (IST).
       </p>
     </div>
   );

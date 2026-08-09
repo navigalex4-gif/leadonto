@@ -164,7 +164,7 @@ export default function AdminPayments() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Payments · Admin · EduBharat" description="Manage UPI payment approvals" />
+      <PageMeta title="Payments · Admin · Lead Onto" description="Manage UPI payment approvals" />
       <AdminNav />
 
       <div className="flex items-center justify-between mb-6">

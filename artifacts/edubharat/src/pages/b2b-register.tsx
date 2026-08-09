@@ -49,7 +49,7 @@ export default function B2BRegister() {
         website: form.website.trim() || undefined,
         isAnonymous,
       });
-      toast({ title: "Welcome to EduBharat B2B!" });
+      toast({ title: "Welcome to Lead Onto B2B!" });
       navigate("/b2b/dashboard");
     } catch (err) {
       toast({ title: (err as Error).message, variant: "destructive" });
@@ -60,7 +60,7 @@ export default function B2BRegister() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
-      <PageMeta title="Register · B2B Portal · EduBharat" description="Create your B2B account" />
+      <PageMeta title="Register · B2B Portal · Lead Onto" description="Create your B2B account" />
       <Card className="w-full max-w-lg shadow-lg">
         <CardContent className="pt-8 pb-8 px-8">
           <div className="text-center mb-8">

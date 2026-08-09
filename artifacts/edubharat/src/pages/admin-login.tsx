@@ -43,7 +43,7 @@ export default function AdminLogin() {
             <Lock className="w-6 h-6 text-secondary" />
           </div>
           <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
-          <CardDescription>EduBharat admin panel access</CardDescription>
+          <CardDescription>Lead Onto admin panel access</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

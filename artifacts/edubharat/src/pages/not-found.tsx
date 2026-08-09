@@ -5,7 +5,7 @@ import { PageMeta } from "@/components/page-meta";
 export default function NotFound() {
   return (
     <>
-      <PageMeta title="Page Not Found" description="This page does not exist on EduBharat." noindex />
+      <PageMeta title="Page Not Found" description="This page does not exist on Lead Onto." noindex />
       <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md mx-4">
         <CardContent className="pt-6">
@@ -15,7 +15,7 @@ export default function NotFound() {
           </div>
 
           <p className="mt-4 text-sm text-gray-600">
-            We couldn't find the page you were looking for. Head back to the EduBharat home page to continue your learning journey.
+            We couldn't find the page you were looking for. Head back to the Lead Onto home page to continue your learning journey.
           </p>
         </CardContent>
       </Card>

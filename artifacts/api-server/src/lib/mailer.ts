@@ -1,9 +1,9 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { logger } from "./logger";
 
-// Resend's sandbox sender. Works out of the box but only delivers to the account
-// owner until you verify a domain in Resend — then swap this for your own address.
-const FROM = "EduBharat <onboarding@resend.dev>";
+// Lead Onto's sender. The leadonto.com domain must be verified in Resend before
+// this can deliver to arbitrary recipients.
+const FROM = "Lead Onto <email@leadonto.com>";
 
 let _connectors: ReplitConnectors | null = null;
 function connectors(): ReplitConnectors {
@@ -50,9 +50,9 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
 
 function shell(inner: string): string {
   return `<div style="font-family:sans-serif;max-width:520px;margin:auto;color:#1e293b">
-    <h2 style="color:#f97316;margin-bottom:4px">EduBharat</h2>
+    <h2 style="color:#f97316;margin-bottom:4px">Lead Onto</h2>
     ${inner}
-    <p style="color:#94a3b8;font-size:12px;margin-top:24px">You're receiving this because you have an EduBharat account.</p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:24px">You're receiving this because you have a Lead Onto account.</p>
   </div>`;
 }
 
@@ -66,7 +66,7 @@ export async function sendPaymentEmail(
 ): Promise<{ ok: boolean; dev?: boolean }> {
   const subject: Record<PaymentEmailKind, string> = {
     received: "We've received your top-up request",
-    approved: "Your EduBharat credits have been added",
+    approved: "Your Lead Onto credits have been added",
     rejected: "Your top-up request was declined",
     reversed: "Your credits were reversed",
   };

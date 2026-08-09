@@ -19,7 +19,7 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 export default function Login() {
   return (
     <>
-      <PageMeta title="Sign In" description="Sign in to EduBharat to sync your progress across devices and save jobs, sessions, and insights." noindex />
+      <PageMeta title="Sign In" description="Sign in to Lead Onto to sync your progress across devices and save jobs, sessions, and insights." noindex />
       <LoginContent />
     </>
   );
@@ -102,7 +102,7 @@ function LoginContent() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center mb-6">
-          <h1 className="text-4xl font-display font-extrabold text-primary mb-2">EduBharat</h1>
+           <h1 className="text-4xl font-display font-extrabold text-primary mb-2">Lead Onto</h1>
           <p className="text-muted-foreground">India's AI Career Ecosystem</p>
         </div>
 

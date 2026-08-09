@@ -123,7 +123,7 @@ export function Navbar() {
 
           {/* Logo */}
           <Link href="/" className="font-display font-extrabold text-xl text-primary tracking-tight shrink-0 mr-1">
-            EduBharat
+            Lead Onto
           </Link>
 
           {/* ── Suite dropdowns ── */}
@@ -289,7 +289,7 @@ export function Navbar() {
         }`}
       >
         <div className="flex items-center justify-between px-5 h-14 border-b">
-          <span className="font-display font-extrabold text-lg text-primary">EduBharat</span>
+          <span className="font-display font-extrabold text-lg text-primary">Lead Onto</span>
           <button onClick={() => setOpen(false)} className="p-2 min-h-11 min-w-11 rounded-lg hover:bg-muted flex items-center justify-center">
             <X className="w-5 h-5 text-secondary" />
           </button>

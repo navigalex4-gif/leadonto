@@ -560,7 +560,7 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
   return (
     <>
       <PageMeta
-        title="Learning Journey — EduBharat"
+        title="Learning Journey — Lead Onto"
         description="Personalised English lessons with SM-2 spaced repetition. Your lessons adapt to what you know."
       />
 

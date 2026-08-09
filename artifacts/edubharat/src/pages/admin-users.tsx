@@ -167,7 +167,7 @@ export default function AdminUsers() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8">
-      <PageMeta title="Users · Admin · EduBharat" description="User directory" />
+      <PageMeta title="Users · Admin · Lead Onto" description="User directory" />
       <AdminNav />
 
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
