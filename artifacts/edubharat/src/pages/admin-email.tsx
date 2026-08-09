@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Copy, Mail } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Copy, Mail, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
@@ -82,6 +84,11 @@ export default function AdminEmail() {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
 
+  // Test email state
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   const isAdmin = user?.isAdmin === true;
 
   const load = useCallback(async () => {
@@ -105,6 +112,36 @@ export default function AdminEmail() {
   useEffect(() => {
     if (isAdmin) void load();
   }, [isAdmin, load]);
+
+  const sendTest = async () => {
+    if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+      toast({ title: "Please enter a valid email address", variant: "destructive" });
+      return;
+    }
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${BASE}/api/admin/resend/test-email`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      const d = (await res.json()) as { error?: string };
+      if (res.ok) {
+        setTestResult({ ok: true, message: `Test OTP delivered to ${testEmail}. Check inbox (and spam folder).` });
+        toast({ title: "Test email sent!" });
+      } else {
+        setTestResult({ ok: false, message: d.error ?? "Failed to send test email." });
+        toast({ title: d.error ?? "Send failed", variant: "destructive" });
+      }
+    } catch {
+      setTestResult({ ok: false, message: "Network error — could not reach the server." });
+      toast({ title: "Network error", variant: "destructive" });
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const verify = async () => {
     setVerifying(true);
@@ -254,7 +291,58 @@ export default function AdminEmail() {
                     <li>Wait for DNS to propagate (typically 5–30 minutes; up to 72 hours in the worst case).</li>
                     <li>Click <strong className="text-foreground">Verify Now</strong> — Resend will check all three records and mark the domain verified.</li>
                     <li>Once the domain status shows <strong className="text-foreground">Verified</strong>, OTP emails will reach all users, not just the Resend account owner.</li>
+                    <li>Use <strong className="text-foreground">Send Test OTP</strong> below to confirm real delivery to a non-owner inbox.</li>
                   </ol>
+                </CardContent>
+              </Card>
+
+              {/* Test email delivery */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Send className="w-4 h-4 text-primary" />
+                    Send Test OTP Email
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Send a real OTP to any inbox to confirm end-to-end delivery. The code is written to the OTP table so you can complete the login flow as a genuine test.
+                    {domain?.status !== "verified" && (
+                      <span className="block mt-1 text-amber-600 font-medium">⚠ Domain is not yet verified — the email may only reach the Resend account owner.</span>
+                    )}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1 space-y-1.5">
+                      <Label htmlFor="test-email" className="text-sm">Recipient email</Label>
+                      <Input
+                        id="test-email"
+                        type="email"
+                        placeholder="you@gmail.com"
+                        value={testEmail}
+                        onChange={(e) => { setTestEmail(e.target.value); setTestResult(null); }}
+                        disabled={sendingTest}
+                        className="h-9"
+                      />
+                    </div>
+                    <Button size="sm" onClick={sendTest} disabled={sendingTest || !testEmail} className="shrink-0">
+                      {sendingTest
+                        ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        : <Send className="w-4 h-4 mr-1.5" />}
+                      {sendingTest ? "Sending…" : "Send Test OTP"}
+                    </Button>
+                  </div>
+                  {testResult && (
+                    <div className={`mt-3 flex items-start gap-2 rounded-md px-3 py-2.5 text-sm border ${
+                      testResult.ok
+                        ? "bg-green-50 border-green-200 text-green-800"
+                        : "bg-red-50 border-red-200 text-red-800"
+                    }`}>
+                      {testResult.ok
+                        ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                        : <XCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+                      <span>{testResult.message}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

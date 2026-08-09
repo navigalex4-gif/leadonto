@@ -1,9 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import crypto from "crypto";
+import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable } from "@workspace/db";
+import { desc, eq, and } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import { sendEmail, isEmailConfigured } from "../lib/mailer.js";
 
 const router: IRouter = Router();
 
@@ -192,6 +194,63 @@ router.post("/admin/resend/domain/verify", requireAdmin, async (_req: Request, r
   } catch (err) {
     logger.error({ err: (err as Error).message }, "admin resend verify error");
     res.status(500).json({ error: "Could not trigger verification" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/resend/test-email
+// Send a real OTP email to the specified address so admins can confirm
+// end-to-end delivery after DNS verification.  The OTP is written to the
+// otps table so the full login flow can be tested too.
+// ---------------------------------------------------------------------------
+router.post("/admin/resend/test-email", requireAdmin, async (req: Request, res: Response) => {
+  const { to } = req.body as { to?: string };
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    res.status(400).json({ error: "Valid email address required" });
+    return;
+  }
+
+  if (!isEmailConfigured()) {
+    res.status(503).json({
+      error: "Resend connector not attached — email cannot be sent in this environment.",
+    });
+    return;
+  }
+
+  try {
+    // Generate a fresh OTP (same flow as /auth/otp/send)
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashed = crypto.createHash("sha256").update(code).digest("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Invalidate any existing unused OTPs for this address
+    await db
+      .update(otpsTable)
+      .set({ used: true })
+      .where(and(eq(otpsTable.email, to), eq(otpsTable.used, false)));
+
+    await db.insert(otpsTable).values({ email: to, code: hashed, expiresAt, used: false });
+
+    const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#f97316">Lead Onto</h2>
+      <p>This is a delivery test from your admin panel. Your one-time login code is:</p>
+      <h1 style="font-size:48px;letter-spacing:8px;color:#1e293b">${code}</h1>
+      <p style="color:#64748b">This code expires in 10 minutes. Do not share it with anyone.</p>
+      <p style="color:#94a3b8;font-size:12px;margin-top:24px">You're receiving this because you have a Lead Onto account.</p>
+    </div>`;
+
+    const sent = await sendEmail({ to, subject: "Lead Onto — Test OTP Delivery", html });
+
+    if (sent.ok && !sent.dev) {
+      logger.info({ to }, "admin test email sent");
+      res.json({ success: true });
+    } else {
+      logger.error({ to, sent }, "admin test email failed");
+      res.status(502).json({ error: "Email could not be delivered. Check domain verification status." });
+    }
+  } catch (err) {
+    logger.error({ err: (err as Error).message, to }, "admin test email error");
+    res.status(500).json({ error: "Unexpected error sending test email." });
   }
 });
 
