@@ -3,6 +3,7 @@ import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSes
 import { desc, eq } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
+import { ReplitConnectors } from "@replit/connectors-sdk";
 
 const router: IRouter = Router();
 
@@ -145,6 +146,52 @@ router.get("/admin/interviews", requireAdmin, async (_req: Request, res: Respons
   } catch (err) {
     logger.error({ err: (err as Error).message }, "admin interviews list failed");
     res.status(500).json({ error: "Could not load interviews" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Resend domain management (email verification)
+// ---------------------------------------------------------------------------
+
+const RESEND_DOMAIN_ID = "0bb8c3cd-c2c7-4791-b2dd-5edf129d2d8b";
+
+// GET /api/admin/resend/domain — fetch current domain + DNS record statuses.
+router.get("/admin/resend/domain", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const c = new ReplitConnectors();
+    const resp = await c.proxy("resend", `/domains/${RESEND_DOMAIN_ID}`, { method: "GET" });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      logger.error({ status: resp.status, txt }, "resend domain fetch failed");
+      res.status(502).json({ error: "Resend API error", detail: txt.slice(0, 200) });
+      return;
+    }
+    const data = await resp.json();
+    res.setHeader("Cache-Control", "no-store");
+    res.json(data);
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin resend domain error");
+    res.status(500).json({ error: "Could not fetch domain status" });
+  }
+});
+
+// POST /api/admin/resend/domain/verify — trigger Resend to re-check DNS records.
+router.post("/admin/resend/domain/verify", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const c = new ReplitConnectors();
+    const resp = await c.proxy("resend", `/domains/${RESEND_DOMAIN_ID}/verify`, { method: "POST" });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      logger.error({ status: resp.status, txt }, "resend domain verify failed");
+      res.status(502).json({ error: "Resend verify error", detail: txt.slice(0, 200) });
+      return;
+    }
+    const data = await resp.json();
+    res.setHeader("Cache-Control", "no-store");
+    res.json(data);
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin resend verify error");
+    res.status(500).json({ error: "Could not trigger verification" });
   }
 });
 
