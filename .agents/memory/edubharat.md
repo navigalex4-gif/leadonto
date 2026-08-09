@@ -31,7 +31,11 @@ description: India's AI Career Ecosystem — full stack platform with 3 products
 
 **Avatar abstraction:** `src/components/avatar/` — CSS/SVG animated avatar now (`AnimatedAvatar`), interface ready for HeyGen/D-ID plug-in. Priya Ma'am (female, English Guru) + Raj Sir (male, Interview Ace).
 
-**Google OAuth callback:** Uses `REPLIT_DOMAINS` env var to find `.replit.app` domain for callback URL. User must register this URL in Google Cloud Console for Google login to work.
+**Google OAuth callback:** Production is locked to the published custom-domain callback `https://leadonto.com/api/auth/google/callback` through deployment configuration. The exact URI must also be registered in the Google Cloud OAuth client; development preview callbacks remain environment-specific.
+
+**Why:** a stale generated `.replit.app` callback caused `redirect_uri_mismatch` after the app moved to the Lead Onto custom domain.
+
+**How to apply:** when the published domain changes, update the production callback configuration and the Google Cloud authorized redirect URI together, then republish.
 
 **OTP dev mode:** If `RESEND_API_KEY` not set, OTP code is returned in the API response for dev testing. Never do this in prod.
 

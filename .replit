@@ -38,7 +38,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = "3b335b336d1df1803c6de4da944f96c116eea3eccbd99dc4185f6ef859c7792e"
 
 [userenv.production]
-GOOGLE_CALLBACK_URL = "https://edu-bharat-updated-appzip-1-zip--ancientproject1.replit.app/api/auth/google/callback"
+GOOGLE_CALLBACK_URL = "https://leadonto.com/api/auth/google/callback"
 
 [nix]
 channel = "stable-25_05"
