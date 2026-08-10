@@ -106,25 +106,25 @@ export default function Home() {
                   className="group relative mb-10 block overflow-hidden rounded-[1.75rem] border border-orange-200/80 bg-white/90 p-1 shadow-xl shadow-orange-200/30 transition-all hover:-translate-y-1 hover:border-orange-300 hover:shadow-2xl hover:shadow-orange-200/45 sm:mb-12"
                 >
                   <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-orange-400 via-amber-300 to-violet-500" />
-                  <div className="relative overflow-hidden rounded-[1.4rem] bg-gradient-to-br from-orange-50 via-amber-50/70 to-violet-50 p-5 sm:p-6">
-                    <div className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-orange-200/35 blur-2xl transition-transform duration-500 group-hover:scale-125" />
-                    <div className="relative flex items-start gap-4">
-                      <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-300/50">
-                        <Timer className="h-5 w-5" />
+                  <div className="relative overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-orange-50 via-amber-50/70 to-violet-50 p-4 sm:p-5">
+                    <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-orange-200/35 blur-2xl transition-transform duration-500 group-hover:scale-125" />
+                    <div className="relative flex items-start gap-3">
+                      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-300/50">
+                        <Timer className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-xs font-extrabold uppercase tracking-wider text-orange-700">Free 90-second voice check</p>
                           <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-violet-700 shadow-sm">No credits</span>
                         </div>
-                        <h2 className="mt-2 text-lg font-extrabold leading-snug text-secondary sm:text-xl">
+                        <h2 className="mt-1.5 text-base font-extrabold leading-snug text-secondary sm:text-lg">
                           Is Your Communication &amp; Confidence Holding You Back?
                         </h2>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
                           Check Your Communication, Confidence &amp; Interview Skills in 90 Seconds — Free
                         </p>
-                        <span className="mt-4 inline-flex items-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2.5 text-sm font-extrabold text-white shadow-md shadow-orange-300/40 transition-transform group-hover:translate-x-1">
-                          Check my skills free <ArrowRight className="ml-2 h-4 w-4" />
+                        <span className="mt-3 inline-flex items-center rounded-lg bg-gradient-to-r from-orange-500 to-orange-400 px-4 py-2 text-xs font-extrabold text-white shadow-md shadow-orange-300/40 transition-transform group-hover:translate-x-1 sm:text-sm">
+                          Check my skills free <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                         </span>
                       </div>
                     </div>
