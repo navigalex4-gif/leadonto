@@ -64,7 +64,8 @@ function getAnonymousId(): string {
 }
 
 function formatTime(seconds: number): string {
-  return `00:${String(Math.max(0, seconds)).padStart(2, "0")}`;
+  const safeSeconds = Math.max(0, seconds);
+  return `${String(Math.floor(safeSeconds / 60)).padStart(2, "0")}:${String(safeSeconds % 60).padStart(2, "0")}`;
 }
 
 function localFallback(answers: Answer[]): Feedback {
@@ -80,6 +81,12 @@ function localFallback(answers: Answer[]): Feedback {
     oneNextStep: "Answer in three parts: point, example, and result.",
     summary: "This is an indicative check. Practise one spoken answer daily to build a clearer, more confident delivery.",
   };
+}
+
+function scoreTone(score: number): { card: string; bar: string; text: string } {
+  if (score >= 75) return { card: "border-emerald-200 bg-emerald-50", bar: "bg-emerald-500", text: "text-emerald-700" };
+  if (score >= 55) return { card: "border-amber-200 bg-amber-50", bar: "bg-amber-500", text: "text-amber-700" };
+  return { card: "border-rose-200 bg-rose-50", bar: "bg-rose-500", text: "text-rose-700" };
 }
 
 export default function CommunicationCheck() {
@@ -112,6 +119,8 @@ export default function CommunicationCheck() {
   const [isThinking, setIsThinking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [emailMessage, setEmailMessage] = useState("");
+  const interviewStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -176,21 +185,23 @@ export default function CommunicationCheck() {
           ...candidate,
           anonymousId: getAnonymousId(),
           answers: finalAnswers,
-          durationSeconds: TOTAL_SECONDS - remaining,
+          durationSeconds: Math.min(TOTAL_SECONDS, Math.max(0, Math.round((Date.now() - (interviewStartedAtRef.current ?? Date.now())) / 1000))),
         }),
       });
-      const data = await response.json() as { feedback?: Feedback; error?: string };
+      const data = await response.json() as { feedback?: Feedback; error?: string; emailMessage?: string };
       if (!response.ok || !data.feedback) throw new Error(data.error || "Could not save feedback");
       setFeedback(data.feedback);
+      setEmailMessage(data.emailMessage || "");
     } catch {
       setFeedback(fallback);
+      setEmailMessage("Your result is ready here, but the email could not be delivered.");
       toast({ title: "Feedback ready", description: "Your indicative score is shown; we could not sync the full result." });
     } finally {
       setIsSubmitting(false);
       setIsThinking(false);
       setPhase("feedback");
     }
-  }, [candidate, clearTimers, remaining, speech, synth, toast]);
+  }, [candidate, clearTimers, speech, synth, toast]);
 
   const submitAnswer = useCallback(async (spokenAnswer: string) => {
     if (turnRef.current || endingRef.current) return;
@@ -208,12 +219,6 @@ export default function CommunicationCheck() {
     // The acknowledgement is spoken immediately. The AI question has a strict
     // deadline, so network/provider latency can never leave the candidate silent.
     speak(nextAnswers.length >= 2 ? "Thank you. I have everything I need." : "Okay, I hear you.");
-    if (nextAnswers.length >= 2) {
-      await finishWithFeedback(nextAnswers);
-      turnRef.current = false;
-      return;
-    }
-
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
       deadlineRef.current = setTimeout(() => resolve(""), 1800);
@@ -236,7 +241,10 @@ export default function CommunicationCheck() {
       resetStream();
       response = FALLBACK_QUESTION;
     }
-    if (endingRef.current) return;
+    if (endingRef.current) {
+      turnRef.current = false;
+      return;
+    }
     const question = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim() || FALLBACK_QUESTION;
     questionRef.current = question;
     setCurrentQuestion(question);
@@ -300,6 +308,7 @@ export default function CommunicationCheck() {
     questionRef.current = FIRST_QUESTION;
     setCurrentQuestion(FIRST_QUESTION);
     setPhase("interview");
+    interviewStartedAtRef.current = Date.now();
     speak(FIRST_QUESTION, startListening);
   }, [candidate, speak, startListening, toast]);
 
@@ -308,12 +317,19 @@ export default function CommunicationCheck() {
       <div className="container mx-auto max-w-3xl px-4 py-10">
         <PageMeta title="Your 90-second communication result · Lead Onto" description="A concise communication and confidence check from Lead Onto." />
         <Card className="overflow-hidden border-primary/20 shadow-xl">
-          <div className="bg-gradient-to-br from-orange-500 to-violet-600 p-7 text-white">
-            <p className="text-sm font-semibold uppercase tracking-widest text-white/80">Your 90-second result</p>
+          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 p-7 text-white">
+            <p className="text-sm font-semibold uppercase tracking-widest text-orange-300">Your 90-second result</p>
             <h1 className="mt-2 text-3xl font-display font-extrabold">{feedback.headline}</h1>
-            <p className="mt-2 max-w-xl text-white/85">{feedback.summary}</p>
+            <p className="mt-2 max-w-xl text-slate-300">{feedback.summary}</p>
           </div>
           <CardContent className="space-y-6 p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-secondary">Your scorecard</h2>
+                <p className="text-xs text-muted-foreground">Each score is out of 100</p>
+              </div>
+              <Target className="h-5 w-5 text-primary" />
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 ["Overall", feedback.overallScore],
@@ -321,9 +337,15 @@ export default function CommunicationCheck() {
                 ["Confidence", feedback.confidenceScore],
                 ["Clarity", feedback.clarityScore],
               ].map(([label, score]) => (
-                <div key={label} className="rounded-2xl border bg-muted/30 p-4 text-center">
-                  <p className="text-2xl font-extrabold text-secondary">{score}</p>
-                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                <div key={label} className={`rounded-2xl border p-4 ${scoreTone(Number(score)).card}`}>
+                  <div className="flex items-end justify-between gap-1">
+                    <p className={`text-2xl font-extrabold ${scoreTone(Number(score)).text}`}>{score}</p>
+                    <p className="text-[10px] font-semibold text-muted-foreground">/ 100</p>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
+                    <div className={`h-full rounded-full ${scoreTone(Number(score)).bar}`} style={{ width: `${Number(score)}%` }} />
+                  </div>
+                  <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
                 </div>
               ))}
             </div>
@@ -337,6 +359,7 @@ export default function CommunicationCheck() {
               <p className="text-xs font-bold uppercase tracking-wide text-orange-700">Your one next step</p>
               <p className="mt-1 text-sm font-semibold text-secondary">{feedback.oneNextStep}</p>
             </div>
+            {emailMessage && <p className="text-sm font-semibold text-muted-foreground">{emailMessage}</p>}
             <div className="flex flex-wrap gap-3">
               <Link href="/interview-ace"><Button className="font-bold">Practise a full interview <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
               <Link href="/"><Button variant="outline">Back to Lead Onto</Button></Link>
@@ -355,7 +378,7 @@ export default function CommunicationCheck() {
           <div className="bg-gradient-to-br from-orange-50 via-background to-violet-50 p-6 sm:p-9">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700"><Sparkles className="h-4 w-4" /> Free 90-second voice check</div>
             <h1 className="max-w-2xl text-3xl font-display font-extrabold tracking-tight text-secondary sm:text-5xl">Is your communication & confidence holding you back?</h1>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">Answer two simple interview questions. Get a short, honest snapshot of your communication, confidence and clarity — no credits, no sign-up wall.</p>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">Speak naturally with an AI interviewer for 90 seconds. Get a short, honest snapshot of your communication, confidence and clarity — no credits, no sign-up wall.</p>
           </div>
           <CardContent className="space-y-5 p-6 sm:p-9">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -407,7 +430,7 @@ export default function CommunicationCheck() {
               }}>
                 {isListening ? <><MicOff className="mr-2 h-5 w-5" />Stop speaking</> : <><Mic className="mr-2 h-5 w-5" />{isThinking ? "Interviewer is replying…" : "Tap to speak"}</>}
               </Button>
-              <span className="text-xs text-muted-foreground">{answers.length}/2 answers captured · no credits used</span>
+              <span className="text-xs text-muted-foreground">{answers.length} answer{answers.length === 1 ? "" : "s"} captured · no credits used</span>
             </div>
             {!speech.isSupported && <p className="text-sm text-red-600">Voice recognition is not available in this browser. Try Chrome or Edge.</p>}
           </CardContent>

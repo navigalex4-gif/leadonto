@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod/v4";
 import { db, communicationChecksTable } from "@workspace/db";
 import { generateTextWithFallback } from "./ai.js";
+import { sendEmail } from "../lib/mailer.js";
 
 const router: IRouter = Router();
 
@@ -81,6 +82,53 @@ function parseFeedback(raw: string, fallback: Feedback): Feedback {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function resultEmailHtml(name: string, feedback: Feedback): string {
+  const score = (label: string, value: number) => `
+    <td style="width:25%;padding:6px">
+      <div style="border:1px solid #fed7aa;border-radius:12px;padding:14px 8px;text-align:center;background:#fffaf5">
+        <div style="font-size:26px;font-weight:800;color:#172033">${value}<span style="font-size:12px;color:#94a3b8">/100</span></div>
+        <div style="margin-top:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b">${label}</div>
+      </div>
+    </td>`;
+  const strengths = feedback.strengths.map((item) => `<li style="margin:7px 0">${escapeHtml(item)}</li>`).join("");
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#172033">
+    <div style="padding:28px 30px;background:#172033;border-radius:18px 18px 0 0;color:#fff">
+      <div style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fb923c">Lead Onto</div>
+      <h1 style="margin:10px 0 4px;font-size:28px">Your 90-second result</h1>
+      <p style="margin:0;color:#cbd5e1">Communication, confidence and clarity snapshot</p>
+    </div>
+    <div style="padding:26px 30px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 18px 18px">
+      <p>Hi ${escapeHtml(name)},</p>
+      <h2 style="margin:18px 0 8px;color:#ea580c">${escapeHtml(feedback.headline)}</h2>
+      <p style="line-height:1.6;color:#475569">${escapeHtml(feedback.summary)}</p>
+      <table role="presentation" style="width:100%;border-collapse:collapse;margin:22px 0">
+        <tr>
+          ${score("Overall", feedback.overallScore)}
+          ${score("Communication", feedback.communicationScore)}
+          ${score("Confidence", feedback.confidenceScore)}
+          ${score("Clarity", feedback.clarityScore)}
+        </tr>
+      </table>
+      <h3 style="margin:22px 0 8px">What came through</h3>
+      <ul style="padding-left:20px;color:#475569">${strengths}</ul>
+      <div style="margin-top:22px;padding:16px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#c2410c">Your one next step</div>
+        <div style="margin-top:7px;font-weight:700;line-height:1.5">${escapeHtml(feedback.oneNextStep)}</div>
+      </div>
+      <p style="margin-top:26px;color:#64748b;font-size:12px">This is an indicative practice check, not a hiring decision. Keep practising and build your confidence one answer at a time.</p>
+    </div>
+  </div>`;
+}
+
 router.post("/communication-checks", async (req: Request, res: Response) => {
   const parsed = submitSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -144,7 +192,29 @@ Be encouraging but accurate. Judge only what is present in the answers; do not i
       durationSeconds: input.durationSeconds,
     }).returning({ id: communicationChecksTable.id });
 
-    res.status(201).json({ checkId: record?.id, feedback });
+    let emailSent = false;
+    try {
+      const sent = await sendEmail({
+        to: input.email,
+        subject: "Your Lead Onto 90-second communication result",
+        html: resultEmailHtml(input.name, feedback),
+      });
+      emailSent = sent.ok && !sent.dev;
+      if (!emailSent) {
+        req.log.warn({ email: input.email, sent }, "communication check result email was not delivered");
+      }
+    } catch (err) {
+      req.log.error({ err, email: input.email }, "communication check result email failed");
+    }
+
+    res.status(201).json({
+      checkId: record?.id,
+      feedback,
+      emailSent,
+      emailMessage: emailSent
+        ? "Your result was sent to your email."
+        : "Your result is ready here, but the email could not be delivered.",
+    });
   } catch (err) {
     req.log.error({ err }, "communication check save failed");
     res.status(500).json({ error: "Your feedback could not be saved. Please try once more." });
