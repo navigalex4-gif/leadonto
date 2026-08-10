@@ -26,12 +26,35 @@ function normalizeEmail(value: string): string {
 function normalizePhone(value: string): string {
   const trimmed = value.trim();
   const digits = trimmed.replace(/\D/g, "");
-  return digits ? `${trimmed.startsWith("+") ? "+" : ""}${digits}` : "";
+  const normalized =
+    digits.length === 12 && digits.startsWith("91") ? digits.slice(2) :
+    digits.length === 11 && digits.startsWith("0") ? digits.slice(1) :
+    digits;
+  return /^[6-9]\d{9}$/.test(normalized) && !/^(\d)\1{9}$/.test(normalized)
+    ? normalized
+    : "";
 }
 
 function isValidPhone(value: string): boolean {
-  const digits = value.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15;
+  return /^[6-9]\d{9}$/.test(value) && !/^(\d)\1{9}$/.test(value);
+}
+
+function passwordRequirementsMessage(password: string): string | null {
+  if (password.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(password)) return "Password must include at least one uppercase letter";
+  if (!/\d/.test(password)) return "Password must include at least one number";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Password must include at least one special character";
+  return null;
+}
+
+function validWebsite(value: string): boolean {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -101,13 +124,19 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Enter a valid email address" });
     return;
   }
-  if (password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters" });
+  const passwordError = passwordRequirementsMessage(password);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
     return;
   }
   const normalizedPhone = phone?.trim() ? normalizePhone(phone) : "";
-  if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-    res.status(400).json({ error: "Enter a valid mobile number" });
+  if (phone?.trim() && !isValidPhone(normalizedPhone)) {
+    res.status(400).json({ error: "Enter a valid Indian mobile number with 10 digits" });
+    return;
+  }
+  const normalizedWebsite = website?.trim() || "";
+  if (!validWebsite(normalizedWebsite)) {
+    res.status(400).json({ error: "Website must start with http:// or https://" });
     return;
   }
 
@@ -121,6 +150,18 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
     if (existing.length > 0) {
       res.status(409).json({ error: "An account with this email already exists" });
       return;
+    }
+
+    if (normalizedPhone) {
+      const phoneExists = await db
+        .select({ id: b2bCompaniesTable.id })
+        .from(b2bCompaniesTable)
+        .where(sql`right(regexp_replace(coalesce(${b2bCompaniesTable.phone}, ''), '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`)
+        .limit(1);
+      if (phoneExists.length > 0) {
+        res.status(409).json({ error: "An account with this mobile number already exists" });
+        return;
+      }
     }
 
     const salt         = crypto.randomBytes(32).toString("hex");
@@ -138,7 +179,7 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
         passwordSalt: salt,
         phone: normalizedPhone || null,
         industry: industry?.trim() || null,
-        website: website?.trim() || null,
+        website: normalizedWebsite || null,
         isAnonymous,
         signupIp: ip,
       })
@@ -192,10 +233,10 @@ router.post("/b2b/auth/login", async (req: Request, res: Response) => {
 
   try {
     const lookupConditions = [eq(b2bCompaniesTable.email, normalizedEmail)];
-    const phoneDigits = normalizedPhone.replace(/\D/g, "");
+     const phoneDigits = normalizedPhone;
     if (isValidPhone(normalizedPhone)) {
       lookupConditions.push(
-        sql`regexp_replace(coalesce(${b2bCompaniesTable.phone}, ''), '[^0-9]', '', 'g') = ${phoneDigits}`,
+         sql`right(regexp_replace(coalesce(${b2bCompaniesTable.phone}, ''), '[^0-9]', '', 'g'), 10) = ${phoneDigits}`,
       );
     }
 
@@ -259,6 +300,138 @@ router.get("/b2b/auth/me", async (req: Request, res: Response) => {
     res.json({ company });
   } catch {
     res.json({ company: null });
+  }
+});
+
+/** PUT /api/b2b/auth/profile — update non-sensitive company basics. */
+router.put("/b2b/auth/profile", async (req: Request, res: Response) => {
+  const companyId = req.session.b2bCompanyId;
+  if (!companyId) {
+    res.status(401).json({ error: "B2B sign-in required" });
+    return;
+  }
+
+  const { name, phone, industry, website } = req.body as {
+    name?: string; phone?: string; industry?: string; website?: string;
+  };
+  const normalizedName = name?.trim() ?? "";
+  if (!normalizedName) {
+    res.status(400).json({ error: "Company name is required" });
+    return;
+  }
+  if (normalizedName.length > 120) {
+    res.status(400).json({ error: "Company name must be 120 characters or fewer" });
+    return;
+  }
+
+  const hasPhone = typeof phone === "string" && phone.trim().length > 0;
+  const normalizedPhone = hasPhone ? normalizePhone(phone) : "";
+  if (hasPhone && !isValidPhone(normalizedPhone)) {
+    res.status(400).json({ error: "Enter a valid Indian mobile number with 10 digits" });
+    return;
+  }
+  const normalizedWebsite = website?.trim() ?? "";
+  if (!validWebsite(normalizedWebsite)) {
+    res.status(400).json({ error: "Website must start with http:// or https://" });
+    return;
+  }
+
+  try {
+    if (normalizedPhone) {
+      const phoneExists = await db
+        .select({ id: b2bCompaniesTable.id })
+        .from(b2bCompaniesTable)
+        .where(sql`right(regexp_replace(coalesce(${b2bCompaniesTable.phone}, ''), '[^0-9]', '', 'g'), 10) = ${normalizedPhone}`)
+        .limit(2);
+      if (phoneExists.some((row) => row.id !== companyId)) {
+        res.status(409).json({ error: "That mobile number is already linked to another account" });
+        return;
+      }
+    }
+
+    const [company] = await db
+      .update(b2bCompaniesTable)
+      .set({
+        name: normalizedName,
+        phone: normalizedPhone || null,
+        industry: industry?.trim() || null,
+        website: normalizedWebsite || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(b2bCompaniesTable.id, companyId))
+      .returning({
+        id: b2bCompaniesTable.id,
+        name: b2bCompaniesTable.name,
+        email: b2bCompaniesTable.email,
+        credits: b2bCompaniesTable.credits,
+        phone: b2bCompaniesTable.phone,
+        industry: b2bCompaniesTable.industry,
+        website: b2bCompaniesTable.website,
+        createdAt: b2bCompaniesTable.createdAt,
+      });
+    if (!company) {
+      res.status(404).json({ error: "Company account not found" });
+      return;
+    }
+    req.session.b2bCompanyName = company.name;
+    res.json({ success: true, company });
+  } catch (err) {
+    logger.error({ err: (err as Error).message, companyId }, "B2B profile update error");
+    res.status(500).json({ error: "Could not update company information" });
+  }
+});
+
+/** POST /api/b2b/auth/password — change password after verifying the current one. */
+router.post("/b2b/auth/password", async (req: Request, res: Response) => {
+  const companyId = req.session.b2bCompanyId;
+  if (!companyId) {
+    res.status(401).json({ error: "B2B sign-in required" });
+    return;
+  }
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string; newPassword?: string;
+  };
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Current password and new password are required" });
+    return;
+  }
+  const passwordError = passwordRequirementsMessage(newPassword);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
+    return;
+  }
+  if (currentPassword === newPassword) {
+    res.status(400).json({ error: "New password must be different from your current password" });
+    return;
+  }
+
+  try {
+    const [company] = await db
+      .select({
+        passwordHash: b2bCompaniesTable.passwordHash,
+        passwordSalt: b2bCompaniesTable.passwordSalt,
+      })
+      .from(b2bCompaniesTable)
+      .where(eq(b2bCompaniesTable.id, companyId))
+      .limit(1);
+    if (!company || !verifyPassword(currentPassword, company.passwordSalt, company.passwordHash)) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const salt = crypto.randomBytes(32).toString("hex");
+    await db
+      .update(b2bCompaniesTable)
+      .set({
+        passwordHash: hashPassword(newPassword, salt),
+        passwordSalt: salt,
+        updatedAt: new Date(),
+      })
+      .where(eq(b2bCompaniesTable.id, companyId));
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err: (err as Error).message, companyId }, "B2B password update error");
+    res.status(500).json({ error: "Could not update password" });
   }
 });
 

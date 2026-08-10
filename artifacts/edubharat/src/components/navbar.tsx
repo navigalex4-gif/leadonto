@@ -104,6 +104,7 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { balance, authenticated, refetch: refetchCredits } = useCredits();
   const [open, setOpen] = useState(false);
+  const isB2BRoute = location.startsWith("/b2b/");
 
   useEffect(() => { void refetchCredits(); }, [user?.id, refetchCredits]);
   useEffect(() => { setOpen(false); }, [location]);
@@ -190,7 +191,7 @@ export function Navbar() {
           <div className="flex-1" />
 
           {/* ── Right actions (desktop) ── */}
-          <div className="hidden md:flex items-center gap-1.5">
+          {!isB2BRoute && <div className="hidden md:flex items-center gap-1.5">
             {user?.isAdmin && (
               <Link
                 href="/admin"
@@ -237,17 +238,17 @@ export function Navbar() {
                 </Button>
               </Link>
             )}
-          </div>
+          </div>}
 
           {/* ── Mobile right side ── */}
           <div className="flex md:hidden items-center gap-2 ml-auto">
-            {authenticated && (
+            {!isB2BRoute && authenticated && (
               <Link href="/credits" className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-xs font-bold" title="Your credits">
                 <Coins className="w-3 h-3" />
                 {balance ?? "…"}
               </Link>
             )}
-            {items.length > 0 && (
+            {!isB2BRoute && items.length > 0 && (
               <Link href="/history" className="relative p-2 min-h-11 min-w-11 flex items-center justify-center">
                 <Bookmark className="w-5 h-5 text-muted-foreground" />
                 <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
@@ -255,7 +256,7 @@ export function Navbar() {
                 </span>
               </Link>
             )}
-            {user && (
+            {!isB2BRoute && user && (
               user.picture
                 ? <img src={user.picture} alt="" width={26} height={26} className="w-6.5 h-6.5 rounded-full border border-primary/20" />
                 : <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
@@ -442,7 +443,11 @@ export function Navbar() {
         </div>
 
         <div className="border-t px-4 py-4">
-          {user ? (
+          {isB2BRoute ? (
+            <Link href="/" onClick={() => setOpen(false)} className="block">
+              <Button variant="outline" className="w-full font-semibold">← Back to Lead Onto</Button>
+            </Link>
+          ) : user ? (
             <div className="flex items-center gap-3">
               {user.picture ? (
                 <img src={user.picture} alt="" width={36} height={36} className="w-9 h-9 rounded-full border-2 border-primary/20 shrink-0" />

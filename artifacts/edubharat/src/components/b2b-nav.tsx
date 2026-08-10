@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Briefcase, Users, Coins, LogOut } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Coins, LogOut, Settings } from "lucide-react";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,7 +48,13 @@ export function B2BNav() {
             {company.name}
           </span>
         )}
-        <button
+         <Link
+           href="/b2b/dashboard#account"
+           className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground hover:text-secondary px-2 py-1 rounded"
+         >
+           <Settings className="w-3.5 h-3.5" /> Account
+         </Link>
+         <button
           onClick={() => void handleLogout()}
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-secondary px-2 py-1 rounded"
         >

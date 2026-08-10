@@ -48,7 +48,7 @@ export default function B2BLogin() {
                <label className="text-sm font-semibold text-secondary mb-1 block">Company email or mobile number</label>
               <Input
                  type="text"
-                 inputMode="email"
+                  inputMode="text"
                  autoComplete="username"
                  value={identifier}
                  onChange={(e) => setIdentifier(e.target.value)}
@@ -61,6 +61,7 @@ export default function B2BLogin() {
               <label className="text-sm font-semibold text-secondary mb-1 block">Password</label>
               <Input
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Your password"

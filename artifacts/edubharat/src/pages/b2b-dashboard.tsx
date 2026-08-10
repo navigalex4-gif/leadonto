@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Loader2, Building2, Briefcase, Users, Coins, CheckCircle2, XCircle,
-  Plus, RefreshCw, TrendingUp, Clock, ArrowRight,
+  Plus, RefreshCw, TrendingUp, Clock, ArrowRight, Save, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
 import { B2BNav } from "@/components/b2b-nav";
+import { B2B_PASSWORD_REQUIREMENTS, normalizeIndianMobile, passwordMeetsB2BRequirements } from "@/lib/b2b-validation";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -39,12 +40,18 @@ function fmt(iso: string) {
 }
 
 export default function B2BDashboard() {
-  const { company, isLoading } = useB2BAuth();
+  const { company, isLoading, updateProfile, changePassword } = useB2BAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "", industry: "", website: "" });
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -72,6 +79,71 @@ export default function B2BDashboard() {
   useEffect(() => {
     if (company) void fetchData();
   }, [company, fetchData]);
+
+  useEffect(() => {
+    if (company) {
+      setProfileForm({
+        name: company.name,
+        phone: company.phone ?? "",
+        industry: company.industry ?? "",
+        website: company.website ?? "",
+      });
+    }
+  }, [company]);
+
+  const saveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!profileForm.name.trim()) {
+      toast({ title: "Company name is required", variant: "destructive" });
+      return;
+    }
+    if (profileForm.phone.trim() && !normalizeIndianMobile(profileForm.phone)) {
+      toast({ title: "Enter a valid Indian mobile number", description: "Use a 10-digit number starting with 6–9.", variant: "destructive" });
+      return;
+    }
+    if (profileForm.website.trim() && !/^https?:\/\/.+/i.test(profileForm.website.trim())) {
+      toast({ title: "Enter a valid website URL", description: "Use a URL beginning with https://.", variant: "destructive" });
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await updateProfile({
+        name: profileForm.name,
+        phone: profileForm.phone,
+        industry: profileForm.industry,
+        website: profileForm.website,
+      });
+      toast({ title: "Company information updated" });
+    } catch (error) {
+      toast({ title: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const savePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!passwordMeetsB2BRequirements(newPassword)) {
+      toast({ title: "Choose a stronger password", description: "Use 8+ characters with an uppercase letter, number, and special character.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "New passwords do not match", variant: "destructive" });
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({ title: "Password updated securely" });
+    } catch (error) {
+      toast({ title: (error as Error).message, variant: "destructive" });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   if (isLoading || (!company && !loading)) {
     return <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -191,6 +263,76 @@ export default function B2BDashboard() {
           ))}
         </div>
       )}
+
+      <section id="account" className="mt-8 scroll-mt-20">
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-base font-bold text-secondary">Account settings</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Keep your recruiter profile and sign-in details up to date.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-secondary">Company information</h3>
+              </div>
+              <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-secondary mb-1 block">Company name</label>
+                  <input value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-secondary mb-1 block">Company email</label>
+                  <input value={company.email} readOnly className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/50 text-muted-foreground cursor-not-allowed" />
+                  <p className="text-[11px] text-muted-foreground mt-1">Email changes require account verification support.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-secondary mb-1 block">Mobile number</label>
+                    <input type="tel" inputMode="tel" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+91 98765 43210" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-secondary mb-1 block">Industry</label>
+                    <input value={profileForm.industry} onChange={(event) => setProfileForm((form) => ({ ...form, industry: event.target.value }))} placeholder="Technology" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-secondary mb-1 block">Website</label>
+                  <input type="url" value={profileForm.website} onChange={(event) => setProfileForm((form) => ({ ...form, website: event.target.value }))} placeholder="https://company.com" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <Button type="submit" size="sm" disabled={savingProfile} className="font-semibold">
+                  {savingProfile ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Saving…</> : <><Save className="w-4 h-4 mr-1.5" />Save changes</>}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <h3 className="font-bold text-secondary">Change password</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">Use a unique password you do not reuse elsewhere.</p>
+              <form onSubmit={(event) => void savePassword(event)} className="space-y-3">
+                <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg bg-muted/40 p-3">
+                  {B2B_PASSWORD_REQUIREMENTS.map(({ label, test }) => (
+                    <p key={label} className={`text-[11px] ${test(newPassword) ? "text-green-600" : "text-muted-foreground"}`}>{test(newPassword) ? "✓" : "○"} {label}</p>
+                  ))}
+                </div>
+                <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                <Button type="submit" size="sm" variant="outline" disabled={savingPassword} className="font-semibold">
+                  {savingPassword ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Updating…</> : "Update password"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }

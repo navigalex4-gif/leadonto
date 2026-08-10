@@ -67,7 +67,31 @@ export function useB2BAuth() {
     setCompany(null);
   }, []);
 
+  const updateProfile = useCallback(async (fields: { name: string; phone?: string; industry?: string; website?: string }) => {
+    const res = await fetch(`${BASE}/api/b2b/auth/profile`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(fields),
+    });
+    const data = (await res.json()) as { success?: boolean; company?: B2BCompany; error?: string };
+    if (!res.ok || !data.success || !data.company) throw new Error(data.error ?? "Could not update company information");
+    setCompany(data.company);
+    return data.company;
+  }, []);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const res = await fetch(`${BASE}/api/b2b/auth/password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = (await res.json()) as { success?: boolean; error?: string };
+    if (!res.ok || !data.success) throw new Error(data.error ?? "Could not update password");
+  }, []);
+
   const refetch = check;
 
-  return { company, isLoading, login, register, logout, refetch };
+  return { company, isLoading, login, register, logout, updateProfile, changePassword, refetch };
 }

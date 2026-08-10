@@ -48,3 +48,12 @@ B2B UPI payments: `GET /api/admin/b2b/upi/pending`, `POST /api/admin/b2b/upi/app
 
 ## Password hashing
 PBKDF2-SHA256, 100,000 iterations, 64-byte key, stored as hex. No extra npm dependencies (uses Node built-in `crypto.pbkdf2Sync`). Salt stored separately in `password_salt` column.
+
+## Account security and settings
+- B2B registration and password changes require at least 8 characters, one uppercase letter, one number, and one special character.
+- Company mobile numbers are normalized to valid Indian 10-digit numbers beginning with 6–9; repeated-digit placeholders and invalid lengths are rejected. Login may use the verified email or mobile number.
+- Recruiters can update company basics and change their password from the dashboard; password changes require the current password.
+
+**Why:** The recruiter portal must reject fake contact details at the server boundary and provide self-service account maintenance without weakening session isolation.
+
+**How to apply:** Keep frontend requirement indicators aligned with the backend checks, and never accept profile/password mutations without the B2B session and current-password verification.

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
+import { B2B_PASSWORD_REQUIREMENTS, normalizeIndianMobile, passwordMeetsB2BRequirements } from "@/lib/b2b-validation";
 
 const INDUSTRIES = [
   "Technology", "Banking / Finance", "Insurance", "Healthcare",
@@ -34,8 +35,12 @@ export default function B2BRegister() {
       toast({ title: "Passwords don't match", variant: "destructive" });
       return;
     }
-    if (form.password.length < 8) {
-      toast({ title: "Password must be at least 8 characters", variant: "destructive" });
+    if (!passwordMeetsB2BRequirements(form.password)) {
+      toast({ title: "Password does not meet the security requirements", description: "Use 8+ characters with an uppercase letter, number, and special character.", variant: "destructive" });
+      return;
+    }
+    if (form.phone.trim() && !normalizeIndianMobile(form.phone)) {
+      toast({ title: "Enter a valid Indian mobile number", description: "Use a 10-digit number starting with 6, 7, 8, or 9.", variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -84,7 +89,7 @@ export default function B2BRegister() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Password *</label>
-                <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} placeholder="Min 8 chars" required />
+         <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} placeholder="Strong password" required />
               </div>
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Confirm *</label>
@@ -96,6 +101,9 @@ export default function B2BRegister() {
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Phone</label>
                 <Input type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
+                <p className={`mt-1 text-[11px] ${form.phone && !normalizeIndianMobile(form.phone) ? "text-red-600" : "text-muted-foreground"}`}>
+                  10 digits, starting with 6–9
+                </p>
               </div>
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Industry</label>
@@ -107,6 +115,16 @@ export default function B2BRegister() {
                   <option value="">Select…</option>
                   {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
                 </select>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+              <p className="text-xs font-semibold text-secondary mb-2">Password requirements</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {B2B_PASSWORD_REQUIREMENTS.map(({ label, test }) => (
+                  <p key={label} className={`text-[11px] ${test(form.password) ? "text-green-600" : "text-muted-foreground"}`}>
+                    {test(form.password) ? "✓" : "○"} {label}
+                  </p>
+                ))}
               </div>
             </div>
 
