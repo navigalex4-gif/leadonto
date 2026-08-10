@@ -12,3 +12,9 @@ The homepage CTA routes to a dedicated 90-second voice communication check rathe
 The API validation must allow multiple short answers during the complete 90-second session; limiting the transcript to only a couple of turns can reject the final save and prevent both feedback persistence and email delivery.
 
 **Why:** conversational voice sessions naturally produce more turns than a two-question prototype, and the final save is the trigger point for the result email.
+
+The live check uses a finite, varied topic bank plus normalized word-overlap checks against every asked question. AI-generated prompts remain personalized, but repeated or near-duplicate prompts are replaced with the next unused topic.
+
+**Why:** a 90-second voice flow can ask many short prompts; relying on the model alone makes repetition visible and reduces trust.
+
+**How to apply:** keep the hard 90-second timer, preserve the full asked-question history, and use the existing `AnimatedAvatar` portrait with `isSpeaking` bound to the TTS hook. Never connect the lip animation to the audio analyser graph.

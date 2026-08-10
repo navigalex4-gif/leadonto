@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, Clock3, Loader2, Mic, MicOff, Sparkles, Target, UserRound } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Loader2, Mic, MicOff, Sparkles, Target } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AnimatedAvatar } from "@/components/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
@@ -14,8 +15,30 @@ import { track } from "@/lib/analytics";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
-const FIRST_QUESTION = "Tell me about yourself and one achievement you feel proud of.";
-const FALLBACK_QUESTION = "Can you describe a challenge you faced and how you handled it?";
+const FIRST_QUESTION = "Tell me a little about yourself and what you are working toward.";
+const QUESTION_BANK = [
+  "What is something you learned recently, and how did you learn it?",
+  "Tell me about a time you handled a difficult situation. What did you do?",
+  "What is one strength you bring to a team? Can you give a quick example?",
+  "How would you explain your current work or studies to someone new?",
+  "What kind of role or opportunity are you hoping to find next?",
+  "Imagine you are meeting a customer or colleague for the first time. How would you introduce yourself?",
+  "What is one communication skill you would like to improve?",
+  "What motivates you when a task becomes challenging?",
+  "What does good teamwork look like to you in everyday work or study?",
+  "Tell me about a small decision you made recently and why you made it.",
+  "How do you usually prepare when you need to speak in front of others?",
+  "What kind of feedback helps you improve the most?",
+  "What is one goal you would like to make progress on this year?",
+  "How do you make a new person feel comfortable in a conversation?",
+  "What helps you stay calm when something does not go as planned?",
+  "If you had one extra hour today, how would you use it?",
+];
+const INTERVIEWER = {
+  name: "Priya Ma'am",
+  imageSrc: "/images/tutor-priya.jpg",
+  gender: "female" as const,
+};
 
 type Candidate = {
   name: string;
@@ -48,6 +71,34 @@ function cleanSpeech(text: string): string {
     .replace(/[#*_]+/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function normalizeQuestion(text: string): string {
+  return cleanSpeech(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function questionIsRepeated(question: string, askedQuestions: string[]): boolean {
+  const candidate = normalizeQuestion(question);
+  if (!candidate) return true;
+  const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
+  return askedQuestions.some((asked) => {
+    const normalizedAsked = normalizeQuestion(asked);
+    if (normalizedAsked === candidate) return true;
+    const askedWords = new Set(normalizedAsked.split(" ").filter((word) => word.length > 2));
+    if (!candidateWords.size || !askedWords.size) return false;
+    const shared = [...candidateWords].filter((word) => askedWords.has(word)).length;
+    const similarity = shared / Math.min(candidateWords.size, askedWords.size);
+    return similarity >= 0.78;
+  });
+}
+
+function nextUnusedQuestion(askedQuestions: string[]): string {
+  return QUESTION_BANK.find((question) => !questionIsRepeated(question, askedQuestions))
+    ?? "Before we finish, what would you like an interviewer to understand about you?";
 }
 
 function getAnonymousId(): string {
@@ -231,12 +282,16 @@ export default function CommunicationCheck() {
     const fallbackTimer = new Promise<string>((resolve) => {
       deadlineRef.current = setTimeout(() => resolve(""), 1800);
     });
+    const askedQuestions = nextAnswers.map((item) => item.question);
     let response = "";
     try {
       response = await Promise.race([
         stream(
-          `Ask one short follow-up question after this candidate answer: "${answer}". The assessment is about spoken communication, confidence, and clarity, not technical knowledge. Return only the question.`,
-          "You are a warm, concise Indian communication coach. Ask one simple spoken-English question. No markdown. Maximum 18 words.",
+          `Ask one fresh, natural follow-up question after this answer: "${answer}".
+This is a 90-second spoken communication check, so explore a different everyday topic each turn: learning, a challenge, teamwork, explaining an idea, career goals, customer interaction, motivation, or self-reflection.
+Questions already asked: ${askedQuestions.join(" | ")}
+Never repeat or paraphrase an earlier question. Return only one question, maximum 18 words.`,
+          "You are a warm, curious Indian interviewer. Sound human and conversational, not like a form. Ask one concise spoken-English question with no markdown or preamble.",
           undefined,
           { maxTokens: 70 },
         ),
@@ -247,13 +302,16 @@ export default function CommunicationCheck() {
     }
     if (!response.trim()) {
       resetStream();
-      response = FALLBACK_QUESTION;
+      response = nextUnusedQuestion(askedQuestions);
     }
     if (endingRef.current) {
       turnRef.current = false;
       return;
     }
-    const question = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim() || FALLBACK_QUESTION;
+    const generatedQuestion = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim();
+    const question = generatedQuestion && !questionIsRepeated(generatedQuestion, askedQuestions)
+      ? generatedQuestion
+      : nextUnusedQuestion(askedQuestions);
     questionRef.current = question;
     setCurrentQuestion(question);
     setIsThinking(false);
@@ -428,13 +486,21 @@ export default function CommunicationCheck() {
       ) : (
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-7">
-            <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. The interviewer responds quickly.</p></div>
+             <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. Your interviewer responds quickly.</p></div>
             <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 15 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
           </div>
           <CardContent className="space-y-6 p-6 sm:p-9">
             <div className="flex items-start gap-4 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-5">
-              <div className="rounded-full bg-primary/10 p-3"><UserRound className="h-6 w-6 text-primary" /></div>
-              <div className="flex-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
+               <AnimatedAvatar
+                 name={INTERVIEWER.name}
+                 subtitle="AI interviewer"
+                 isSpeaking={synth.isSpeaking}
+                 isThinking={isThinking}
+                 gender={INTERVIEWER.gender}
+                 size="sm"
+                 imageSrc={INTERVIEWER.imageSrc}
+               />
+               <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
             <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
               {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Preparing the next prompt…" : isListening ? "Listening — take your time…" : "Get ready to speak…"}</span>}
