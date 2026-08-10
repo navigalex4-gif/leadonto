@@ -26,7 +26,7 @@ export function isEmailConfigured(): boolean {
  * (local/off-Replit), it logs the email and returns { ok: true, dev: true }
  * so flows that need the payload can degrade gracefully.
  */
-export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<{ ok: boolean; dev?: boolean }> {
+export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<{ ok: boolean; dev?: boolean; error?: string; id?: string }> {
   if (!isEmailConfigured()) {
     logger.info({ to: opts.to, subject: opts.subject }, "[mailer] dev mode — email not sent (Resend connector not attached)");
     return { ok: true, dev: true };
@@ -39,12 +39,19 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
     if (!resp.ok) {
       const detail = await resp.text().catch(() => "");
       logger.error({ status: resp.status, detail: detail.slice(0, 300), to: opts.to }, "[mailer] Resend send failed");
-      return { ok: false };
+      return { ok: false, error: `resend-${resp.status}` };
     }
-    return { ok: true };
+    let id: string | undefined;
+    try {
+      const body = await resp.json() as { id?: unknown };
+      if (typeof body.id === "string") id = body.id;
+    } catch {
+      // Some connector versions return an empty success body.
+    }
+    return { ok: true, id };
   } catch (err) {
     logger.error({ err: (err as Error).message, to: opts.to }, "[mailer] Resend send error");
-    return { ok: false };
+    return { ok: false, error: "network-error" };
   }
 }
 

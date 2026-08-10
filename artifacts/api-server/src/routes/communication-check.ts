@@ -19,7 +19,10 @@ const submitSchema = z.object({
   targetRole: z.string().trim().max(120).optional().default(""),
   experienceLevel: z.string().trim().max(60).optional().default(""),
   anonymousId: z.string().trim().max(100).optional().default(""),
-  answers: z.array(answerSchema).min(1).max(4),
+  // A full 90-second conversation can naturally contain several short turns.
+  // Keep a generous ceiling so the lead/result save cannot fail simply because
+  // the interviewer had a productive conversation.
+  answers: z.array(answerSchema).min(1).max(30),
   durationSeconds: z.number().int().min(0).max(120).optional().default(0),
 });
 
@@ -194,14 +197,24 @@ Be encouraging but accurate. Judge only what is present in the answers; do not i
 
     let emailSent = false;
     try {
-      const sent = await sendEmail({
+      const email = {
         to: input.email,
         subject: "Your Lead Onto 90-second communication result",
         html: resultEmailHtml(input.name, feedback),
-      });
+      };
+      let sent = await sendEmail(email);
+      // Retry once for transient connector/network failures. A successful
+      // Resend response is never retried, so accepted messages are not doubled.
+      if (!sent.ok && !sent.dev) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        sent = await sendEmail(email);
+      }
       emailSent = sent.ok && !sent.dev;
+      if (emailSent) {
+        req.log.info({ emailId: sent.id }, "communication check result email accepted by Resend");
+      }
       if (!emailSent) {
-        req.log.warn({ email: input.email, sent }, "communication check result email was not delivered");
+        req.log.warn({ email: input.email, error: sent.error }, "communication check result email was not delivered");
       }
     } catch (err) {
       req.log.error({ err, email: input.email }, "communication check result email failed");
@@ -212,8 +225,8 @@ Be encouraging but accurate. Judge only what is present in the answers; do not i
       feedback,
       emailSent,
       emailMessage: emailSent
-        ? "Your result was sent to your email."
-        : "Your result is ready here, but the email could not be delivered.",
+        ? "Your result was sent to your email. If you do not see it soon, check your spam or promotions folder."
+        : "Your result is ready here, but the email could not be delivered. Please check your email address and try again.",
     });
   } catch (err) {
     req.log.error({ err }, "communication check save failed");

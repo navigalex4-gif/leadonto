@@ -194,7 +194,7 @@ export default function CommunicationCheck() {
       setEmailMessage(data.emailMessage || "");
     } catch {
       setFeedback(fallback);
-      setEmailMessage("Your result is ready here, but the email could not be delivered.");
+      setEmailMessage("Your result is ready here, but the email could not be delivered. Please check your email address and try again.");
       toast({ title: "Feedback ready", description: "Your indicative score is shown; we could not sync the full result." });
     } finally {
       setIsSubmitting(false);
@@ -216,9 +216,17 @@ export default function CommunicationCheck() {
     setCurrentAnswer("");
     answerRef.current = "";
 
-    // The acknowledgement is spoken immediately. The AI question has a strict
-    // deadline, so network/provider latency can never leave the candidate silent.
-    speak(nextAnswers.length >= 2 ? "Thank you. I have everything I need." : "Okay, I hear you.");
+    // The acknowledgement is spoken immediately. Keep it short and natural so
+    // the interviewer sounds conversational before the next question arrives.
+    const acknowledgements = [
+      "Okay, got it.",
+      "Alright, I understand.",
+      "Okay, that makes sense.",
+      "Got it.",
+    ];
+    const acknowledgementFinished = new Promise<void>((resolve) => {
+      speak(acknowledgements[(nextAnswers.length - 1) % acknowledgements.length] ?? "Okay, got it.", resolve);
+    });
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
       deadlineRef.current = setTimeout(() => resolve(""), 1800);
@@ -250,6 +258,13 @@ export default function CommunicationCheck() {
     setCurrentQuestion(question);
     setIsThinking(false);
     turnRef.current = false;
+    // Keep the human acknowledgement intact before starting the next TTS
+    // utterance. The timeout is only a safety valve for a blocked audio device.
+    await Promise.race([
+      acknowledgementFinished,
+      new Promise<void>((resolve) => setTimeout(resolve, 1400)),
+    ]);
+    if (endingRef.current) return;
     speak(question, startListening);
   }, [clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
 
