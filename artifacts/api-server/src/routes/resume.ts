@@ -3,8 +3,8 @@ import multer from "multer";
 // Import the inner parser to avoid v1.1.1's debug-mode test-PDF loader at import time
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import mammoth from "mammoth";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, resumeVersionsTable } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
 import { generateTextWithFallback } from "./ai.js";
 
 export const router: IRouter = Router();
@@ -29,6 +29,39 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
   next();
+}
+
+async function recordResumeReplacement(
+  userId: number,
+  nextText: string,
+  nextFileName: string,
+) {
+  const [current] = await db
+    .select({
+      resumeText: usersTable.resumeText,
+      resumeFileName: usersTable.resumeFileName,
+      resumeAnalysis: usersTable.resumeAnalysis,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+
+  if (current?.resumeText?.trim()) {
+    await db.insert(resumeVersionsTable).values({
+      userId,
+      versionType: "previous",
+      fileName: current.resumeFileName,
+      resumeText: current.resumeText,
+      resumeAnalysis: current.resumeAnalysis,
+    });
+  }
+
+  await db.insert(resumeVersionsTable).values({
+    userId,
+    versionType: "original",
+    fileName: nextFileName,
+    resumeText: nextText,
+  });
 }
 
 async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
@@ -60,6 +93,7 @@ router.post("/resume/upload", upload.single("resume"), async (req, res) => {
 
     // For authenticated users, persist to DB
     if (req.session.userId) {
+      await recordResumeReplacement(req.session.userId, text, file.originalname);
       await db
         .update(usersTable)
         .set({
@@ -96,6 +130,7 @@ router.post("/resume/text", async (req, res) => {
     }
     // For authenticated users, persist to DB; guests get a simple ack
     if (req.session.userId) {
+      await recordResumeReplacement(req.session.userId, text.trim(), "Pasted resume");
       await db
         .update(usersTable)
         .set({
@@ -312,6 +347,15 @@ Ensure the response is valid JSON and can be parsed with JSON.parse().`;
       };
 
       if (req.session.userId) {
+        const [latestOriginal] = await db
+          .select({ id: resumeVersionsTable.id })
+          .from(resumeVersionsTable)
+          .where(and(
+            eq(resumeVersionsTable.userId, req.session.userId),
+            eq(resumeVersionsTable.versionType, "original"),
+          ))
+          .orderBy(desc(resumeVersionsTable.createdAt))
+          .limit(1);
         await db
           .update(usersTable)
           .set({
@@ -322,6 +366,14 @@ Ensure the response is valid JSON and can be parsed with JSON.parse().`;
             updatedAt: new Date(),
           })
           .where(eq(usersTable.id, req.session.userId));
+        if (latestOriginal) {
+          await db
+            .update(resumeVersionsTable)
+            .set({
+              resumeAnalysis: JSON.stringify(parsed),
+            })
+            .where(eq(resumeVersionsTable.id, latestOriginal.id));
+        }
       }
     } catch (err) {
       req.log.error({ err, fullText }, "Failed to parse resume analysis JSON");
@@ -388,6 +440,23 @@ Return ONLY the improved resume text. Nothing else.`;
     if (!improvedText.trim()) {
       res.status(500).json({ error: "Could not generate improved resume. Please try again." });
       return;
+    }
+
+    if (req.session.userId) {
+      const users = await db
+        .select({ resumeAnalysis: usersTable.resumeAnalysis, resumeFileName: usersTable.resumeFileName })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+      await db.insert(resumeVersionsTable).values({
+        userId: req.session.userId,
+        versionType: "improved",
+        fileName: users[0]?.resumeFileName ? `Improved — ${users[0].resumeFileName}` : "Improved resume",
+        resumeText: improvedText,
+        resumeAnalysis: users[0]?.resumeAnalysis ?? null,
+        targetRole: targetRole || null,
+        experienceLevel: experienceLevel || null,
+      });
     }
 
     res.json({ improvedText });

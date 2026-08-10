@@ -1,5 +1,5 @@
 - [EduBharat project](edubharat.md) — India AI Career Ecosystem; Gemini 2.5 Flash, SSE streaming, Indian voice TTS, Google OAuth + Email OTP, PostgreSQL, 4 products + progress dashboard.
-- [Resume Intelligence module](resume-intelligence.md) — section parsing uses positional string splitting (not regex) to avoid Edit-tool corruption with special chars.
+- [Resume Intelligence module](resume-intelligence.md) — section parsing and append-only history preserve old, uploaded, and AI-modified resume data for admin review.
 - [Database persistence patterns](task1-db-persistence.md) — offline-first hooks, schema/API conventions, and rebuild steps for EduBharat DB features.
 - [Tutor portrait system](tutor-portraits.md) — real AI-generated photos replace cartoon SVG; SVG is fallback only; imgFailed resets on imageSrc change; TUTORS array in lib/tutors.ts.
 - [Avatar lip movement](avatar-lip-movement.md) — talking portraits use a CSS puppet-jaw on the real photo (keep amplitude TINY — big scaleY reads as a stretched face); never drive it from the TTS audio graph (breaks autoplay); generateImage can't inpaint frames.

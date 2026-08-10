@@ -18,3 +18,10 @@ Prompt requests exactly 8 sections with exact heading names. Asking for specific
 
 ## Route layout
 Uses `compact showFooter={false}` layout (same as English Guru, Interview Ace, Rozgar Samachar) — gives full-viewport scrollable space without the standard footer.
+
+## Resume version history
+Authenticated resume uploads and pasted resumes preserve the prior current resume before replacement, record the new source text, and record AI-improved resume text separately. Admins review these records under the dedicated Resume tab.
+
+**Why:** Resume Intelligence updates the user's current profile in place, but recruiters/admins need an audit trail of the old source and modified output.
+
+**How to apply:** Keep version records append-only; store full text and analysis metadata per version, while keeping the user row as the current-resume source of truth.

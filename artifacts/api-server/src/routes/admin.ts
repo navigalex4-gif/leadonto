@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable } from "@workspace/db";
+import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable, resumeVersionsTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
@@ -100,6 +100,77 @@ router.get("/admin/users/:id", requireAdmin, async (req: Request, res: Response)
   } catch (err) {
     logger.error({ err: (err as Error).message }, "admin user detail failed");
     res.status(500).json({ error: "Could not load user" });
+  }
+});
+
+// GET /api/admin/resumes — resume version history, newest first.
+router.get("/admin/resumes", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const versions = await db
+      .select({
+        id: resumeVersionsTable.id,
+        userId: resumeVersionsTable.userId,
+        versionType: resumeVersionsTable.versionType,
+        fileName: resumeVersionsTable.fileName,
+        targetRole: resumeVersionsTable.targetRole,
+        experienceLevel: resumeVersionsTable.experienceLevel,
+        hasAnalysis: resumeVersionsTable.resumeAnalysis,
+        createdAt: resumeVersionsTable.createdAt,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+      })
+      .from(resumeVersionsTable)
+      .leftJoin(usersTable, eq(resumeVersionsTable.userId, usersTable.id))
+      .orderBy(desc(resumeVersionsTable.createdAt))
+      .limit(2000);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      versions: versions.map((version) => ({
+        ...version,
+        hasAnalysis: Boolean(version.hasAnalysis),
+      })),
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin resume versions list failed");
+    res.status(500).json({ error: "Could not load resume versions" });
+  }
+});
+
+// GET /api/admin/resumes/:id — full resume version content for an expanded admin row.
+router.get("/admin/resumes/:id", requireAdmin, async (req: Request, res: Response) => {
+  const id = idParam(req);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid resume version id" });
+    return;
+  }
+  try {
+    const [version] = await db
+      .select({
+        id: resumeVersionsTable.id,
+        userId: resumeVersionsTable.userId,
+        versionType: resumeVersionsTable.versionType,
+        fileName: resumeVersionsTable.fileName,
+        resumeText: resumeVersionsTable.resumeText,
+        resumeAnalysis: resumeVersionsTable.resumeAnalysis,
+        targetRole: resumeVersionsTable.targetRole,
+        experienceLevel: resumeVersionsTable.experienceLevel,
+        createdAt: resumeVersionsTable.createdAt,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+      })
+      .from(resumeVersionsTable)
+      .leftJoin(usersTable, eq(resumeVersionsTable.userId, usersTable.id))
+      .where(eq(resumeVersionsTable.id, id))
+      .limit(1);
+    if (!version) {
+      res.status(404).json({ error: "Resume version not found" });
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ version });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin resume version detail failed");
+    res.status(500).json({ error: "Could not load resume version" });
   }
 });
 

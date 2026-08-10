@@ -29,6 +29,7 @@ const AdminUsers = lazy(() => import("@/pages/admin-users"));
 const AdminInterviews = lazy(() => import("@/pages/admin-interviews"));
 const AdminB2B = lazy(() => import("@/pages/admin-b2b"));
 const AdminContent = lazy(() => import("@/pages/admin-content"));
+const AdminResumes = lazy(() => import("@/pages/admin-resumes"));
 const AdminActivity = lazy(() => import("@/pages/admin-activity"));
 const AdminEmail = lazy(() => import("@/pages/admin-email"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
@@ -105,6 +106,7 @@ function Router() {
             <Route path="/admin-interviews" component={AdminInterviews} />
             <Route path="/admin-b2b" component={AdminB2B} />
             <Route path="/admin-content" component={AdminContent} />
+            <Route path="/admin-resumes" component={AdminResumes} />
             <Route path="/admin-activity" component={AdminActivity} />
             <Route path="/admin-email" component={AdminEmail} />
             <Route path="/admin" component={AdminPayments} />

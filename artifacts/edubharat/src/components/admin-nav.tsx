@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin-interviews", label: "Interviews", icon: BriefcaseIcon },
   { href: "/admin-b2b", label: "B2B", icon: Building2 },
   { href: "/admin-content", label: "Content", icon: FileText },
+  { href: "/admin-resumes", label: "Resume", icon: FileText },
   { href: "/admin-activity", label: "Activity", icon: Activity },
   { href: "/admin-email", label: "Email", icon: Mail },
 ];
