@@ -4,6 +4,7 @@ import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace
 import { desc, eq } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
+import { geolocateIp } from "../lib/geo.js";
 
 const eventSchema = z.object({
   anonymousId: z.string().max(64),
@@ -23,6 +24,34 @@ const webVitalSchema = z.object({
 });
 
 const router: IRouter = Router();
+const activityLocationCache = new Map<string, { location: string | null; expiresAt: number }>();
+const ACTIVITY_LOCATION_TTL_MS = 30 * 60 * 1000;
+const MAX_ACTIVITY_LOCATION_LOOKUPS = 100;
+
+async function resolveActivityLocations(ips: string[]): Promise<Map<string, string | null>> {
+  const resolved = new Map<string, string | null>();
+  const pending = ips.filter((ip) => {
+    const cached = activityLocationCache.get(ip);
+    if (cached && cached.expiresAt > Date.now()) {
+      resolved.set(ip, cached.location);
+      return false;
+    }
+    return true;
+  });
+  const lookupIps = pending.slice(0, MAX_ACTIVITY_LOCATION_LOOKUPS);
+
+  let cursor = 0;
+  const workerCount = Math.min(8, lookupIps.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < lookupIps.length) {
+      const ip = lookupIps[cursor++];
+      const location = await geolocateIp(ip);
+      activityLocationCache.set(ip, { location, expiresAt: Date.now() + ACTIVITY_LOCATION_TTL_MS });
+      resolved.set(ip, location);
+    }
+  }));
+  return resolved;
+}
 
 router.post("/analytics/events", async (req, res) => {
   const parse = eventSchema.safeParse(req.body);
@@ -74,13 +103,25 @@ router.get("/admin/visitor-activity", requireAdmin, async (_req, res) => {
         userId: analyticsEventsTable.userId,
         userName: usersTable.name,
         userEmail: usersTable.email,
+        signupLocation: usersTable.signupLocation,
+        lastLoginLocation: usersTable.lastLoginLocation,
       })
       .from(analyticsEventsTable)
       .leftJoin(usersTable, eq(analyticsEventsTable.userId, usersTable.id))
       .orderBy(desc(analyticsEventsTable.createdAt))
       .limit(2000);
+    const activityIps = Array.from(new Set(
+      activities
+        .filter((activity) => !activity.lastLoginLocation && !activity.signupLocation && activity.ipAddress)
+        .map((activity) => activity.ipAddress as string),
+    ));
+    const ipLocations = await resolveActivityLocations(activityIps);
+    const enrichedActivities = activities.map(({ signupLocation, lastLoginLocation, ...activity }) => ({
+      ...activity,
+      location: lastLoginLocation || signupLocation || (activity.ipAddress ? ipLocations.get(activity.ipAddress) ?? null : null),
+    }));
     res.setHeader("Cache-Control", "no-store");
-    res.json({ activities });
+    res.json({ activities: enrichedActivities });
   } catch (err) {
     logger.error({ err }, "Failed to load visitor activity");
     res.status(500).json({ error: "Failed to load visitor activity" });

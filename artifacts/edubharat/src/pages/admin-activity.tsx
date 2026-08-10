@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Clock3, Download, Globe2, Loader2, RefreshCw, Search, UserRound } from "lucide-react";
+import { Activity, Clock3, Download, Globe2, Loader2, MapPin, RefreshCw, Search, UserRound } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,7 @@ type ActivityRow = {
   userId: number | null;
   userName: string | null;
   userEmail: string | null;
+  location: string | null;
 };
 
 function fmt(iso: string): string {
@@ -49,6 +50,7 @@ export default function AdminActivity() {
   const [query, setQuery] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
   const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
+  const [locationFilter, setLocationFilter] = useState("all");
   const [fetching, setFetching] = useState(false);
   const isAdmin = user?.isAdmin === true;
 
@@ -83,15 +85,20 @@ export default function AdminActivity() {
       if (eventFilter !== "all" && row.event !== eventFilter) return false;
       if (visitorFilter === "anonymous" && row.userId !== null) return false;
       if (visitorFilter === "signed-in" && row.userId === null) return false;
+      if (locationFilter !== "all" && (row.location || "Location unavailable") !== locationFilter) return false;
       if (!q) return true;
-      return [row.event, row.path, row.ipAddress, row.anonymousId, row.userName, row.userEmail, row.userAgent]
+      return [row.event, row.path, row.ipAddress, row.location, row.anonymousId, row.userName, row.userEmail, row.userAgent]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [rows, query, eventFilter, visitorFilter]);
+  }, [rows, query, eventFilter, visitorFilter, locationFilter]);
 
   const eventOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.event))).sort(),
+    [rows],
+  );
+  const locationOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.location || "Location unavailable"))).sort(),
     [rows],
   );
 
@@ -118,7 +125,7 @@ export default function AdminActivity() {
             onClick={() => downloadCsv(filtered.map((row) => ({
             id: row.id, event: row.event, path: row.path, anonymousId: row.anonymousId,
             userId: row.userId, userName: row.userName, userEmail: row.userEmail,
-            ipAddress: row.ipAddress, userAgent: row.userAgent, createdAt: row.createdAt,
+             ipAddress: row.ipAddress, location: row.location, userAgent: row.userAgent, createdAt: row.createdAt,
             properties: row.properties,
           })), "edubharat-activity")}
             disabled={!filtered.length}
@@ -132,7 +139,7 @@ export default function AdminActivity() {
       </div>
 
       <p className="mb-4 text-sm text-muted-foreground">
-        Anonymous visitors are included. Each row shows the server-recorded IP, route, time, and activity.
+        Anonymous visitors are included. Each row shows the server-recorded location, IP, route, time, and activity.
       </p>
 
       <div className="relative mb-4">
@@ -149,7 +156,7 @@ export default function AdminActivity() {
           <p className="text-xs font-bold uppercase tracking-wide text-secondary">Filter activity</p>
           <span className="text-xs text-muted-foreground">{filtered.length} of {rows.length} shown</span>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           <label htmlFor="activity-event-filter" className="text-xs font-semibold text-muted-foreground">
             Event type
             <select
@@ -173,6 +180,18 @@ export default function AdminActivity() {
               <option value="all">All visitors</option>
               <option value="anonymous">Anonymous visitors</option>
               <option value="signed-in">Signed-in users</option>
+            </select>
+          </label>
+          <label htmlFor="activity-location-filter" className="text-xs font-semibold text-muted-foreground">
+            Location
+            <select
+              id="activity-location-filter"
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
+              value={locationFilter}
+              onChange={(event) => setLocationFilter(event.target.value)}
+            >
+              <option value="all">All locations</option>
+              {locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}
             </select>
           </label>
         </div>
@@ -199,6 +218,7 @@ export default function AdminActivity() {
                   <p className="truncate font-semibold text-secondary" title={row.path}>{row.path}</p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1"><Globe2 className="h-3 w-3" />IP: {row.ipAddress || "Not recorded"}</span>
+                     <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{row.location || "Location unavailable"}</span>
                     <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{fmt(row.createdAt)}</span>
                   </div>
                   <p className="mt-1 truncate text-[11px] text-muted-foreground" title={row.userAgent || undefined}>{row.userAgent || "User agent not recorded"}</p>
