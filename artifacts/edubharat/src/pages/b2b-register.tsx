@@ -78,24 +78,24 @@ export default function B2BRegister() {
             </div>
             <div>
               <label className="text-sm font-semibold text-secondary mb-1 block">Company email *</label>
-              <Input type="email" value={form.email} onChange={set("email")} placeholder="hr@company.com" required />
+                <Input type="email" autoComplete="email" value={form.email} onChange={set("email")} placeholder="hr@company.com" required />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Password *</label>
-                <Input type="password" value={form.password} onChange={set("password")} placeholder="Min 8 chars" required />
+                <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} placeholder="Min 8 chars" required />
               </div>
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Confirm *</label>
-                <Input type="password" value={form.confirm} onChange={set("confirm")} placeholder="Repeat password" required />
+                <Input type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} placeholder="Repeat password" required />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Phone</label>
-                <Input value={form.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
+                <Input type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
               </div>
               <div>
                 <label className="text-sm font-semibold text-secondary mb-1 block">Industry</label>

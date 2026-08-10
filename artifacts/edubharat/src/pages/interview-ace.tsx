@@ -69,6 +69,11 @@ type QA = {
 
 type Coach = typeof INTERVIEW_COACHES[number];
 
+/** Interviewers introduce themselves by name only, without honorifics. */
+function interviewerDisplayName(name: string): string {
+  return name.replace(/\s+(?:sir|ma['’]am|madam)\b/gi, "").trim();
+}
+
 type CompetencyRating = { rating: number; comment: string };
 
 type InterviewReport = {
@@ -276,10 +281,11 @@ function SkillBar({ icon: Icon, label, value, color }: {
 function AvatarBar({ coach, isSpeaking, isThinking, className = "" }: {
   coach: Coach; isSpeaking: boolean; isThinking: boolean; className?: string;
 }) {
+  const displayName = interviewerDisplayName(coach.name);
   return (
     <div className={`flex items-center gap-3 p-3 bg-card rounded-xl border shadow-sm ${className}`}>
       <AnimatedAvatar
-        name={coach.name}
+        name={displayName}
         subtitle={coach.role}
         isSpeaking={isSpeaking}
         isThinking={isThinking}
@@ -288,7 +294,7 @@ function AvatarBar({ coach, isSpeaking, isThinking, className = "" }: {
         imageSrc={coach.imageSrc}
       />
       <div className="min-w-0">
-        <p className="font-bold text-sm text-secondary">{coach.name}</p>
+        <p className="font-bold text-sm text-secondary">{displayName}</p>
         <p className="text-xs text-muted-foreground">{coach.role}</p>
         {isThinking && <span className="text-xs text-primary animate-pulse">Thinking...</span>}
         {isSpeaking && !isThinking && <span className="text-xs text-primary animate-pulse">Speaking...</span>}
@@ -451,6 +457,7 @@ function InterviewAceContent() {
     }
     return recommendedCoachFor(type);
   });
+  const displayCoachName = interviewerDisplayName(coach.name);
   const [duration, setDuration] = useState(() => b2bParams.duration || 10);
   const [phase, setPhase] = useState<"setup" | "interview" | "report">("setup");
   const [questions, setQuestions] = useState<QA[]>([]);
@@ -687,9 +694,9 @@ function InterviewAceContent() {
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     const full = await stream(
-      `You are ${coach.name}, a professional interviewer conducting a formal ${typeMeta.label} interview with ${firstName} (${experience} level).
+      `You are ${displayCoachName}, a professional interviewer conducting a formal ${typeMeta.label} interview with ${firstName} (${experience} level).
 
-This interview will cover a broad range of areas. Start by warmly introducing yourself in 1-2 short sentences — say your name and that you will be taking ${firstName}'s interview today, and put them at ease — then ask ONE clear opening question about their educational background: degree, key subjects, and any notable curricular or extra-curricular achievements relevant to the ${typeMeta.label} role.
+This interview will cover a broad range of areas. Start by warmly introducing yourself in 1-2 short sentences — say your name only (never "Sir", "Ma'am", or "Madam") and that you will be taking ${firstName}'s interview today, and put them at ease — then ask ONE clear opening question about their educational background: degree, key subjects, and any notable curricular or extra-curricular achievements relevant to the ${typeMeta.label} role.
 
 Rules:
 - Keep it to at most 3 sentences. Warm, professional and personable — you want ${firstName} to feel relaxed, and a light, witty touch is welcome to break the ice. Still NO cheesy greetings like "Hey, good to see you", no small talk, no "let's dive in".
@@ -697,7 +704,7 @@ Rules:
 - Do NOT list rules, do NOT explain the interview process.
 - LANGUAGE: Use simple, clear, everyday English — short sentences and common words. Many candidates are from average English-medium colleges, so avoid difficult vocabulary, idioms and long, complex sentences (${firstName}'s stated English level: ${profile.englishLevel || "Beginner"}).
 - Ask exactly ONE question.`,
-      `You are ${coach.name}, ${coach.role}. ${coach.style} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
+      `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
       undefined,
       { maxTokens: 120 }
     );
@@ -927,7 +934,7 @@ Rules:
     try {
       response = await Promise.race([
         stream(
-          `You are ${coach.name} conducting a friendly but professional ${typeMeta.label} interview. ${remainingMin} minutes left.
+          `You are ${displayCoachName} conducting a friendly but professional ${typeMeta.label} interview. ${remainingMin} minutes left.
 
 Candidate: ${firstName} | ${buildProfileSummary()}
 
@@ -954,7 +961,7 @@ STYLE — important:
 Output format — exactly two lines, nothing else:
 Ack: <brief, natural reaction tied to the candidate's answer, max ~10 words>
 Next: <the interview question only>`,
-          `You are ${coach.name}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person on a live call: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+          `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person on a live call: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),
@@ -1404,7 +1411,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
     const avgScore = avgOf(answered.map(q => q.score)) * 10;
     const lines = [
       `LEAD ONTO — INTERVIEW ACE REPORT`,
-      `Coach: ${coach.name} (${coach.role})`,
+      `Coach: ${displayCoachName} (${coach.role})`,
       `Role: ${label} | Experience: ${experience} | Duration: ${durationMin} min`,
       `Date: ${new Date().toLocaleDateString("en-IN")}`,
       report ? `Total Weighted Score: ${report.weightedScore.toFixed(1)} / 5.0 (${report.overallScore}%) — ${report.recommendation}` : `Overall Score: ${avgScore}% — ${grade(avgScore).label}`,
@@ -1549,7 +1556,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-card border shadow-sm">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-secondary truncate">
-              {typeMeta.icon} {typeMeta.label} · {experience} · {duration} min · {coach.name}
+              {typeMeta.icon} {typeMeta.label} · {experience} · {duration} min · {displayCoachName}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {user ? (
@@ -1583,7 +1590,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         {/* Hero */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <AnimatedAvatar name={coach.name} subtitle={coach.role} isSpeaking={false} gender={coach.gender} size="lg" imageSrc={coach.imageSrc} />
+            <AnimatedAvatar name={displayCoachName} subtitle={coach.role} isSpeaking={false} gender={coach.gender} size="lg" imageSrc={coach.imageSrc} />
           </div>
           <h1 className="text-3xl font-display font-bold text-secondary mt-2 mb-3">Interview Complete!</h1>
 
@@ -1639,7 +1646,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           )}
 
           <p className="text-muted-foreground mt-3 text-sm">
-            {typeMeta.icon} {typeMeta.label} · {experience} · {answered.length} questions · {durationMin} min · with {coach.name}
+            {typeMeta.icon} {typeMeta.label} · {experience} · {answered.length} questions · {durationMin} min · with {displayCoachName}
           </p>
         </div>
 
@@ -1753,7 +1760,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         {/* Per-question review */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Question-by-Question</h2>
-          {answered.map((q, i) => <QuestionReview key={i} q={q} idx={i} coachName={coach.name} hasReport={!!report} />)}
+            {answered.map((q, i) => <QuestionReview key={i} q={q} idx={i} coachName={displayCoachName} hasReport={!!report} />)}
         </div>
 
         {/* Actions */}
@@ -1784,7 +1791,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent z-10 pointer-events-none">
         <div className="flex items-center gap-2">
-          <span className="text-white text-sm font-bold">{coach.name}</span>
+          <span className="text-white text-sm font-bold">{displayCoachName}</span>
           <span className="text-white/50 text-xs">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
         <div className="flex items-center gap-2 text-white/80 text-sm font-bold">
@@ -1820,7 +1827,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             aria-label={synth.isSpeaking ? "Tap to interrupt and respond" : undefined}
           >
             <AnimatedAvatar
-              name={coach.name}
+              name={displayCoachName}
               subtitle={coach.role}
               isSpeaking={synth.isSpeaking}
               isThinking={isStreaming || coachThinking}
@@ -1860,7 +1867,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             </>
           )}
           {(isStreaming || coachThinking) && !synth.isSpeaking && (
-            <p className="text-white/50 text-xs animate-pulse">{coach.name} is thinking…</p>
+            <p className="text-white/50 text-xs animate-pulse">{displayCoachName} is thinking…</p>
           )}
         </div>
 
@@ -2020,7 +2027,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         {isStreaming && (
           <div className="flex items-center gap-2 text-xs text-white/40 animate-in fade-in">
             <Loader2 className="w-3 h-3 animate-spin text-primary" />
-            {coach.name} is preparing the next question…
+            {displayCoachName} is preparing the next question…
           </div>
         )}
       </div>

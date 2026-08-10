@@ -6,7 +6,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import { db, b2bCompaniesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { geolocateIp } from "../lib/geo.js";
 import { logger } from "../lib/logger.js";
 
@@ -17,6 +17,22 @@ const router: IRouter = Router();
 const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_KEYLEN     = 64;
 const PBKDF2_DIGEST     = "sha512";
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Keep the user's formatting for display, but compare phone numbers by digits. */
+function normalizePhone(value: string): string {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return digits ? `${trimmed.startsWith("+") ? "+" : ""}${digits}` : "";
+}
+
+function isValidPhone(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
 
 function hashPassword(password: string, salt: string): string {
   return crypto
@@ -80,7 +96,8 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Company name, email, and password are required" });
     return;
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     res.status(400).json({ error: "Enter a valid email address" });
     return;
   }
@@ -88,12 +105,17 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Password must be at least 8 characters" });
     return;
   }
+  const normalizedPhone = phone?.trim() ? normalizePhone(phone) : "";
+  if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    res.status(400).json({ error: "Enter a valid mobile number" });
+    return;
+  }
 
   try {
     const existing = await db
       .select({ id: b2bCompaniesTable.id })
       .from(b2bCompaniesTable)
-      .where(eq(b2bCompaniesTable.email, email.toLowerCase().trim()))
+      .where(eq(b2bCompaniesTable.email, normalizedEmail))
       .limit(1);
 
     if (existing.length > 0) {
@@ -111,10 +133,10 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
       .insert(b2bCompaniesTable)
       .values({
         name: name.trim(),
-        email: email.toLowerCase().trim(),
+        email: normalizedEmail,
         passwordHash,
         passwordSalt: salt,
-        phone: phone?.trim() || null,
+        phone: normalizedPhone || null,
         industry: industry?.trim() || null,
         website: website?.trim() || null,
         isAnonymous,
@@ -158,17 +180,29 @@ router.post("/b2b/auth/register", async (req: Request, res: Response) => {
  * { email, password }
  */
 router.post("/b2b/auth/login", async (req: Request, res: Response) => {
-  const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password) {
-    res.status(400).json({ error: "Email and password required" });
+  const identifier = (req.body?.identifier ?? req.body?.email) as string | undefined;
+  const password = req.body?.password as string | undefined;
+  if (!identifier?.trim() || !password) {
+    res.status(400).json({ error: "Email or mobile number and password are required" });
     return;
   }
+  const normalizedIdentifier = identifier.trim();
+  const normalizedEmail = normalizeEmail(normalizedIdentifier);
+  const normalizedPhone = normalizePhone(normalizedIdentifier);
 
   try {
+    const lookupConditions = [eq(b2bCompaniesTable.email, normalizedEmail)];
+    const phoneDigits = normalizedPhone.replace(/\D/g, "");
+    if (isValidPhone(normalizedPhone)) {
+      lookupConditions.push(
+        sql`regexp_replace(coalesce(${b2bCompaniesTable.phone}, ''), '[^0-9]', '', 'g') = ${phoneDigits}`,
+      );
+    }
+
     const [company] = await db
       .select()
       .from(b2bCompaniesTable)
-      .where(eq(b2bCompaniesTable.email, email.toLowerCase().trim()))
+      .where(or(...lookupConditions))
       .limit(1);
 
     if (!company || !verifyPassword(password, company.passwordSalt, company.passwordHash)) {

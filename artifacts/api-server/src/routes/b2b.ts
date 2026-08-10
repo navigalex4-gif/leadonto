@@ -272,8 +272,8 @@ router.post("/b2b/campaigns/:id/invites", requireB2BAuth, async (req: Request, r
 
     // Send emails in background (fire-and-forget)
     if (doSend) {
-      const domain = process.env["REPLIT_DOMAINS"]?.split(",")[0]?.trim();
-      const urlBase = domain ? `https://${domain}` : baseUrl;
+       const domain = process.env["REPLIT_DOMAINS"]?.split(",")[0]?.trim();
+       const urlBase = domain ? `https://${domain}` : baseUrl;
       for (const invite of inserted) {
         if (!invite.candidateEmail) continue;
         const link = `${urlBase}/b2b-interview/${invite.token}`;
@@ -285,6 +285,9 @@ router.post("/b2b/campaigns/:id/invites", requireB2BAuth, async (req: Request, r
             <p>Hi${invite.candidateName ? ` ${invite.candidateName}` : ""},</p>
             <p><strong>${company?.name ?? "A company"}</strong> has invited you to complete a <strong>${campaign.role}</strong> interview via Lead Onto's AI-powered Interview Ace platform.</p>
             <p>Duration: <strong>${campaign.durationMinutes} minutes</strong> | Type: <strong>${campaign.interviewType}</strong></p>
+             <p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;color:#9a3412">
+               Before starting, please allow <strong>microphone and camera permissions</strong> for leadonto.com in your browser. The interview needs both permissions to work properly.
+             </p>
             <p style="margin:24px 0">
               <a href="${link}" style="background:#f97316;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">Start Your Interview →</a>
             </p>

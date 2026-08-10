@@ -33,12 +33,12 @@ export function useB2BAuth() {
     void check();
   }, [check]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     const res = await fetch(`${BASE}/api/b2b/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     const data = (await res.json()) as { success?: boolean; company?: B2BCompany; error?: string };
     if (!res.ok || !data.success) throw new Error(data.error ?? "Login failed");

@@ -66,6 +66,10 @@ export function useAuth() {
     const data = (await res.json()) as { success?: boolean; user?: AuthUser; error?: string };
     if (data.success && data.user) {
       setUser(data.user);
+      // Navbar and other layout components have their own useAuth instance.
+      // Notify them immediately so email OTP login looks the same as OAuth
+      // without requiring a full page reload.
+      window.dispatchEvent(new Event("edubharat-auth-changed"));
     }
     return data;
   }, []);

@@ -281,7 +281,8 @@ router.get(
 );
 
 router.post("/auth/otp/send", async (req, res) => {
-  const { email } = req.body as { email?: string };
+  const rawEmail = req.body?.email as string | undefined;
+  const email = rawEmail?.trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: "Valid email required" });
     return;
@@ -326,7 +327,10 @@ router.post("/auth/otp/send", async (req, res) => {
 });
 
 router.post("/auth/otp/verify", async (req, res) => {
-  const { email, code, guestId } = req.body as { email?: string; code?: string; guestId?: string };
+  const rawEmail = req.body?.email as string | undefined;
+  const email = rawEmail?.trim().toLowerCase();
+  const code = (req.body?.code as string | undefined)?.trim();
+  const guestId = req.body?.guestId as string | undefined;
   if (!email || !code) {
     res.status(400).json({ error: "Email and code required" });
     return;

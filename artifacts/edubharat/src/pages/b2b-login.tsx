@@ -12,16 +12,16 @@ export default function B2BLogin() {
   const [, navigate] = useLocation();
   const { login } = useB2BAuth();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    if (!identifier.trim() || !password) return;
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(identifier.trim(), password);
       navigate("/b2b/dashboard");
     } catch (err) {
       toast({ title: (err as Error).message, variant: "destructive" });
@@ -45,12 +45,14 @@ export default function B2BLogin() {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Company email</label>
+               <label className="text-sm font-semibold text-secondary mb-1 block">Company email or mobile number</label>
               <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="company@example.com"
+                 type="text"
+                 inputMode="email"
+                 autoComplete="username"
+                 value={identifier}
+                 onChange={(e) => setIdentifier(e.target.value)}
+                 placeholder="company@example.com or +91 98765 43210"
                 autoFocus
                 required
               />
