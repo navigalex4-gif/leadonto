@@ -43,6 +43,9 @@ export default function B2BDashboard() {
   const { company, isLoading, updateProfile, changePassword } = useB2BAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [accountSelected, setAccountSelected] = useState(
+    () => typeof window !== "undefined" && window.location.hash === "#account",
+  );
   const [stats, setStats] = useState<Stats | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +93,12 @@ export default function B2BDashboard() {
       });
     }
   }, [company]);
+
+  useEffect(() => {
+    const syncAccountTab = () => setAccountSelected(window.location.hash === "#account");
+    window.addEventListener("hashchange", syncAccountTab);
+    return () => window.removeEventListener("hashchange", syncAccountTab);
+  }, []);
 
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -159,6 +168,76 @@ export default function B2BDashboard() {
       <PageMeta title="B2B Dashboard · Lead Onto" description="Recruiter portal dashboard" />
       <B2BNav />
 
+      {accountSelected ? (
+        <section id="account" className="mt-2 scroll-mt-20">
+          <div className="mb-4">
+            <h1 className="text-xl font-display font-bold text-secondary">Account settings</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Keep your recruiter profile and sign-in details up to date.</p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  <h2 className="font-bold text-secondary">Company information</h2>
+                </div>
+                <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-secondary mb-1 block">Company name</label>
+                    <input value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-secondary mb-1 block">Company email</label>
+                    <input value={company.email} readOnly className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/50 text-muted-foreground cursor-not-allowed" />
+                    <p className="text-[11px] text-muted-foreground mt-1">Email changes require account verification support.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-secondary mb-1 block">Mobile number</label>
+                      <input type="tel" inputMode="tel" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+91 98765 43210" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-secondary mb-1 block">Industry</label>
+                      <input value={profileForm.industry} onChange={(event) => setProfileForm((form) => ({ ...form, industry: event.target.value }))} placeholder="Technology" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-secondary mb-1 block">Website</label>
+                    <input type="url" value={profileForm.website} onChange={(event) => setProfileForm((form) => ({ ...form, website: event.target.value }))} placeholder="https://company.com" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                  </div>
+                  <Button type="submit" size="sm" disabled={savingProfile} className="font-semibold">
+                    {savingProfile ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Saving…</> : <><Save className="w-4 h-4 mr-1.5" />Save changes</>}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <h2 className="font-bold text-secondary">Change password</h2>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">Use a unique password you do not reuse elsewhere.</p>
+                <form onSubmit={(event) => void savePassword(event)} className="space-y-3">
+                  <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                  <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg bg-muted/40 p-3">
+                    {B2B_PASSWORD_REQUIREMENTS.map(({ label, test }) => (
+                      <p key={label} className={`text-[11px] ${test(newPassword) ? "text-green-600" : "text-muted-foreground"}`}>{test(newPassword) ? "✓" : "○"} {label}</p>
+                    ))}
+                  </div>
+                  <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                  <Button type="submit" size="sm" variant="outline" disabled={savingPassword} className="font-semibold">
+                    {savingPassword ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Updating…</> : "Update password"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      ) : (
+        <>
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -264,75 +343,8 @@ export default function B2BDashboard() {
         </div>
       )}
 
-      <section id="account" className="mt-8 scroll-mt-20">
-        <div className="flex items-end justify-between gap-3 mb-3">
-          <div>
-            <h2 className="text-base font-bold text-secondary">Account settings</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Keep your recruiter profile and sign-in details up to date.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-secondary">Company information</h3>
-              </div>
-              <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-secondary mb-1 block">Company name</label>
-                  <input value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-secondary mb-1 block">Company email</label>
-                  <input value={company.email} readOnly className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/50 text-muted-foreground cursor-not-allowed" />
-                  <p className="text-[11px] text-muted-foreground mt-1">Email changes require account verification support.</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-secondary mb-1 block">Mobile number</label>
-                    <input type="tel" inputMode="tel" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+91 98765 43210" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-secondary mb-1 block">Industry</label>
-                    <input value={profileForm.industry} onChange={(event) => setProfileForm((form) => ({ ...form, industry: event.target.value }))} placeholder="Technology" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-secondary mb-1 block">Website</label>
-                  <input type="url" value={profileForm.website} onChange={(event) => setProfileForm((form) => ({ ...form, website: event.target.value }))} placeholder="https://company.com" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <Button type="submit" size="sm" disabled={savingProfile} className="font-semibold">
-                  {savingProfile ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Saving…</> : <><Save className="w-4 h-4 mr-1.5" />Save changes</>}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-secondary">Change password</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Use a unique password you do not reuse elsewhere.</p>
-              <form onSubmit={(event) => void savePassword(event)} className="space-y-3">
-                <input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
-                <input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg bg-muted/40 p-3">
-                  {B2B_PASSWORD_REQUIREMENTS.map(({ label, test }) => (
-                    <p key={label} className={`text-[11px] ${test(newPassword) ? "text-green-600" : "text-muted-foreground"}`}>{test(newPassword) ? "✓" : "○"} {label}</p>
-                  ))}
-                </div>
-                <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm new password" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
-                <Button type="submit" size="sm" variant="outline" disabled={savingPassword} className="font-semibold">
-                  {savingPassword ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Updating…</> : "Update password"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      </>
+      )}
     </div>
   );
 }

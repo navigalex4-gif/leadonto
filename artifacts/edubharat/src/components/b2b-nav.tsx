@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Briefcase, Users, Coins, LogOut, Settings } from "lucide-react";
 import { useB2BAuth } from "@/lib/use-b2b-auth";
@@ -14,6 +15,15 @@ export function B2BNav() {
   const [location, navigate] = useLocation();
   const { company, logout } = useB2BAuth();
   const { toast } = useToast();
+  const [accountSelected, setAccountSelected] = useState(
+    () => typeof window !== "undefined" && window.location.hash === "#account",
+  );
+
+  useEffect(() => {
+    const syncAccountTab = () => setAccountSelected(window.location.hash === "#account");
+    window.addEventListener("hashchange", syncAccountTab);
+    return () => window.removeEventListener("hashchange", syncAccountTab);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -50,7 +60,11 @@ export function B2BNav() {
         )}
          <Link
            href="/b2b/dashboard#account"
-           className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground hover:text-secondary px-2 py-1 rounded"
+           className={`hidden sm:flex items-center gap-1 text-xs px-2 py-1 rounded ${
+             location === "/b2b/dashboard" && accountSelected
+               ? "text-primary bg-primary/5"
+               : "text-muted-foreground hover:text-secondary"
+           }`}
          >
            <Settings className="w-3.5 h-3.5" /> Account
          </Link>
