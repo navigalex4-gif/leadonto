@@ -61,6 +61,9 @@ export default function Home() {
                 <p className="text-base sm:text-lg text-muted-foreground mb-6 leading-relaxed max-w-xl">
                   {heroSubtitle}
                 </p>
+                <p className="max-w-xl border-l-2 border-primary/40 pl-3 text-xs sm:text-sm italic leading-relaxed text-muted-foreground/90 mb-6">
+                  “97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills.” — ETS, TOEIC Global English Skills Report 2026
+                </p>
                 <ul className="space-y-2 mb-8">
                   {PROOF_POINTS.map(p => (
                     <li key={p} className="flex items-center gap-2 text-sm text-secondary">
