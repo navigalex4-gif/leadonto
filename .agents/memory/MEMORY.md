@@ -8,6 +8,7 @@
 - [Claude live-chat budgeting](claude-live-chat-budgeting.md) — live tutoring should use compact history and low token caps; minimize cost, never promise a fixed per-response price.
 - [English Guru compact layout](english-guru-compact-layout.md) — live conversation uses a footer-free full-viewport shell; only the chat panel scrolls.
 - [Interview Ace auto-listen](interview-auto-listen.md) — mock interviews should start listening automatically after each question and feel conversational, not scripted.
+- [Homepage communication check CTA](communication-check-cta.md) — free two-prompt 90-second voice assessment captures leads, returns concise feedback, and reports to admins.
 - [Interview Ace analytics](interview-analytics.md) — persist one canonical interview session per completed report, not per-question, so progress trends reflect full interviews.
 - [Interview structured format](interview-structured-format.md) — weighted 9-competency BFSI scorecard (1–5); ALL parameters scored every interview (no length-gating); Functional is recurring core (breadth-first rotation, never back-to-back); areaForBeat NEEDS ctx {durationMin,experience,type,roleLabel}; 2-attempt rule; warm tone; ~5s think; web-only.
 - [Interview report generation](interview-report-generation.md) — split into 2 AI calls (ratings survive truncation); AI gives per-competency 1–5 ratings ONLY (all 9) — weighted/overall(×20)/recommendation computed client-side, never AI; competencies in feedbackJson; back-compat improvements↔concerns, old depthProbe key ignored.

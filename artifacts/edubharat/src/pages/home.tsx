@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   BookOpen, Newspaper, ArrowRight, Sparkles, CheckCircle2, Star,
-  MessageCircle, Wrench, Map, Mic, FileText, TrendingUp, Building2,
+  MessageCircle, Wrench, Map, Mic, FileText, TrendingUp, Building2, Timer,
 } from "lucide-react";
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
@@ -64,6 +64,28 @@ export default function Home() {
                 <p className="max-w-xl border-l-2 border-primary/40 pl-3 text-xs sm:text-sm italic leading-relaxed text-muted-foreground/90 mb-6">
                   “97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills.” — ETS, TOEIC Global English Skills Report 2026
                 </p>
+                <Link
+                  href="/communication-check"
+                  className="group mb-7 block max-w-xl rounded-2xl border-2 border-primary/25 bg-gradient-to-r from-orange-50 via-amber-50 to-violet-50 p-4 shadow-lg shadow-primary/10 transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/20 sm:p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 rounded-xl bg-primary p-2 text-primary-foreground shadow-md shadow-primary/25">
+                      <Timer className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-primary">Free 90-second voice check</p>
+                      <h2 className="mt-1 text-base font-extrabold leading-snug text-secondary sm:text-lg">
+                        Is Your Communication &amp; Confidence Holding You Back?
+                      </h2>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                        Check Your Communication, Confidence &amp; Interview Skills in 90 Seconds — Free
+                      </p>
+                      <span className="mt-3 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-extrabold text-primary-foreground shadow-sm transition-transform group-hover:translate-x-0.5">
+                        Check my skills free <ArrowRight className="ml-2 h-4 w-4" />
+                      </span>
+                    </div>
+                  </div>
+                </Link>
                 <ul className="space-y-2 mb-8">
                   {PROOF_POINTS.map(p => (
                     <li key={p} className="flex items-center gap-2 text-sm text-secondary">

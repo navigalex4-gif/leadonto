@@ -1,0 +1,418 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, CheckCircle2, Clock3, Loader2, Mic, MicOff, Sparkles, Target, UserRound } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { PageMeta } from "@/components/page-meta";
+import { useAuth } from "@/lib/use-auth";
+import { useGeminiStream } from "@/lib/use-gemini-stream";
+import { useSpeechRecognition } from "@/lib/use-speech-recognition";
+import { unlockAudio, useEdgeTTS } from "@/lib/use-edge-tts";
+import { track } from "@/lib/analytics";
+
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+const TOTAL_SECONDS = 90;
+const FIRST_QUESTION = "Tell me about yourself and one achievement you feel proud of.";
+const FALLBACK_QUESTION = "Can you describe a challenge you faced and how you handled it?";
+
+type Candidate = {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  targetRole: string;
+  experienceLevel: string;
+};
+
+type Answer = { question: string; answer: string };
+type Feedback = {
+  overallScore: number;
+  communicationScore: number;
+  confidenceScore: number;
+  clarityScore: number;
+  headline: string;
+  strengths: string[];
+  oneNextStep: string;
+  summary: string;
+};
+
+function cleanSpeech(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/^(?:Ack|Next):\s*/gim, "")
+    .replace(/[#*_]+/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function getAnonymousId(): string {
+  try {
+    const key = "leadonto_communication_check_id";
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return "anonymous-check";
+  }
+}
+
+function formatTime(seconds: number): string {
+  return `00:${String(Math.max(0, seconds)).padStart(2, "0")}`;
+}
+
+function localFallback(answers: Answer[]): Feedback {
+  const words = answers.reduce((sum, item) => sum + item.answer.trim().split(/\s+/).filter(Boolean).length, 0);
+  const score = Math.max(42, Math.min(84, 48 + Math.min(24, words) + answers.filter((item) => item.answer.trim()).length * 5));
+  return {
+    overallScore: score,
+    communicationScore: Math.min(90, score + 2),
+    confidenceScore: Math.max(35, score - 2),
+    clarityScore: Math.min(90, score + 1),
+    headline: "You have a workable foundation.",
+    strengths: ["You completed the speaking check", "You communicated a main idea"],
+    oneNextStep: "Answer in three parts: point, example, and result.",
+    summary: "This is an indicative check. Practise one spoken answer daily to build a clearer, more confident delivery.",
+  };
+}
+
+export default function CommunicationCheck() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const speech = useSpeechRecognition("English");
+  const synth = useEdgeTTS();
+  const { stream, reset: resetStream } = useGeminiStream();
+  const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");
+  const [candidate, setCandidate] = useState<Candidate>({
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: "",
+    location: "",
+    targetRole: "",
+    experienceLevel: "Fresher",
+  });
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState(FIRST_QUESTION);
+  const [currentAnswer, setCurrentAnswer] = useState("");
+  const answerRef = useRef("");
+  const questionRef = useRef(FIRST_QUESTION);
+  const answersRef = useRef<Answer[]>([]);
+  const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endingRef = useRef(false);
+  const turnRef = useRef(false);
+  const [remaining, setRemaining] = useState(TOTAL_SECONDS);
+  const [isListening, setIsListening] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setCandidate((current) => ({
+        ...current,
+        name: current.name || user.name || "",
+        email: current.email || user.email || "",
+      }));
+    }
+  }, [user]);
+
+  const clearTimers = useCallback(() => {
+    if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
+    if (deadlineRef.current) clearTimeout(deadlineRef.current);
+    autoSubmitRef.current = null;
+    deadlineRef.current = null;
+  }, []);
+
+  const speak = useCallback((text: string, onEnd?: () => void) => {
+    speech.pause();
+    void synth.speak(cleanSpeech(text), "English", () => {
+      speech.suppressUntil(Date.now() + 450);
+      speech.blockFor(450);
+      onEnd?.();
+    }, { voiceGender: "female", rate: 1.05 });
+  }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
+
+  const startListening = useCallback(() => {
+    if (!speech.isSupported || endingRef.current) return;
+    setIsListening(true);
+    speech.blockFor(0);
+    speech.startContinuous((text) => {
+      const chunk = text.trim();
+      if (!chunk || endingRef.current) return;
+      const next = `${answerRef.current ? `${answerRef.current} ` : ""}${chunk}`.trim();
+      answerRef.current = next;
+      setCurrentAnswer(next);
+      if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
+      autoSubmitRef.current = setTimeout(() => {
+        const latest = answerRef.current.trim();
+        if (latest) void submitAnswerRef.current(latest);
+      }, 1600);
+    });
+  }, [speech]);
+
+  const finishWithFeedback = useCallback(async (finalAnswers: Answer[]) => {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    clearTimers();
+    speech.stop();
+    synth.stop();
+    setIsListening(false);
+    setIsSubmitting(true);
+    setIsThinking(true);
+    const fallback = localFallback(finalAnswers);
+    try {
+      const response = await fetch(`${BASE}/api/communication-checks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...candidate,
+          anonymousId: getAnonymousId(),
+          answers: finalAnswers,
+          durationSeconds: TOTAL_SECONDS - remaining,
+        }),
+      });
+      const data = await response.json() as { feedback?: Feedback; error?: string };
+      if (!response.ok || !data.feedback) throw new Error(data.error || "Could not save feedback");
+      setFeedback(data.feedback);
+    } catch {
+      setFeedback(fallback);
+      toast({ title: "Feedback ready", description: "Your indicative score is shown; we could not sync the full result." });
+    } finally {
+      setIsSubmitting(false);
+      setIsThinking(false);
+      setPhase("feedback");
+    }
+  }, [candidate, clearTimers, remaining, speech, synth, toast]);
+
+  const submitAnswer = useCallback(async (spokenAnswer: string) => {
+    if (turnRef.current || endingRef.current) return;
+    turnRef.current = true;
+    clearTimers();
+    speech.stop();
+    setIsListening(false);
+    const answer = spokenAnswer.trim();
+    const nextAnswers = [...answersRef.current, { question: questionRef.current, answer }];
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+    setCurrentAnswer("");
+    answerRef.current = "";
+
+    // The acknowledgement is spoken immediately. The AI question has a strict
+    // deadline, so network/provider latency can never leave the candidate silent.
+    speak(nextAnswers.length >= 2 ? "Thank you. I have everything I need." : "Okay, I hear you.");
+    if (nextAnswers.length >= 2) {
+      await finishWithFeedback(nextAnswers);
+      turnRef.current = false;
+      return;
+    }
+
+    setIsThinking(true);
+    const fallbackTimer = new Promise<string>((resolve) => {
+      deadlineRef.current = setTimeout(() => resolve(""), 1800);
+    });
+    let response = "";
+    try {
+      response = await Promise.race([
+        stream(
+          `Ask one short follow-up question after this candidate answer: "${answer}". The assessment is about spoken communication, confidence, and clarity, not technical knowledge. Return only the question.`,
+          "You are a warm, concise Indian communication coach. Ask one simple spoken-English question. No markdown. Maximum 18 words.",
+          undefined,
+          { maxTokens: 70 },
+        ),
+        fallbackTimer,
+      ]);
+    } catch {
+      response = "";
+    }
+    if (!response.trim()) {
+      resetStream();
+      response = FALLBACK_QUESTION;
+    }
+    if (endingRef.current) return;
+    const question = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim() || FALLBACK_QUESTION;
+    questionRef.current = question;
+    setCurrentQuestion(question);
+    setIsThinking(false);
+    turnRef.current = false;
+    speak(question, startListening);
+  }, [clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
+
+  const submitAnswerRef = useRef<typeof submitAnswer>(submitAnswer);
+  useEffect(() => { submitAnswerRef.current = submitAnswer; }, [submitAnswer]);
+
+  useEffect(() => {
+    if (phase !== "interview") return;
+    const timer = setInterval(() => {
+      setRemaining((value) => {
+        if (value <= 1) {
+          clearInterval(timer);
+          const final = answerRef.current.trim()
+            ? [...answersRef.current, { question: questionRef.current, answer: answerRef.current.trim() }]
+            : answersRef.current;
+          void finishWithFeedback(final.length ? final : [{ question: FIRST_QUESTION, answer: "" }]);
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [clearTimers, finishWithFeedback, phase]);
+
+  useEffect(() => () => {
+    endingRef.current = true;
+    clearTimers();
+    speech.stop();
+    synth.stop();
+    resetStream();
+  }, [clearTimers, resetStream, speech.stop, synth.stop]);
+
+  const startCheck = useCallback(async () => {
+    if (!candidate.name.trim() || !candidate.email.trim()) {
+      toast({ title: "Add your name and email first", description: "We use them to show your result in your account and admin reporting.", variant: "destructive" });
+      return;
+    }
+    unlockAudio();
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mic.getTracks().forEach((track) => track.stop());
+      } catch {
+        toast({ title: "Microphone access is needed", description: "Allow microphone access, then tap Start again.", variant: "destructive" });
+        return;
+      }
+    }
+    track("communication_check_started", { targetRole: candidate.targetRole || "unspecified" });
+    endingRef.current = false;
+    turnRef.current = false;
+    answersRef.current = [];
+    setAnswers([]);
+    setRemaining(TOTAL_SECONDS);
+    setCurrentAnswer("");
+    answerRef.current = "";
+    questionRef.current = FIRST_QUESTION;
+    setCurrentQuestion(FIRST_QUESTION);
+    setPhase("interview");
+    speak(FIRST_QUESTION, startListening);
+  }, [candidate, speak, startListening, toast]);
+
+  if (phase === "feedback" && feedback) {
+    return (
+      <div className="container mx-auto max-w-3xl px-4 py-10">
+        <PageMeta title="Your 90-second communication result · Lead Onto" description="A concise communication and confidence check from Lead Onto." />
+        <Card className="overflow-hidden border-primary/20 shadow-xl">
+          <div className="bg-gradient-to-br from-orange-500 to-violet-600 p-7 text-white">
+            <p className="text-sm font-semibold uppercase tracking-widest text-white/80">Your 90-second result</p>
+            <h1 className="mt-2 text-3xl font-display font-extrabold">{feedback.headline}</h1>
+            <p className="mt-2 max-w-xl text-white/85">{feedback.summary}</p>
+          </div>
+          <CardContent className="space-y-6 p-6 sm:p-8">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ["Overall", feedback.overallScore],
+                ["Communication", feedback.communicationScore],
+                ["Confidence", feedback.confidenceScore],
+                ["Clarity", feedback.clarityScore],
+              ].map(([label, score]) => (
+                <div key={label} className="rounded-2xl border bg-muted/30 p-4 text-center">
+                  <p className="text-2xl font-extrabold text-secondary">{score}</p>
+                  <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <h2 className="mb-3 font-bold text-secondary">What came through</h2>
+              <ul className="space-y-2">
+                {feedback.strengths.map((strength) => <li key={strength} className="flex gap-2 text-sm text-secondary"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{strength}</li>)}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-orange-700">Your one next step</p>
+              <p className="mt-1 text-sm font-semibold text-secondary">{feedback.oneNextStep}</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/interview-ace"><Button className="font-bold">Practise a full interview <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+              <Link href="/"><Button variant="outline">Back to Lead Onto</Button></Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-12">
+      <PageMeta title="Communication & Confidence Check · Lead Onto" description="Check your communication, confidence and interview skills in 90 seconds for free." />
+      {phase === "details" ? (
+        <Card className="overflow-hidden border-primary/20 shadow-xl">
+          <div className="bg-gradient-to-br from-orange-50 via-background to-violet-50 p-6 sm:p-9">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700"><Sparkles className="h-4 w-4" /> Free 90-second voice check</div>
+            <h1 className="max-w-2xl text-3xl font-display font-extrabold tracking-tight text-secondary sm:text-5xl">Is your communication & confidence holding you back?</h1>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">Answer two simple interview questions. Get a short, honest snapshot of your communication, confidence and clarity — no credits, no sign-up wall.</p>
+          </div>
+          <CardContent className="space-y-5 p-6 sm:p-9">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">Your name *
+                <Input value={candidate.name} onChange={(e) => setCandidate({ ...candidate, name: e.target.value })} placeholder="e.g. Priya Sharma" autoComplete="name" />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">Email for your result *
+                <Input type="email" value={candidate.email} onChange={(e) => setCandidate({ ...candidate, email: e.target.value })} placeholder="you@example.com" autoComplete="email" />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">Phone <span className="font-normal text-muted-foreground">(optional)</span>
+                <Input value={candidate.phone} onChange={(e) => setCandidate({ ...candidate, phone: e.target.value })} placeholder="+91 98765 43210" autoComplete="tel" />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">City / location <span className="font-normal text-muted-foreground">(optional)</span>
+                <Input value={candidate.location} onChange={(e) => setCandidate({ ...candidate, location: e.target.value })} placeholder="e.g. Bengaluru" />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">Target role <span className="font-normal text-muted-foreground">(optional)</span>
+                <Input value={candidate.targetRole} onChange={(e) => setCandidate({ ...candidate, targetRole: e.target.value })} placeholder="e.g. Customer support" />
+              </label>
+              <label className="space-y-1.5 text-sm font-semibold text-secondary">Experience
+                <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={candidate.experienceLevel} onChange={(e) => setCandidate({ ...candidate, experienceLevel: e.target.value })}>
+                  <option>Fresher</option><option>1-2 years</option><option>3-5 years</option><option>5+ years</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Button size="lg" onClick={() => void startCheck()} className="h-12 px-7 text-base font-extrabold shadow-lg shadow-primary/25"><Mic className="mr-2 h-5 w-5" />Start my free check</Button>
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="h-4 w-4" /> Takes 90 seconds</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Your answers and result are used to improve your career practice experience and are visible to authorised Lead Onto admins.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden border-primary/20 shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-7">
+            <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. The interviewer responds quickly.</p></div>
+            <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 15 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
+          </div>
+          <CardContent className="space-y-6 p-6 sm:p-9">
+            <div className="flex items-start gap-4 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-5">
+              <div className="rounded-full bg-primary/10 p-3"><UserRound className="h-6 w-6 text-primary" /></div>
+              <div className="flex-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
+            </div>
+            <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
+              {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Preparing the next prompt…" : isListening ? "Listening — take your time…" : "Get ready to speak…"}</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
+                if (isListening) { speech.stop(); setIsListening(false); } else startListening();
+              }}>
+                {isListening ? <><MicOff className="mr-2 h-5 w-5" />Stop speaking</> : <><Mic className="mr-2 h-5 w-5" />{isThinking ? "Interviewer is replying…" : "Tap to speak"}</>}
+              </Button>
+              <span className="text-xs text-muted-foreground">{answers.length}/2 answers captured · no credits used</span>
+            </div>
+            {!speech.isSupported && <p className="text-sm text-red-600">Voice recognition is not available in this browser. Try Chrome or Edge.</p>}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

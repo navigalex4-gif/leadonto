@@ -19,6 +19,7 @@ import adminRouter from "./admin.js";
 import contentRouter from "./content.js";
 import b2bAuthRouter from "./b2b-auth.js";
 import b2bRouter from "./b2b.js";
+import communicationCheckRouter from "./communication-check.js";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(adminRouter);
 router.use(contentRouter);
 router.use(b2bAuthRouter);
 router.use(b2bRouter);
+router.use(communicationCheckRouter);
 
 export default router;

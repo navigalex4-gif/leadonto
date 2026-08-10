@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable, resumeVersionsTable } from "@workspace/db";
+import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable, resumeVersionsTable, communicationChecksTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
@@ -219,6 +219,42 @@ router.get("/admin/interviews", requireAdmin, async (_req: Request, res: Respons
   } catch (err) {
     logger.error({ err: (err as Error).message }, "admin interviews list failed");
     res.status(500).json({ error: "Could not load interviews" });
+  }
+});
+
+// GET /api/admin/communication-checks — homepage CTA candidates and their short scorecards.
+router.get("/admin/communication-checks", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const checks = await db
+      .select({
+        id: communicationChecksTable.id,
+        userId: communicationChecksTable.userId,
+        name: communicationChecksTable.name,
+        email: communicationChecksTable.email,
+        phone: communicationChecksTable.phone,
+        location: communicationChecksTable.location,
+        targetRole: communicationChecksTable.targetRole,
+        experienceLevel: communicationChecksTable.experienceLevel,
+        overallScore: communicationChecksTable.overallScore,
+        communicationScore: communicationChecksTable.communicationScore,
+        confidenceScore: communicationChecksTable.confidenceScore,
+        clarityScore: communicationChecksTable.clarityScore,
+        durationSeconds: communicationChecksTable.durationSeconds,
+        feedbackJson: communicationChecksTable.feedbackJson,
+        answersJson: communicationChecksTable.answersJson,
+        completedAt: communicationChecksTable.completedAt,
+        createdAt: communicationChecksTable.createdAt,
+        userEmail: usersTable.email,
+      })
+      .from(communicationChecksTable)
+      .leftJoin(usersTable, eq(communicationChecksTable.userId, usersTable.id))
+      .orderBy(desc(communicationChecksTable.createdAt))
+      .limit(2000);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ checks });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin communication checks list failed");
+    res.status(500).json({ error: "Could not load communication checks" });
   }
 });
 

@@ -18,6 +18,7 @@ const ToolsPro = lazy(() => import("@/pages/tools-pro"));
 const InterviewAce = lazy(() => import("@/pages/interview-ace"));
 const RozgarSamachar = lazy(() => import("@/pages/rozgar-samachar"));
 const ResumeIntelligence = lazy(() => import("@/pages/resume-intelligence"));
+const CommunicationCheck = lazy(() => import("@/pages/communication-check"));
 const LearningJourney = lazy(() => import("@/pages/learning-journey"));
 const History = lazy(() => import("@/pages/history"));
 const Login = lazy(() => import("@/pages/login"));
@@ -27,6 +28,7 @@ const BuyCredits = lazy(() => import("@/pages/buy-credits"));
 const AdminPayments = lazy(() => import("@/pages/admin-payments"));
 const AdminUsers = lazy(() => import("@/pages/admin-users"));
 const AdminInterviews = lazy(() => import("@/pages/admin-interviews"));
+const AdminCommunicationChecks = lazy(() => import("@/pages/admin-communication-checks"));
 const AdminB2B = lazy(() => import("@/pages/admin-b2b"));
 const AdminContent = lazy(() => import("@/pages/admin-content"));
 const AdminResumes = lazy(() => import("@/pages/admin-resumes"));
@@ -80,6 +82,11 @@ function Router() {
           <ResumeIntelligence />
         </Layout>
       </Route>
+      <Route path="/communication-check">
+        <Layout compact showFooter={false}>
+          <CommunicationCheck />
+        </Layout>
+      </Route>
       <Route path="/learning-journey">
         <Layout>
           <LearningJourney />
@@ -104,6 +111,7 @@ function Router() {
             <Route path="/admin-payments" component={AdminPayments} />
             <Route path="/admin-users" component={AdminUsers} />
             <Route path="/admin-interviews" component={AdminInterviews} />
+            <Route path="/admin-communication-checks" component={AdminCommunicationChecks} />
             <Route path="/admin-b2b" component={AdminB2B} />
             <Route path="/admin-content" component={AdminContent} />
             <Route path="/admin-resumes" component={AdminResumes} />
