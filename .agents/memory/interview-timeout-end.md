@@ -6,6 +6,8 @@ description: How Interview Ace must end when the clock runs out, and why async t
 ## Rule — end at time-up or 30 seconds of no reply
 Interview Ace must end when `elapsedSeconds >= duration*60` EVEN IF the mic is still recording, and must also end after 30 seconds of complete silence after a new question. End path: set `endingRef=true`, abort the in-flight AI stream (`resetStream()`), clear timers, stop mic, disable auto-listen, capture any pending `answerRef.current` into the current unanswered question, speak a short sign-off via `speakCoach`, then `setPhase("report")` after ~2.6s.
 
+The closing wind-up starts at 30 seconds remaining, but must not set the ended flag or transition early. It may cancel a pending next-question stream and announce the final window; the report transition remains tied to the selected duration unless the candidate submits a final response.
+
 **Why:** the old auto-end effect was gated on `!isRecording`, so if the candidate went silent near the end the session hung past its duration and NEVER produced feedback. "Generate complete feedback" is really fixed by ensuring the interview reliably ends — the report generator itself was already robust (fallbacks, per-question follow-up call, index-based mapping).
 
 ## Async turn handlers must re-check "ended" after every await

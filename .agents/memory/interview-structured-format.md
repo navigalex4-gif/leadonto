@@ -22,6 +22,15 @@ The interviewer is warm, personable and human, and should ACTIVELY use light, wi
 **Why:** the user first asked for light humour, then explicitly asked for MORE "witty humour" during the interview — so the register moved from "occasional tasteful aside" to "genuinely witty rapport-builder." The original bans still hold on exactly what the user hated: cheesy greetings ("Hey, good to see you here"), small-talk openers ("let's dive in"), and gushing praise. Wit ≠ chatty greeting or mockery.
 **How to apply:** keep bans on markdown, *action* words, cheesy greetings and flattery; encourage genuine wit within the guardrails. The humour instruction lives in FOUR prompt sites — opening-question prompt rule, opening system prompt, per-turn STYLE bullet, and per-turn coach system prompt — update all four together or the tone drifts.
 
+# Full-session question uniqueness and final wind-up
+Every generated Interview Ace question must be normalized and checked against the complete asked-question history before it is appended or spoken. Reject exact and close word-overlap duplicates, and replace generic filler prompts with an unused area-aware fallback. A weak answer may receive one retry on the same competency, but never the same question three times.
+
+Interview Ace begins its closing wind-up at 30 seconds remaining and transitions to the report at the selected duration. The free 90-second communication check begins its closing sequence at 10 seconds remaining and submits at the 90-second limit.
+
+**Why:** repeated prompts made the interview feel mechanical, while an early sign-off reduced the candidate's selected practice time. The closing thresholds preserve the full session while giving the candidate a clear natural ending.
+
+**How to apply:** keep the full history and client-side duplicate guard in lockstep with the AI prompt. Preserve `endingRef`/phase guards and stream cancellation around both wind-up paths so late AI output cannot add a question after closing begins.
+
 # Candidate think time — flat 5 s max mid-answer silence (NOT adaptive)
 Two distinct windows: (1) INITIAL think-before-first-word is UNLIMITED — the auto-submit timer is armed only inside the `startContinuous` phrase callback, so a silent candidate is never auto-submitted; (2) MID-ANSWER silence auto-submit is a flat `silenceMs = 5000` in the auto-listen effect: once the candidate starts talking, 5 s of continuous quiet ends the turn and submits. Submit button stays enabled as a manual override to submit sooner.
 **Why:** the user explicitly set the max quiet-before-submit to 5 s. This REVERSED an earlier adaptive attempt (6 s normal / 9 s for reflective questions via a difficulty regex) — the user preferred one simple 5 s cap. Do not reintroduce per-question adaptivity unless they ask.

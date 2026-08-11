@@ -151,9 +151,78 @@ function cleanForSpeech(text: string): string {
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
     .replace(/\b(hello|hi|hey)(?:[,\s!]+)(?:hello|hi|hey)\b/gi, "$1")
+    .replace(/\bchat\b/gi, "conversation")
     .replace(/[#*_]+/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+const INTERVIEW_FALLBACK_QUESTIONS = [
+  "What did you learn from that experience?",
+  "How did you decide what to do first?",
+  "What changed because of your actions?",
+  "How would you handle a similar situation now?",
+  "What would success look like in this situation?",
+  "Which part of this work would you find most challenging?",
+  "How would you explain your approach to a new colleague?",
+  "What would you improve if you had another chance?",
+  "What would you do if your first plan did not work?",
+  "What is one practical example from your work or studies?",
+  "How did you measure whether your approach worked?",
+  "What support or information would help you do this well?",
+  "What would you try differently the next time?",
+  "How would you make this process easier for the people involved?",
+  "What is the first sign that this situation needs attention?",
+  "What part of this role would you most like to strengthen?",
+];
+
+const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
+  education: ["Which part of your education has prepared you best for this role?"],
+  personality: ["What do you enjoy doing when you are not working or studying?"],
+  adaptability: ["What is one new skill or tool you would feel comfortable learning for this role?"],
+  problemSolving: ["When a problem is unclear, what is the first step you usually take?"],
+  ownership: ["Tell me about a task you took responsibility for from start to finish."],
+  collaboration: ["How do you usually handle a disagreement with a teammate?"],
+  itSkills: ["Which digital tool do you use confidently, and how does it help you?"],
+  domainKnowledge: ["What practical part of this role would you most like to strengthen?"],
+};
+
+function normalizeInterviewQuestion(text: string): string {
+  return cleanForSpeech(text)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRepeatedInterviewQuestion(question: string, askedQuestions: string[]): boolean {
+  const candidate = normalizeInterviewQuestion(question);
+  if (!candidate) return true;
+  const candidateWords = new Set(candidate.split(" ").filter(word => word.length > 2));
+  return askedQuestions.some(asked => {
+    const normalizedAsked = normalizeInterviewQuestion(asked);
+    if (normalizedAsked === candidate) return true;
+    const askedWords = new Set(normalizedAsked.split(" ").filter(word => word.length > 2));
+    if (!candidateWords.size || !askedWords.size) return false;
+    const shared = [...candidateWords].filter(word => askedWords.has(word)).length;
+    return shared / Math.min(candidateWords.size, askedWords.size) >= 0.78;
+  });
+}
+
+function isCannedInterviewQuestion(question: string): boolean {
+  return /^(?:could|can|would|please)\s+(?:you\s+)?(?:elaborate|tell me more|walk me through)|^can you give me a specific example|^what was the biggest challenge you faced in that situation/i.test(
+    normalizeInterviewQuestion(question),
+  );
+}
+
+function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string): string {
+  const candidates = [
+    ...(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
+    ...INTERVIEW_FALLBACK_QUESTIONS,
+  ];
+  return candidates.find(question =>
+    !isRepeatedInterviewQuestion(question, askedQuestions) && !isCannedInterviewQuestion(question),
+  ) ?? "What is one new thing you would try next time?";
 }
 
 function parseCompetencyRating(v: unknown): CompetencyRating {
@@ -307,7 +376,7 @@ function TimerDisplay({ elapsedSeconds, durationMinutes }: { elapsedSeconds: num
   const totalSeconds = durationMinutes * 60;
   const pct = Math.min(100, (elapsedSeconds / totalSeconds) * 100);
   const remaining = totalSeconds - elapsedSeconds;
-  const isEnding = remaining <= 120;
+  const isEnding = remaining <= 30;
   return (
     <div className="flex items-center gap-3">
       <div className={`flex items-center gap-1.5 text-sm font-bold ${isEnding ? "text-red-600" : "text-muted-foreground"}`}>
@@ -483,6 +552,7 @@ function InterviewAceContent() {
   // feedback. Armed when the mic starts listening; cleared the instant they speak.
   const noReplyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endingRef = useRef(false);
+  const windDownRef = useRef(false);
   // Guards against a second interview turn starting before the current one finishes
   // (record → stream → thinking pause → speak). Set synchronously at the top of
   // submitCurrentAnswer; reset reactively below when the coach stops speaking — which
@@ -521,6 +591,16 @@ function InterviewAceContent() {
 
   useEffect(() => { answerRef.current = answer; }, [answer]);
 
+  const clearAutoSubmitTimer = useCallback(() => {
+    if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
+    autoSubmitRef.current = null;
+    // Clear the no-reply watchdog in lockstep: any time the pending auto-submit is
+    // cleared (candidate spoke, submitted, paused or the interview ended) the
+    // "said nothing at all" window no longer applies.
+    if (noReplyRef.current) clearTimeout(noReplyRef.current);
+    noReplyRef.current = null;
+  }, []);
+
   // Live timer during interview
   useEffect(() => {
     if (phase !== "interview") return;
@@ -528,13 +608,20 @@ function InterviewAceContent() {
     return () => clearInterval(id);
   }, [phase, sessionStart]);
 
-  // Auto-end when the interview clock runs out. This fires even if the mic is
-  // still recording (candidate went quiet near the end) — otherwise the session
-  // could hang past its duration and never produce feedback. The coach gives a
-  // short natural sign-off, any in-progress answer is captured so it counts in
-  // the report, then we move to the report phase.
+  // Start the wind-down 30 seconds before the selected duration ends. The first
+  // branch only announces the closing window; the second branch still ends at
+  // the selected duration so candidates do not lose the final 30 seconds.
   useEffect(() => {
     if (phase !== "interview" || endingRef.current) return;
+    if (elapsedSeconds < Math.max(0, duration * 60 - 30)) return;
+    if (!windDownRef.current) {
+      windDownRef.current = true;
+      resetStream();
+      clearAutoSubmitTimer();
+      if (!isRecording) {
+        speakCoach(`We have about 30 seconds left, ${((profile.name || "there").split(" ")[0])}. Finish your thought and I’ll wrap up shortly.`, { voiceGender: coach.gender });
+      }
+    }
     if (elapsedSeconds < duration * 60) return;
     endingRef.current = true;
     // Abort any in-flight "next question" stream so it can't resolve after the
@@ -550,19 +637,9 @@ function InterviewAceContent() {
       setQuestions(prev => prev.map((q, i) => i === currentIdx && !q.answer ? { ...q, answer: pending } : q));
     }
     const firstName = (profile.name || "there").split(" ")[0];
-    speakCoach(`That is all the time we have, ${firstName}. Thank you for your time today. I will now prepare your feedback report.`, { voiceGender: coach.gender });
+    speakCoach(`That is all the time we have, ${firstName}. I’ll now prepare your feedback report.`, { voiceGender: coach.gender });
     setTimeout(() => setPhase("report"), 2600);
-  }, [elapsedSeconds, duration, phase, currentIdx, profile.name, coach.gender, speakCoach, speech, resetStream]);
-
-  const clearAutoSubmitTimer = useCallback(() => {
-    if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
-    autoSubmitRef.current = null;
-    // Clear the no-reply watchdog in lockstep: any time the pending auto-submit is
-    // cleared (candidate spoke, submitted, paused or the interview ended) the
-    // "said nothing at all" window no longer applies.
-    if (noReplyRef.current) clearTimeout(noReplyRef.current);
-    noReplyRef.current = null;
-  }, []);
+  }, [elapsedSeconds, duration, phase, currentIdx, profile.name, coach.gender, speakCoach, speech, resetStream, clearAutoSubmitTimer, isRecording]);
 
   // Conclude the interview when the candidate goes completely silent on a new
   // question (the 30 s no-reply watchdog fired). Mirrors the clock-runout path:
@@ -761,6 +838,7 @@ Rules:
     setReport(null);
     setSaved(false);
     endingRef.current = false;
+    windDownRef.current = false;
     beatIdxRef.current = 0;
     retryRef.current = 0;
     setPhase("interview");
@@ -808,7 +886,7 @@ Rules:
 
     const elapsedMin = Math.floor(elapsedSeconds / 60);
     const remainingMin = duration - elapsedMin;
-    const isFinalQuestion = elapsedSeconds >= duration * 60 - 60;
+    const isFinalQuestion = elapsedSeconds >= duration * 60 - 30;
 
     // Record the answer without generating per-question feedback
     setQuestions(prev => prev.map((q, i) => i === currentIdx
@@ -819,8 +897,10 @@ Rules:
     const firstName = (profile.name || "there").split(" ")[0];
 
     if (isFinalQuestion) {
-      speakCoach(`Thank you, ${firstName}. That concludes our interview. I will now prepare your feedback report.`, { voiceGender: coach.gender });
-      setTimeout(() => setPhase("report"), 1500);
+      endingRef.current = true;
+      speakCoach(`That is our final response, ${firstName}. I’ll prepare your feedback report now.`, { voiceGender: coach.gender });
+      const remainingMs = Math.max(1500, (duration * 60 - elapsedSeconds) * 1000);
+      setTimeout(() => setPhase("report"), remainingMs);
       return;
     }
 
@@ -830,6 +910,7 @@ Rules:
       .slice(-3)
       .map((q, i) => `Q: ${q.question}\nA: ${q.answer}`)
       .join("\n\n");
+    const askedQuestions = questionsRef.current.map(q => q.question);
 
     // Detect whether the candidate could not answer, so we can apply the
     // 2-attempt rule (give ONE more chance, then move on kindly) instead of
@@ -860,7 +941,7 @@ Rules:
 
     let directive: string;
     if (willRetry) {
-      directive = `${firstName} struggled with that question${saysDontKnow ? " (they said they don't know)" : ` (only ${wordCount} words)`}. Give them ONE more chance: ask the SAME thing again but more simply, or offer a small hint, a concrete example, or an easier way in. Keep it warm and encouraging so they relax — this is still about "${area.label}".`;
+      directive = `${firstName} struggled with that question${saysDontKnow ? " (they said they don't know)" : ` (only ${wordCount} words)`}. Give them ONE more chance on the SAME area, but use a genuinely different question and simpler wording. Do not repeat the earlier wording. Keep it warm and encouraging — this is still about "${area.label}".`;
     } else if (isWeakAnswer) {
       directive = `${firstName} could not answer that even after a second attempt — do NOT dwell on it or ask it again. Acknowledge briefly and kindly (something like "No problem, let's move on."), then ask a fresh question on a NEW area. New area — ${area.label}. Focus on: ${areaFocus}.`;
     } else if (area.kind === "warmup") {
@@ -905,13 +986,6 @@ Rules:
 
     // Neutral fallback questions used when the AI stream times out or errors.
     // Defined here so they're available both in the timeout path and the parsing fallback below.
-    const FALLBACK_QUESTIONS = [
-      "Could you elaborate on that a little more?",
-      "Can you give me a specific example from your experience?",
-      "Please walk me through that in more detail.",
-      "What was the biggest challenge you faced in that situation?",
-    ];
-
     // Kick off the minimum floor immediately — runs while streaming proceeds.
     const minWaitPromise = new Promise<void>(resolve => setTimeout(resolve, 700));
 
@@ -941,6 +1015,9 @@ Candidate: ${firstName} | ${buildProfileSummary()}
 Recent exchanges:
 ${recentAnswered || "(This is the first response)"}
 
+All questions already asked in this interview:
+${askedQuestions.map((question, index) => `${index + 1}. ${question}`).join("\n")}
+
 Your last question: "${currentQ.question}"
 ${firstName} answered: "${recordedAnswer}"
 
@@ -949,6 +1026,8 @@ ${directive}
 STYLE — important:
 - Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Use a light, witty observation only when it genuinely fits; never force a joke, praise, or enthusiasm into every turn.
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
+- This is a formal interview, not a chat. Never use the word "chat" in any spoken response or question.
+- Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
 - Start with a brief, natural reaction tied to something the candidate actually said. It may be a fragment such as "That sounds like a busy launch" or "I can see why that was tricky." Do not use the same stock acknowledgement twice, and do not praise automatically.
 - After that reaction, ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. A short bridge such as "And when that happened…" is fine when it genuinely connects.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
@@ -961,7 +1040,7 @@ STYLE — important:
 Output format — exactly two lines, nothing else:
 Ack: <brief, natural reaction tied to the candidate's answer, max ~10 words>
 Next: <the interview question only>`,
-          `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person on a live call: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+          `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),
@@ -969,7 +1048,7 @@ Next: <the interview question only>`,
       ]);
     } catch {
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
-      const fallback = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]!;
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key);
       response = `Ack: I see.\nNext: ${fallback}`;
     }
 
@@ -977,7 +1056,7 @@ Next: <the interview question only>`,
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
-      const fallback = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]!;
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key);
       response = `Ack: I see.\nNext: ${fallback}`;
     }
 
@@ -988,7 +1067,7 @@ Next: <the interview question only>`,
     // missing labels. Prevents premature session-end if the model skips "Next:".
     const ackMatch = response.match(/^Ack:\s*([\s\S]+?)(?=\nNext:|\n\nNext:|$)/im);
     const nextMatch = response.match(/^Next:\s*([\s\S]+?)$/im);
-    let acknowledgment = ackMatch?.[1]?.trim().replace(/\n+/g, " ") ?? "Thank you.";
+    let acknowledgment = ackMatch?.[1]?.trim().replace(/\n+/g, " ") ?? "I see.";
     let nextQuestion = nextMatch?.[1]?.trim().replace(/\n+/g, " ");
 
     // Fallback: if structured parsing failed, split by paragraphs/lines so the
@@ -1024,8 +1103,16 @@ Next: <the interview question only>`,
 
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion) {
-      nextQuestion = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]!;
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key);
       acknowledgment = "Understood.";
+    }
+
+    if (
+      isCannedInterviewQuestion(nextQuestion)
+      || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
+    ) {
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key);
+      if (acknowledgment === "Thank you.") acknowledgment = "I see.";
     }
 
     // ── Enforce under-4s response window ──────────────────────────────────────
@@ -1796,7 +1883,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         </div>
         <div className="flex items-center gap-2 text-white/80 text-sm font-bold">
           <Timer className="w-4 h-4" />
-          <span className={elapsedSeconds >= duration * 60 - 120 ? "text-red-400" : ""}>
+          <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-400" : ""}>
             {formatTime(elapsedSeconds)} / {duration}:00
           </span>
         </div>
@@ -1805,7 +1892,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Progress bar under HUD ──────────────────────────────────────── */}
       <div className="absolute top-11 left-0 right-0 h-0.5 bg-white/10 z-10">
         <div
-          className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 120 ? "bg-red-500" : "bg-primary"}`}
+          className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 30 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (elapsedSeconds / (duration * 60)) * 100)}%` }}
         />
       </div>

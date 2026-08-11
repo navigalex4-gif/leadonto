@@ -164,6 +164,7 @@ export default function CommunicationCheck() {
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endingRef = useRef(false);
+  const closingRef = useRef(false);
   const turnRef = useRef(false);
   const [remaining, setRemaining] = useState(TOTAL_SECONDS);
   const [isListening, setIsListening] = useState(false);
@@ -200,7 +201,7 @@ export default function CommunicationCheck() {
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
 
   const startListening = useCallback(() => {
-    if (!speech.isSupported || endingRef.current) return;
+    if (!speech.isSupported || endingRef.current || closingRef.current) return;
     setIsListening(true);
     speech.blockFor(0);
     speech.startContinuous((text) => {
@@ -255,7 +256,7 @@ export default function CommunicationCheck() {
   }, [candidate, clearTimers, speech, synth, toast]);
 
   const submitAnswer = useCallback(async (spokenAnswer: string) => {
-    if (turnRef.current || endingRef.current) return;
+    if (turnRef.current || endingRef.current || closingRef.current) return;
     turnRef.current = true;
     clearTimers();
     speech.stop();
@@ -347,6 +348,17 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
     return () => clearInterval(timer);
   }, [clearTimers, finishWithFeedback, phase]);
 
+  useEffect(() => {
+    if (phase !== "interview" || remaining > 10 || remaining <= 0 || closingRef.current) return;
+    closingRef.current = true;
+    clearTimers();
+    speech.stop();
+    setIsListening(false);
+    setIsThinking(false);
+    synth.stop();
+    speak("We have about ten seconds left. I’m wrapping up now, and your result will be ready in a moment.");
+  }, [clearTimers, phase, remaining, speak, speech, synth]);
+
   useEffect(() => () => {
     endingRef.current = true;
     clearTimers();
@@ -372,6 +384,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
     }
     track("communication_check_started", { targetRole: candidate.targetRole || "unspecified" });
     endingRef.current = false;
+    closingRef.current = false;
     turnRef.current = false;
     answersRef.current = [];
     setAnswers([]);
@@ -487,7 +500,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-7">
              <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. Your interviewer responds quickly.</p></div>
-            <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 15 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
+            <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 10 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
           </div>
           <CardContent className="space-y-6 p-6 sm:p-9">
             <div className="flex items-start gap-4 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-5">
@@ -503,7 +516,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
                <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
             <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
-              {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Preparing the next prompt…" : isListening ? "Listening — take your time…" : "Get ready to speak…"}</span>}
+              {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Preparing the next question…" : isListening ? "Listening — take your time…" : "Get ready to speak…"}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
