@@ -113,18 +113,17 @@ export default function Home() {
                         <Timer className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-xs font-extrabold uppercase tracking-wider text-orange-700">Free 90-second voice check</p>
-                          <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-violet-700 shadow-sm">No credits</span>
-                        </div>
+                         <div className="flex flex-wrap items-center gap-2">
+                           <p className="text-xs font-extrabold uppercase tracking-wider text-orange-700">Free 90-Second Communication Check</p>
+                         </div>
                         <h2 className="mt-1.5 text-base font-extrabold leading-snug text-secondary sm:text-lg">
-                          Is Your Communication &amp; Confidence Holding You Back?
+                           How Strong Are Your Communication &amp; Confidence Skills?
                         </h2>
                         <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                          Check Your Communication, Confidence &amp; Interview Skills in 90 Seconds — Free
+                           Get quick feedback on your communication, confidence &amp; interview skills.
                         </p>
                         <span className="mt-3 inline-flex items-center rounded-lg bg-gradient-to-r from-orange-500 to-orange-400 px-4 py-2 text-xs font-extrabold text-white shadow-md shadow-orange-300/40 transition-transform group-hover:translate-x-1 sm:text-sm">
-                          Check my skills free <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                           Try My Free 90-Second Check <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                         </span>
                       </div>
                     </div>

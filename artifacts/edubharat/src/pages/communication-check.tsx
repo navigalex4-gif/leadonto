@@ -459,9 +459,9 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
       {phase === "details" ? (
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="bg-gradient-to-br from-orange-50 via-background to-violet-50 p-5 sm:p-7">
-            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-700"><Sparkles className="h-3.5 w-3.5" /> Free 90-second voice check</div>
-            <h1 className="max-w-2xl text-2xl font-display font-extrabold tracking-tight text-secondary sm:text-4xl">Is your communication & confidence holding you back?</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">Speak naturally with an AI interviewer for 90 seconds. Get a short, honest snapshot of your communication, confidence and clarity — no credits, no sign-up wall.</p>
+             <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-700"><Sparkles className="h-3.5 w-3.5" /> Free 90-Second Communication Check</div>
+             <h1 className="max-w-2xl text-2xl font-display font-extrabold tracking-tight text-secondary sm:text-4xl">How Strong Are Your Communication &amp; Confidence Skills?</h1>
+             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">Get quick feedback on your communication, confidence &amp; interview skills.</p>
           </div>
           <CardContent className="space-y-5 p-6 sm:p-9">
             <div className="grid gap-4 sm:grid-cols-2">
