@@ -33,6 +33,7 @@ const INTERVIEW_TYPES = [
   { value: "hr", label: "HR Interview", icon: "🤝" },
   { value: "software", label: "Software Developer", icon: "💻" },
   { value: "sales", label: "Sales Executive", icon: "📈" },
+  { value: "business_analyst", label: "Business Analyst", icon: "📊" },
   { value: "marketing", label: "Marketing Manager", icon: "📣" },
   { value: "customer_service", label: "Customer Service", icon: "🎧" },
   { value: "bpo", label: "BPO / Call Center", icon: "☎️" },
