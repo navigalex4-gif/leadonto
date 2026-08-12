@@ -35,6 +35,7 @@ const INTERVIEW_TYPES = [
   { value: "sales", label: "Sales Executive", icon: "📈" },
   { value: "marketing", label: "Marketing Manager", icon: "📣" },
   { value: "customer_service", label: "Customer Service", icon: "🎧" },
+  { value: "bpo", label: "BPO / Call Center", icon: "☎️" },
   { value: "banking", label: "Banking / BFSI", icon: "🏦" },
   { value: "insurance", label: "Insurance", icon: "🛡️" },
   { value: "operations", label: "Operations", icon: "⚙️" },

@@ -159,6 +159,19 @@ export const INTERVIEW_COACHES = [
       "I'm Ananya Ma'am! Sales interviews are about energy and storytelling. I'll help you pitch yourself like a pro.",
   },
   {
+    id: "meera",
+    name: "Meera Ma'am",
+    role: "Sales, Marketing & BPO Coach",
+    gender: "female" as const,
+    imageSrc: "/images/tutor-neha.jpg",
+    accentColor: "#E11D48",
+    specialty: "Experienced Sales, Marketing & BPO",
+    icon: "☎️",
+    style: "Practical, customer-focused — built for experienced service professionals",
+    intro:
+      "I'm Meera Ma'am. I'll help you handle real sales, marketing and BPO interview situations with confident, customer-ready answers.",
+  },
+  {
     id: "aryan",
     name: "Aryan Sir",
     role: "Finance & Banking Coach",
@@ -186,6 +199,7 @@ const INTERVIEW_TYPE_TO_COACH_ID: Record<string, string> = {
   sales: "ananya",
   marketing: "ananya",
   customer_service: "ananya",
+  bpo: "meera",
   banking: "aryan",
   insurance: "aryan",
   finance: "aryan",
