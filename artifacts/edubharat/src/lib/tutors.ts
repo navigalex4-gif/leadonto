@@ -150,7 +150,7 @@ export const INTERVIEW_COACHES = [
     name: "Ananya Ma'am",
     role: "Sales & Marketing Coach",
     gender: "female" as const,
-    imageSrc: "/images/lead-onto-ananya.png",
+    imageSrc: "/images/tutor-maya.jpg",
     accentColor: "#A855F7",
     specialty: "Sales, Marketing & Comm",
     icon: "📣",

@@ -648,8 +648,8 @@ function InterviewAceContent() {
     // budget is reached, then scroll internally instead of pushing controls
     // below the fold.
     textarea.style.height = "auto";
-    const minHeight = 56;
-    const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.16));
+    const minHeight = 28;
+    const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.08));
     const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${nextHeight}px`;
     textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
@@ -2110,7 +2110,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         <Textarea
           ref={answerTextareaRef}
           placeholder="Speak naturally — mic starts automatically. Or type here."
-          className={`min-h-[48px] max-h-[16vh] text-sm resize-none bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400 focus-visible:ring-primary ${
+          className={`min-h-[28px] max-h-[8vh] text-sm resize-none bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400 focus-visible:ring-primary ${
             isRecording ? "border-green-500/50" : ""
           }`}
           value={isRecording && speech.interimTranscript ? answer + " " + speech.interimTranscript : answer}
