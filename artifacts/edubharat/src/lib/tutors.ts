@@ -223,6 +223,7 @@ const INTERVIEW_TYPE_TO_COACH_ID: Record<string, string> = {
   software: "vikram",
   data_analytics: "vikram",
   sales: "ananya",
+  sales_manager: "sanjay",
   business_analyst: "kabir",
   marketing: "ananya",
   customer_service: "ananya",
