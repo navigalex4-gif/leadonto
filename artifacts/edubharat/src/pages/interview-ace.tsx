@@ -588,6 +588,7 @@ function InterviewAceContent() {
     return recommendedCoachFor(type);
   });
   const displayCoachName = interviewerDisplayName(coach.name);
+  const candidateDisplayName = profile.name || user?.name || "You";
   const [duration, setDuration] = useState(() => b2bParams.duration || 10);
   const [phase, setPhase] = useState<"setup" | "interview" | "report">("setup");
   const [questions, setQuestions] = useState<QA[]>([]);
@@ -1996,10 +1997,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Main video area — Meet-style stage: the candidate is the main
           video and the interviewer stays visible in a picture-in-picture tile. ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-2">
-        <div className="relative flex-1 min-h-[150px] rounded-2xl bg-black border border-slate-300 shadow-md overflow-hidden">
+        <div className="relative flex-1 min-h-[150px] rounded-2xl bg-gradient-to-br from-sky-50 via-white to-orange-50 border border-slate-200 shadow-md overflow-hidden">
 
-          {/* Candidate main stage */}
-          <div className="absolute inset-0 bg-black overflow-hidden">
+          {/* Candidate display — anchored to the left, with the light
+              background intentionally visible between both participants. */}
+          <div className="absolute left-3 top-3 bottom-3 w-[46%] sm:w-[48%] rounded-xl bg-black border border-slate-300 shadow-sm overflow-hidden">
             {cameraOn ? (
               <video
                 ref={webcamRef}
@@ -2016,9 +2018,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 <span className="text-sm text-slate-400">{cameraError ? "No camera" : "Camera off"}</span>
               </div>
             )}
-            <div className="absolute bottom-3 left-3 text-xs font-bold text-white bg-black/55 rounded-full px-2.5 py-1">You</div>
+            <div className="absolute bottom-3 left-3 text-xs font-bold text-white bg-black/55 rounded-full px-2.5 py-1">
+              {candidateDisplayName}
+            </div>
             <button
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 z-10"
               onClick={cameraOn ? stopWebcam : () => void startWebcam()}
               title={cameraOn ? "Turn off camera" : "Enable camera (optional)"}
             >
@@ -2029,7 +2033,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+          <div className="absolute right-3 top-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
