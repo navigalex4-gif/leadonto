@@ -189,7 +189,7 @@ export const INTERVIEW_COACHES = [
     name: "Sanjay Sir",
     role: "Senior Sales Coach",
     gender: "male" as const,
-    imageSrc: "/images/tutor-raj.jpg",
+    imageSrc: "/images/tutor-rohit.jpg",
     accentColor: "#EA580C",
     specialty: "Enterprise Sales & Leadership",
     icon: "📈",
