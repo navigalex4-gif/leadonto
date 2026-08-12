@@ -1953,16 +1953,16 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
   // ── Interview — Video Call Mode ────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-orange-50/70 via-white to-primary/5 flex flex-col z-[9999]" style={{ top: 56 }}>
+    <div className="fixed inset-0 bg-[#111111] text-white flex flex-col z-[9999]" style={{ top: 56 }}>
 
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-white/90 backdrop-blur-sm border-b border-gray-200 z-10">
+      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-[#111111] border-b border-white/10 z-10">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-secondary text-sm font-bold truncate">{displayCoachName}</span>
-          <span className="text-muted-foreground text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
+          <span className="text-white text-sm font-bold truncate">{displayCoachName}</span>
+          <span className="text-gray-400 text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-secondary text-sm font-bold shrink-0">
-          <Timer className="w-4 h-4 text-primary" />
+        <div className="flex items-center gap-1.5 text-gray-200 text-sm font-bold shrink-0">
+          <Timer className="w-4 h-4 text-orange-400" />
           <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500" : ""}>
             {formatTime(elapsedSeconds)} / {duration}:00
           </span>
@@ -1970,7 +1970,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       </div>
 
       {/* ── Progress bar under HUD ──────────────────────────────────────── */}
-      <div className="shrink-0 h-0.5 bg-gray-200 z-10">
+      <div className="shrink-0 h-0.5 bg-white/10 z-10">
         <div
           className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 30 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (elapsedSeconds / (duration * 60)) * 100)}%` }}
@@ -1980,24 +1980,24 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Main video area — Meet-style stage: the candidate is the main
           video and the interviewer stays visible in a picture-in-picture tile. ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-3">
-        <div className="relative flex-1 min-h-0 rounded-2xl bg-gray-100 border border-gray-200 shadow-sm overflow-hidden">
+        <div className="relative flex-1 min-h-0 rounded-2xl bg-black border border-white/10 shadow-sm overflow-hidden">
 
           {/* Candidate main stage */}
-          <div className="absolute inset-0 bg-gray-100 overflow-hidden">
+          <div className="absolute inset-0 bg-black overflow-hidden">
             {cameraOn ? (
               <video
                 ref={webcamRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-contain bg-gray-100"
+                className="w-full h-full object-contain bg-black"
                 style={{ transform: "scaleX(-1)" }}
                 onLoadedMetadata={e => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <VideoOff className="w-10 h-10" />
-                <span className="text-sm">{cameraError ? "No camera" : "Camera off"}</span>
+                <VideoOff className="w-10 h-10 text-gray-500" />
+                <span className="text-sm text-gray-400">{cameraError ? "No camera" : "Camera off"}</span>
               </div>
             )}
             <div className="absolute bottom-3 left-3 text-xs font-bold text-white bg-black/55 rounded-full px-2.5 py-1">You</div>
@@ -2013,7 +2013,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 bottom-3 z-10 w-44 sm:w-52 rounded-2xl bg-white border border-gray-200 shadow-xl flex flex-col items-center justify-center gap-1.5 p-2.5 overflow-hidden">
+          <div className="absolute right-3 bottom-3 z-10 w-44 sm:w-52 rounded-2xl bg-[#202124] border border-white/20 shadow-2xl flex flex-col items-center justify-center gap-1.5 p-2.5 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
@@ -2046,7 +2046,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                     return (
                       <div
                         key={i}
-                        className="w-1.5 rounded-full bg-primary"
+                  className="w-1.5 rounded-full bg-orange-400"
                         style={{ height: h, transition: "height 60ms linear" }}
                       />
                     );
@@ -2055,16 +2055,16 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 <button
                   type="button"
                   onClick={interruptCoach}
-                  className="text-[10px] text-muted-foreground hover:text-primary underline underline-offset-2"
+                  className="text-[10px] text-gray-400 hover:text-white underline underline-offset-2"
                 >
                   Tap to interrupt
                 </button>
               </>
             )}
             {(isStreaming || coachThinking) && !synth.isSpeaking && (
-              <p className="text-muted-foreground text-[10px] animate-pulse">{displayCoachName} is thinking…</p>
+              <p className="text-gray-400 text-[10px] animate-pulse">{displayCoachName} is thinking…</p>
             )}
-            <p className="text-secondary text-[10px] font-semibold truncate max-w-full">{displayCoachName}</p>
+            <p className="text-white text-[10px] font-semibold truncate max-w-full">{displayCoachName}</p>
           </div>
         </div>
 
@@ -2072,11 +2072,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             if a question is very long. */}
         {currentQ && (
           <div className="shrink-0 pb-1">
-            <div className="bg-primary/5 border border-primary/10 rounded-2xl px-4 py-2.5 max-w-2xl mx-auto text-center max-h-[26vh] overflow-y-auto">
-              <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-1">
+            <div className="bg-[#202124] border border-white/10 rounded-2xl px-4 py-2.5 max-w-2xl mx-auto text-center max-h-[26vh] overflow-y-auto">
+              <p className="text-gray-400 text-[9px] font-bold uppercase tracking-widest mb-1">
                 Question {currentIdx + 1} · {answeredCount} answered
               </p>
-              <p className="text-secondary text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
+              <p className="text-white text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
               <button
                 className="mt-1.5 text-primary/70 hover:text-primary text-[11px] flex items-center gap-1 mx-auto"
                 onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
