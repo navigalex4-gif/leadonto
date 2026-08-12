@@ -649,7 +649,7 @@ function InterviewAceContent() {
     // below the fold.
     textarea.style.height = "auto";
     const minHeight = 56;
-    const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.24));
+    const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.16));
     const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${nextHeight}px`;
     textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
@@ -1969,15 +1969,15 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
   // ── Interview — Video Call Mode ────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-[#111111] text-white flex flex-col z-[9999]" style={{ top: 56 }}>
+    <div className="fixed inset-0 bg-slate-50 text-slate-900 flex flex-col z-[9999]" style={{ top: 56 }}>
 
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-[#111111] border-b border-white/10 z-10">
+      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200 shadow-sm z-10">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-white text-sm font-bold truncate">{displayCoachName}</span>
-          <span className="text-gray-400 text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
+          <span className="text-slate-800 text-sm font-bold truncate">{displayCoachName}</span>
+          <span className="text-slate-500 text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-gray-200 text-sm font-bold shrink-0">
+        <div className="flex items-center gap-1.5 text-slate-700 text-sm font-bold shrink-0">
           <Timer className="w-4 h-4 text-orange-400" />
           <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500" : ""}>
             {formatTime(elapsedSeconds)} / {duration}:00
@@ -1986,7 +1986,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       </div>
 
       {/* ── Progress bar under HUD ──────────────────────────────────────── */}
-      <div className="shrink-0 h-0.5 bg-white/10 z-10">
+      <div className="shrink-0 h-0.5 bg-orange-100 z-10">
         <div
           className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 30 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (elapsedSeconds / (duration * 60)) * 100)}%` }}
@@ -1995,8 +1995,8 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
       {/* ── Main video area — Meet-style stage: the candidate is the main
           video and the interviewer stays visible in a picture-in-picture tile. ── */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-3">
-        <div className="relative flex-1 min-h-[170px] rounded-2xl bg-black border border-white/10 shadow-sm overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-2">
+        <div className="relative flex-1 min-h-[150px] rounded-2xl bg-black border border-slate-300 shadow-md overflow-hidden">
 
           {/* Candidate main stage */}
           <div className="absolute inset-0 bg-black overflow-hidden">
@@ -2011,9 +2011,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 onLoadedMetadata={e => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-slate-400">
                 <VideoOff className="w-10 h-10 text-gray-500" />
-                <span className="text-sm text-gray-400">{cameraError ? "No camera" : "Camera off"}</span>
+                <span className="text-sm text-slate-400">{cameraError ? "No camera" : "Camera off"}</span>
               </div>
             )}
             <div className="absolute bottom-3 left-3 text-xs font-bold text-white bg-black/55 rounded-full px-2.5 py-1">You</div>
@@ -2029,7 +2029,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-[#202124] border border-white/20 shadow-2xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+          <div className="absolute right-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
@@ -2069,19 +2069,19 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                     );
                   })}
                 </div>
-                <button
+                  <button
                   type="button"
                   onClick={interruptCoach}
-                  className="text-[10px] text-gray-400 hover:text-white underline underline-offset-2"
+                   className="text-[10px] text-slate-500 hover:text-slate-800 underline underline-offset-2"
                 >
                   Tap to interrupt
                 </button>
               </>
             )}
             {(isStreaming || coachThinking) && !synth.isSpeaking && (
-              <p className="text-gray-400 text-[10px] animate-pulse">{displayCoachName} is thinking…</p>
+              <p className="text-slate-500 text-[10px] animate-pulse">{displayCoachName} is thinking…</p>
             )}
-            <p className="text-white text-[10px] font-semibold truncate max-w-full">{displayCoachName}</p>
+            <p className="text-slate-800 text-[10px] font-semibold truncate max-w-full">{displayCoachName}</p>
           </div>
         </div>
 
@@ -2089,11 +2089,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             if a question is very long. */}
         {currentQ && (
           <div className="shrink-0 pb-1">
-            <div className="bg-[#202124] border border-white/10 rounded-2xl px-4 py-2.5 max-w-2xl mx-auto text-center max-h-[26vh] overflow-y-auto">
-              <p className="text-gray-400 text-[9px] font-bold uppercase tracking-widest mb-1">
+            <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2 max-w-2xl mx-auto text-center max-h-[18vh] overflow-y-auto shadow-sm">
+              <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest mb-1">
                 Question {currentIdx + 1} · {answeredCount} answered
               </p>
-              <p className="text-white text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
+              <p className="text-slate-800 text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
               <button
                 className="mt-1.5 text-primary/70 hover:text-primary text-[11px] flex items-center gap-1 mx-auto"
                 onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
@@ -2106,11 +2106,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       </div>
 
       {/* ── Bottom answer + controls ─────────────────────────────────────── */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-4 pt-3 pb-4 space-y-3">
+      <div className="shrink-0 bg-white border-t border-slate-200 px-4 pt-2 pb-2 space-y-2 shadow-[0_-4px_16px_rgba(15,23,42,0.05)]">
         <Textarea
           ref={answerTextareaRef}
           placeholder="Speak naturally — mic starts automatically. Or type here."
-          className={`min-h-[56px] max-h-[24vh] text-sm resize-none bg-gray-50 border-gray-200 text-secondary placeholder:text-muted-foreground/60 focus-visible:ring-primary ${
+          className={`min-h-[48px] max-h-[16vh] text-sm resize-none bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400 focus-visible:ring-primary ${
             isRecording ? "border-green-500/50" : ""
           }`}
           value={isRecording && speech.interimTranscript ? answer + " " + speech.interimTranscript : answer}
@@ -2124,7 +2124,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
               ? speech.status === "warming"
                 ? "bg-amber-100 text-amber-700 border border-amber-300"
                 : "bg-green-100 text-green-700 border border-green-300"
-              : "bg-gray-100 text-muted-foreground"
+              : "bg-slate-100 text-slate-500"
           }`}>
             {isRecording ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
             {isRecording
@@ -2143,7 +2143,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             size="sm"
             onClick={toggleRecording}
             disabled={!speech.isSupported}
-            className="text-muted-foreground hover:text-secondary hover:bg-gray-100 text-xs shrink-0"
+            className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xs shrink-0"
           >
             {autoListenEnabled ? "Pause mic" : "Resume mic"}
           </Button>
