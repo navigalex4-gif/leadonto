@@ -150,6 +150,7 @@ export function AnimatedAvatar({
   gender = "female",
   size = "md",
   imageSrc,
+  hideCaption = false,
 }: AvatarProps) {
   const [imgFailed, setImgFailed] = useState(false);
   // Live, audio-driven mouth shape — closed (0,0) whenever this avatar isn't
@@ -205,10 +206,12 @@ export function AnimatedAvatar({
         </span>
       </div>
 
-      <div className="text-center">
-        <p className="text-xs font-bold text-secondary leading-tight">{name}</p>
-        <p className="text-[10px] text-muted-foreground leading-tight">{subtitle}</p>
-      </div>
+      {!hideCaption && (
+        <div className="text-center">
+          <p className="text-xs font-bold text-secondary leading-tight">{name}</p>
+          <p className="text-[10px] text-muted-foreground leading-tight">{subtitle}</p>
+        </div>
+      )}
     </div>
   );
 }

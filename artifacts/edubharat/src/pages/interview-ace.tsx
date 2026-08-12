@@ -1980,7 +1980,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Main video area — Meet-style stage: the candidate is the main
           video and the interviewer stays visible in a picture-in-picture tile. ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-3">
-        <div className="relative flex-1 min-h-0 rounded-2xl bg-black border border-white/10 shadow-sm overflow-hidden">
+        <div className="relative flex-1 min-h-[170px] rounded-2xl bg-black border border-white/10 shadow-sm overflow-hidden">
 
           {/* Candidate main stage */}
           <div className="absolute inset-0 bg-black overflow-hidden">
@@ -2013,7 +2013,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 bottom-3 z-10 w-44 sm:w-52 rounded-2xl bg-[#202124] border border-white/20 shadow-2xl flex flex-col items-center justify-center gap-1.5 p-2.5 overflow-hidden">
+          <div className="absolute right-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-[#202124] border border-white/20 shadow-2xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
@@ -2027,8 +2027,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 isSpeaking={synth.isSpeaking}
                 isThinking={isStreaming || coachThinking}
                 gender={coach.gender}
-                size="lg"
+                size="sm"
                 imageSrc={coach.imageSrc}
+                hideCaption
               />
             </div>
 
@@ -2037,12 +2038,12 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 CSS pulse, so the bars genuinely move with what's being said. */}
             {synth.isSpeaking && (
               <>
-                <div className="flex items-end gap-1 h-5">
+                <div className="flex items-end gap-1 h-4">
                   {[0, 1, 2, 3, 4, 5, 6].map((i) => {
                     // Stagger each bar slightly off the shared amplitude so the
                     // row reads as a waveform, not seven identical bars.
                     const wobble = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.7 + mouth.width * 3));
-                    const h = Math.max(3, Math.round(mouth.openness * 18 * wobble));
+                    const h = Math.max(2, Math.round(mouth.openness * 14 * wobble));
                     return (
                       <div
                         key={i}

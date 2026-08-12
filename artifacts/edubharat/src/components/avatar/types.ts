@@ -13,6 +13,9 @@ export interface AvatarProps {
   size?: "sm" | "md" | "lg" | "xl";
   imageSrc?: string;
   providerConfig?: AvatarProviderConfig;
+  /** Skip the internal name/subtitle caption — use when the caller already
+   *  shows the name elsewhere (e.g. a cramped picture-in-picture tile). */
+  hideCaption?: boolean;
 }
 
 export interface TutorPersona {

@@ -64,3 +64,4 @@
 - [Live learning exports](live-learning-exports.md) — shared text/CSV downloads and Pause-vs-End semantics keep learning outputs portable and sessions recoverable.
 - [Expo publish Metro port](expo-publish-metro-port.md) — static mobile builds must avoid fixed Metro 8081 conflicts in the multi-artifact workspace.
 - [Mobile parity runtime](mobile-parity-runtime.md) — stack screens need safe-area-only fallback; API calls must use injected Replit host, not the Expo preview host.
+- [Interview Ace PiP layout](interview-pip-layout.md) — bottom-anchored PiP inside overflow-hidden stage clips at the TOP if content is too tall; watch for duplicate name captions.
