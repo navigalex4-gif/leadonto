@@ -2033,7 +2033,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 top-3 bottom-3 z-10 w-32 sm:w-40 max-h-[92%] rounded-2xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+          <div className="absolute right-3 top-3 bottom-3 z-10 w-[46%] sm:w-[48%] rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
@@ -2113,7 +2113,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       <div className="shrink-0 bg-white border-t border-slate-200 px-4 pt-2 pb-2 space-y-2 shadow-[0_-4px_16px_rgba(15,23,42,0.05)]">
         <Textarea
           ref={answerTextareaRef}
-          placeholder="Speak naturally — mic starts automatically. Or type here."
+          placeholder="Speak naturally — mic starts automatically. You can also use your native language."
           className={`min-h-[28px] max-h-[8vh] text-sm resize-none bg-slate-50 border-slate-200 text-slate-700 placeholder:text-slate-400 focus-visible:ring-primary ${
             isRecording ? "border-green-500/50" : ""
           }`}
