@@ -270,14 +270,11 @@ export default function CommunicationCheck() {
 
     // The acknowledgement is spoken immediately. Keep it short and natural so
     // the interviewer sounds conversational before the next question arrives.
-    const acknowledgements = [
-      "Okay, got it.",
-      "Alright, I understand.",
-      "Okay, that makes sense.",
-      "Got it.",
-    ];
+    // Only "Okay." or "Got it." — never combined, alternated so it doesn't
+    // feel scripted.
+    const acknowledgements = ["Okay.", "Got it."];
     const acknowledgementFinished = new Promise<void>((resolve) => {
-      speak(acknowledgements[(nextAnswers.length - 1) % acknowledgements.length] ?? "Okay, got it.", resolve);
+      speak(acknowledgements[(nextAnswers.length - 1) % acknowledgements.length] ?? "Okay.", resolve);
     });
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {

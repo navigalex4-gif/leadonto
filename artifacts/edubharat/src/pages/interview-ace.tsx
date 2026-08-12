@@ -177,15 +177,69 @@ const INTERVIEW_FALLBACK_QUESTIONS = [
 ];
 
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
-  education: ["Which part of your education has prepared you best for this role?"],
-  personality: ["What do you enjoy doing when you are not working or studying?"],
-  adaptability: ["What is one new skill or tool you would feel comfortable learning for this role?"],
-  problemSolving: ["When a problem is unclear, what is the first step you usually take?"],
-  ownership: ["Tell me about a task you took responsibility for from start to finish."],
-  collaboration: ["How do you usually handle a disagreement with a teammate?"],
-  itSkills: ["Which digital tool do you use confidently, and how does it help you?"],
-  domainKnowledge: ["What practical part of this role would you most like to strengthen?"],
+  education: [
+    "Which part of your education has prepared you best for this role?",
+    "What subject or project from your studies do you feel most confident talking about?",
+    "Was there a course or project that changed how you think about work?",
+  ],
+  personality: [
+    "What's something you enjoy doing outside work or studies that helps you recharge?",
+    "If you had a completely free weekend, how would you spend it?",
+    "What's a hobby or interest people are often surprised to learn about you?",
+    "What's something you've gotten better at recently, just for yourself?",
+  ],
+  adaptability: [
+    "Tell me about a time you had to quickly learn something new for a task.",
+    "How do you usually react when plans change at the last minute?",
+    "What's one skill you're currently trying to build or improve?",
+    "How do you typically respond when feedback catches you off guard?",
+  ],
+  problemSolving: [
+    "Walk me through how you'd tackle a problem you've never seen before.",
+    "When you're stuck on something, what's usually the first thing you try?",
+    "Describe a time you had to make a decision without all the information you wanted.",
+  ],
+  ownership: [
+    "Tell me about something you saw through from start to finish, even when it got hard.",
+    "Describe a time no one was checking on your work — what did you do?",
+    "When have you caught your own mistake before someone else did?",
+  ],
+  collaboration: [
+    "How do you usually handle a disagreement with a teammate?",
+    "Tell me about a time you had to work closely with someone very different from you.",
+    "What does being a good team player mean to you?",
+  ],
+  itSkills: [
+    "Which digital tool or app do you use confidently, and how does it help you?",
+    "How comfortable are you picking up new software or systems on the job?",
+    "What's your approach to keeping your work and data organised digitally?",
+  ],
+  domainKnowledge: [],
 };
+
+/** Functional/domain fallback questions woven around the actual role label, so
+ *  even a fallback question still sounds tied to the job being interviewed for
+ *  rather than generic. */
+function domainFallbackQuestions(roleLabel: string): string[] {
+  return [
+    `What part of a ${roleLabel} role do you think you'd pick up the fastest?`,
+    `What's one thing about ${roleLabel} work you're still figuring out?`,
+    `If you started this ${roleLabel} role tomorrow, what would you want to learn first?`,
+    `What do you think separates someone average at ${roleLabel} work from someone really good at it?`,
+  ];
+}
+
+/** Simple Fisher-Yates shuffle so repeated fallbacks (which happen whenever the
+ *  AI stream is slow) don't hand every candidate the exact same question in the
+ *  exact same order. */
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
 
 function normalizeInterviewQuestion(text: string): string {
   return cleanForSpeech(text)
@@ -215,10 +269,14 @@ function isCannedInterviewQuestion(question: string): boolean {
   );
 }
 
-function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string): string {
+function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, roleLabel: string): string {
+  // Area-specific bank first (shuffled, so repeated fallbacks vary between
+  // sessions and within one), domain questions woven around the actual role,
+  // then the generic bank as a last resort.
   const candidates = [
-    ...(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
-    ...INTERVIEW_FALLBACK_QUESTIONS,
+    ...shuffled(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
+    ...(areaKey === "domainKnowledge" ? shuffled(domainFallbackQuestions(roleLabel)) : []),
+    ...shuffled(INTERVIEW_FALLBACK_QUESTIONS),
   ];
   return candidates.find(question =>
     !isRepeatedInterviewQuestion(question, askedQuestions) && !isCannedInterviewQuestion(question),
@@ -563,6 +621,9 @@ function InterviewAceContent() {
   // question targets. Advances one beat per answered question so consecutive
   // questions cover DIFFERENT areas instead of chaining the same topic.
   const beatIdxRef = useRef(0);
+  // Tracks the last spoken acknowledgement ("Okay." | "Got it.") so consecutive
+  // turns alternate rather than repeating the same word every time.
+  const lastAckRef = useRef<"Okay." | "Got it.">("Got it.");
   // Retries on the current beat, for the 2-attempt rule: a weak answer earns ONE
   // gentle re-ask; after that we move on to a fresh area rather than dwelling.
   const retryRef = useRef(0);
@@ -990,8 +1051,13 @@ Rules:
     const minWaitPromise = new Promise<void>(resolve => setTimeout(resolve, 700));
 
     // Hard deadline: if the AI hasn't replied in time, inject a fallback so the
-    // interviewer ALWAYS starts speaking within ~2 s of the candidate stopping.
-    const STREAM_DEADLINE_MS = 1600;
+    // interviewer ALWAYS starts speaking within a few seconds of the candidate
+    // stopping. Claude's real streaming latency for this call size commonly runs
+    // 1.2-2.5 s (occasionally more), so a too-tight deadline here silently turns
+    // almost every turn into a generic fallback question — this value gives the
+    // real, role-aware AI question room to land while still keeping the total
+    // pause well under the 4 s response promise.
+    const STREAM_DEADLINE_MS = 3200;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1001,7 +1067,7 @@ Rules:
     // sits in silence while the model/network are still working. Short and
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
-    const quickAcks = ["Okay.", "Alright.", "Got it.", "I see.", "Right."];
+    const quickAcks = ["Okay.", "Got it."];
     speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, rate: 1.1 });
 
     setCoachThinking(true);
@@ -1028,8 +1094,8 @@ STYLE — important:
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
 - This is a formal interview, not a chat. Never use the word "chat" in any spoken response or question.
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
-- Start with a brief, natural reaction tied to something the candidate actually said. It may be a fragment such as "That sounds like a busy launch" or "I can see why that was tricky." Do not use the same stock acknowledgement twice, and do not praise automatically.
-- After that reaction, ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. A short bridge such as "And when that happened…" is fine when it genuinely connects.
+- Start with a one-word acknowledgement — ONLY "Okay" or "Got it", nothing else, and never both together (never "Okay, got it"). Pick whichever fits naturally; do not use the same one every single turn.
+- After that one-word acknowledgement, bridge naturally into your question — a short, real transition such as "So," or "Now," or referencing something they just said. Then ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
 - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.
 - LANGUAGE LEVEL: By default ask in SIMPLE, clear, everyday English — short sentences, common words — because many candidates are from average English-medium colleges. Judge ${firstName}'s own English from their answers so far: if they are clearly fluent and comfortable, you may use richer vocabulary and slightly more complex questions to match them; if they struggle, make your wording even simpler. Never make a question harder to follow than the candidate can handle.
@@ -1038,8 +1104,8 @@ STYLE — important:
 - The Next line must be the question ONLY — no greeting, no preamble, no name.
 
 Output format — exactly two lines, nothing else:
-Ack: <brief, natural reaction tied to the candidate's answer, max ~10 words>
-Next: <the interview question only>`,
+Ack: <exactly "Okay" or "Got it" — nothing else, never both>
+Next: <the interview question only, may start with a short natural bridge>`,
           `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
@@ -1048,7 +1114,7 @@ Next: <the interview question only>`,
       ]);
     } catch {
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
       response = `Ack: I see.\nNext: ${fallback}`;
     }
 
@@ -1056,7 +1122,7 @@ Next: <the interview question only>`,
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
       response = `Ack: I see.\nNext: ${fallback}`;
     }
 
@@ -1103,7 +1169,7 @@ Next: <the interview question only>`,
 
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
       acknowledgment = "Understood.";
     }
 
@@ -1111,8 +1177,18 @@ Next: <the interview question only>`,
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
     ) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key);
-      if (acknowledgment === "Thank you.") acknowledgment = "I see.";
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
+    }
+
+    // Enforce the one-word acknowledgement rule regardless of what the model or
+    // any parsing fallback produced: only "Okay." or "Got it.", never both
+    // together, never any other stock phrase ("I see.", "Understood.", etc.).
+    if (!/^(okay|got it)\.?$/i.test(acknowledgment.trim())) {
+      const nextAck: "Okay." | "Got it." = lastAckRef.current === "Okay." ? "Got it." : "Okay.";
+      acknowledgment = nextAck;
+      lastAckRef.current = nextAck;
+    } else {
+      lastAckRef.current = /^okay\.?$/i.test(acknowledgment.trim()) ? "Okay." : "Got it.";
     }
 
     // ── Enforce under-4s response window ──────────────────────────────────────
@@ -1121,9 +1197,10 @@ Next: <the interview question only>`,
     // Guard: interview may have ended during stream/minWait — don't continue.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     // Step 2: wait any remaining time up to naturalPauseMs, but hard-clamp against
-    // the absolute wall-clock budget (2 000 ms from thinkStart) so TTS can begin
-    // comfortably before the four-second response promise.
-    const wallRemaining = 2000 - (Date.now() - thinkStart);
+    // the absolute wall-clock budget from thinkStart so TTS can begin comfortably
+    // before the four-second response promise (the stream itself may already
+    // have used most of STREAM_DEADLINE_MS, in which case this adds nothing).
+    const wallRemaining = 3600 - (Date.now() - thinkStart);
     const targetRemaining = naturalPauseMs - (Date.now() - thinkStart);
     const remainingWait = Math.min(wallRemaining, targetRemaining);
     if (remainingWait > 0) {
@@ -1873,102 +1950,134 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
   // ── Interview — Video Call Mode ────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col z-[9999]" style={{ top: 56 }}>
+    <div className="fixed inset-0 bg-gradient-to-b from-orange-50/70 via-white to-primary/5 flex flex-col z-[9999]" style={{ top: 56 }}>
 
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent z-10 pointer-events-none">
-        <div className="flex items-center gap-2">
-          <span className="text-white text-sm font-bold">{displayCoachName}</span>
-          <span className="text-white/50 text-xs">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
+      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-white/90 backdrop-blur-sm border-b border-gray-200 z-10">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-secondary text-sm font-bold truncate">{displayCoachName}</span>
+          <span className="text-muted-foreground text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
-        <div className="flex items-center gap-2 text-white/80 text-sm font-bold">
-          <Timer className="w-4 h-4" />
-          <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-400" : ""}>
+        <div className="flex items-center gap-1.5 text-secondary text-sm font-bold shrink-0">
+          <Timer className="w-4 h-4 text-primary" />
+          <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500" : ""}>
             {formatTime(elapsedSeconds)} / {duration}:00
           </span>
         </div>
       </div>
 
       {/* ── Progress bar under HUD ──────────────────────────────────────── */}
-      <div className="absolute top-11 left-0 right-0 h-0.5 bg-white/10 z-10">
+      <div className="shrink-0 h-0.5 bg-gray-200 z-10">
         <div
           className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 30 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (elapsedSeconds / (duration * 60)) * 100)}%` }}
         />
       </div>
 
-      {/* ── Main video area ─────────────────────────────────────────────── */}
-      <div className="flex-1 relative flex flex-col overflow-hidden">
+      {/* ── Main video area — interviewer and candidate side by side, each in
+          their own clearly visible tile (previously the candidate was a tiny
+          corner PiP and the interviewer sat in a large empty dark region). ── */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-3">
+        <div className="flex-1 min-h-0 grid grid-cols-2 gap-3">
 
-        {/* AI avatar — central "video". Kept in its own flex-1 region so the
-            question caption below always has reserved space and can NEVER overlap
-            the interviewer's face, even on short viewports (the old absolutely
-            positioned caption covered the face on laptops with little vertical
-            room). */}
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 px-4 pt-14 pb-2">
-          <div
-            className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
-            style={synth.isSpeaking ? { boxShadow: "0 0 0 12px rgba(249,115,22,0.15), 0 0 0 24px rgba(249,115,22,0.07)" } : {}}
-            onClick={synth.isSpeaking ? interruptCoach : undefined}
-            role={synth.isSpeaking ? "button" : undefined}
-            aria-label={synth.isSpeaking ? "Tap to interrupt and respond" : undefined}
-          >
-            <AnimatedAvatar
-              name={displayCoachName}
-              subtitle={coach.role}
-              isSpeaking={synth.isSpeaking}
-              isThinking={isStreaming || coachThinking}
-              gender={coach.gender}
-              size="lg"
-              imageSrc={coach.imageSrc}
-            />
+          {/* Interviewer tile */}
+          <div className="relative rounded-2xl bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center gap-2 p-3 overflow-hidden">
+            <div
+              className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
+              style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
+              onClick={synth.isSpeaking ? interruptCoach : undefined}
+              role={synth.isSpeaking ? "button" : undefined}
+              aria-label={synth.isSpeaking ? "Tap to interrupt and respond" : undefined}
+            >
+              <AnimatedAvatar
+                name={displayCoachName}
+                subtitle={coach.role}
+                isSpeaking={synth.isSpeaking}
+                isThinking={isStreaming || coachThinking}
+                gender={coach.gender}
+                size="xl"
+                imageSrc={coach.imageSrc}
+              />
+            </div>
+
+            {/* Voice visualiser bars — heights track the coach's ACTUAL live
+                audio loudness (same signal driving lip-sync), not a fixed
+                CSS pulse, so the bars genuinely move with what's being said. */}
+            {synth.isSpeaking && (
+              <>
+                <div className="flex items-end gap-1 h-5">
+                  {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+                    // Stagger each bar slightly off the shared amplitude so the
+                    // row reads as a waveform, not seven identical bars.
+                    const wobble = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.7 + mouth.width * 3));
+                    const h = Math.max(3, Math.round(mouth.openness * 18 * wobble));
+                    return (
+                      <div
+                        key={i}
+                        className="w-1.5 rounded-full bg-primary"
+                        style={{ height: h, transition: "height 60ms linear" }}
+                      />
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={interruptCoach}
+                  className="text-[10px] text-muted-foreground hover:text-primary underline underline-offset-2"
+                >
+                  Tap to interrupt
+                </button>
+              </>
+            )}
+            {(isStreaming || coachThinking) && !synth.isSpeaking && (
+              <p className="text-muted-foreground text-[11px] animate-pulse absolute bottom-2">{displayCoachName} is thinking…</p>
+            )}
           </div>
 
-          {/* Voice visualiser bars — heights track the coach's ACTUAL live
-              audio loudness (same signal driving lip-sync), not a fixed
-              CSS pulse, so the bars genuinely move with what's being said. */}
-          {synth.isSpeaking && (
-            <>
-              <div className="flex items-end gap-1 h-6">
-                {[0, 1, 2, 3, 4, 5, 6].map((i) => {
-                  // Stagger each bar slightly off the shared amplitude so the
-                  // row reads as a waveform, not seven identical bars.
-                  const wobble = 0.55 + 0.45 * Math.abs(Math.sin(i * 1.7 + mouth.width * 3));
-                  const h = Math.max(4, Math.round(mouth.openness * 22 * wobble));
-                  return (
-                    <div
-                      key={i}
-                      className="w-1.5 rounded-full bg-primary"
-                      style={{ height: h, transition: "height 60ms linear" }}
-                    />
-                  );
-                })}
+          {/* Candidate webcam tile — now a full-size tile matching the
+              interviewer's, not a tiny corner overlay. */}
+          <div className="relative rounded-2xl bg-gray-100 border border-gray-200 shadow-sm overflow-hidden">
+            {cameraOn ? (
+              <video
+                ref={webcamRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: "scaleX(-1)" }}
+                onLoadedMetadata={e => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <VideoOff className="w-7 h-7" />
+                <span className="text-xs">{cameraError ? "No camera" : "Camera off"}</span>
               </div>
-              <button
-                type="button"
-                onClick={interruptCoach}
-                className="text-[11px] text-white/60 hover:text-white/90 underline underline-offset-2"
-              >
-                Tap to interrupt
-              </button>
-            </>
-          )}
-          {(isStreaming || coachThinking) && !synth.isSpeaking && (
-            <p className="text-white/50 text-xs animate-pulse">{displayCoachName} is thinking…</p>
-          )}
+            )}
+            <div className="absolute bottom-2 left-2 text-[11px] font-bold text-white bg-black/50 rounded-full px-2 py-0.5">You</div>
+            {/* Camera permission toggle */}
+            <button
+              className="absolute top-2 right-2"
+              onClick={cameraOn ? stopWebcam : () => void startWebcam()}
+              title={cameraOn ? "Turn off camera" : "Enable camera (optional)"}
+            >
+              <span className="bg-black/50 text-white text-[10px] px-2 py-1 rounded-full hover:bg-black/70 transition-colors">
+                {cameraOn ? "📷 Off" : "📷 Enable"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        {/* Current question — in normal flow directly BELOW the avatar (never over
-            it); scrolls internally if a question is very long. */}
+        {/* Current question — light card, reduced text size, scrolls internally
+            if a question is very long. */}
         {currentQ && (
-          <div className="shrink-0 px-4 pb-3">
-            <div className="bg-black/70 backdrop-blur-sm rounded-2xl px-4 py-3 max-w-2xl mx-auto text-center max-h-[38vh] overflow-y-auto">
-              <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">
+          <div className="shrink-0 pb-1">
+            <div className="bg-primary/5 border border-primary/10 rounded-2xl px-4 py-2.5 max-w-2xl mx-auto text-center max-h-[26vh] overflow-y-auto">
+              <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-widest mb-1">
                 Question {currentIdx + 1} · {answeredCount} answered
               </p>
-              <p className="text-white text-sm sm:text-base font-semibold leading-snug">{currentQ.question}</p>
+              <p className="text-secondary text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
               <button
-                className="mt-2 text-primary/70 hover:text-primary text-xs flex items-center gap-1 mx-auto"
+                className="mt-1.5 text-primary/70 hover:text-primary text-[11px] flex items-center gap-1 mx-auto"
                 onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
               >
                 <Volume2 className="w-3 h-3" /> Repeat question
@@ -1976,46 +2085,13 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             </div>
           </div>
         )}
-
-        {/* User webcam — PiP corner */}
-        <div className="absolute top-14 right-3 w-24 h-18 sm:w-32 sm:h-24 rounded-xl overflow-hidden border border-white/20 shadow-2xl bg-gray-800">
-          {cameraOn ? (
-            <video
-              ref={webcamRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
-              onLoadedMetadata={e => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-white/30">
-              <VideoOff className="w-5 h-5" />
-              <span className="text-[9px]">{cameraError ? "No camera" : "Camera off"}</span>
-            </div>
-          )}
-          <div className="absolute bottom-1 right-1.5 text-[9px] text-white/50 font-bold">You</div>
-        </div>
-
-        {/* Camera permission toggle — always visible */}
-        <button
-          className="absolute top-14 right-3 w-24 sm:w-32 flex items-center justify-center"
-          style={{ top: "calc(3.5rem + 76px + 4px)" }}
-          onClick={cameraOn ? stopWebcam : () => void startWebcam()}
-          title={cameraOn ? "Turn off camera" : "Enable camera (optional)"}
-        >
-          <span className="bg-black/70 text-white/80 text-[9px] px-2 py-0.5 rounded-full hover:bg-black/90 transition-colors">
-            {cameraOn ? "📷 Off" : "📷 Enable"}
-          </span>
-        </button>
       </div>
 
       {/* ── Bottom answer + controls ─────────────────────────────────────── */}
-      <div className="bg-gray-900 border-t border-white/10 px-4 pt-3 pb-4 space-y-3">
+      <div className="shrink-0 bg-white border-t border-gray-200 px-4 pt-3 pb-4 space-y-3">
         <Textarea
           placeholder="Speak naturally — mic starts automatically. Or type here."
-          className={`min-h-[90px] sm:min-h-[110px] text-sm resize-none bg-gray-800 border-gray-700 text-white placeholder:text-white/30 focus-visible:ring-primary ${
+          className={`min-h-[90px] sm:min-h-[110px] text-sm resize-none bg-gray-50 border-gray-200 text-secondary placeholder:text-muted-foreground/60 focus-visible:ring-primary ${
             isRecording ? "border-green-500/50" : ""
           }`}
           value={isRecording && speech.interimTranscript ? answer + " " + speech.interimTranscript : answer}
@@ -2027,9 +2103,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-colors ${
             isRecording
               ? speech.status === "warming"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                : "bg-green-500/20 text-green-400 border border-green-500/30"
-              : "bg-white/10 text-white/40"
+                ? "bg-amber-100 text-amber-700 border border-amber-300"
+                : "bg-green-100 text-green-700 border border-green-300"
+              : "bg-gray-100 text-muted-foreground"
           }`}>
             {isRecording ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
             {isRecording
@@ -2048,7 +2124,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             size="sm"
             onClick={toggleRecording}
             disabled={!speech.isSupported}
-            className="text-white/50 hover:text-white hover:bg-white/10 text-xs shrink-0"
+            className="text-muted-foreground hover:text-secondary hover:bg-gray-100 text-xs shrink-0"
           >
             {autoListenEnabled ? "Pause mic" : "Resume mic"}
           </Button>
@@ -2057,7 +2133,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             <Button
               variant="ghost"
               size="sm"
-              className="text-amber-300 hover:text-white hover:bg-white/10 text-xs shrink-0"
+              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 text-xs shrink-0"
               onClick={async () => {
                 if (navigator.mediaDevices?.getUserMedia) {
                   try {
@@ -2104,7 +2180,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           {/* End call — red hang-up button */}
           <button
             onClick={endEarly}
-            className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 active:scale-95 flex items-center justify-center shadow-lg shadow-red-900/40 transition-all shrink-0"
+            className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 active:scale-95 flex items-center justify-center shadow-lg shadow-red-900/20 transition-all shrink-0"
             title="End Interview"
           >
             <PhoneOff className="w-4 h-4 text-white" />
@@ -2112,7 +2188,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         </div>
 
         {isStreaming && (
-          <div className="flex items-center gap-2 text-xs text-white/40 animate-in fade-in">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground animate-in fade-in">
             <Loader2 className="w-3 h-3 animate-spin text-primary" />
             {displayCoachName} is preparing the next question…
           </div>

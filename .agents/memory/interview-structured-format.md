@@ -63,3 +63,23 @@ Implementation (all in `submitCurrentAnswer`, all declared BEFORE the stream cal
 
 # Scope
 The live AI interview lives ONLY in the web app (`artifacts/edubharat/src/pages/interview-ace.tsx`). Expo `interviews/*` screens only LIST past sessions — they do not generate questions, so interview-prompt changes there are N/A.
+
+# A too-tight stream deadline silently defeats AI question variety (fallback-domination bug)
+If `STREAM_DEADLINE_MS` (the race timeout on the per-turn AI question-generation stream) is set below Claude's real observed latency, the interview falls back to the static question bank on nearly every turn — this LOOKS like "the AI isn't generating varied questions" but the real cause is the fallback path winning the race almost always, not a flaw in the rotation/prompt logic.
+**Why:** diagnosed from a transcript where 7 of 11 questions matched the hardcoded fallback bank near-verbatim; empirical Claude latency for this call is commonly 1.1–2.5s and sometimes higher, so a ~1600ms deadline lost most races.
+**How to apply:** keep `STREAM_DEADLINE_MS` generously above observed p90 latency (currently 3200ms) and keep the fallback banks themselves high-quality as a safety net (3–4 shuffled, role/competency-aware questions per area via `shuffled()`, plus a `domainFallbackQuestions(roleLabel)` generator) — never a single static sentence per competency — since the fallback path still fires occasionally and must not feel repetitive when it does.
+
+# Spoken acknowledgement vocabulary is locked to exactly "Okay." / "Got it."
+Every interviewer turn's spoken acknowledgement before the next question must be ONE of these two words, alternated, never both combined ("Okay, got it." is banned) and never any other stock phrase ("I see.", "Understood.", "Alright.", "Right.", "Thank you."). Enforced by a final regex sanitize (`/^(okay|got it)\.?$/i`) that overrides whatever the AI/parsing produced, using a `lastAckRef` to alternate. This rule applies interview-system-wide — both `interview-ace.tsx` and the free `communication-check.tsx` assessment.
+**Why:** explicit user requirement; the AI and various fallback paths had drifted into a handful of different stock acknowledgements including a combined "Okay, got it." which the user singled out as wrong.
+**How to apply:** update the AI prompt's STYLE section AND the final sanitize logic together — the sanitize is a safety net, not a substitute for prompting the model correctly.
+
+# Video-call layout is light-themed and camera-tile-balanced (interview-ace.tsx only)
+The live interview screen uses a light theme (not dark) and a `grid grid-cols-2` split of two similarly-sized tiles — interviewer avatar (bumped to `size="xl"`) and candidate webcam — instead of a small centered avatar with a tiny corner webcam PiP. Question caption text is compact (`text-xs sm:text-sm`), not a large headline.
+**Why:** explicit user request after reviewing a transcript/screenshot of the old dark, avatar-small/webcam-tiny layout.
+**How to apply:** this scope is Interview-Ace-specific (the "video call" screen); `communication-check.tsx` already used a lighter theme before this change and was not restyled.
+
+# Testing the no-reply watchdog with a Playwright tester is misleading
+The 30s-ish no-reply watchdog (see above) reliably fires during automated Playwright testing because the testing subagent's own per-step verification/reasoning overhead (screenshotting, describing, analyzing) often exceeds the watchdog window between a question appearing and the next answer being submitted. An interview that "ends after 1-2 questions" during a test run is very often this watchdog working as designed, not a regression — cross-check the API server log timestamps for a gap near/above the watchdog threshold between the last TTS call and the next AI stream call before concluding it's a bug.
+**Why:** wasted a full test cycle chasing a false-positive "premature termination" failure; server log timing (a 46s gap between calls) confirmed the watchdog, not a crash.
+**How to apply:** when writing a test plan for multi-question interview flows, explicitly instruct the tester to submit each answer within ~10-15s of the question appearing and defer detailed analysis until after the full question set is collected.
