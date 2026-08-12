@@ -638,6 +638,22 @@ function InterviewAceContent() {
   // every tick/end so this tab can only bill/clear the interview it started.
   const interviewIdRef = useRef<string | null>(null);
   const answerRef = useRef("");
+  const answerTextareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const textarea = answerTextareaRef.current;
+    if (!textarea) return;
+
+    // Keep a short answer compact so the video stage gets the available
+    // viewport height. Long answers grow until the answer panel's viewport
+    // budget is reached, then scroll internally instead of pushing controls
+    // below the fold.
+    textarea.style.height = "auto";
+    const minHeight = 56;
+    const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.24));
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [answer, speech.interimTranscript]);
   // Webcam for video call mode
   const webcamRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
@@ -2092,8 +2108,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
       {/* ── Bottom answer + controls ─────────────────────────────────────── */}
       <div className="shrink-0 bg-white border-t border-gray-200 px-4 pt-3 pb-4 space-y-3">
         <Textarea
+          ref={answerTextareaRef}
           placeholder="Speak naturally — mic starts automatically. Or type here."
-          className={`min-h-[90px] sm:min-h-[110px] text-sm resize-none bg-gray-50 border-gray-200 text-secondary placeholder:text-muted-foreground/60 focus-visible:ring-primary ${
+          className={`min-h-[56px] max-h-[24vh] text-sm resize-none bg-gray-50 border-gray-200 text-secondary placeholder:text-muted-foreground/60 focus-visible:ring-primary ${
             isRecording ? "border-green-500/50" : ""
           }`}
           value={isRecording && speech.interimTranscript ? answer + " " + speech.interimTranscript : answer}
