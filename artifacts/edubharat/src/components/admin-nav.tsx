@@ -17,8 +17,8 @@ const TABS = [
 export function AdminNav() {
   const [location] = useLocation();
   return (
-    <aside className="mb-6 lg:sticky lg:top-4 lg:float-left lg:mr-6 lg:w-48 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-2 lg:shadow-sm">
-      <nav className="flex items-center gap-1 overflow-x-auto border-b border-border pb-1 lg:flex-col lg:items-stretch lg:overflow-x-visible lg:border-b-0 lg:pb-0" aria-label="Admin sections">
+    <aside className="mb-6 lg:float-left lg:mr-6 lg:h-[calc(100vh-7rem)] lg:w-48 lg:shrink-0">
+      <nav className="flex items-center gap-1 overflow-x-auto border-b border-border pb-1 lg:sticky lg:top-4 lg:flex-col lg:items-stretch lg:overflow-x-visible lg:overflow-y-auto lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-2 lg:pb-2 lg:shadow-sm lg:max-h-[calc(100vh-7rem)]" aria-label="Admin sections">
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = location === href || (href === "/admin-payments" && location === "/admin");
         return (
