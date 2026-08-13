@@ -174,9 +174,10 @@ export default function AdminEmail() {
     <>
       <PageMeta title="Email Settings — Admin" description="Resend domain verification and DNS records for leadonto.com email delivery." />
       <div className="min-h-screen bg-muted/30">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
           <AdminNav />
 
+          <main className="min-w-0">
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -433,6 +434,7 @@ export default function AdminEmail() {
           ) : (
             <p className="text-muted-foreground text-sm">No domain data available.</p>
           )}
+          </main>
         </div>
       </div>
     </>

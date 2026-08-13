@@ -91,10 +91,11 @@ export default function AdminContent() {
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto px-4 max-w-4xl py-8">
+    <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="Content · Admin · Lead Onto" description="Edit page text" />
       <AdminNav />
 
+      <main className="min-w-0">
       <div className="flex items-center gap-3 mb-2">
         <FileText className="w-6 h-6 text-primary" />
         <h1 className="text-2xl font-display font-bold text-secondary">Page content</h1>
@@ -192,6 +193,7 @@ export default function AdminContent() {
           </div>
         );
       })}
+      </main>
     </div>
   );
 }

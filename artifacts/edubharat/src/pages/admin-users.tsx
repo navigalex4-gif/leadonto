@@ -166,10 +166,11 @@ export default function AdminUsers() {
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto px-4 max-w-4xl py-8">
+    <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="Users · Admin · Lead Onto" description="User directory" />
       <AdminNav />
 
+      <main className="min-w-0">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <UsersIcon className="w-6 h-6 text-primary" />
@@ -346,6 +347,7 @@ export default function AdminUsers() {
           })}
         </div>
       )}
+      </main>
     </div>
   );
 }

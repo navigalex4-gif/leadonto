@@ -135,10 +135,11 @@ export default function AdminB2B() {
   const pending = payments.filter((p) => p.status === "pending");
 
   return (
-    <div className="container mx-auto px-4 max-w-4xl py-8">
+    <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="B2B Payments · Admin · Lead Onto" description="Manage B2B company credit top-ups" />
       <AdminNav />
 
+      <main className="min-w-0">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Building2 className="w-6 h-6 text-primary" />
@@ -252,6 +253,7 @@ export default function AdminB2B() {
           ))}
         </div>
       )}
+      </main>
     </div>
   );
 }

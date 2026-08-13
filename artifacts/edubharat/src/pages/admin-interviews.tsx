@@ -218,10 +218,11 @@ export default function AdminInterviews() {
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto px-4 max-w-4xl py-8">
+    <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="Interview Candidates · Admin · Lead Onto" description="Interview candidates directory" />
       <AdminNav />
 
+      <main className="min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
@@ -464,6 +465,7 @@ export default function AdminInterviews() {
           })}
         </div>
       )}
+      </main>
     </div>
   );
 }

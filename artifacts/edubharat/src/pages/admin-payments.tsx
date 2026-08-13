@@ -163,10 +163,11 @@ export default function AdminPayments() {
   const done = visiblePayments.filter((p) => p.status !== "pending");
 
   return (
-    <div className="container mx-auto px-4 max-w-4xl py-8">
+    <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="Payments · Admin · Lead Onto" description="Manage UPI payment approvals" />
       <AdminNav />
 
+      <main className="min-w-0">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ShieldAlert className="w-6 h-6 text-primary" />
@@ -353,6 +354,7 @@ export default function AdminPayments() {
           </div>
         </>
       )}
+      </main>
     </div>
   );
 }

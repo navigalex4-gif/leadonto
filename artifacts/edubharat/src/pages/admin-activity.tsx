@@ -108,10 +108,11 @@ export default function AdminActivity() {
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-8">
+    <div className="container mx-auto max-w-5xl px-4 py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
       <PageMeta title="Activity · Admin · Lead Onto" description="Anonymous visitor and signed-in activity" />
       <AdminNav />
 
+      <main className="min-w-0">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Activity className="h-6 w-6 text-primary" />
@@ -261,6 +262,7 @@ export default function AdminActivity() {
           ))}
         </div>
       )}
+      </main>
     </div>
   );
 }
