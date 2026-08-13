@@ -50,7 +50,7 @@ export default function AdminActivity() {
   const [query, setQuery] = useState("");
   const [eventFilter, setEventFilter] = useState("all");
   const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
-  const [locationFilter, setLocationFilter] = useState("all");
+  const [locationFilters, setLocationFilters] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const isAdmin = user?.isAdmin === true;
 
@@ -85,13 +85,13 @@ export default function AdminActivity() {
       if (eventFilter !== "all" && row.event !== eventFilter) return false;
       if (visitorFilter === "anonymous" && row.userId !== null) return false;
       if (visitorFilter === "signed-in" && row.userId === null) return false;
-      if (locationFilter !== "all" && (row.location || "Location unavailable") !== locationFilter) return false;
+      if (locationFilters.length > 0 && !locationFilters.includes(row.location || "Location unavailable")) return false;
       if (!q) return true;
       return [row.event, row.path, row.ipAddress, row.location, row.anonymousId, row.userName, row.userEmail, row.userAgent]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [rows, query, eventFilter, visitorFilter, locationFilter]);
+  }, [rows, query, eventFilter, visitorFilter, locationFilters]);
 
   const eventOptions = useMemo(
     () => Array.from(new Set(rows.map((row) => row.event))).sort(),
@@ -184,15 +184,44 @@ export default function AdminActivity() {
           </label>
           <label htmlFor="activity-location-filter" className="text-xs font-semibold text-muted-foreground">
             Location
-            <select
-              id="activity-location-filter"
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
-              value={locationFilter}
-              onChange={(event) => setLocationFilter(event.target.value)}
-            >
-              <option value="all">All locations</option>
-              {locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}
-            </select>
+            <details className="group relative mt-1">
+              <summary
+                id="activity-location-filter"
+                className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary [&::-webkit-details-marker]:hidden"
+              >
+                <span>{locationFilters.length ? `${locationFilters.length} location${locationFilters.length === 1 ? "" : "s"} selected` : "All locations"}</span>
+                <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background p-2 shadow-xl">
+                <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm font-semibold text-secondary hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    checked={locationFilters.length === 0}
+                    onChange={() => setLocationFilters([])}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  All locations
+                </label>
+                <div className="my-1 border-t border-border" />
+                {locationOptions.map((location) => (
+                  <label key={location} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm font-normal text-secondary hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={locationFilters.includes(location)}
+                      onChange={(event) => {
+                        setLocationFilters((current) =>
+                          event.target.checked
+                            ? [...current, location]
+                            : current.filter((selected) => selected !== location),
+                        );
+                      }}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                    />
+                    <span>{location}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
           </label>
         </div>
       </div>

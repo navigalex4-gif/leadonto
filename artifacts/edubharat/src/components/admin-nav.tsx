@@ -17,17 +17,18 @@ const TABS = [
 export function AdminNav() {
   const [location] = useLocation();
   return (
-    <div className="flex items-center gap-1 mb-6 border-b border-border overflow-x-auto">
+    <aside className="mb-6 lg:sticky lg:top-4 lg:float-left lg:mr-6 lg:w-48 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-2 lg:shadow-sm">
+      <nav className="flex items-center gap-1 overflow-x-auto border-b border-border pb-1 lg:flex-col lg:items-stretch lg:overflow-x-visible lg:border-b-0 lg:pb-0" aria-label="Admin sections">
       {TABS.map(({ href, label, icon: Icon }) => {
         const active = location === href || (href === "/admin-payments" && location === "/admin");
         return (
           <Link
             key={href}
             href={href}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors lg:border-b-0 lg:border-l-2 lg:-ml-2 ${
               active
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-secondary"
+                ? "border-primary text-primary lg:bg-primary/5"
+                : "border-transparent text-muted-foreground hover:text-secondary lg:hover:bg-muted"
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -35,6 +36,7 @@ export function AdminNav() {
           </Link>
         );
       })}
-    </div>
+      </nav>
+    </aside>
   );
 }
