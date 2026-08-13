@@ -110,8 +110,12 @@ function PhotoMouth({ imageSrc, px, mouth }: { imageSrc: string; px: number; mou
   // translated the masked copy of the whole photo, which made the face bob up
   // and down. This tiny scale is confined to the mouth band by the mask, so
   // only the lips/chin give a speaking cue; the head, shoulders, and frame stay still.
-  const scaleY = (1 + mouth.openness * 0.018).toFixed(3);
-  const scaleX = (1 - mouth.width * 0.015).toFixed(3);
+  // The mouth band is deliberately stronger than the old 1.8% puppet-jaw.
+  // At portrait size that was effectively invisible. Keep the motion confined
+  // to the mouth/chin mask so the face never looks stretched.
+  const scaleY = (1 + 0.008 + mouth.openness * 0.052).toFixed(3);
+  const scaleX = (1 - mouth.width * 0.018).toFixed(3);
+  const jawDrop = (mouth.openness * 1.8).toFixed(2);
 
   return (
     <div
@@ -133,8 +137,8 @@ function PhotoMouth({ imageSrc, px, mouth }: { imageSrc: string; px: number; mou
         className="w-full h-full object-cover object-top"
         style={{
           transformOrigin: "50% 55%",
-          transform: `scaleY(${scaleY}) scaleX(${scaleX})`,
-          transition: "transform 70ms linear",
+          transform: `translateY(${jawDrop}px) scaleY(${scaleY}) scaleX(${scaleX})`,
+          transition: "transform 55ms linear",
         }}
         draggable={false}
       />
@@ -168,7 +172,7 @@ export function AnimatedAvatar({
       <div className="relative">
         {hasImage ? (
           <div
-            className={`${sz.container} rounded-2xl overflow-hidden shadow-lg relative`}
+            className={`${sz.container} rounded-2xl overflow-hidden shadow-lg relative ${isSpeaking ? "avatar-speaking" : ""}`}
           >
             <img
               src={imageSrc}

@@ -157,3 +157,15 @@
   from { transform: scaleY(0.4); opacity: 0.7; }
   to   { transform: scaleY(1.0); opacity: 1; }
 }
+
+/* Subtle breathing/posture cue for photo avatars while they speak. The
+   portrait stays facing forward, with only a human-scale weight shift. */
+@keyframes avatarSpeaking {
+  0%, 100% { transform: translateY(0) rotate(-0.25deg) scale(1); }
+  50% { transform: translateY(-1px) rotate(0.25deg) scale(1.008); }
+}
+
+.avatar-speaking {
+  transform-origin: 50% 82%;
+  animation: avatarSpeaking 1.65s ease-in-out infinite;
+}

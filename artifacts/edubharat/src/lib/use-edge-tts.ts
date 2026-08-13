@@ -245,7 +245,13 @@ async function computeEnvelope(blob: Blob): Promise<Envelope | null> {
       openness[f] = rms;
       width[f] = Math.min(1, zc / (n * 0.35));
     }
-    for (let f = 0; f < frames; f++) openness[f] = Math.min(1, (openness[f] ?? 0) / peak);
+    // Neural TTS has a wide quiet-to-loud range. A gentle gamma lift keeps
+    // softer syllables visible instead of making lip-sync appear frozen until
+    // a loud vowel arrives.
+    for (let f = 0; f < frames; f++) {
+      const normalized = (openness[f] ?? 0) / peak;
+      openness[f] = Math.min(1, Math.pow(normalized, 0.58));
+    }
     return { hop: ENVELOPE_HOP_SEC, openness, width };
   } catch {
     return null;
