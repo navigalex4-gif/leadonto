@@ -2047,7 +2047,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 isSpeaking={synth.isSpeaking}
                 isThinking={isStreaming || coachThinking}
                 gender={coach.gender}
-                size="sm"
+                size="xl"
                 imageSrc={coach.imageSrc}
                 hideCaption
               />
