@@ -59,6 +59,7 @@ type Feedback = {
   strengths: string[];
   oneNextStep: string;
   summary: string;
+  personalizedPlan: string[];
 };
 
 function cleanSpeech(text: string): string {
@@ -131,6 +132,11 @@ function localFallback(answers: Answer[]): Feedback {
     strengths: ["You completed the speaking check", "You communicated a main idea"],
     oneNextStep: "Answer in three parts: point, example, and result.",
     summary: "This is an indicative check. Practise one spoken answer daily to build a clearer, more confident delivery.",
+    personalizedPlan: [
+      "Record one 60-second answer each day using point, example, and result.",
+      "Replay it once and remove filler words before trying again.",
+      "Practise one role-specific answer aloud three times this week.",
+    ],
   };
 }
 
@@ -172,6 +178,8 @@ export default function CommunicationCheck() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [emailMessage, setEmailMessage] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
   const interviewStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -234,7 +242,6 @@ export default function CommunicationCheck() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          ...candidate,
           anonymousId: getAnonymousId(),
           answers: finalAnswers,
           durationSeconds: Math.min(TOTAL_SECONDS, Math.max(0, Math.round((Date.now() - (interviewStartedAtRef.current ?? Date.now())) / 1000))),
@@ -243,7 +250,8 @@ export default function CommunicationCheck() {
       const data = await response.json() as { feedback?: Feedback; error?: string; emailMessage?: string };
       if (!response.ok || !data.feedback) throw new Error(data.error || "Could not save feedback");
       setFeedback(data.feedback);
-      setEmailMessage(data.emailMessage || "");
+      setEmailMessage("");
+      setLeadSubmitted(false);
     } catch {
       setFeedback(fallback);
       setEmailMessage("Your result is ready here, but the email could not be delivered. Please check your email address and try again.");
@@ -254,6 +262,36 @@ export default function CommunicationCheck() {
       setPhase("feedback");
     }
   }, [candidate, clearTimers, speech, synth, toast]);
+
+  const sendExpandedFeedback = useCallback(async () => {
+    if (!feedback) return;
+    if (!candidate.name.trim() || !candidate.email.trim()) {
+      toast({ title: "Add your name and email", description: "We’ll use them to send your expanded personalised feedback.", variant: "destructive" });
+      return;
+    }
+    setEmailSending(true);
+    try {
+      const response = await fetch(`${BASE}/api/communication-checks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...candidate,
+          anonymousId: getAnonymousId(),
+          answers: answersRef.current,
+          durationSeconds: Math.min(TOTAL_SECONDS, Math.max(0, Math.round((Date.now() - (interviewStartedAtRef.current ?? Date.now())) / 1000))),
+        }),
+      });
+      const data = await response.json() as { emailMessage?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not send your feedback");
+      setEmailMessage(data.emailMessage || "Your expanded feedback is on its way.");
+      setLeadSubmitted(true);
+    } catch (error) {
+      toast({ title: "Could not send feedback", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setEmailSending(false);
+    }
+  }, [candidate, feedback, toast]);
 
   const submitAnswer = useCallback(async (spokenAnswer: string) => {
     if (turnRef.current || endingRef.current || closingRef.current) return;
@@ -365,10 +403,6 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
   }, [clearTimers, resetStream, speech.stop, synth.stop]);
 
   const startCheck = useCallback(async () => {
-    if (!candidate.name.trim() || !candidate.email.trim()) {
-      toast({ title: "Add your name and email first", description: "We use them to show your result in your account and admin reporting.", variant: "destructive" });
-      return;
-    }
     unlockAudio();
     if (navigator.mediaDevices?.getUserMedia) {
       try {
@@ -442,7 +476,37 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
               <p className="text-xs font-bold uppercase tracking-wide text-orange-700">Your one next step</p>
               <p className="mt-1 text-sm font-semibold text-secondary">{feedback.oneNextStep}</p>
             </div>
-            {emailMessage && <p className="text-sm font-semibold text-muted-foreground">{emailMessage}</p>}
+             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+               <p className="text-xs font-bold uppercase tracking-wide text-primary">Quick actions for you</p>
+               <ul className="mt-3 space-y-2">
+                 {feedback.strengths.map((strength) => <li key={strength} className="flex gap-2 text-sm text-secondary"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />Keep building on: {strength}</li>)}
+                 <li className="flex gap-2 text-sm font-semibold text-secondary"><ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Next: {feedback.oneNextStep}</li>
+               </ul>
+             </div>
+             {leadSubmitted ? (
+               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+                 <p className="font-bold">Expanded feedback requested.</p>
+                 <p className="mt-1">{emailMessage}</p>
+               </div>
+             ) : (
+               <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-5">
+                 <p className="font-bold text-secondary">Want the personalised action plan?</p>
+                 <p className="mt-1 text-sm text-muted-foreground">Add your details and we’ll email expanded feedback with specific steps for your goals.</p>
+                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                   <Input value={candidate.name} onChange={(e) => setCandidate({ ...candidate, name: e.target.value })} placeholder="Your name *" autoComplete="name" />
+                   <Input type="email" value={candidate.email} onChange={(e) => setCandidate({ ...candidate, email: e.target.value })} placeholder="Your email *" autoComplete="email" />
+                   <Input value={candidate.phone} onChange={(e) => setCandidate({ ...candidate, phone: e.target.value })} placeholder="Phone (optional)" autoComplete="tel" />
+                   <Input value={candidate.location} onChange={(e) => setCandidate({ ...candidate, location: e.target.value })} placeholder="City / location (optional)" />
+                   <Input value={candidate.targetRole} onChange={(e) => setCandidate({ ...candidate, targetRole: e.target.value })} placeholder="Target role (optional)" />
+                   <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={candidate.experienceLevel} onChange={(e) => setCandidate({ ...candidate, experienceLevel: e.target.value })}>
+                     <option>Fresher</option><option>1-2 years</option><option>3-5 years</option><option>5+ years</option>
+                   </select>
+                 </div>
+                 <Button className="mt-4 font-bold" onClick={() => void sendExpandedFeedback()} disabled={emailSending}>
+                   {emailSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : <>Email my expanded feedback <ArrowRight className="ml-2 h-4 w-4" /></>}
+                 </Button>
+               </div>
+             )}
             <div className="flex flex-wrap gap-3">
               <Link href="/interview-ace"><Button className="font-bold">Practise a full interview <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
               <Link href="/"><Button variant="outline">Back to Lead Onto</Button></Link>
@@ -464,28 +528,10 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">Get quick feedback on your communication, confidence &amp; interview skills.</p>
           </div>
           <CardContent className="space-y-5 p-6 sm:p-9">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">Your name *
-                <Input value={candidate.name} onChange={(e) => setCandidate({ ...candidate, name: e.target.value })} placeholder="e.g. Priya Sharma" autoComplete="name" />
-              </label>
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">Email for your result *
-                <Input type="email" value={candidate.email} onChange={(e) => setCandidate({ ...candidate, email: e.target.value })} placeholder="you@example.com" autoComplete="email" />
-              </label>
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">Phone <span className="font-normal text-muted-foreground">(optional)</span>
-                <Input value={candidate.phone} onChange={(e) => setCandidate({ ...candidate, phone: e.target.value })} placeholder="+91 98765 43210" autoComplete="tel" />
-              </label>
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">City / location <span className="font-normal text-muted-foreground">(optional)</span>
-                <Input value={candidate.location} onChange={(e) => setCandidate({ ...candidate, location: e.target.value })} placeholder="e.g. Bengaluru" />
-              </label>
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">Target role <span className="font-normal text-muted-foreground">(optional)</span>
-                <Input value={candidate.targetRole} onChange={(e) => setCandidate({ ...candidate, targetRole: e.target.value })} placeholder="e.g. Customer support" />
-              </label>
-              <label className="space-y-1.5 text-sm font-semibold text-secondary">Experience
-                <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={candidate.experienceLevel} onChange={(e) => setCandidate({ ...candidate, experienceLevel: e.target.value })}>
-                  <option>Fresher</option><option>1-2 years</option><option>3-5 years</option><option>5+ years</option>
-                </select>
-              </label>
-            </div>
+             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-5">
+               <p className="font-bold text-secondary">No sign-up before you start</p>
+               <p className="mt-1 text-sm text-muted-foreground">Take the free 90-second speaking check first. You’ll see a short action-focused result before we ask whether you want the expanded feedback by email.</p>
+             </div>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Button size="lg" onClick={() => void startCheck()} className="h-12 px-7 text-base font-extrabold shadow-lg shadow-primary/25"><Mic className="mr-2 h-5 w-5" />Start my free check</Button>
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="h-4 w-4" /> Takes 90 seconds</span>

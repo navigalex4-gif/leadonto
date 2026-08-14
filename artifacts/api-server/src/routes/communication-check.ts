@@ -12,8 +12,8 @@ const answerSchema = z.object({
 });
 
 const submitSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  email: z.string().trim().email().max(200),
+  name: z.string().trim().min(2).max(120).optional().default(""),
+  email: z.string().trim().email().max(200).optional().default(""),
   phone: z.string().trim().max(30).optional().default(""),
   location: z.string().trim().max(120).optional().default(""),
   targetRole: z.string().trim().max(120).optional().default(""),
@@ -35,6 +35,7 @@ type Feedback = {
   strengths: string[];
   oneNextStep: string;
   summary: string;
+  personalizedPlan: string[];
 };
 
 function clampScore(value: unknown, fallback: number): number {
@@ -58,6 +59,11 @@ function fallbackFeedback(answers: Array<{ answer: string }>): Feedback {
       : ["You took the first step toward practice"],
     oneNextStep: "Answer in three parts: point, example, and result.",
     summary: "This is an indicative check. Practice one spoken answer daily to build a clearer, more confident delivery.",
+    personalizedPlan: [
+      "Record one 60-second answer each day using point, example, and result.",
+      "Replay it once and remove filler words before trying again.",
+      "Practise one role-specific answer aloud three times this week.",
+    ],
   };
 }
 
@@ -70,6 +76,9 @@ function parseFeedback(raw: string, fallback: Feedback): Feedback {
     const strengths = Array.isArray(parsed.strengths)
       ? parsed.strengths.map(String).filter(Boolean).slice(0, 3)
       : fallback.strengths;
+    const personalizedPlan = Array.isArray(parsed.personalizedPlan)
+      ? parsed.personalizedPlan.map(String).filter(Boolean).slice(0, 5)
+      : fallback.personalizedPlan;
     return {
       overallScore: clampScore(parsed.overallScore, fallback.overallScore),
       communicationScore: clampScore(parsed.communicationScore, fallback.communicationScore),
@@ -79,6 +88,7 @@ function parseFeedback(raw: string, fallback: Feedback): Feedback {
       strengths: strengths.length ? strengths : fallback.strengths,
       oneNextStep: String(parsed.oneNextStep || fallback.oneNextStep).slice(0, 220),
       summary: String(parsed.summary || fallback.summary).slice(0, 360),
+      personalizedPlan: personalizedPlan.length ? personalizedPlan : fallback.personalizedPlan,
     };
   } catch {
     return fallback;
@@ -103,6 +113,7 @@ function resultEmailHtml(name: string, feedback: Feedback): string {
       </div>
     </td>`;
   const strengths = feedback.strengths.map((item) => `<li style="margin:7px 0">${escapeHtml(item)}</li>`).join("");
+  const personalizedPlan = feedback.personalizedPlan.map((item) => `<li style="margin:7px 0">${escapeHtml(item)}</li>`).join("");
   return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#172033">
     <div style="padding:28px 30px;background:#172033;border-radius:18px 18px 0 0;color:#fff">
       <div style="font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fb923c">Lead Onto</div>
@@ -127,6 +138,8 @@ function resultEmailHtml(name: string, feedback: Feedback): string {
         <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#c2410c">Your one next step</div>
         <div style="margin-top:7px;font-weight:700;line-height:1.5">${escapeHtml(feedback.oneNextStep)}</div>
       </div>
+      <h3 style="margin:24px 0 8px">Your personalised practice plan</h3>
+      <ul style="padding-left:20px;color:#475569">${personalizedPlan}</ul>
       <p style="margin-top:26px;color:#64748b;font-size:12px">This is an indicative practice check, not a hiring decision. Keep practising and build your confidence one answer at a time.</p>
     </div>
   </div>`;
@@ -135,7 +148,7 @@ function resultEmailHtml(name: string, feedback: Feedback): string {
 router.post("/communication-checks", async (req: Request, res: Response) => {
   const parsed = submitSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Please provide your name, a valid email, and your spoken answers." });
+    res.status(400).json({ error: "Please provide your spoken answers." });
     return;
   }
 
@@ -147,7 +160,7 @@ router.post("/communication-checks", async (req: Request, res: Response) => {
     const aiPromise = generateTextWithFallback({
       maxTokens: 420,
       prompt: `Assess this candidate's spoken communication from a short 90-second practice check.
-Candidate: ${input.name}
+    Candidate: ${input.name || "Anonymous candidate"}
 Target role: ${input.targetRole || "Not specified"}
 Experience: ${input.experienceLevel || "Not specified"}
 Answers:
@@ -174,6 +187,18 @@ Be encouraging but accurate. Judge only what is present in the answers; do not i
     if (raw.trim()) feedback = parseFeedback(raw, fallback);
   } catch {
     // The candidate still receives a useful indicative score if a provider is unavailable.
+  }
+
+  // Let visitors see the short result before asking for contact details. The
+  // completed check is saved only after the visitor opts in with name + email.
+  if (!input.name || !input.email) {
+    res.status(200).json({
+      feedback,
+      needsDetails: true,
+      emailSent: false,
+      emailMessage: "",
+    });
+    return;
   }
 
   try {
