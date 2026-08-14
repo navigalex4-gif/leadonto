@@ -61,6 +61,20 @@ export default function Home() {
                 <p className="text-base sm:text-lg text-muted-foreground mb-6 leading-relaxed max-w-xl">
                   {heroSubtitle}
                 </p>
+                 {/* Mobile-first conversion path: the lower-friction check comes before proof. */}
+                 <div className="mb-6 flex flex-col gap-2.5 md:hidden">
+                   <Link href="/communication-check" className="w-full">
+                     <Button size="lg" className="h-12 w-full px-5 text-base font-bold shadow-lg shadow-primary/20">
+                       Try Free 90-Second Check
+                       <ArrowRight className="ml-2 h-5 w-5" />
+                     </Button>
+                   </Link>
+                   <Link href="/login" className="w-full">
+                     <Button size="lg" variant="outline" className="h-11 w-full px-5 text-base font-semibold">
+                       Start Learning Free
+                     </Button>
+                   </Link>
+                 </div>
                 <p className="max-w-xl border-l-2 border-primary/40 pl-3 text-xs sm:text-sm italic leading-relaxed text-muted-foreground/90 mb-6">
                   “97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills.” — ETS, TOEIC Global English Skills Report 2026
                 </p>
@@ -72,7 +86,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <div className="flex flex-wrap gap-3">
+                 <div className="hidden flex-wrap gap-3 md:flex">
                   <Link href="/english-guru">
                     <Button size="lg" className="h-12 px-7 text-base font-bold shadow-lg shadow-primary/20">
                       {ctaPrimary}
@@ -88,7 +102,7 @@ export default function Home() {
                 {/* Recruiter portal nudge */}
                 <Link
                   href="/b2b/login"
-                  className="inline-flex items-center gap-2 mt-1 text-sm text-muted-foreground hover:text-violet-700 transition-colors group"
+                   className="hidden items-center gap-2 mt-1 text-sm text-muted-foreground hover:text-violet-700 transition-colors group md:inline-flex"
                 >
                   <Building2 className="w-4 h-4 group-hover:text-violet-600 transition-colors" />
                   Are you hiring?
@@ -96,6 +110,15 @@ export default function Home() {
                     Open B2B Portal →
                   </span>
                 </Link>
+                 {/* Keep lower-intent paths available, but visually quiet on small screens. */}
+                 <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 md:hidden">
+                   <Link href="/rozgar-samachar" className="text-xs font-normal text-muted-foreground/75 hover:text-secondary">
+                     Browse Jobs
+                   </Link>
+                   <Link href="/b2b/login" className="text-xs font-normal text-muted-foreground/65 hover:text-violet-700">
+                     Open B2B Portal →
+                   </Link>
+                 </div>
               </div>
 
               {/* Right — AI teacher showcase */}
