@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   BookOpen, Newspaper, ArrowRight, Sparkles, CheckCircle2, Star,
-  MessageCircle, Wrench, Map, Mic, FileText, TrendingUp, Building2, Timer,
+  MessageCircle, Wrench, Map, Mic, FileText, TrendingUp, Building2, Timer, LogIn,
 } from "lucide-react";
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
@@ -43,83 +43,111 @@ export default function Home() {
       <div className="flex flex-col w-full">
 
         {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-background pt-12 pb-16 lg:pt-16 lg:pb-20">
+        <section className="relative overflow-hidden bg-background pt-5 pb-10 sm:pt-10 sm:pb-14 lg:pt-16 lg:pb-20">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-background to-blue-50 pointer-events-none" />
           <div className="container mx-auto px-4 relative">
-            <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
 
               {/* Left copy */}
               <div className="max-w-2xl animate-in slide-in-from-bottom-8 duration-700">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-5 border border-primary/20">
-                  <Sparkles className="w-4 h-4" />
-                  <span>{heroBadge}</span>
-                </div>
-                <h1 className="max-w-xl text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold tracking-tight text-secondary mb-5 leading-[1.05]">
-                  Master English.<br />
-                  Ace Interviews.<br />
-                  <span className="text-primary">Get the Job.</span>
-                </h1>
-                <p className="text-base sm:text-lg text-muted-foreground mb-6 leading-relaxed max-w-xl">
-                  {heroSubtitle}
-                </p>
-                 {/* Mobile-first conversion path: the lower-friction check comes before proof. */}
-                 <div className="mb-6 flex flex-col gap-2.5 md:hidden">
+
+                {/* ── Mobile-only compact hero (fits in first viewport) ──────── */}
+                <div className="md:hidden">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-3 border border-primary/20">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{heroBadge}</span>
+                  </div>
+                  <h1 className="text-3xl font-display font-extrabold tracking-tight text-secondary mb-2.5 leading-[1.08]">
+                    Master English.<br />
+                    <span className="text-primary">Get the Job.</span>
+                  </h1>
+                  <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                    Your personal AI mentor for spoken English, mock interviews and live Indian job updates.
+                  </p>
+                  {/* CTA row — sign-in always above the fold */}
+                  <div className="flex flex-col gap-2 mb-4">
                     <Link href="/communication-check" className="w-full" onClick={() => track("home_cta_clicked", { cta: "communication_check", placement: "mobile_hero" })}>
-                     <Button size="lg" className="h-12 w-full px-5 text-base font-bold shadow-lg shadow-primary/20">
-                       Try Free 90-Second Check
-                       <ArrowRight className="ml-2 h-5 w-5" />
-                     </Button>
-                   </Link>
-                    <Link href="/login" className="w-full" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "mobile_hero" })}>
-                     <Button size="lg" variant="outline" className="h-11 w-full px-5 text-base font-semibold">
-                       Start Learning Free
-                     </Button>
-                   </Link>
-                 </div>
-                <p className="max-w-xl border-l-2 border-primary/40 pl-3 text-xs sm:text-sm italic leading-relaxed text-muted-foreground/90 mb-6">
-                  “97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills.” — ETS, TOEIC Global English Skills Report 2026
-                </p>
-                <ul className="space-y-2 mb-8">
-                  {PROOF_POINTS.map(p => (
-                    <li key={p} className="flex items-center gap-2 text-sm text-secondary">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-                 <div className="hidden flex-wrap gap-3 md:flex">
-                   <Link href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "desktop_hero" })}>
-                    <Button size="lg" className="h-12 px-7 text-base font-bold shadow-lg shadow-primary/20">
-                      {ctaPrimary}
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                  <Link href="/rozgar-samachar">
-                    <Button size="lg" variant="outline" className="h-12 px-7 text-base font-semibold">
-                      {ctaSecondary}
-                    </Button>
+                      <Button size="lg" className="h-12 w-full px-5 text-sm font-bold shadow-lg shadow-primary/20">
+                        Try Free 90-Second Check
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link href="/english-guru" className="w-full" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "mobile_hero" })}>
+                        <Button size="default" variant="outline" className="h-10 w-full text-sm font-semibold">
+                          Start Learning
+                        </Button>
+                      </Link>
+                      <Link href="/login" className="w-full" onClick={() => track("home_cta_clicked", { cta: "sign_in", placement: "mobile_hero" })}>
+                        <Button size="default" variant="secondary" className="h-10 w-full text-sm font-semibold">
+                          <LogIn className="w-3.5 h-3.5 mr-1.5" />
+                          Sign In
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                  {/* Compact proof points */}
+                  <ul className="grid grid-cols-1 gap-1.5 mb-3">
+                    {PROOF_POINTS.slice(0, 3).map(p => (
+                      <li key={p} className="flex items-center gap-2 text-xs text-secondary">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <Link href="/rozgar-samachar" className="text-xs text-muted-foreground/75 hover:text-secondary">Browse Jobs</Link>
+                    <Link href="/b2b/login" className="text-xs text-muted-foreground/65 hover:text-violet-700">B2B Portal →</Link>
+                  </div>
+                </div>
+
+                {/* ── Desktop / tablet hero ──────────────────────────────────── */}
+                <div className="hidden md:block">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-5 border border-primary/20">
+                    <Sparkles className="w-4 h-4" />
+                    <span>{heroBadge}</span>
+                  </div>
+                  <h1 className="max-w-xl text-5xl lg:text-6xl font-display font-extrabold tracking-tight text-secondary mb-5 leading-[1.05]">
+                    Master English.<br />
+                    Ace Interviews.<br />
+                    <span className="text-primary">Get the Job.</span>
+                  </h1>
+                  <p className="text-lg text-muted-foreground mb-6 leading-relaxed max-w-xl">
+                    {heroSubtitle}
+                  </p>
+                  <p className="max-w-xl border-l-2 border-primary/40 pl-3 text-sm italic leading-relaxed text-muted-foreground/90 mb-6">
+                    "97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills." — ETS, TOEIC Global English Skills Report 2026
+                  </p>
+                  <ul className="space-y-2 mb-8">
+                    {PROOF_POINTS.map(p => (
+                      <li key={p} className="flex items-center gap-2 text-sm text-secondary">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-3">
+                    <Link href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "desktop_hero" })}>
+                      <Button size="lg" className="h-12 px-7 text-base font-bold shadow-lg shadow-primary/20">
+                        {ctaPrimary}
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    </Link>
+                    <Link href="/rozgar-samachar">
+                      <Button size="lg" variant="outline" className="h-12 px-7 text-base font-semibold">
+                        {ctaSecondary}
+                      </Button>
+                    </Link>
+                  </div>
+                  <Link
+                    href="/b2b/login"
+                    className="inline-flex items-center gap-2 mt-3 text-sm text-muted-foreground hover:text-violet-700 transition-colors group"
+                  >
+                    <Building2 className="w-4 h-4 group-hover:text-violet-600 transition-colors" />
+                    Are you hiring?
+                    <span className="font-semibold text-violet-600 group-hover:underline">Open B2B Portal →</span>
                   </Link>
                 </div>
-                {/* Recruiter portal nudge */}
-                <Link
-                  href="/b2b/login"
-                   className="hidden items-center gap-2 mt-1 text-sm text-muted-foreground hover:text-violet-700 transition-colors group md:inline-flex"
-                >
-                  <Building2 className="w-4 h-4 group-hover:text-violet-600 transition-colors" />
-                  Are you hiring?
-                  <span className="font-semibold text-violet-600 group-hover:underline">
-                    Open B2B Portal →
-                  </span>
-                </Link>
-                 {/* Keep lower-intent paths available, but visually quiet on small screens. */}
-                 <div className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-2 md:hidden">
-                   <Link href="/rozgar-samachar" className="text-xs font-normal text-muted-foreground/75 hover:text-secondary">
-                     Browse Jobs
-                   </Link>
-                   <Link href="/b2b/login" className="text-xs font-normal text-muted-foreground/65 hover:text-violet-700">
-                     Open B2B Portal →
-                   </Link>
-                 </div>
               </div>
 
               {/* Right — AI teacher showcase */}
