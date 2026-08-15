@@ -59,6 +59,16 @@ function SuiteDropdown({
   return (
     <div ref={ref} className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <button
+        type="button"
+        onClick={() => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          setOpen((current) => !current);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+        }}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all select-none ${
           isAnyActive
             ? `bg-gradient-to-r ${accent.badge} text-white shadow-md`
@@ -79,6 +89,7 @@ function SuiteDropdown({
             <Link
               key={href}
               href={href}
+              role="menuitem"
               className={`flex items-center gap-3 px-3 py-2.5 mx-1 rounded-xl transition-colors ${
                 location === href ? accent.link : `text-secondary ${accent.hover}`
               }`}
