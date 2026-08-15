@@ -32,6 +32,19 @@ function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
 }
 
+function LanguageHighlight() {
+  return (
+    <div
+      className="inline-flex max-w-full items-center justify-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[11px] font-medium leading-tight text-orange-800"
+      aria-label="Learn in your language: Hindi, Tamil, Telugu, and more"
+    >
+      <span>🗣️ Apni Bhasha Mein Seekhiye — </span>
+      <span className="ml-1 font-semibold">हिंदी, தமிழ், తెలుగు</span>
+      <span className="ml-1">+10 more</span>
+    </div>
+  );
+}
+
 export default function EnglishGuru() {
   return (
     <>
@@ -681,7 +694,21 @@ Rules for spoken replies:
       {showTutorPicker && (
         <TutorSelector currentId={tutorId} onSelect={handleSelectTutor} onClose={() => setShowTutorPicker(false)} />
       )}
-      <MobilePrimaryCTA label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+      <div className="mb-3 flex flex-col items-center gap-1.5 md:hidden">
+        <LanguageHighlight />
+        <MobilePrimaryCTA label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+      </div>
+      <div className="mb-3 hidden flex-col items-center gap-1.5 md:flex">
+        <LanguageHighlight />
+        <Button
+          size="lg"
+          className="h-11 w-full max-w-sm bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-200 hover:bg-orange-600"
+          onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        >
+          Start Speaking Practice
+          <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
 
       <div className="grid gap-3 lg:grid-cols-[280px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden">
         {/* Sidebar */}
@@ -721,6 +748,9 @@ Rules for spoken replies:
               size="md"
               imageSrc={tutor.imageSrc}
             />
+             <Badge variant="secondary" className="mt-1 text-[10px] font-medium">
+               Speaks: {tutor.languages.filter(l => l !== "English").concat("English").join(" + ")}
+             </Badge>
             <div className="mt-2 text-center px-2">
               <p className="text-[11px] text-muted-foreground leading-relaxed italic line-clamp-2">"{tutor.intro}"</p>
             </div>
