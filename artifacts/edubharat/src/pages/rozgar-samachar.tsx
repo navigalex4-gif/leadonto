@@ -21,6 +21,7 @@ import {
 } from "@/lib/rozgar-utils";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import {
   Newspaper, Volume2, Bookmark, BookmarkCheck, Loader2, ChevronDown, ChevronUp,
   User, Settings, Search, ExternalLink, X, Briefcase, SlidersHorizontal, MapPin,
@@ -1113,8 +1114,13 @@ function RozgarSamacharContent() {
             </div>
             <h1 className="text-2xl font-display font-extrabold text-secondary mb-2">Welcome to Rozgar Samachar</h1>
             <p className="text-muted-foreground text-sm">Tell us a bit about yourself so we can show you <strong>personalised</strong> jobs and opportunities across India.</p>
+            <div className="mt-4 md:hidden">
+              <Button size="lg" onClick={() => document.getElementById("rozgar-profile-gate")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="h-11 w-full bg-orange-500 text-sm font-extrabold text-white hover:bg-orange-600">
+                Browse Jobs Now <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <Card className="border-teal-100 shadow-md rounded-2xl">
+          <Card id="rozgar-profile-gate" className="border-teal-100 shadow-md rounded-2xl">
             <CardContent className="pt-6 space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="gate-name" className="text-xs font-bold text-secondary">Your Name <span className="text-red-500">*</span></label>
@@ -1178,6 +1184,7 @@ function RozgarSamacharContent() {
             </Button>
           </div>
         </div>
+        <MobilePrimaryCTA label="Browse Jobs Now" onClick={() => document.querySelector<HTMLElement>(".rozgar-theme .grid.flex-1")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
         {/* ── Reference-style compact filter row ── */}
         <div className="-mx-4 flex items-center gap-2 overflow-x-auto border-b bg-white/95 px-4 py-2">

@@ -19,6 +19,7 @@ import { useStudentProfile } from "@/lib/use-student-profile";
 import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { exportConversationPdf, exportConversationWord } from "@/lib/export-conversation";
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
@@ -680,6 +681,7 @@ Rules for spoken replies:
       {showTutorPicker && (
         <TutorSelector currentId={tutorId} onSelect={handleSelectTutor} onClose={() => setShowTutorPicker(false)} />
       )}
+      <MobilePrimaryCTA label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
       <div className="grid gap-3 lg:grid-cols-[280px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden">
         {/* Sidebar */}
@@ -846,7 +848,7 @@ Rules for spoken replies:
           </div>
 
           {/* ── LIVE CONVERSATION — top section with its own heading ── */}
-          <section className="flex flex-col min-h-0 flex-1">
+          <section id="english-guru-live" className="flex flex-col min-h-0 flex-1">
             <Card className={`flex flex-col overflow-hidden border-2 transition-all flex-1 min-h-0 max-h-[calc(100dvh-6rem)] lg:max-h-none ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
             <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-1 flex-col">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

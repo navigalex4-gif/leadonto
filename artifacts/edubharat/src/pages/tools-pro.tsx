@@ -15,6 +15,7 @@ import { useStudentProfile } from "@/lib/use-student-profile";
 import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { MODES, type Mode, stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, ResultPanel, TutorSelector } from "@/components/english/shared-ui";
 import { downloadText } from "@/lib/export-data";
@@ -150,8 +151,9 @@ function ToolsProContent() {
           Six focused English tools, powered by your AI Guru <span className="font-semibold text-secondary">{teacherShort}</span>.
         </p>
       </div>
+       <MobilePrimaryCTA label="Explore Tools Free" onClick={() => document.getElementById("tools-pro-grid")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+       <div id="tools-pro-grid" className="grid gap-4 lg:grid-cols-[260px_1fr]">
         {/* Sidebar */}
         <aside className="space-y-3">
           <Button

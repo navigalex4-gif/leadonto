@@ -19,6 +19,7 @@ import { INTERVIEW_COACHES, recommendedCoachFor } from "@/lib/tutors";
 import { COMPETENCIES, coveredCompetencies, weightedScoreFor, areaForBeat, functionalKnowledgeFor, calibrationFor, type CompetencyKey } from "@/lib/interview-format";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import {
@@ -1650,6 +1651,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             <p className="text-xs text-muted-foreground">AI mock interviews · Voice-powered · India-focused</p>
           </div>
         </div>
+        <MobilePrimaryCTA label="Start Free Mock Interview" onClick={() => void startSession()} />
 
         {/* Settings bar */}
         <div className="flex items-center gap-2 flex-wrap mb-2">

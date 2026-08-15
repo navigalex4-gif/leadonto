@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
 import { formatGeneratedText } from "@/lib/english-tools";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -459,6 +460,7 @@ ${paragraphs}
           Upload your resume (PDF or DOCX) and get an AI-powered score, skill gaps, ATS tips, and improvement suggestions.
         </p>
       </div>
+       <MobilePrimaryCTA label="Scan My Resume Free" href="#resume-upload" />
 
       <div className="grid sm:grid-cols-2 gap-4">
         <label className="block space-y-2">
@@ -482,7 +484,7 @@ ${paragraphs}
       </div>
 
       {/* Upload zone */}
-      <Card className="border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+       <Card id="resume-upload" className="border-2 border-dashed border-border hover:border-primary/50 transition-colors">
         <CardContent className="p-6">
           <label className="flex flex-col items-center justify-center cursor-pointer gap-3">
             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">

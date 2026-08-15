@@ -12,6 +12,7 @@ import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { unlockAudio, useEdgeTTS } from "@/lib/use-edge-tts";
 import { track } from "@/lib/analytics";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
@@ -526,13 +527,14 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
              <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-100 px-2.5 py-0.5 text-[11px] font-bold text-orange-700"><Sparkles className="h-3.5 w-3.5" /> Free 90-Second Communication Check</div>
              <h1 className="max-w-2xl text-2xl font-display font-extrabold tracking-tight text-secondary sm:text-4xl">How Strong Are Your Communication &amp; Confidence Skills?</h1>
              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">Get quick feedback on your communication, confidence &amp; interview skills.</p>
+             <div className="mt-4 md:hidden"><Button size="lg" onClick={() => void startCheck()} className="h-11 w-full bg-orange-500 text-sm font-extrabold text-white hover:bg-orange-600"><Mic className="mr-2 h-4 w-4" />Try My Free 90-Second Check</Button></div>
           </div>
           <CardContent className="space-y-5 p-6 sm:p-9">
              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-5">
                <p className="font-bold text-secondary">No sign-up before you start</p>
                <p className="mt-1 text-sm text-muted-foreground">Take the free 90-second speaking check first. You’ll see a short action-focused result before we ask whether you want the expanded feedback by email.</p>
              </div>
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+             <div className="hidden flex-wrap items-center gap-3 pt-2 md:flex">
               <Button size="lg" onClick={() => void startCheck()} className="h-12 px-7 text-base font-extrabold shadow-lg shadow-primary/25"><Mic className="mr-2 h-5 w-5" />Start my free check</Button>
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="h-4 w-4" /> Takes 90 seconds</span>
             </div>
