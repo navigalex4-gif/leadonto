@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, like, not } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 import { geolocateIp } from "../lib/geo.js";
@@ -88,8 +88,12 @@ router.post("/analytics/events", async (req, res) => {
 });
 
 // Admin activity view — includes anonymous visitors as well as signed-in users.
-router.get("/admin/visitor-activity", requireAdmin, async (_req, res) => {
+router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
   try {
+    const scope = req.query.scope === "admin" ? "admin" : "visitor";
+    const scopeFilter = scope === "admin"
+      ? like(analyticsEventsTable.path, "/admin%")
+      : not(like(analyticsEventsTable.path, "/admin%"));
     const activities = await db
       .select({
         id: analyticsEventsTable.id,
@@ -108,6 +112,7 @@ router.get("/admin/visitor-activity", requireAdmin, async (_req, res) => {
       })
       .from(analyticsEventsTable)
       .leftJoin(usersTable, eq(analyticsEventsTable.userId, usersTable.id))
+      .where(scopeFilter)
       .orderBy(desc(analyticsEventsTable.createdAt))
       .limit(2000);
     const activityIps = Array.from(new Set(
@@ -125,6 +130,25 @@ router.get("/admin/visitor-activity", requireAdmin, async (_req, res) => {
   } catch (err) {
     logger.error({ err }, "Failed to load visitor activity");
     res.status(500).json({ error: "Failed to load visitor activity" });
+  }
+});
+
+router.delete("/admin/visitor-activity", requireAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids)
+    ? req.body.ids.filter((id: unknown): id is number => typeof id === "number" && Number.isInteger(id) && id > 0).slice(0, 500)
+    : [];
+  if (!ids.length) {
+    res.status(400).json({ error: "Choose at least one activity row to delete." });
+    return;
+  }
+  try {
+    const deleted = await db
+      .delete(analyticsEventsTable)
+      .where(and(inArray(analyticsEventsTable.id, ids)));
+    res.json({ ok: true, deleted: ids.length });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete activity events");
+    res.status(500).json({ error: "Failed to delete activity rows" });
   }
 });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Clock3, Download, Globe2, Loader2, MapPin, RefreshCw, Search, UserRound } from "lucide-react";
+import { Activity, CheckSquare, Clock3, Download, Globe2, Loader2, MapPin, RefreshCw, Search, Trash2, UserRound } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,25 +51,30 @@ export default function AdminActivity() {
   const [eventFilter, setEventFilter] = useState("all");
   const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
   const [locationFilters, setLocationFilters] = useState<string[]>([]);
+  const [activityScope, setActivityScope] = useState<"visitor" | "admin">("visitor");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const isAdmin = user?.isAdmin === true;
 
   const fetchActivity = useCallback(async () => {
     setFetching(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/visitor-activity`, { credentials: "include" });
+      const res = await fetch(`${BASE}/api/admin/visitor-activity?scope=${activityScope}`, { credentials: "include" });
       if (!res.ok) {
         toast({ title: "Failed to load activity", variant: "destructive" });
         return;
       }
       const data = (await res.json()) as { activities?: ActivityRow[] };
       setRows(data.activities ?? []);
+      setSelectedIds([]);
     } catch {
       toast({ title: "Network error", variant: "destructive" });
     } finally {
       setFetching(false);
     }
-  }, [toast]);
+  }, [activityScope, toast]);
 
   useEffect(() => {
     if (!isLoading && !isAdmin) navigate("/");
@@ -78,6 +83,31 @@ export default function AdminActivity() {
   useEffect(() => {
     if (isAdmin) void fetchActivity();
   }, [isAdmin, fetchActivity]);
+
+  const deleteSelected = async () => {
+    if (!selectedIds.length || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/visitor-activity`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        toast({ title: data.error || "Failed to delete activity", variant: "destructive" });
+        return;
+      }
+      setRows((current) => current.filter((row) => !selectedIds.includes(row.id)));
+      setSelectedIds([]);
+      toast({ title: "Activity deleted", description: `${selectedIds.length} row${selectedIds.length === 1 ? "" : "s"} removed.` });
+    } catch {
+      toast({ title: "Network error while deleting activity", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -101,6 +131,8 @@ export default function AdminActivity() {
     () => Array.from(new Set(rows.map((row) => row.location || "Location unavailable"))).sort(),
     [rows],
   );
+  const allLocationsSelected = locationFilters.length === 0;
+  const allVisibleSelected = filtered.length > 0 && filtered.every((row) => selectedIds.includes(row.id));
 
   if (isLoading) {
     return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -116,7 +148,7 @@ export default function AdminActivity() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Activity className="h-6 w-6 text-primary" />
-          <h1 className="font-display text-2xl font-bold text-secondary">Visitor Activity</h1>
+           <h1 className="font-display text-2xl font-bold text-secondary">{activityScope === "visitor" ? "Visitor Activity" : "Admin Activity"}</h1>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-secondary">{rows.length}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -136,11 +168,17 @@ export default function AdminActivity() {
           <Button variant="outline" size="sm" onClick={() => void fetchActivity()} disabled={fetching}>
             <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
           </Button>
+           <Button variant="outline" size="sm" onClick={() => void deleteSelected()} disabled={!selectedIds.length || deleting}>
+             {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+             Delete{selectedIds.length ? ` (${selectedIds.length})` : ""}
+           </Button>
         </div>
       </div>
 
       <p className="mb-4 text-sm text-muted-foreground">
-        Anonymous visitors are included. Each row shows the server-recorded location, IP, route, time, and activity.
+         {activityScope === "visitor"
+           ? "Visitor activity excludes admin routes. Each row shows the server-recorded location, IP, route, time, and activity."
+           : "Admin-only tracking is kept separate from visitor activity. Each row shows the server-recorded admin route, time, and activity."}
       </p>
 
       <div className="relative mb-4">
@@ -152,90 +190,99 @@ export default function AdminActivity() {
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      <div className="mb-4 rounded-xl border border-border bg-muted/20 p-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-secondary">Filter activity</p>
-          <span className="text-xs text-muted-foreground">{filtered.length} of {rows.length} shown</span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <label htmlFor="activity-event-filter" className="text-xs font-semibold text-muted-foreground">
-            Event type
-            <select
-              id="activity-event-filter"
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
-              value={eventFilter}
-              onChange={(event) => setEventFilter(event.target.value)}
-            >
-              <option value="all">All events</option>
-              {eventOptions.map((event) => <option key={event} value={event}>{event}</option>)}
-            </select>
-          </label>
-          <label htmlFor="activity-visitor-filter" className="text-xs font-semibold text-muted-foreground">
-            Visitor type
-            <select
-              id="activity-visitor-filter"
-              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
-              value={visitorFilter}
-              onChange={(event) => setVisitorFilter(event.target.value as typeof visitorFilter)}
-            >
-              <option value="all">All visitors</option>
-              <option value="anonymous">Anonymous visitors</option>
-              <option value="signed-in">Signed-in users</option>
-            </select>
-          </label>
-          <label htmlFor="activity-location-filter" className="text-xs font-semibold text-muted-foreground">
-            Location
-            <details className="group relative mt-1">
-              <summary
-                id="activity-location-filter"
-                className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary [&::-webkit-details-marker]:hidden"
-              >
-                <span>{locationFilters.length ? `${locationFilters.length} location${locationFilters.length === 1 ? "" : "s"} selected` : "All locations"}</span>
-                <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">⌄</span>
-              </summary>
-              <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background p-2 shadow-xl">
-                <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm font-semibold text-secondary hover:bg-muted">
-                  <input
-                    type="checkbox"
-                    checked={locationFilters.length === 0}
-                    onChange={() => setLocationFilters([])}
-                    className="h-4 w-4 accent-primary"
-                  />
-                  All locations
-                </label>
-                <div className="my-1 border-t border-border" />
-                {locationOptions.map((location) => (
-                  <label key={location} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm font-normal text-secondary hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={locationFilters.includes(location)}
-                      onChange={(event) => {
-                        setLocationFilters((current) =>
-                          event.target.checked
-                            ? [...current, location]
-                            : current.filter((selected) => selected !== location),
-                        );
-                      }}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                    />
-                    <span>{location}</span>
-                  </label>
-                ))}
-              </div>
-            </details>
-          </label>
-        </div>
+       <div className="mb-4 rounded-xl border border-border bg-muted/20">
+         <button type="button" className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
+           <span className="text-xs font-bold uppercase tracking-wide text-secondary">Filter activity</span>
+           <span className="text-xs text-muted-foreground">{filtered.length} of {rows.length} shown · {filtersOpen ? "Hide" : "Show"}</span>
+         </button>
+         {filtersOpen && <div className="border-t border-border p-3">
+         <div className="mb-2 grid gap-2 sm:grid-cols-4">
+           <label htmlFor="activity-scope-filter" className="text-xs font-semibold text-muted-foreground">
+             Activity scope
+             <select id="activity-scope-filter" className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary" value={activityScope} onChange={(event) => { setActivityScope(event.target.value as typeof activityScope); setLocationFilters([]); }}>
+               <option value="visitor">Visitor activity</option>
+               <option value="admin">Admin activity</option>
+             </select>
+           </label>
+           <label htmlFor="activity-event-filter" className="text-xs font-semibold text-muted-foreground">
+             Event type
+             <select
+               id="activity-event-filter"
+               className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
+               value={eventFilter}
+               onChange={(event) => setEventFilter(event.target.value)}
+             >
+               <option value="all">All events</option>
+               {eventOptions.map((event) => <option key={event} value={event}>{event}</option>)}
+             </select>
+           </label>
+           <label htmlFor="activity-visitor-filter" className="text-xs font-semibold text-muted-foreground">
+             Visitor type
+             <select
+               id="activity-visitor-filter"
+               className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary"
+               value={visitorFilter}
+               onChange={(event) => setVisitorFilter(event.target.value as typeof visitorFilter)}
+             >
+               <option value="all">All visitors</option>
+               <option value="anonymous">Anonymous visitors</option>
+               <option value="signed-in">Signed-in users</option>
+             </select>
+           </label>
+           <label htmlFor="activity-location-filter" className="text-xs font-semibold text-muted-foreground">
+             Location
+             <details className="group relative mt-1">
+               <summary id="activity-location-filter" className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary [&::-webkit-details-marker]:hidden">
+                 <span>{allLocationsSelected ? "All locations" : `${locationFilters.length} location${locationFilters.length === 1 ? "" : "s"} selected`}</span>
+                 <span className="text-xs text-muted-foreground transition-transform group-open:rotate-180">⌄</span>
+               </summary>
+               <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-background p-2 shadow-xl">
+                 <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm font-semibold text-secondary hover:bg-muted">
+                   <input type="checkbox" checked={allLocationsSelected} onChange={(event) => setLocationFilters(event.target.checked ? [] : locationOptions)} className="h-4 w-4 accent-primary" />
+                   All locations
+                 </label>
+                 <div className="my-1 border-t border-border" />
+                 {locationOptions.map((location) => (
+                   <label key={location} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-sm font-normal text-secondary hover:bg-muted">
+                     <input
+                       type="checkbox"
+                       checked={allLocationsSelected || locationFilters.includes(location)}
+                       onChange={(event) => {
+                         setLocationFilters((current) => {
+                           if (allLocationsSelected) return event.target.checked ? [] : locationOptions.filter((item) => item !== location);
+                           const next = event.target.checked ? [...current, location] : current.filter((selected) => selected !== location);
+                           return next.length === locationOptions.length ? [] : next;
+                         });
+                       }}
+                       className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                     />
+                     <span>{location}</span>
+                   </label>
+                 ))}
+               </div>
+             </details>
+           </label>
+         </div>
+         </div>}
       </div>
 
       {fetching && rows.length === 0 ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No visitor activity found.</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">No {activityScope === "visitor" ? "visitor" : "admin"} activity found.</CardContent></Card>
       ) : (
         <div className="space-y-2">
+           <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs">
+             <label className="flex cursor-pointer items-center gap-2 font-semibold text-secondary">
+               <input type="checkbox" checked={allVisibleSelected} onChange={(event) => setSelectedIds(event.target.checked ? filtered.map((row) => row.id) : [])} className="h-4 w-4 accent-primary" />
+               <CheckSquare className="h-3.5 w-3.5 text-primary" />Select all shown
+             </label>
+             <span className="text-muted-foreground">{selectedIds.length} selected</span>
+           </div>
           {filtered.map((row) => (
             <Card key={row.id}>
-              <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto]">
+               <CardContent className="grid gap-3 p-3 md:grid-cols-[auto_1fr_auto]">
+                 <input type="checkbox" aria-label={`Select activity ${row.id}`} checked={selectedIds.includes(row.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} className="mt-1 h-4 w-4 accent-primary" />
                 <div className="min-w-0">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">{row.event}</span>
