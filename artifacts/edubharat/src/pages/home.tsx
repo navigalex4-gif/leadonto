@@ -8,6 +8,7 @@ import {
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
 import { useContent } from "@/lib/use-content";
+import { track } from "@/lib/analytics";
 
 const FEATURED_TUTORS = TUTORS.slice(0, 3);
 
@@ -63,13 +64,13 @@ export default function Home() {
                 </p>
                  {/* Mobile-first conversion path: the lower-friction check comes before proof. */}
                  <div className="mb-6 flex flex-col gap-2.5 md:hidden">
-                   <Link href="/communication-check" className="w-full">
+                    <Link href="/communication-check" className="w-full" onClick={() => track("home_cta_clicked", { cta: "communication_check", placement: "mobile_hero" })}>
                      <Button size="lg" className="h-12 w-full px-5 text-base font-bold shadow-lg shadow-primary/20">
                        Try Free 90-Second Check
                        <ArrowRight className="ml-2 h-5 w-5" />
                      </Button>
                    </Link>
-                   <Link href="/login" className="w-full">
+                    <Link href="/login" className="w-full" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "mobile_hero" })}>
                      <Button size="lg" variant="outline" className="h-11 w-full px-5 text-base font-semibold">
                        Start Learning Free
                      </Button>
@@ -87,7 +88,7 @@ export default function Home() {
                   ))}
                 </ul>
                  <div className="hidden flex-wrap gap-3 md:flex">
-                  <Link href="/english-guru">
+                   <Link href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "desktop_hero" })}>
                     <Button size="lg" className="h-12 px-7 text-base font-bold shadow-lg shadow-primary/20">
                       {ctaPrimary}
                       <ArrowRight className="w-5 h-5 ml-2" />

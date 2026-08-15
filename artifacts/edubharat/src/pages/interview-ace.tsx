@@ -462,7 +462,9 @@ export default function InterviewAce() {
     <>
       <PageMeta
         title="Interview Ace"
-        description="Practice mock interviews with AI. Get voice feedback, detailed scores, and personalised improvement tips for Indian roles."
+        description="Practice AI mock interviews with voice feedback, scores, and personalised tips for Indian roles."
+        ogUrl="https://leadonto.com/interview-ace"
+        canonicalUrl="https://leadonto.com/interview-ace"
       />
       <InterviewAceContent />
     </>

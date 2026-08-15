@@ -433,7 +433,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
   if (phase === "feedback" && feedback) {
     return (
       <div className="container mx-auto max-w-3xl px-4 py-10">
-        <PageMeta title="Your 90-second communication result · Lead Onto" description="A concise communication and confidence check from Lead Onto." />
+        <PageMeta title="Communication Check" description="Get a free 90-second check of your communication, confidence, and interview readiness." ogUrl="https://leadonto.com/communication-check" canonicalUrl="https://leadonto.com/communication-check" />
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 p-7 text-white">
             <p className="text-sm font-semibold uppercase tracking-widest text-orange-300">Your 90-second result</p>
@@ -520,7 +520,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-12">
-      <PageMeta title="Communication & Confidence Check · Lead Onto" description="Check your communication, confidence and interview skills in 90 seconds for free." />
+      <PageMeta title="Communication Check" description="Get a free 90-second check of your communication, confidence, and interview readiness." ogUrl="https://leadonto.com/communication-check" canonicalUrl="https://leadonto.com/communication-check" />
       {phase === "details" ? (
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="bg-gradient-to-br from-orange-50 via-background to-violet-50 p-5 sm:p-7">

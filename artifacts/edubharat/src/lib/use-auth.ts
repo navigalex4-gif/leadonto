@@ -47,31 +47,41 @@ export function useAuth() {
   }, []);
 
   const sendOtp = useCallback(async (email: string) => {
-    const res = await fetch(`${BASE}/api/auth/otp/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-      credentials: "include",
-    });
-    return res.json() as Promise<{ success?: boolean; error?: string; dev?: string }>;
+    try {
+      const res = await fetch(`${BASE}/api/auth/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+        credentials: "include",
+      });
+      const data = await res.json() as { success?: boolean; error?: string; dev?: string };
+      return res.ok ? data : { error: data.error ?? "We couldn't send the OTP. Please try again." };
+    } catch {
+      return { error: "We couldn't reach the sign-in service. Check your connection and try again." };
+    }
   }, []);
 
   const verifyOtp = useCallback(async (email: string, code: string, guestId?: string) => {
-    const res = await fetch(`${BASE}/api/auth/otp/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code, ...(guestId ? { guestId } : {}) }),
-      credentials: "include",
-    });
-    const data = (await res.json()) as { success?: boolean; user?: AuthUser; error?: string };
-    if (data.success && data.user) {
-      setUser(data.user);
-      // Navbar and other layout components have their own useAuth instance.
-      // Notify them immediately so email OTP login looks the same as OAuth
-      // without requiring a full page reload.
-      window.dispatchEvent(new Event("edubharat-auth-changed"));
+    try {
+      const res = await fetch(`${BASE}/api/auth/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, ...(guestId ? { guestId } : {}) }),
+        credentials: "include",
+      });
+      const data = (await res.json()) as { success?: boolean; user?: AuthUser; error?: string };
+      if (!res.ok) return { error: data.error ?? "We couldn't verify that code. Please try again." };
+      if (data.success && data.user) {
+        setUser(data.user);
+        // Navbar and other layout components have their own useAuth instance.
+        // Notify them immediately so email OTP login looks the same as OAuth
+        // without requiring a full page reload.
+        window.dispatchEvent(new Event("edubharat-auth-changed"));
+      }
+      return data;
+    } catch {
+      return { error: "We couldn't reach the sign-in service. Check your connection and try again." };
     }
-    return data;
   }, []);
 
   const adminLogin = useCallback(async (username: string, password: string) => {

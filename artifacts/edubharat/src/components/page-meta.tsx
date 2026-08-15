@@ -1,9 +1,9 @@
 import { Helmet } from "react-helmet-async";
 
 const DEFAULT = {
-  title: "Lead Onto — AI Career Platform for India",
-  description: "Master English, ace interviews, and land your dream job with Lead Onto's AI-powered career tools built for Indian learners.",
-  ogImage: "/opengraph.jpg",
+  title: "Lead Onto — English Practice in Hindi, Tamil, Telugu +10",
+  description: "Practice English speaking in Hindi, Tamil, Telugu & 10 more languages. Free 90-second skill check. Ace interviews, get CEFR roadmap, find jobs.",
+  ogImage: "https://leadonto.com/opengraph.jpg",
 };
 
 export function PageMeta({
@@ -11,17 +11,23 @@ export function PageMeta({
   description,
   ogImage,
   ogUrl,
+  canonicalUrl,
   noindex,
 }: {
   title: string;
   description: string;
   ogImage?: string;
   ogUrl?: string;
+  canonicalUrl?: string;
   noindex?: boolean;
 }) {
   const fullTitle = title ? `${title} | Lead Onto` : DEFAULT.title;
   const image = ogImage ?? DEFAULT.ogImage;
-  const url = ogUrl ? `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}${ogUrl}` : undefined;
+  const url = ogUrl
+    ? /^https?:\/\//i.test(ogUrl)
+      ? ogUrl
+      : `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}${ogUrl}`
+    : undefined;
   return (
     <Helmet>
       <title>{fullTitle}</title>
@@ -32,6 +38,7 @@ export function PageMeta({
       <meta property="og:type" content="website" />
       <meta property="og:image" content={image} />
       {url && <meta property="og:url" content={url} />}
+      {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
@@ -49,12 +56,12 @@ export function HomeMeta({ canonicalUrl }: { canonicalUrl?: string }) {
       <meta property="og:description" content={DEFAULT.description} />
       <meta property="og:type" content="website" />
       <meta property="og:image" content={DEFAULT.ogImage} />
-      {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+      <meta property="og:url" content={canonicalUrl ?? "https://leadonto.com"} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={DEFAULT.title} />
       <meta name="twitter:description" content={DEFAULT.description} />
       <meta name="twitter:image" content={DEFAULT.ogImage} />
-      <link rel="canonical" href={canonicalUrl ?? "/"} />
+      <link rel="canonical" href={canonicalUrl ?? "https://leadonto.com"} />
     </Helmet>
   );
 }

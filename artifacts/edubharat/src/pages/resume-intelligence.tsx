@@ -141,7 +141,9 @@ export default function ResumeIntelligence() {
     <>
       <PageMeta
         title="Resume Intelligence"
-        description="Upload or paste your resume and get AI-powered feedback, ATS scores, and targeted improvements for Indian job seekers."
+        description="Get an AI resume review, ATS score, keyword gaps, and targeted improvements for Indian jobs."
+        ogUrl="https://leadonto.com/resume-intelligence"
+        canonicalUrl="https://leadonto.com/resume-intelligence"
       />
       <ResumeIntelligenceContent />
     </>
