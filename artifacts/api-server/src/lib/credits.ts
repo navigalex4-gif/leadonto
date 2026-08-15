@@ -214,7 +214,11 @@ export async function reverseCredits(args: {
   return db.transaction((tx) => reverseCreditsTx(tx, args));
 }
 
-/** Grant the one-time welcome bonus. Idempotent per user (reference = signup:<id>). */
+/**
+ * Grant the welcome bonus. The product allows the same email/account to claim
+ * this free grant twice, but never on every login. Separate references make
+ * both grants independently idempotent and safe under concurrent verification.
+ */
 export async function ensureSignupGrant(userId: number): Promise<void> {
   try {
     await grantCredits({
@@ -226,6 +230,21 @@ export async function ensureSignupGrant(userId: number): Promise<void> {
     });
   } catch (err) {
     logger.error({ err: (err as Error).message, userId }, "ensureSignupGrant failed");
+  }
+}
+
+/** Grant the one allowed repeat-login bonus (the second and final free grant). */
+export async function ensureRepeatSignupGrant(userId: number): Promise<void> {
+  try {
+    await grantCredits({
+      userId,
+      amount: SIGNUP_GRANT,
+      type: "signup_grant",
+      description: "Returning welcome bonus — 20 free credits",
+      reference: `signup:${userId}:repeat`,
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error).message, userId }, "ensureRepeatSignupGrant failed");
   }
 }
 

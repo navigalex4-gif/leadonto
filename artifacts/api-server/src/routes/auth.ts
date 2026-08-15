@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { db, usersTable, otpsTable } from "@workspace/db";
 import { eq, and, gt, sql } from "drizzle-orm";
 import { mergeGuestProgress } from "./journey";
-import { ensureSignupGrant } from "../lib/credits";
+import { ensureRepeatSignupGrant, ensureSignupGrant } from "../lib/credits";
 import { geolocateIp } from "../lib/geo";
 import { logger } from "../lib/logger";
 import { sendEmail, isEmailConfigured } from "../lib/mailer";
@@ -289,9 +289,19 @@ router.get(
 );
 
 router.post("/auth/otp/send", async (req, res) => {
-  const rawEmail = req.body?.email as string | undefined;
-  const email = rawEmail?.trim().toLowerCase();
+  const payload = req.body as Record<string, unknown> | undefined;
+  const rawEmail = payload?.email ?? payload?.emailAddress;
+  const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+  const emailDomain = email.includes("@") ? email.split("@").pop() || "unknown" : "unknown";
+  req.log.info({
+    bodyKeys: payload ? Object.keys(payload) : [],
+    emailPresent: email.length > 0,
+    emailType: typeof rawEmail,
+    emailLength: email.length,
+    emailDomain,
+  }, "OTP request received");
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    req.log.warn({ emailPresent: email.length > 0, emailDomain }, "OTP request rejected: invalid email");
     res.status(400).json({ error: "Valid email required" });
     return;
   }
@@ -325,7 +335,11 @@ router.post("/auth/otp/send", async (req, res) => {
     } else {
       // Either a real delivery failure, or email is unconfigured in production (which must
       // never happen). Fail closed — never leak the login code in the response.
-      req.log.error({ email, unconfigured: !!sent.dev }, "OTP email not delivered");
+      req.log.error({
+        emailDomain,
+        emailLength: email.length,
+        unconfigured: !!sent.dev,
+      }, "OTP email not delivered");
       res.status(502).json({ error: "Couldn't send your login code. Please try again in a moment." });
     }
   } catch (err) {
@@ -369,10 +383,16 @@ router.post("/auth/otp/verify", async (req, res) => {
     }
 
     let user = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    const isNewUser = user.length === 0;
     if (user.length === 0) {
       const inserted = await db.insert(usersTable).values({ email, authProvider: "email" }).returning();
       await ensureSignupGrant(inserted[0]!.id);
       user = inserted;
+    } else {
+      // The same email may claim the welcome offer one additional time.
+      // The separate idempotency reference prevents any later login from
+      // minting more credits.
+      await ensureRepeatSignupGrant(user[0]!.id);
     }
 
     req.session.userId = user[0].id;
@@ -391,7 +411,7 @@ router.post("/auth/otp/verify", async (req, res) => {
 
     void recordLogin(user[0].id, req);
 
-    res.json({ success: true, user: { id: user[0].id, email: user[0].email, name: user[0].name } });
+    res.json({ success: true, isNewUser, user: { id: user[0].id, email: user[0].email, name: user[0].name } });
   } catch (err) {
     req.log.error({ err }, "OTP verify error");
     res.status(500).json({ error: "Verification failed. Please try again." });

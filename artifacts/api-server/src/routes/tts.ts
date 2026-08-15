@@ -93,6 +93,9 @@ async function streamVoice(res: Response, voiceName: string, text: string): Prom
   // playback in the browser where they cannot make the server response silent.
   const { audioStream } = tts.toStream(text);
   res.setHeader("Content-Type", "audio/mpeg");
+  // Diagnostic-only header: lets automated checks confirm that a persona
+  // request resolved to its intended voice instead of a gender fallback.
+  res.setHeader("X-Lead-Onto-Voice", voiceName);
   res.setHeader("Cache-Control", "no-store");
   audioStream.pipe(res);
   audioStream.on("error", () => {
