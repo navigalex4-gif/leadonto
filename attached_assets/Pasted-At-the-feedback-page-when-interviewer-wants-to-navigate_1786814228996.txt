@@ -1,0 +1,20 @@
+At the feedback page, when interviewer wants to navigate to Interview Ace, land the user on the Interview Begin page again. Also keep New Session button at the top of the feedback page. Do not move the pictures up and down; only natural human lip movement should be there for all interviewers. When you show the no-credit popup, also show a Sign Up button and its benefits.
+
+Priya — 200:22176
+Rohit — 200:21888 — Arjun Sir and Rohit Sir's voices are the same. Make Rohit Sir's voice different and make the flow a bit faster. Fix Rohit Sir's replies, make them smooth, and do not use “hmm” much.
+Maya — 200:23184 — Maya Madam's voice is the same as Neha Madam's. Make it sweet, melodious, appealing, and different from Neha Madam and Priya Madam.
+Arjun — 200:21888 — Make Rohit Sir's replies fast, natural, and flawless like a human.
+Neha — 200:21168 — Priya Madam's voice is the same as Neha Madam's. Neha Madam's voice pace is slow; make it faster, and before responding to users, Neha Madam must be smooth. She gets stuck before replying to the user. Change Neha Madam's voice and keep it different from Priya Madam. Make it sweet, normal-paced, and Indianized.
+Rahul — 200:19440 — Rahul Sir's voice sounds robotic and slow-paced. Change Rahul Sir's voice and make it different from Rohit Sir and Arjun Sir. The voice should be appealing and Indianized.
+Priya Coach — 200:25488 — When Priya Madam finishes, the mic should start immediately, and when the user finishes, Priya Madam should respond immediately. Apply the same to all other AI teachers.
+Raj — 200:25056
+Vikram — 200:17424
+Ananya — 200:18288
+Meera Coach — 200:18144
+Kabir — 200:21312
+Sanjay — 200:21744
+Aryan — 200:24336
+
+Keep Priya Madam as the default on the landing page of “English Guru.”
+Keep Meera Madam as the default on the landing page of “Interview Ace.”
+When the candidate finishes answering, the interviewer should reply within 4 seconds strictly. Change Priya Madam's voice. It is pathetically slow-paced and the same as Meera Madam's. Change Raj Sir's voice; it is pathetically slow and the same as Aryan Sir's. Vikram Sir's voice is good, but make the voice pace a bit faster and more natural. Change Kabir Sir's voice and make it different from all male teachers; Kabir Sir's voice sounds robotic and not Indianized. Change Sanjay Sir's voice; it is not recognizable and sounds robotic. Make it appealing, clear, and different from the other male interviewers. Change Aryan Sir's voice; it sounds fake, very slow-paced, and the same as Raj Sir's. Meera Madam and Ananya Madam have the same voice; make them different.

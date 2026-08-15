@@ -39,20 +39,20 @@ export type EdgeSpeakOptions = {
 // Safe client-side pacing differences. These are deliberately subtle: the
 // neural voice identity remains natural while each persona has its own rhythm.
 const VOICE_STYLE_RATES: Record<string, number> = {
-  priya: 1.00,
-  rohit: 0.96,
-  maya: 0.95,
+  priya: 1.05,
+  rohit: 1.04,
+  maya: 1.03,
   arjun: 1.08,
-  neha: 0.90,
-  rahul: 0.95,
-  priya_coach: 1.02,
-  raj: 0.95,
-  vikram: 1.05,
+  neha: 1.03,
+  rahul: 1.04,
+  priya_coach: 1.10,
+  raj: 1.06,
+  vikram: 1.09,
   ananya: 1.08,
-  meera_coach: 0.98,
-  kabir: 0.96,
-  sanjay: 1.02,
-  aryan: 0.92,
+  meera_coach: 1.07,
+  kabir: 1.05,
+  sanjay: 1.08,
+  aryan: 1.06,
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");

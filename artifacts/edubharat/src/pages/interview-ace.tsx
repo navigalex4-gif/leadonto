@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -455,6 +455,45 @@ function TimerDisplay({ elapsedSeconds, durationMinutes }: { elapsedSeconds: num
   );
 }
 
+function CreditGate({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="credit-gate-title"
+    >
+      <div className="w-full max-w-md rounded-3xl border bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">Interview Ace</p>
+            <h2 id="credit-gate-title" className="mt-1 text-xl font-display font-bold text-secondary">
+              Keep practising with free credits
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Close">
+            <XCircle className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Your free interview sessions are used up. Sign up to unlock 20 free credits and continue practising with your saved progress.
+        </p>
+        <ul className="mt-4 space-y-2 text-sm text-secondary">
+          <li>✓ 20 free credits to start</li>
+          <li>✓ Save interview reports and score trends</li>
+          <li>✓ Personalised AI feedback after every session</li>
+        </ul>
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Maybe later</Button>
+          <Link href="/login?returnTo=%2Finterview-ace">
+            <Button className="font-bold">Sign Up — it’s free</Button>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function InterviewAce() {
@@ -472,6 +511,7 @@ export default function InterviewAce() {
 }
 
 function InterviewAceContent() {
+  const [routeLocation] = useLocation();
   const { save } = useHistory();
   const { text: streamText, isStreaming, stream, reset: resetStream } = useGeminiStream();
   const synth = useEdgeTTS();
@@ -588,13 +628,24 @@ function InterviewAceContent() {
     if (b2bParams.coach) {
       return INTERVIEW_COACHES.find(c => c.id === b2bParams.coach) ?? INTERVIEW_COACHES[0]!;
     }
-    return recommendedCoachFor(type);
+    // Meera is the default face/voice on the Interview Ace landing screen.
+    // Choosing an interview type still auto-matches the coach afterwards.
+    return INTERVIEW_COACHES.find(c => c.id === "meera") ?? recommendedCoachFor(type);
   });
   const displayCoachName = interviewerDisplayName(coach.name);
   const candidateDisplayName = profile.name || user?.name || "You";
   const [duration, setDuration] = useState(() => b2bParams.duration || 10);
   const [phase, setPhase] = useState<"setup" | "interview" | "report">("setup");
+  const [showCreditGate, setShowCreditGate] = useState(false);
   const [questions, setQuestions] = useState<QA[]>([]);
+  useEffect(() => {
+    // The Begin screen has a deliberate landing default. This runs only when
+    // setup is entered with no existing questions, so a candidate can still
+    // choose another interviewer manually afterward.
+    if (phase !== "setup" || questions.length > 0 || b2bParams.coach) return;
+    const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "meera");
+    if (defaultCoach && coach.id !== defaultCoach.id) setCoach(defaultCoach);
+  }, [phase]);
   const questionsRef = useRef<QA[]>([]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
   // phaseRef mirrors `phase` so async callbacks (e.g. an in-flight submit) can
@@ -684,6 +735,30 @@ function InterviewAceContent() {
     if (noReplyRef.current) clearTimeout(noReplyRef.current);
     noReplyRef.current = null;
   }, []);
+
+  // The navbar can be clicked while this stateful route is already mounted.
+  // A query flag makes that navigation an explicit request for a fresh Begin
+  // screen instead of leaving the candidate on the previous report.
+  useEffect(() => {
+    const params = new URLSearchParams(routeLocation.split("?")[1] ?? "");
+    if (params.get("begin") !== "1") return;
+    endingRef.current = true;
+    clearAutoSubmitTimer();
+    speech.stop();
+    synth.stop();
+    setPhase("setup");
+    if (!b2bParams.coach) {
+      const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "meera");
+      if (defaultCoach) setCoach(defaultCoach);
+    }
+    setQuestions([]);
+    setReport(null);
+    setSaved(false);
+    setShowCreditGate(false);
+    window.history.replaceState({}, "", `${window.location.pathname}`);
+    // This is intentionally a one-shot navigation command.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeLocation]);
 
   // Live timer during interview
   useEffect(() => {
@@ -848,7 +923,7 @@ function InterviewAceContent() {
     }
     // Guests get 2 free interviews (no signup); signed-in users spend credits.
     if (!user && guestInterviewsLeft() <= 0) {
-      toast({ title: "Free interviews used up", description: "Sign in to get 20 free credits and keep practising.", variant: "destructive" });
+      setShowCreditGate(true);
       return;
     }
     resetStream();
@@ -897,11 +972,7 @@ Rules:
       const charge = await chargeInterview(duration);
       if (!charge.ok) {
         if (charge.status === 402) {
-          toast({
-            title: "Not enough credits",
-            description: `You need at least 1 credit to start (interviews are billed by the minute, up to ${interviewCreditCost(duration)}). You have ${charge.balance ?? 0}. Top up to continue.`,
-            variant: "destructive",
-          });
+          setShowCreditGate(true);
         } else if (charge.status === 409) {
           toast({ title: "Interview already in progress", description: "Finish or close your other interview tab before starting a new one.", variant: "destructive" });
         } else {
@@ -1080,7 +1151,7 @@ Rules:
     // almost every turn into a generic fallback question — this value gives the
     // real, role-aware AI question room to land while still keeping the total
     // pause well under the 4 s response promise.
-    const STREAM_DEADLINE_MS = 3200;
+    const STREAM_DEADLINE_MS = 1800;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1224,7 +1295,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // the absolute wall-clock budget from thinkStart so TTS can begin comfortably
     // before the four-second response promise (the stream itself may already
     // have used most of STREAM_DEADLINE_MS, in which case this adds nothing).
-    const wallRemaining = 3600 - (Date.now() - thinkStart);
+    const wallRemaining = 2200 - (Date.now() - thinkStart);
     const targetRemaining = naturalPauseMs - (Date.now() - thinkStart);
     const remainingWait = Math.min(wallRemaining, targetRemaining);
     if (remainingWait > 0) {
@@ -1646,6 +1717,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
   // ── Setup ──────────────────────────────────────────────────────────────────
   if (phase === "setup") {
     return (
+      <>
       <div className="container mx-auto px-4 max-w-4xl pt-3 pb-4">
         {/* Compact header */}
         <div className="flex items-center justify-between mb-3">
@@ -1764,6 +1836,8 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </Button>
         </div>
       </div>
+      {showCreditGate && <CreditGate onClose={() => setShowCreditGate(false)} />}
+      </>
     );
   }
 
@@ -1776,6 +1850,14 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
     return (
       <div className="min-h-full container mx-auto px-4 py-8 max-w-4xl space-y-6">
+        <div className="flex justify-start">
+          <Button
+            onClick={() => { endingRef.current = true; setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}
+            className="font-bold"
+          >
+            <PlayCircle className="w-4 h-4 mr-2" />New Session
+          </Button>
+        </div>
         {/* Hero */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
@@ -1956,9 +2038,6 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         <div className="flex gap-3 justify-center flex-wrap pb-6">
           <Button variant="outline" onClick={downloadReport}>
             <Download className="w-4 h-4 mr-2" />Download Report
-          </Button>
-          <Button onClick={() => { setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}>
-            <PlayCircle className="w-4 h-4 mr-2" />New Session
           </Button>
           <Button
             variant={saved ? "secondary" : "default"}

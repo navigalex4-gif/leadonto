@@ -85,13 +85,21 @@ function SuiteDropdown({
           <p className={`text-[10px] font-bold uppercase tracking-widest px-3 pb-1.5 pt-0.5 ${color === "orange" ? "text-orange-500" : "text-blue-600"}`}>
             {label}
           </p>
-          {links.map(({ href, label: lbl, icon: Icon, desc }) => (
+          {links.map(({ href, label: lbl, icon: Icon, desc }) => {
+            // Interview Ace is a stateful route. From its feedback screen, a
+            // second tap on the nav item must deliberately request the setup
+            // screen instead of leaving the user on the completed report.
+            const onInterviewRoute = location.split("?")[0] === "/interview-ace";
+            const linkHref = href === "/interview-ace" && onInterviewRoute
+              ? "/interview-ace?begin=1"
+              : href;
+            return (
             <Link
               key={href}
-              href={href}
+              href={linkHref}
               role="menuitem"
               className={`flex items-center gap-3 px-3 py-2.5 mx-1 rounded-xl transition-colors ${
-                location === href ? accent.link : `text-secondary ${accent.hover}`
+                location.split("?")[0] === href ? accent.link : `text-secondary ${accent.hover}`
               }`}
             >
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${accent.iconBg}`}>
@@ -102,7 +110,8 @@ function SuiteDropdown({
                 <p className="text-[10px] text-muted-foreground leading-tight">{desc}</p>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
