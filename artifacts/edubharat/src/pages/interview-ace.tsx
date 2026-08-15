@@ -1751,9 +1751,9 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
               {user ? (
                 <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · billed by the minute · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
               ) : guestInterviewsRemaining > 0 ? (
-                <><span className="font-semibold text-green-700">{guestInterviewsRemaining} free {guestInterviewsRemaining === 1 ? "interview" : "interviews"}</span> left · <Link href="/login" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
+                <><span className="font-semibold text-green-700">{guestInterviewsRemaining} free {guestInterviewsRemaining === 1 ? "interview" : "interviews"}</span> left · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
               ) : (
-                <>Free interviews used up · <Link href="/login" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
+                <>Free interviews used up · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
               )}
             </p>
           </div>

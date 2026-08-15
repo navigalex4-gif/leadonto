@@ -106,7 +106,7 @@ export default function ProgressPage() {
           </p>
         </div>
         {!user && (
-          <Button variant="outline" onClick={() => navigate("/login")} size="sm">
+          <Button variant="outline" onClick={() => navigate("/login?returnTo=%2Fprogress")} size="sm">
             <LogIn className="w-3.5 h-3.5 mr-1.5" />Sign in to sync
           </Button>
         )}

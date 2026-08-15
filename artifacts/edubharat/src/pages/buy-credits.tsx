@@ -381,7 +381,7 @@ export default function BuyCredits() {
                 <p className="text-sm text-muted-foreground">Sign in to claim your welcome bonus and start practising right away.</p>
               </div>
             </div>
-            <Link href="/login">
+            <Link href="/login?returnTo=%2Fcredits">
               <Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Sign in</Button>
             </Link>
           </CardContent>

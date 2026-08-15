@@ -62,6 +62,7 @@
 - [CMS content overrides](cms-content-overrides.md) — DB stores ONLY overrides; client inline fallback is the source of truth; registry is editor-discovery only; never seed defaults into DB.
 - [Publish package firewall](publish-package-firewall.md) — Replit publish blocks npm's tar package; Expo's Linux path uses system tar, so keep a local tar shim override.
 - [Live learning exports](live-learning-exports.md) — shared text/CSV downloads and Pause-vs-End semantics keep learning outputs portable and sessions recoverable.
+- [Persona voice uniqueness](persona-voice-uniqueness.md) — every teacher and interviewer must keep a unique Indian neural voice; never reuse a voice mapping.
 - [Expo publish Metro port](expo-publish-metro-port.md) — static mobile builds must avoid fixed Metro 8081 conflicts in the multi-artifact workspace.
 - [Mobile parity runtime](mobile-parity-runtime.md) — stack screens need safe-area-only fallback; API calls must use injected Replit host, not the Expo preview host.
 - [Interview Ace PiP layout](interview-pip-layout.md) — bottom-anchored PiP inside overflow-hidden stage clips at the TOP if content is too tall; watch for duplicate name captions.

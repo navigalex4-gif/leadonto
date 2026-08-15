@@ -19,6 +19,8 @@ declare module "express-session" {
     isAdmin?: boolean;
     /** Temporary: guest ID to merge on next successful login (Google OAuth flow) */
     pendingGuestId?: string;
+    /** Safe same-origin route to restore after OAuth completes. */
+    pendingReturnTo?: string;
     /**
      * Server-authoritative meter for the in-progress mock interview. `id` is a
      * server-minted token (never sent by the client) used as the idempotent ledger
@@ -238,6 +240,10 @@ router.get("/auth/google", (req, res, next) => {
   // Stash any guest ID so we can merge progress after OAuth completes.
   const guestId = req.query["guestId"] as string | undefined;
   if (guestId) req.session.pendingGuestId = guestId;
+  const returnTo = req.query["returnTo"] as string | undefined;
+  if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+    req.session.pendingReturnTo = returnTo;
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   passport.authenticate("google", {
     scope: ["profile", "email"],
@@ -276,7 +282,9 @@ router.get(
 
       void recordLogin(u.id, req);
     }
-    res.redirect("/");
+    const returnTo = req.session.pendingReturnTo;
+    delete req.session.pendingReturnTo;
+    res.redirect(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
   }
 );
 

@@ -73,7 +73,7 @@ function ProfilePageContent() {
         <div className="text-6xl mb-6">👤</div>
         <h1 className="text-2xl font-display font-bold text-secondary mb-3">Sign in to edit your profile</h1>
         <p className="text-muted-foreground mb-6">Your profile personalises English Guru, Interview Ace, and job recommendations.</p>
-        <Button onClick={() => navigate("/login")} className="w-full font-bold">
+        <Button onClick={() => navigate("/login?returnTo=%2Fprofile")} className="w-full font-bold">
           <LogIn className="w-4 h-4 mr-2" />Sign In
         </Button>
       </div>

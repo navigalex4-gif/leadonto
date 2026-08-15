@@ -105,7 +105,9 @@ function LoginContent() {
       track("otp_verify_attempted", { success: true });
       track("otp_verify_success");
       track("account_created", { auth_method: "email_otp" });
-      navigate("/");
+      const params = new URLSearchParams(search);
+      const returnTo = params.get("returnTo");
+      navigate(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
     }
   };
 
@@ -208,7 +210,10 @@ function LoginContent() {
                 variant="outline"
                 className="w-full h-12 font-semibold text-base border-2 disabled:opacity-60"
                 onClick={googleReady
-                  ? () => loginWithGoogle(localStorage.getItem("edubharat_guest_id") ?? undefined)
+                  ? () => loginWithGoogle(
+                      localStorage.getItem("edubharat_guest_id") ?? undefined,
+                      new URLSearchParams(search).get("returnTo") ?? undefined,
+                    )
                   : copyCallbackUrl}
                 title={!googleReady ? "Google login not yet configured — see setup instructions above" : undefined}
                 data-testid="button-google-login"

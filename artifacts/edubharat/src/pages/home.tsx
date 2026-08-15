@@ -70,7 +70,7 @@ export default function Home() {
                        <ArrowRight className="ml-2 h-5 w-5" />
                      </Button>
                    </Link>
-                    <Link href="/login" className="w-full" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "mobile_hero" })}>
+                    <Link href="/login?returnTo=%2F" className="w-full" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "mobile_hero" })}>
                      <Button size="lg" variant="outline" className="h-11 w-full px-5 text-base font-semibold">
                        Start Learning Free
                      </Button>

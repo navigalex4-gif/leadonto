@@ -40,9 +40,12 @@ export function useAuth() {
     window.dispatchEvent(new Event("edubharat-auth-changed"));
   }, []);
 
-  const loginWithGoogle = useCallback((guestId?: string) => {
+  const loginWithGoogle = useCallback((guestId?: string, returnTo?: string) => {
     const url = new URL(`${BASE}/api/auth/google`, window.location.href);
     if (guestId) url.searchParams.set("guestId", guestId);
+    if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+      url.searchParams.set("returnTo", returnTo);
+    }
     window.location.href = url.toString();
   }, []);
 

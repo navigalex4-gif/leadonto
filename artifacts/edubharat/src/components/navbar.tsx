@@ -243,7 +243,7 @@ export function Navbar() {
                 </Button>
               </div>
             ) : (
-              <Link href="/login">
+              <Link href={`/login?returnTo=${encodeURIComponent(location)}`}>
                 <Button variant="outline" size="sm" className="h-7 px-3 text-xs font-semibold">
                   <LogIn className="w-3.5 h-3.5 mr-1" />Sign In
                 </Button>
@@ -477,7 +477,7 @@ export function Navbar() {
               </Button>
             </div>
           ) : (
-            <Link href="/login" className="block">
+            <Link href={`/login?returnTo=${encodeURIComponent(location)}`} className="block">
               <Button className="w-full font-bold">
                 <LogIn className="w-4 h-4 mr-2" />Sign In
               </Button>

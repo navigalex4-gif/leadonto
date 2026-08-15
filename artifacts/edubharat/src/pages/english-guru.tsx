@@ -559,6 +559,49 @@ Rules for spoken replies:
     return () => clearInterval(id);
   }, [liveChat]);
 
+  // Start every live session with an AI-led English greeting. Previously Live
+  // only opened the microphone and waited for the learner, which felt broken
+  // because the teacher never initiated the conversation.
+  const startLiveGreeting = useCallback(() => {
+    const firstName = profile.name?.trim().split(/\s+/)[0] || "there";
+    const greeting = `Hi ${firstName}! I'm ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}. Let's have a relaxed English conversation. Tell me — what did you do today?`;
+    aiBusyRef.current = true;
+    speechRef.current.pause();
+    lastAiSpeechRef.current = greeting;
+    setRecognitionLang("English");
+    setConvHistory(h => [...h, { role: "ai", text: greeting }]);
+    setConvFlowState("ai-speaking");
+
+    const releaseGreeting = () => {
+      if (!liveChatRef.current || livePausedRef.current) return;
+      if (speakSafetyTimerRef.current) {
+        clearTimeout(speakSafetyTimerRef.current);
+        speakSafetyTimerRef.current = null;
+      }
+      aiBusyRef.current = false;
+      lastAiSpeechEndRef.current = Date.now();
+      speechRef.current.suppressUntil(Date.now() + 2500);
+      speechRef.current.blockFor(650);
+      setConvFlowState("user-speaking");
+      speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
+    };
+
+    speakSafetyTimerRef.current = setTimeout(
+      releaseGreeting,
+      Math.max(greeting.length * 60 + 4000, 10_000),
+    );
+    synth.speak(greeting, "English", releaseGreeting, {
+      voiceGender: tutor.voiceGender,
+      voiceStyle: tutor.voiceStyle,
+    });
+  }, [
+    profile.name,
+    tutor.name,
+    tutor.voiceGender,
+    tutor.voiceStyle,
+    synth,
+  ]);
+
   const toggleLiveChat = useCallback(async () => {
     // Unlock browser autoplay policy synchronously within the user-gesture stack.
     // Must run before any await so Chrome still considers this a gesture-initiated play.
@@ -612,12 +655,13 @@ Rules for spoken replies:
         return;
       }
     }
+    liveChatRef.current = true;
+    livePausedRef.current = false;
     setLiveChat(true);
     setConvFlowState("user-speaking");
-    // Use ref so the callback always calls the latest handleConvPhrase even
-    // after its deps (e.g. isStreaming) change — avoids stale closures.
-    speech.startContinuous(p => handleConvPhraseRef.current?.(p));
-  }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn]);
+    // The teacher initiates first; the microphone starts after the greeting.
+    startLiveGreeting();
+  }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn, startLiveGreeting]);
 
   const togglePauseLiveChat = useCallback(() => {
     if (!liveChat) return;
@@ -927,9 +971,9 @@ Rules for spoken replies:
                   {user ? (
                     <>Uses <span className="font-semibold text-secondary">5 credits/hour</span> · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
                   ) : guestLiveLeft > 0 ? (
-                    <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
+                    <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
                   ) : (
-                    <>Free trial used up · <Link href="/login" className="text-primary font-semibold hover:underline">Sign in</Link> to get 20 free credits and keep chatting</>
+                    <>Free trial used up · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Sign in</Link> to get 20 free credits and keep chatting</>
                   )}
                 </p>
               )}

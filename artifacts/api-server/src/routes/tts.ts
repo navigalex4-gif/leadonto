@@ -4,29 +4,29 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 const router = Router();
 
 /**
- * Per-tutor voice overrides — each English Guru tutor gets a distinct accent.
- * Female tutors: all chosen for warmth/sweetness.
- * Male tutors: one Indian, one American, one British.
- * Keys match the `voiceStyle` field on TutorPersona in the frontend.
+ * Every AI persona has a unique Indian neural voice. Do not reuse a voiceStyle
+ * mapping: sharing Neerja/Prabhat was the reason all female/male characters
+ * sounded identical. Regional Indian neural voices still speak English
+ * naturally, while providing a clearly different accent and timbre.
  */
 const TUTOR_VOICE_MAP: Record<string, string> = {
-  // English Guru tutors — Indian neural voices with persona-specific prosody.
+  // English Guru — six distinct voices
   priya:  "en-IN-NeerjaNeural",
   rohit:  "en-IN-PrabhatNeural",
-  maya:   "en-IN-NeerjaNeural",
+  maya:   "hi-IN-SwaraNeural",
   arjun:  "hi-IN-MadhurNeural",
-  neha:   "en-IN-NeerjaNeural",
-  rahul:  "en-IN-PrabhatNeural",
+  neha:   "bn-IN-TanishaaNeural",
+  rahul:  "kn-IN-GaganNeural",
 
-  // Interview Ace coaches — Indian neural voices with persona-specific prosody.
-  priya_coach: "en-IN-NeerjaNeural",
-  raj:         "en-IN-PrabhatNeural",
-  vikram:      "hi-IN-MadhurNeural",
-  ananya:      "en-IN-NeerjaNeural",
-  meera_coach: "en-IN-NeerjaNeural",
-  kabir:       "en-IN-PrabhatNeural",
-  sanjay:      "en-IN-PrabhatNeural",
-  aryan:       "en-IN-PrabhatNeural",
+  // Interview Ace — eight voices not used by the teachers
+  priya_coach: "mr-IN-AarohiNeural",
+  raj:         "gu-IN-NiranjanNeural",
+  vikram:      "ta-IN-ValluvarNeural",
+  ananya:      "ta-IN-PallaviNeural",
+  meera_coach: "te-IN-ShrutiNeural",
+  kabir:       "bn-IN-BashkarNeural",
+  sanjay:      "ml-IN-MidhunNeural",
+  aryan:       "mr-IN-ManoharNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
