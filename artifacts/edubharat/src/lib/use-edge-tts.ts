@@ -36,6 +36,25 @@ export type EdgeSpeakOptions = {
   nativeLanguage?: string;
 };
 
+// Safe client-side pacing differences. These are deliberately subtle: the
+// neural voice identity remains natural while each persona has its own rhythm.
+const VOICE_STYLE_RATES: Record<string, number> = {
+  priya: 1.00,
+  rohit: 0.96,
+  maya: 0.95,
+  arjun: 1.08,
+  neha: 0.90,
+  rahul: 0.95,
+  priya_coach: 1.02,
+  raj: 0.95,
+  vikram: 1.05,
+  ananya: 1.08,
+  meera_coach: 0.98,
+  kabir: 0.96,
+  sanjay: 1.02,
+  aryan: 0.92,
+};
+
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 // ---------------------------------------------------------------------------
@@ -375,8 +394,9 @@ function playChunkChain(
       audio.src = url;
       _audio = audio;
 
-      const rate = options.rate;
-      if (rate && rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
+      const styleRate = options.voiceStyle ? (VOICE_STYLE_RATES[options.voiceStyle] ?? 1) : 1;
+      const rate = (options.rate ?? 1) * styleRate;
+      if (rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this
       // never blocks or touches the playback graph, so it can't affect the

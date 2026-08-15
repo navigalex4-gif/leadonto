@@ -10,27 +10,23 @@ const router = Router();
  * Keys match the `voiceStyle` field on TutorPersona in the frontend.
  */
 const TUTOR_VOICE_MAP: Record<string, string> = {
-  // Female tutors — distinct accents, all sweet/warm
-  priya:  "en-IN-NeerjaNeural",       // Indian — warm, friendly
-  meera:  "en-US-AriaNeural",         // American — professional & sweet (Maya Ma'am)
-  neerja: "en-GB-SoniaNeural",        // British — clear & sweet (Neha Ma'am, pronunciation)
+  // English Guru tutors — Indian neural voices with persona-specific prosody.
+  priya:  "en-IN-NeerjaNeural",
+  rohit:  "en-IN-PrabhatNeural",
+  maya:   "en-IN-NeerjaNeural",
+  arjun:  "hi-IN-MadhurNeural",
+  neha:   "en-IN-NeerjaNeural",
+  rahul:  "en-IN-PrabhatNeural",
 
-  // Male tutors — Indian / American / British
-  rohit:  "en-IN-PrabhatNeural",      // Indian (Rohit Sir — corporate)
-  arjun:  "en-US-ChristopherNeural",  // American (Arjun Sir — interview coach)
-  rahul:  "en-GB-RyanNeural",         // British (Rahul Sir — grammar & writing)
-
-  // Interview Ace — separate, stable identities for every interviewer.
-  // These deliberately do not reuse any tutor voice, so switching products
-  // or personas never collapses into the same sound.
-  priya_coach: "en-US-JennyNeural",   // warm, reassuring
-  raj:         "en-US-GuyNeural",     // measured, seasoned HR
-  vikram:      "en-US-AndrewNeural",  // crisp, technical
-  ananya:      "en-US-AvaNeural",     // bright, energetic
-  meera_coach: "en-AU-NatashaNeural", // practical, customer-facing
-  kabir:       "en-US-BrianNeural",   // calm, analytical
-  sanjay:      "en-GB-ThomasNeural",  // confident, authoritative
-  aryan:       "en-AU-WilliamNeural", // formal, steady
+  // Interview Ace coaches — Indian neural voices with persona-specific prosody.
+  priya_coach: "en-IN-NeerjaNeural",
+  raj:         "en-IN-PrabhatNeural",
+  vikram:      "hi-IN-MadhurNeural",
+  ananya:      "en-IN-NeerjaNeural",
+  meera_coach: "en-IN-NeerjaNeural",
+  kabir:       "en-IN-PrabhatNeural",
+  sanjay:      "en-IN-PrabhatNeural",
+  aryan:       "en-IN-PrabhatNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
@@ -92,6 +88,9 @@ const LATIN_G = /[A-Za-z]/g;
 async function streamVoice(res: Response, voiceName: string, text: string): Promise<void> {
   const tts = new MsEdgeTTS();
   await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+  // msedge-tts can return HTTP 200 with a zero-byte stream for wrapped SSML.
+  // Keep the reliable plain-text path; persona rate profiles are applied to
+  // playback in the browser where they cannot make the server response silent.
   const { audioStream } = tts.toStream(text);
   res.setHeader("Content-Type", "audio/mpeg");
   res.setHeader("Cache-Control", "no-store");
@@ -169,7 +168,7 @@ router.post("/tts", async (req, res) => {
       const latinCount  = cleaned.match(LATIN_G)?.length ?? 0;
       const totalScript = nativeCount + latinCount;
       const useNative   = totalScript > 0 && nativeCount / totalScript >= 0.25;
-      await streamVoice(res, useNative ? nativeVoice : englishVoice, cleaned);
+       await streamVoice(res, useNative ? nativeVoice : englishVoice, cleaned);
       return;
     }
 
@@ -177,7 +176,7 @@ router.post("/tts", async (req, res) => {
     const langVoices = EDGE_VOICES[language] ?? EDGE_VOICES["English"]!;
     const tutorVoice = language === "English" && voiceStyle ? TUTOR_VOICE_MAP[voiceStyle] : undefined;
     const primaryVoice = tutorVoice ?? (gender === "male" ? langVoices.male : langVoices.female);
-    await streamVoice(res, primaryVoice, cleaned);
+     await streamVoice(res, primaryVoice, cleaned);
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: String(err) });

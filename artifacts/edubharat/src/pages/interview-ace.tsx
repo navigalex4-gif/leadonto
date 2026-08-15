@@ -865,7 +865,7 @@ Rules:
 - Do NOT list rules, do NOT explain the interview process.
 - LANGUAGE: Use simple, clear, everyday English — short sentences and common words. Many candidates are from average English-medium colleges, so avoid difficult vocabulary, idioms and long, complex sentences (${firstName}'s stated English level: ${profile.englishLevel || "Beginner"}).
 - Ask exactly ONE question.`,
-      `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
+      `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
       undefined,
       { maxTokens: 120 }
     );
@@ -1129,13 +1129,14 @@ STYLE — important:
 Output format — exactly two lines, nothing else:
 Ack: <exactly "Okay" or "Got it" — nothing else, never both>
 Next: <the interview question only, may start with a short natural bridge>`,
-          `You are ${displayCoachName}, ${coach.role}. ${coach.style} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),
         streamDeadlinePromise,
       ]);
-    } catch {
+    } catch (err) {
+      console.error("[Interview Ace] follow-up stream failed", err);
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
       const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
       response = `Ack: I see.\nNext: ${fallback}`;
