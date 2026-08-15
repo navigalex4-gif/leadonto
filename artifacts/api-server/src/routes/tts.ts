@@ -19,6 +19,18 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   rohit:  "en-IN-PrabhatNeural",      // Indian (Rohit Sir — corporate)
   arjun:  "en-US-ChristopherNeural",  // American (Arjun Sir — interview coach)
   rahul:  "en-GB-RyanNeural",         // British (Rahul Sir — grammar & writing)
+
+  // Interview Ace — separate, stable identities for every interviewer.
+  // These deliberately do not reuse any tutor voice, so switching products
+  // or personas never collapses into the same sound.
+  priya_coach: "en-US-JennyNeural",   // warm, reassuring
+  raj:         "en-US-GuyNeural",     // measured, seasoned HR
+  vikram:      "en-US-AndrewNeural",  // crisp, technical
+  ananya:      "en-US-AvaNeural",     // bright, energetic
+  meera_coach: "en-AU-NatashaNeural", // practical, customer-facing
+  kabir:       "en-US-BrianNeural",   // calm, analytical
+  sanjay:      "en-GB-ThomasNeural",  // confident, authoritative
+  aryan:       "en-AU-WilliamNeural", // formal, steady
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English

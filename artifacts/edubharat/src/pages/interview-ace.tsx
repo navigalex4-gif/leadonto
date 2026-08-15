@@ -500,7 +500,7 @@ function InterviewAceContent() {
    * know it should wait before restarting the mic.
    */
   const speakCoach = useCallback(
-    (text: string, opts: { voiceGender?: "male" | "female"; pitch?: number; rate?: number }) => {
+    (text: string, opts: { voiceGender?: "male" | "female"; voiceStyle?: string; pitch?: number; rate?: number }) => {
       const ttsText = cleanForSpeech(text);
       if (!ttsText) return;
       speech.pause();
@@ -703,7 +703,7 @@ function InterviewAceContent() {
       resetStream();
       clearAutoSubmitTimer();
       if (!isRecording) {
-        speakCoach(`We have about 30 seconds left, ${((profile.name || "there").split(" ")[0])}. Finish your thought and I’ll wrap up shortly.`, { voiceGender: coach.gender });
+        speakCoach(`We have about 30 seconds left, ${((profile.name || "there").split(" ")[0])}. Finish your thought and I’ll wrap up shortly.`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
       }
     }
     if (elapsedSeconds < duration * 60) return;
@@ -721,7 +721,7 @@ function InterviewAceContent() {
       setQuestions(prev => prev.map((q, i) => i === currentIdx && !q.answer ? { ...q, answer: pending } : q));
     }
     const firstName = (profile.name || "there").split(" ")[0];
-    speakCoach(`That is all the time we have, ${firstName}. I’ll now prepare your feedback report.`, { voiceGender: coach.gender });
+    speakCoach(`That is all the time we have, ${firstName}. I’ll now prepare your feedback report.`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
     setTimeout(() => setPhase("report"), 2600);
   }, [elapsedSeconds, duration, phase, currentIdx, profile.name, coach.gender, speakCoach, speech, resetStream, clearAutoSubmitTimer, isRecording]);
 
@@ -738,7 +738,7 @@ function InterviewAceContent() {
     setIsRecording(false);
     setAutoListenEnabled(false);
     const firstName = (profile.name || "there").split(" ")[0];
-    speakCoach(`It looks like we've lost you there, ${firstName}. No problem — I'll wrap up here and get your feedback ready.`, { voiceGender: coach.gender });
+    speakCoach(`It looks like we've lost you there, ${firstName}. No problem — I'll wrap up here and get your feedback ready.`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
     setTimeout(() => setPhase("report"), 2600);
   }, [resetStream, clearAutoSubmitTimer, speech, profile.name, coach.gender, speakCoach]);
 
@@ -931,7 +931,7 @@ Rules:
     // during the 300ms window between phase="interview" and speakCoach start.
     const pitchVariation = coach.gender === "male" ? 0.88 : 1.08;
     setCoachSpeaking(true);
-    setTimeout(() => speakCoach(opening, { voiceGender: coach.gender, pitch: pitchVariation }), 300);
+    setTimeout(() => speakCoach(opening, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation }), 300);
   }, [typeMeta, experience, duration, coach, stream, resetStream, speakCoach, buildProfileSummary, profile.name, user, authLoading, toast]);
 
   const toggleRecording = useCallback(() => {
@@ -982,7 +982,7 @@ Rules:
 
     if (isFinalQuestion) {
       endingRef.current = true;
-      speakCoach(`That is our final response, ${firstName}. I’ll prepare your feedback report now.`, { voiceGender: coach.gender });
+      speakCoach(`That is our final response, ${firstName}. I’ll prepare your feedback report now.`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
       const remainingMs = Math.max(1500, (duration * 60 - elapsedSeconds) * 1000);
       setTimeout(() => setPhase("report"), remainingMs);
       return;
@@ -1091,7 +1091,7 @@ Rules:
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
     const quickAcks = ["Okay.", "Got it."];
-    speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, rate: 1.1 });
+    speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, rate: 1.1 });
 
     setCoachThinking(true);
     try {
@@ -1241,7 +1241,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setAnswer("");
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, pitch: pitchVariation, rate: 1.05 });
+    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation, rate: 1.05 });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
@@ -1270,7 +1270,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     resetStream();
     // Guard against the 300ms window before speakCoach fires
     setCoachSpeaking(true);
-    setTimeout(() => speakCoach(questions[nextIdx]!.question, { voiceGender: coach.gender }), 300);
+    setTimeout(() => speakCoach(questions[nextIdx]!.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
   }, [currentIdx, questions, resetStream, speakCoach, clearAutoSubmitTimer]);
 
   const endEarly = useCallback(() => {
@@ -2104,7 +2104,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
               <p className="text-slate-800 text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
               <button
                 className="mt-1.5 text-primary/70 hover:text-primary text-[11px] flex items-center gap-1 mx-auto"
-                onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
+                onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
               >
                 <Volume2 className="w-3 h-3" /> Repeat question
               </button>
