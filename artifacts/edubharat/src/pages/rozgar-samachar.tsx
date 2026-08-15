@@ -213,6 +213,14 @@ function scoreColor(score: number): string {
   return "bg-slate-100 text-slate-600 border-slate-200";
 }
 
+function displayJobSource(source: string | undefined): string {
+  const value = (source || "").trim();
+  if (!value) return "Verified job board";
+  if (/adzuna/i.test(value)) return "Verified job board";
+  if (/remotive/i.test(value)) return "Remote job board";
+  return value;
+}
+
 // ─── Job card component ────────────────────────────────────────────────────────
 
 function JobCard({
@@ -258,7 +266,7 @@ function JobCard({
             <p className="text-xs text-muted-foreground mt-1">
               {item.company ? `${item.company} • ` : ""}
               {item.location ? `${item.location} • ` : ""}
-              {item.source}
+              {displayJobSource(item.source)}
               {item.publishedAt ? ` • ${new Date(item.publishedAt).toLocaleDateString("en-IN")}` : ""}
             </p>
           </div>
@@ -332,7 +340,7 @@ function CareerNewsCard({ item }: { item: RozgarLiveItem }) {
     <article className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-colors">
       <div className="flex items-center gap-2 mb-2">
         <Badge variant="outline" className="rounded-full text-[10px] text-blue-700 border-blue-200 bg-blue-50">Career news</Badge>
-        <span className="text-[11px] text-muted-foreground truncate">{item.source}</span>
+        <span className="text-[11px] text-muted-foreground truncate">{displayJobSource(item.source)}</span>
       </div>
       <h3 className="font-semibold text-secondary text-sm leading-snug">{formatGeneratedText(item.title)}</h3>
       {item.summary && <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-3">{formatGeneratedText(item.summary)}</p>}
@@ -607,7 +615,7 @@ function SectionCard({
           `Live sources fetched at ${new Date(live.fetchedAt).toLocaleString("en-IN")}. Candidate context: ${profileCtx}.`,
           ...live.items.slice(0, 5).map((item, index) => {
             const published = item.publishedAt ? ` | ${new Date(item.publishedAt).toLocaleDateString("en-IN")}` : "";
-            return `${index + 1}. ${item.title} — ${item.source}${published}\nSummary: ${item.summary || "No summary supplied."}\nLocation/company: ${item.location || item.company || "Not stated"}\nLink: ${item.link}`;
+            return `${index + 1}. ${item.title} — ${displayJobSource(item.source)}${published}\nSummary: ${item.summary || "No summary supplied."}\nLocation/company: ${item.location || item.company || "Not stated"}\nLink: ${item.link}`;
           }),
         ].join("\n")
       : "No live items were available. Say that fresh source items are unavailable and provide clearly labelled general guidance only.";
@@ -973,7 +981,7 @@ function RozgarSamacharContent() {
   const sourceCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const item of allJobs) {
-      const src = item.source || "Other";
+      const src = displayJobSource(item.source);
       counts[src] = (counts[src] ?? 0) + 1;
     }
     return counts;

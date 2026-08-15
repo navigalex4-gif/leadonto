@@ -287,8 +287,8 @@ function EnglishGuruContent() {
         // suppress any recognised result for 2s so room echo of the greeting
         // (which lingers on laptop/phone speakers) is never processed.
         lastAiSpeechEndRef.current = Date.now();
-        speechRef.current.suppressUntil(Date.now() + 1200);
-        speechRef.current.blockFor(450);
+             speechRef.current.suppressUntil(Date.now() + 2500);
+             speechRef.current.blockFor(650);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -448,8 +448,8 @@ Rules for spoken replies:
             // The content-based echo guard (6s, 85% overlap) is an additional
             // backstop for devices with slow echo decay.
             lastAiSpeechEndRef.current = Date.now();
-            speechRef.current.suppressUntil(Date.now() + 1200);
-            speechRef.current.blockFor(450);
+             speechRef.current.suppressUntil(Date.now() + 2500);
+             speechRef.current.blockFor(650);
             setConvFlowState("user-speaking");
           } else {
             setConvFlowState("idle");
