@@ -9,38 +9,24 @@ const router = Router();
  * Male tutors: one Indian, one American, one British.
  * Keys match the `voiceStyle` field on TutorPersona in the frontend.
  */
-/**
- * Every persona gets a UNIQUE Indian regional neural voice so no two AI
- * characters ever sound the same. Microsoft Edge Neural voices span all major
- * Indian language families — each voice has a distinctly different accent and
- * timbre even when speaking English text.
- *
- * Assignment guide:
- *   Female voices (7 distinct): Neerja(en-IN) · Swara(hi-IN) · Tanishaa(bn-IN)
- *                                Aarohi(mr-IN) · Pallavi(ta-IN) · Shruti(te-IN)
- *                                Sapna(kn-IN)
- *   Male voices (7 distinct):   Prabhat(en-IN) · Madhur(hi-IN) · Gagan(kn-IN)
- *                                Niranjan(gu-IN) · Valluvar(ta-IN) · Bashkar(bn-IN)
- *                                Midhun(ml-IN)
- */
 const TUTOR_VOICE_MAP: Record<string, string> = {
-  // ── English Guru tutors ─────────────────────────────────────────────────
-  priya:  "en-IN-NeerjaNeural",    // warm, clear Indian English (Mumbai)
-  rohit:  "en-IN-PrabhatNeural",   // direct, clear Indian English (Delhi)
-  maya:   "hi-IN-SwaraNeural",     // Hindi-accented female (sophisticated, Bengaluru)
-  arjun:  "hi-IN-MadhurNeural",    // Hindi-accented male (energetic, Hyderabad)
-  neha:   "bn-IN-TanishaaNeural",  // Bengali-accented female (pronunciation coach, Kolkata)
-  rahul:  "kn-IN-GaganNeural",     // Kannada-accented male (methodical, Pune)
+  // English Guru tutors — Indian neural voices with persona-specific prosody.
+  priya:  "en-IN-NeerjaNeural",
+  rohit:  "en-IN-PrabhatNeural",
+  maya:   "en-IN-NeerjaNeural",
+  arjun:  "hi-IN-MadhurNeural",
+  neha:   "en-IN-NeerjaNeural",
+  rahul:  "en-IN-PrabhatNeural",
 
-  // ── Interview Ace coaches ───────────────────────────────────────────────
-  priya_coach: "mr-IN-AarohiNeural",   // Marathi-accented female (campus, friendly)
-  raj:         "gu-IN-NiranjanNeural", // Gujarati-accented male (veteran HR, measured)
-  vikram:      "ta-IN-ValluvarNeural", // Tamil-accented male (tech lead, precise)
-  ananya:      "ta-IN-PallaviNeural",  // Tamil-accented female (sales, high-energy)
-  meera_coach: "te-IN-ShrutiNeural",   // Telugu-accented female (BPO/service, practical)
-  kabir:       "bn-IN-BashkarNeural",  // Bengali-accented male (analyst, calm)
-  sanjay:      "ml-IN-MidhunNeural",   // Malayalam-accented male (enterprise sales, challenging)
-  aryan:       "mr-IN-ManoharNeural",  // Marathi-accented male (finance/banking, formal)
+  // Interview Ace coaches — Indian neural voices with persona-specific prosody.
+  priya_coach: "en-IN-NeerjaNeural",
+  raj:         "en-IN-PrabhatNeural",
+  vikram:      "hi-IN-MadhurNeural",
+  ananya:      "en-IN-NeerjaNeural",
+  meera_coach: "en-IN-NeerjaNeural",
+  kabir:       "en-IN-PrabhatNeural",
+  sanjay:      "en-IN-PrabhatNeural",
+  aryan:       "en-IN-PrabhatNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
