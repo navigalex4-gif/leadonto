@@ -494,12 +494,19 @@ Rules for spoken replies:
           if (turnGeneration === liveTurnGenerationRef.current) aiBusyRef.current = false;
           return;
         }
+        // A turn owns the microphone until the complete queued utterance ends.
+        // This local latch also makes the safety fallback and TTS onEnd
+        // mutually exclusive; without it, a slow multilingual queue could
+        // release the mic twice and start two recognition lifecycles.
+        let turnReleased = false;
         /** Release the busy lock and reopen the mic — called from TTS onEnd OR the safety timer. */
         const releaseTurn = () => {
           if (
             turnGeneration !== liveTurnGenerationRef.current ||
             (liveChatRef.current && livePausedRef.current)
           ) return;
+          if (turnReleased) return;
+          turnReleased = true;
           if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
           aiBusyRef.current = false;
           if (liveChatRef.current) {
@@ -527,9 +534,11 @@ Rules for spoken replies:
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");
-          // Safety timer: if TTS onEnd never fires (Edge TTS failure, audio context suspend, etc.)
-          // force-release the busy lock after a generous timeout so the mic comes back.
-          const safetyMs = Math.max(cleanResponse.length * 60 + 4_000, 10_000);
+          // Failsafe only: the normal path releases from the final queued audio
+          // chunk. The old timeout was short enough to reopen the mic during a
+          // long mixed-language response, so allow network retries and every
+          // language chunk to finish before treating TTS as stuck.
+          const safetyMs = Math.max(cleanResponse.length * 100 + 12_000, 30_000);
           speakSafetyTimerRef.current = setTimeout(releaseTurn, safetyMs);
           // Voice the reply in English by default — the AI is instructed to speak
           // MOSTLY English here, so a native neural voice (e.g. Malayalam) reading
@@ -566,8 +575,19 @@ Rules for spoken replies:
         if (turnGeneration !== liveTurnGenerationRef.current) return;
         // Never leave the busy flag latched on an unexpected failure, or all
         // future turns (live and typed) would be silently blocked.
+        if (speakSafetyTimerRef.current) {
+          clearTimeout(speakSafetyTimerRef.current);
+          speakSafetyTimerRef.current = null;
+        }
         aiBusyRef.current = false;
-        setConvFlowState(liveChatRef.current ? "user-speaking" : "idle");
+        if (liveChatRef.current && !livePausedRef.current) {
+          speechRef.current.suppressUntil(Date.now() + 600);
+          speechRef.current.blockFor(450);
+          setConvFlowState("user-speaking");
+          speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
+        } else {
+          setConvFlowState("idle");
+        }
       }
     })();
   // `speech` and `speak` intentionally removed from deps — accessed via
