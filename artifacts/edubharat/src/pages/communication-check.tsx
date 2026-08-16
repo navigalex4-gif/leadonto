@@ -206,7 +206,7 @@ export default function CommunicationCheck() {
       speech.suppressUntil(Date.now() + 450);
       speech.blockFor(450);
       onEnd?.();
-    }, { voiceGender: "female", rate: 1.05 });
+    }, { voiceGender: "female", rate: 1.0 });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
 
   const startListening = useCallback(() => {

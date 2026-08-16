@@ -593,7 +593,7 @@ function InterviewAceContent() {
         speech.suppressUntil(Date.now() + 450);
         speech.blockFor(450);
         setCoachSpeaking(false);
-      }, { ...opts, rate: opts.rate ?? 1.05 });
+      }, { ...opts, rate: opts.rate ?? 1.0 });
     },
     [speech, synth],
   );
@@ -1219,7 +1219,7 @@ Rules:
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
      const quickAcks = ["Okay.", "Got it."];
-    speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, rate: 1.1 });
+     speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, rate: 1.0 });
 
     setCoachThinking(true);
     try {
@@ -1370,7 +1370,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setAnswer("");
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation, rate: 1.05 });
+    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation, rate: 1.0 });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**

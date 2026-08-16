@@ -36,27 +36,24 @@ export type EdgeSpeakOptions = {
   nativeLanguage?: string;
 };
 
-// Safe client-side pacing differences. Explicitly flagged-as-slow personas
-// (Priya, Raj, Aryan — described as "pathetically slow"; Neha — "slow,
-// pace"; Rohit and Vikram — "make it faster") get a real, audible boost.
-// The old range (1.03-1.10, a 7% spread) was too narrow to be perceptible
-// against natural voice-to-voice tempo differences — this widens it to a
-// range that's clearly faster without crossing into artifacts.
+// Keep every AI persona at a consistent, natural human speaking pace.
+// Voice timbre and accent already provide distinction; changing playback rate
+// per persona made some teachers and interviewers sound rushed.
 const VOICE_STYLE_RATES: Record<string, number> = {
-  priya: 1.08,        // was 1.16 after "slow" complaint; 1.16 read as rushed — settle mid
-  rohit: 1.14,        // "make the flow a bit faster"
-  maya: 1.05,
-  arjun: 1.12,         // "fast, natural, and flawless"
-  neha: 1.15,          // "voice pace is slow; make it faster"
-  rahul: 1.06,
-  priya_coach: 1.10,
-  raj: 0.94,           // deliberately measured, slower HR-interviewer delivery
-  vikram: 1.13,        // "good, but make the voice pace a bit faster"
-  ananya: 1.08,
-  meera_coach: 1.07,
-  kabir: 1.12,         // re-voiced to mr-IN-Manohar; brisk analyst pace
-  sanjay: 1.00,        // clear en-IN enterprise-sales delivery
-  aryan: 0.98,         // clear, measured en-IN BFSI delivery
+  priya: 1.0,
+  rohit: 1.0,
+  maya: 1.0,
+  arjun: 1.0,
+  neha: 1.0,
+  rahul: 1.0,
+  priya_coach: 1.0,
+  raj: 1.0,
+  vikram: 1.0,
+  ananya: 1.0,
+  meera_coach: 1.0,
+  kabir: 1.0,
+  sanjay: 1.0,
+  aryan: 1.0,
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");

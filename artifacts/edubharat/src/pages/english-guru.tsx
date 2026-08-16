@@ -244,7 +244,7 @@ function EnglishGuruContent() {
     synth.speak(firstSentence, language, onEnd, {
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
-      rate: opts.rate ?? 1.04,
+      rate: opts.rate ?? 1.0,
       ...opts,
     });
   }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
@@ -382,7 +382,7 @@ function EnglishGuruContent() {
     // real live-voice turns (not typed mode, not silence probes/re-engagement).
     if (liveChatRef.current && !isSilenceProbe) {
       const quickAcks = ["Ohh, okay.", "Hmm, I see.", "Right.", "Got it.", "Okay."];
-      speakRef.current(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, "English", () => {}, { rate: 1.1 });
+      speakRef.current(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, "English", () => {}, { rate: 1.0 });
     }
     void (async () => {
       try {
@@ -530,7 +530,7 @@ Rules for spoken replies:
           // the English runs on the tutor voice. (speechLang above still drives
           // only which language we LISTEN in next, not the voice.)
           speakRef.current(cleanResponse, "English", releaseTurn, {
-             rate: 1.1,
+            rate: 1.0,
             nativeLanguage: uiLang !== "English" ? uiLang : undefined,
           });
         } else {
@@ -711,7 +711,7 @@ Rules for spoken replies:
         speechRef.current.blockFor(450);
         setConvFlowState("user-speaking");
       };
-      speakRef.current(recall, "English", releaseResume, { rate: 1.1 });
+      speakRef.current(recall, "English", releaseResume, { rate: 1.0 });
     }
   }, [liveChat, speech, cancelActiveTurn]);
 
