@@ -124,7 +124,7 @@ function QuietLink({ href, children, className = "" }: { href: string; children:
 }
 
 export default function Home() {
-  const heroEyebrow = useContent("home.hero.eyebrow", "Your next opportunity starts with how you communicate.");
+  const heroEyebrow = useContent("home.hero.eyebrow", "Show Up as Good as You Are.");
   const heroSubtitle = useContent(
     "home.hero.subheadline",
     "Real-world English, the right words for every situation, local-language support, and role-based interview practice — built to help you seize your next opportunity.",

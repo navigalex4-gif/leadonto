@@ -18,7 +18,7 @@ export type ContentEntry = {
 
 export const CONTENT_REGISTRY: ContentEntry[] = [
   // ── Home / landing hero ──────────────────────────────────────────────────
-  { key: "home.hero.eyebrow",     page: "Home", label: "Hero eyebrow",     defaultValue: "Your next opportunity starts with how you communicate." },
+  { key: "home.hero.eyebrow",     page: "Home", label: "Hero eyebrow",     defaultValue: "Show Up as Good as You Are." },
   {
     key: "home.hero.subheadline",
     page: "Home",
