@@ -1,183 +1,213 @@
 import { Router, type Response } from "express";
-import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+import { TextToSpeechClient } from "@google-cloud/text-to-speech";
 
 const router = Router();
 
-// Microsoft Edge Neural voices for all 13 Indian languages + English
-// Sourced from verified Microsoft voice list (all -Neural suffix voices)
-const EDGE_VOICES: Record<string, { male: string; female: string }> = {
-  English:   { male: "en-IN-PrabhatNeural",   female: "en-IN-NeerjaNeural" },
-  Hindi:     { male: "hi-IN-MadhurNeural",    female: "hi-IN-SwaraNeural" },
-  Tamil:     { male: "ta-IN-ValluvarNeural",  female: "ta-IN-PallaviNeural" },
-  Telugu:    { male: "te-IN-MohanNeural",     female: "te-IN-ShrutiNeural" },
-  Bengali:   { male: "bn-IN-BashkarNeural",   female: "bn-IN-TanishaaNeural" },
-  Marathi:   { male: "mr-IN-ManoharNeural",   female: "mr-IN-AarohiNeural" },
-  Gujarati:  { male: "gu-IN-NiranjanNeural",  female: "gu-IN-DhwaniNeural" },
-  Kannada:   { male: "kn-IN-GaganNeural",     female: "kn-IN-SapnaNeural" },
-  Malayalam: { male: "ml-IN-MidhunNeural",    female: "ml-IN-SobhanaNeural" },
-  Urdu:      { male: "ur-IN-SalmanNeural",    female: "ur-IN-GulNeural" },
-  // pa-IN / or-IN / as-IN Edge voices return HTTP 200 with ZERO-BYTE audio from
-  // this environment (verified 2026-08-16) — route these languages to the
-  // closest verified-working voices instead of silently failing.
-  Punjabi:   { male: "hi-IN-MadhurNeural",    female: "hi-IN-SwaraNeural" },   // Gurmukhi ~ Devanagari-adjacent; hi-IN reads Punjabi-accented Hindi/English
-  Odia:      { male: "bn-IN-BashkarNeural",   female: "bn-IN-TanishaaNeural" }, // closest working eastern-Indic voice
-  Assamese:  { male: "bn-IN-BashkarNeural",   female: "bn-IN-TanishaaNeural" }, // Assamese script ≈ Bengali script
-};
+type SupportedLanguage =
+  | "English"
+  | "Hindi"
+  | "Tamil"
+  | "Telugu"
+  | "Bengali"
+  | "Marathi"
+  | "Gujarati"
+  | "Kannada"
+  | "Malayalam"
+  | "Punjabi"
+  | "Odia"
+  | "Assamese"
+  | "Urdu";
 
 /**
- * Strip AI role-label artifacts that sometimes leak into the spoken text.
- * e.g. "Priya Ma'am: Hello there!" → "Hello there!"
- *      "Ack: Right, I see."        → "Right, I see."
- * Also collapses multiple spaces.
- * Note: Edge TTS rejects SSML <break> tags when passed through toStream(),
- * so we rely solely on the neural voice's built-in punctuation-aware prosody.
+ * Permanent character → Google Cloud voice identity.
+ *
+ * These are Google Chirp 3 HD English voices, deliberately assigned once and
+ * never selected by gender, browser availability, or randomness.
  */
+export const CHARACTER_VOICE_MAP: Record<string, string> = {
+  priya: "en-US-Chirp3-HD-Aoede",
+  rohit: "en-US-Chirp3-HD-Algieba",
+  maya: "en-US-Chirp3-HD-Callirrhoe",
+  arjun: "en-US-Chirp3-HD-Fenrir",
+  neha: "en-US-Chirp3-HD-Kore",
+  rahul: "en-US-Chirp3-HD-Orus",
+  ananya: "en-US-Chirp3-HD-Leda",
+  priya_coach: "en-US-Chirp3-HD-Achernar",
+  raj: "en-US-Chirp3-HD-Algenib",
+  vikram: "en-US-Chirp3-HD-Charon",
+  meera_coach: "en-US-Chirp3-HD-Despina",
+  kabir: "en-US-Chirp3-HD-Enceladus",
+  sanjay: "en-US-Chirp3-HD-Iapetus",
+  aryan: "en-US-Chirp3-HD-Gacrux",
+};
+
+// Regional Google voices are assigned deterministically by character order.
+// Where a locale has fewer voices, the same character keeps the same regional
+// voice every time; English identity is never changed by native-language mode.
+const REGIONAL_VOICES: Record<Exclude<SupportedLanguage, "English">, string[]> = {
+  Hindi: ["hi-IN-Neural2-A", "hi-IN-Neural2-B", "hi-IN-Neural2-C", "hi-IN-Neural2-D"],
+  Tamil: ["ta-IN-Neural2-A", "ta-IN-Neural2-B", "ta-IN-Neural2-C", "ta-IN-Neural2-D"],
+  Telugu: ["te-IN-Neural2-A", "te-IN-Neural2-B", "te-IN-Neural2-C", "te-IN-Neural2-D"],
+  Bengali: ["bn-IN-Neural2-A", "bn-IN-Neural2-B", "bn-IN-Neural2-C", "bn-IN-Neural2-D"],
+  Marathi: ["mr-IN-Wavenet-A", "mr-IN-Wavenet-B", "mr-IN-Wavenet-C", "mr-IN-Wavenet-D"],
+  Gujarati: ["gu-IN-Wavenet-A", "gu-IN-Wavenet-B", "gu-IN-Wavenet-C", "gu-IN-Wavenet-D"],
+  Kannada: ["kn-IN-Wavenet-A", "kn-IN-Wavenet-B", "kn-IN-Wavenet-C", "kn-IN-Wavenet-D"],
+  Malayalam: ["ml-IN-Wavenet-A", "ml-IN-Wavenet-B", "ml-IN-Wavenet-C", "ml-IN-Wavenet-D"],
+  Punjabi: ["pa-IN-Wavenet-A", "pa-IN-Wavenet-B", "pa-IN-Wavenet-C", "pa-IN-Wavenet-D"],
+  Odia: ["or-IN-Wavenet-A", "or-IN-Wavenet-B", "or-IN-Wavenet-C", "or-IN-Wavenet-D"],
+  Assamese: ["as-IN-Wavenet-A", "as-IN-Wavenet-B", "as-IN-Wavenet-C", "as-IN-Wavenet-D"],
+  Urdu: ["ur-IN-Wavenet-A", "ur-IN-Wavenet-B", "ur-IN-Wavenet-C", "ur-IN-Wavenet-D"],
+};
+
+const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
+  English: "en-US",
+  Hindi: "hi-IN",
+  Tamil: "ta-IN",
+  Telugu: "te-IN",
+  Bengali: "bn-IN",
+  Marathi: "mr-IN",
+  Gujarati: "gu-IN",
+  Kannada: "kn-IN",
+  Malayalam: "ml-IN",
+  Punjabi: "pa-IN",
+  Odia: "or-IN",
+  Assamese: "as-IN",
+  Urdu: "ur-IN",
+};
+
+const CHARACTER_ORDER = [
+  "priya", "rohit", "maya", "arjun", "neha", "rahul", "ananya",
+  "priya_coach", "raj", "vikram", "meera_coach", "kabir", "sanjay", "aryan",
+] as const;
+
+let googleTtsClient: TextToSpeechClient | null = null;
+
+function getGoogleTtsClient(): TextToSpeechClient {
+  if (googleTtsClient) return googleTtsClient;
+  const rawCredentials = process.env.GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON;
+  if (!rawCredentials) {
+    throw new Error("GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON is not configured");
+  }
+  const credentials = JSON.parse(rawCredentials) as {
+    client_email: string;
+    private_key: string;
+  };
+  googleTtsClient = new TextToSpeechClient({ credentials });
+  return googleTtsClient;
+}
+
 function cleanForTTS(text: string): string {
   return text
-    // Strip AI role-label prefixes — "TeacherName: " or "Ack:" / "Next:" at line start
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/m, "")
-    .replace(/\bAck:\s*/gi, "")
-    .replace(/\bNext:\s*/gi, "")
-    // Strip markdown action/emote words in asterisks — *smiles warmly*, *chuckles*, etc.
+    .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/\*[^*]{1,40}\*/g, "")
-    // Strip markdown bold (**text**) and italic (*text* or _text_)
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
-    // Strip markdown headers — ## Heading → Heading
     .replace(/^#{1,6}\s+/gm, "")
-    // Strip parenthetical stage directions — (smiles), (pause), (laughs)
     .replace(/\([^)]{1,30}\)/g, "")
-    // Strip leading/trailing quote marks the model sometimes wraps around output
     .replace(/^\s*["'"]/m, "")
     .replace(/["'"]\s*$/m, "")
-  // Give common workplace acronyms a pronounceable spoken form.
-  .replace(/\bBFSI\b/gi, "B F S I")
-  .replace(/\bCEFR\b/gi, "C E F R")
-  .replace(/\bRBI\b/gi, "R B I")
-  .replace(/\bB2B\b/gi, "business to business")
-  .replace(/\bUPI\b/gi, "U P I")
-  .replace(/\bAPI\b/gi, "A P I")
-  .replace(/\bSQL\b/gi, "S Q L")
-  .replace(/\bKPI\b/gi, "K P I")
-  .replace(/\bATS\b/gi, "A T S")
-  .replace(/\bMBA\b/gi, "M B A")
-  .replace(/\bHR\b/gi, "H R")
-  .replace(/\bAI\b/gi, "A I")
-  // Collapse extra whitespace
+    .replace(/\bBFSI\b/gi, "B F S I")
+    .replace(/\bCEFR\b/gi, "C E F R")
+    .replace(/\bRBI\b/gi, "R B I")
+    .replace(/\bB2B\b/gi, "business to business")
+    .replace(/\bUPI\b/gi, "U P I")
+    .replace(/\bAPI\b/gi, "A P I")
+    .replace(/\bSQL\b/gi, "S Q L")
+    .replace(/\bKPI\b/gi, "K P I")
+    .replace(/\bATS\b/gi, "A T S")
+    .replace(/\bMBA\b/gi, "M B A")
+    .replace(/\bHR\b/gi, "H R")
+    .replace(/\bAI\b/gi, "A I")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-// Indic (Devanagari … Malayalam) + Arabic (Urdu) script char counts.
-// Used to decide which voice dominates a mixed-script reply.
-const NATIVE_SCRIPT_G = /[\u0900-\u0D7F\u0600-\u06FF]/g;
-const LATIN_G = /[A-Za-z]/g;
+function isSupportedLanguage(value: string): value is SupportedLanguage {
+  return value in LANGUAGE_CODES;
+}
 
-/** Stream a single voice straight to the response (default, low-latency path). */
-async function streamVoice(res: Response, voiceName: string, text: string): Promise<void> {
-  const tts = new MsEdgeTTS();
-  await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-  // msedge-tts can return HTTP 200 with a zero-byte stream for wrapped SSML.
-  // Keep the reliable plain-text path; persona rate profiles are applied to
-  // playback in the browser where they cannot make the server response silent.
-  const { audioStream } = tts.toStream(text);
+function chooseVoice(language: SupportedLanguage, voiceStyle?: string): string {
+  if (language === "English") {
+    return CHARACTER_VOICE_MAP[voiceStyle ?? ""] ?? CHARACTER_VOICE_MAP.maya!;
+  }
+  const index = CHARACTER_ORDER.indexOf(
+    (voiceStyle ?? "maya") as (typeof CHARACTER_ORDER)[number],
+  );
+  const voices = REGIONAL_VOICES[language];
+  return voices[Math.max(0, index) % voices.length]!;
+}
+
+async function synthesize(
+  res: Response,
+  text: string,
+  language: SupportedLanguage,
+  voiceName: string,
+): Promise<void> {
+  const client = getGoogleTtsClient();
+  const [response] = await client.synthesizeSpeech({
+    input: { text },
+    voice: { languageCode: LANGUAGE_CODES[language], name: voiceName },
+    audioConfig: {
+      audioEncoding: "MP3",
+      speakingRate: 1.0,
+      pitch: 0,
+    },
+  });
+  if (!response.audioContent) {
+    throw new Error(`Google Cloud TTS returned no audio for ${voiceName}`);
+  }
+  const audio = Buffer.isBuffer(response.audioContent)
+    ? response.audioContent
+    : Buffer.from(response.audioContent as Uint8Array);
   res.setHeader("Content-Type", "audio/mpeg");
   res.setHeader("Cache-Control", "no-store");
-  audioStream.pipe(res);
-  audioStream.on("error", () => {
-    if (!res.headersSent) res.status(500).json({ error: "TTS stream error" });
-    else res.end();
-  });
+  res.setHeader("Content-Length", audio.length);
+  res.end(audio);
 }
 
 router.post("/tts", async (req, res) => {
   const {
     text,
     language = "English",
-    gender = "female",
-    nativeLanguage,
+    voiceStyle,
   } = req.body as {
     text?: string;
     language?: string;
-    gender?: "male" | "female";
-    nativeLanguage?: string;
+    voiceStyle?: string;
   };
 
   if (!text?.trim()) {
     res.status(400).json({ error: "Missing 'text' field" });
     return;
   }
-  // Cap input length — Edge TTS handles ~3000 chars reliably; reject oversized payloads
   if (text.trim().length > 3000) {
     res.status(400).json({ error: "Text too long (max 3000 characters)" });
     return;
   }
-
-  // cleanForTTS strips role-label echoes / stage directions; the neural voices
-  // pause naturally at punctuation.
+  const targetLanguage = isSupportedLanguage(language) ? language : "English";
   const cleaned = cleanForTTS(text.trim());
   if (!cleaned) {
     res.status(400).json({ error: "No speakable text" });
     return;
   }
 
-  // English is deliberately routed through the two verified en-IN voices.
-  // This keeps pronunciation consistent across every teacher and interviewer.
-  const englishVoice =
-    (gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female);
-
-  // Voice for native-script runs: only when a real, supported native language is
-  // supplied (absent for greetings / Interview Ace / English-only mode). The
-  // persona map is intentionally not used for English-only speech.
-  const nativeVoices =
-    nativeLanguage && nativeLanguage !== "English" ? EDGE_VOICES[nativeLanguage] : undefined;
-  const nativeVoice = nativeVoices
-    ? (gender === "male" ? nativeVoices.male : nativeVoices.female)
-    : undefined;
-
   try {
-    if (nativeVoice) {
-      // ── Single-voice selection ────────────────────────────────────────────
-      // Per-character segment stitching (previous approach) rendered each
-      // script-boundary fragment — often just 1–3 words — without surrounding
-      // sentence context.  Each clip therefore had its own prosodic ramp,
-      // causing a mechanical, "robotic" quality on concatenation.
-      //
-      // Microsoft's Indian Neural voices are trained on code-switched data and
-      // pronounce English words naturally in an Indian accent, so one voice
-      // reading the full sentence always sounds more natural than two voices
-      // stitched at character boundaries.
-      //
-      // Choice rule:  native-script chars ≥ 25 % of total script chars
-      //               → native voice  (handles English code-switches naturally)
-      //               < 25 %          → tutor English voice (mostly English reply)
-      const nativeCount = cleaned.match(NATIVE_SCRIPT_G)?.length ?? 0;
-      const latinCount  = cleaned.match(LATIN_G)?.length ?? 0;
-      const totalScript = nativeCount + latinCount;
-      const useNative   = totalScript > 0 && nativeCount / totalScript >= 0.25;
-       await streamVoice(res, useNative ? nativeVoice : englishVoice, cleaned);
-      return;
-    }
-
-    // ── Default single-voice path (unchanged behaviour) ────────────────────
-    const langVoices = EDGE_VOICES[language] ?? EDGE_VOICES["English"]!;
-    const primaryVoice = language === "English"
-      ? englishVoice
-      : (gender === "male" ? langVoices.male : langVoices.female);
-    await streamVoice(res, primaryVoice, cleaned);
+    await synthesize(res, cleaned, targetLanguage, chooseVoice(targetLanguage, voiceStyle));
   } catch (err) {
-    if (!res.headersSent) {
-      res.status(500).json({ error: String(err) });
-    } else {
-      res.end();
-    }
+    req.log.error({ err, language: targetLanguage, voiceStyle }, "Google Cloud TTS failed");
+    if (!res.headersSent) res.status(500).json({ error: "Google Cloud TTS failed" });
+    else res.end();
   }
 });
 
-// Return the list of supported languages
 router.get("/tts/voices", (_req, res) => {
-  res.json(Object.keys(EDGE_VOICES));
+  res.json({
+    provider: "google-cloud-text-to-speech",
+    languages: Object.keys(LANGUAGE_CODES),
+    characters: CHARACTER_VOICE_MAP,
+  });
 });
 
 export default router;

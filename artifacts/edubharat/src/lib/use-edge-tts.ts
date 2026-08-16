@@ -1,8 +1,8 @@
 /**
- * useEdgeTTS — Microsoft Edge Neural TTS via the API server.
+ * useEdgeTTS — Google Cloud Text-to-Speech via the API server.
  *
- * Produces natural Indian-accented speech for 13 languages with real
- * male / female neural voices. Same interface as useSpeechSynthesis so
+ * Produces natural conversational speech for all supported languages. Same
+ * interface as useSpeechSynthesis so
  * pages can swap with minimal changes.
  *
  * GLOBAL SINGLETON: All hook instances share a single Audio element so
@@ -16,14 +16,13 @@ export type VoiceGender = "male" | "female" | "auto";
 
 export type EdgeSpeakOptions = {
   voiceGender?: VoiceGender;
-  /** playbackRate multiplier — default 1.0 (Edge voices are already natural speed) */
+  /** playbackRate multiplier — default 1.0 */
   rate?: number;
-  /** ignored for Edge TTS (pitch is set by the neural model, not adjustable) */
+  /** retained for caller compatibility; Google controls natural pitch */
   pitch?: number;
   /**
    * Tutor voice style key (e.g. "priya", "arjun", "rahul"). When supplied, the
-   * API server maps this to a specific Edge Neural voice so each tutor has a
-   * distinct accent. Falls back to gender-based selection when absent.
+   * API server maps this permanently to the character's Google Cloud voice.
    */
   voiceStyle?: string;
   /**
@@ -36,44 +35,24 @@ export type EdgeSpeakOptions = {
   nativeLanguage?: string;
 };
 
-// Keep every AI persona at a consistent, natural human speaking pace.
-// Voice timbre and accent already provide distinction; changing playback rate
-// per persona made some teachers and interviewers sound rushed.
-const VOICE_STYLE_RATES: Record<string, number> = {
-  priya: 1.0,
-  rohit: 1.0,
-  maya: 1.0,
-  arjun: 1.0,
-  neha: 1.0,
-  rahul: 1.0,
-  priya_coach: 1.0,
-  raj: 1.0,
-  vikram: 1.0,
-  ananya: 1.0,
-  meera_coach: 1.0,
-  kabir: 1.0,
-  sanjay: 1.0,
-  aryan: 1.0,
-};
-
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
 // ---------------------------------------------------------------------------
 // Audio context unlock
 //
-// Chrome's autoplay policy blocks audio.play() unless called from within a
-// user-gesture event stack. Because TTS fetches take 1-4 seconds (AI + Edge
+// Browser autoplay policy blocks audio.play() unless called from within a
+// user-gesture event stack. Because TTS fetches take 1-4 seconds (AI + Google
 // network), the gesture context has expired long before play() is attempted.
 //
 // Strategy — two-layer unlock:
 //
 // Layer 1 (AudioContext): Resume an AudioContext in the click handler.
-//   Chrome's sticky-activation fires the moment any user gesture occurs;
+//   Browser sticky-activation fires the moment any user gesture occurs;
 //   a running AudioContext propagates that permission to HTMLAudioElement
 //   plays on the same origin.
 //
 // Layer 2 (pre-blessed element): Also create an HTMLAudioElement inside the
-//   gesture and call play() on it immediately. Chrome "blesses" the element
+//   gesture and call play() on it immediately. Browsers "bless" the element
 //   itself, and that blessing survives src changes — so speak() can reuse
 //   the same element with a new URL and play() always succeeds.
 //
@@ -92,9 +71,9 @@ const SILENT_MP3 =
  * unlockAudio — call synchronously from inside a click / keydown handler.
  *
  * Two-layer unlock to maximise cross-browser reliability:
- *  • Layer 1 — resume an AudioContext so Chrome's sticky-activation propagates
+ *  • Layer 1 — resume an AudioContext so browser sticky-activation propagates
  *    to all HTMLAudioElement plays on this origin.
- *  • Layer 2 — create and play a silent HTMLAudioElement; Chrome "blesses" the
+ *  • Layer 2 — create and play a silent HTMLAudioElement; browsers "bless" the
  *    specific element, and that blessing survives src changes.  The element is
  *    stored in _unlockedEl so speak() can reuse it without a fresh play() call.
  *
@@ -148,6 +127,15 @@ export function unlockAudio(): void {
 let _audio: HTMLAudioElement | null = null;
 let _abort: AbortController | null = null;
 let _url:   string | null = null;
+type QueuedSpeech = {
+  chunks: string[];
+  language: string;
+  gender: "male" | "female";
+  options: EdgeSpeakOptions;
+  onAllDone: () => void;
+};
+const _speechQueue: QueuedSpeech[] = [];
+let _queueActive = false;
 // Hook instances register here to be notified when global stop happens
 // so they can reset their own isSpeaking state.
 const _stopListeners = new Set<() => void>();
@@ -312,6 +300,8 @@ const CHUNK_GAP_MS = 55;
 
 function globalStop() {
   _speakGen++; // supersede any in-flight chunk chain — it will see the mismatch and quietly stop
+  _speechQueue.length = 0;
+  _queueActive = false;
   _abort?.abort();
   _abort = null;
   if (_audio) {
@@ -325,6 +315,18 @@ function globalStop() {
   publishMouthLevel(CLOSED_MOUTH);
   // Notify all mounted hook instances so isSpeaking resets everywhere
   _stopListeners.forEach(fn => fn());
+}
+
+function runNextQueuedSpeech(): void {
+  if (_queueActive || _speechQueue.length === 0) return;
+  const next = _speechQueue.shift()!;
+  _queueActive = true;
+  const myGen = _speakGen;
+  playChunkChain(next.chunks, 0, myGen, next.language, next.gender, next.options, () => {
+    _queueActive = false;
+    next.onAllDone();
+    runNextQueuedSpeech();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -395,8 +397,7 @@ function playChunkChain(
       audio.src = url;
       _audio = audio;
 
-      const styleRate = options.voiceStyle ? (VOICE_STYLE_RATES[options.voiceStyle] ?? 1) : 1;
-      const rate = (options.rate ?? 1) * styleRate;
+      const rate = options.rate ?? 1;
       if (rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this
@@ -493,21 +494,15 @@ export function useEdgeTTS() {
     ) => {
       if (!text.trim()) { onEnd?.(); return; }
 
-      // Stop any currently-playing audio globally (resets all hook isSpeaking
-      // states and supersedes any in-flight chunk chain via _speakGen).
-      globalStop();
-      const myGen = _speakGen;
-
       ownerRef.current = true;
       setIsSpeaking(true);
 
       const gender: "male" | "female" =
         options.voiceGender === "male" ? "male" : "female";
 
-      // Sentence-chunked so the FIRST sentence can start playing as soon as
-      // it's synthesised, while later sentences synthesise in the background —
-      // this is what makes a long reply start talking in ~1s instead of
-      // going quiet for the whole paragraph's synthesis time.
+      // Sentence-chunked and queued so each clip finishes before the next
+      // begins. This prevents overlapping voices and preserves every response
+      // instead of cutting the current speaker off when a new request arrives.
       const chunks = splitIntoSpeechChunks(text);
       if (chunks.length === 0) {
         if (ownerRef.current) { ownerRef.current = false; setIsSpeaking(false); }
@@ -515,14 +510,20 @@ export function useEdgeTTS() {
         return;
       }
 
-      playChunkChain(chunks, 0, myGen, language, gender, options, () => {
-        // Only the owner fires onEnd — prevents double-fire if globally stopped
-        if (ownerRef.current) {
-          ownerRef.current = false;
-          setIsSpeaking(false);
+      _speechQueue.push({
+        chunks,
+        language,
+        gender,
+        options,
+        onAllDone: () => {
           onEnd?.();
-        }
+          if (ownerRef.current && !_queueActive && _speechQueue.length === 0) {
+            ownerRef.current = false;
+            setIsSpeaking(false);
+          }
+        },
       });
+      runNextQueuedSpeech();
     },
     [],
   );
