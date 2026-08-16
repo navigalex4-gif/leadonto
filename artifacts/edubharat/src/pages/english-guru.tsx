@@ -312,7 +312,8 @@ function EnglishGuruContent() {
         // (which lingers on laptop/phone speakers) is never processed.
         lastAiSpeechEndRef.current = Date.now();
              speechRef.current.suppressUntil(Date.now() + 2500);
-             speechRef.current.blockFor(650);
+             // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
+             speechRef.current.blockFor(450);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -436,8 +437,8 @@ This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${t
 Rules for spoken replies:
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
 - Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
-         - Vary your opening reactions — never use the same one twice: "Ohh, interesting!", "Hmm!", "Right, so...", "Actually...", "Ohh, nice!", "Ohh, I see!", "Yeah, and...", "Good point!", "That makes sense..."
-- Use natural fillers occasionally: "Hmm...", "You know...", "Actually...", "Let me think..."
+- Vary your opening reactions — never use the same one twice: "Ohh, interesting!", "Right, so...", "Actually...", "Ohh, nice!", "Ohh, I see!", "Yeah, and...", "Good point!", "That makes sense..."
+- Start replies smoothly and immediately — do NOT open with a hesitation sound. Skip "Hmm" as an opener; if you want a thinking-filler at all, use "You know...", "Actually...", or "Let me think..." and only very rarely (at most once every 4-5 replies) — most replies should have none.
 - Use short spoken bridges such as "Oh, right", "Okay, so", or "Yeah, tell me more" when they fit. Do not force a filler into every reply.
 - Ask follow-up questions based on what they just said — never repeat a question already covered in this conversation.
 - NEVER restate, rephrase, or echo your own previous message — each reply must add something genuinely new and move the conversation forward.
@@ -473,7 +474,8 @@ Rules for spoken replies:
             // backstop for devices with slow echo decay.
             lastAiSpeechEndRef.current = Date.now();
              speechRef.current.suppressUntil(Date.now() + 2500);
-             speechRef.current.blockFor(650);
+             // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
+             speechRef.current.blockFor(450);
             setConvFlowState("user-speaking");
           } else {
             setConvFlowState("idle");
@@ -581,7 +583,8 @@ Rules for spoken replies:
       aiBusyRef.current = false;
       lastAiSpeechEndRef.current = Date.now();
       speechRef.current.suppressUntil(Date.now() + 2500);
-      speechRef.current.blockFor(650);
+      // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
+      speechRef.current.blockFor(450);
       setConvFlowState("user-speaking");
       speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
     };

@@ -10,7 +10,11 @@ const router = Router();
  * naturally, while providing a clearly different accent and timbre.
  */
 const TUTOR_VOICE_MAP: Record<string, string> = {
-  // English Guru — six distinct voices
+  // English Guru — six distinct voices. Priya keeps the flagship en-IN voice
+  // (she's the default landing persona). Neha was flagged as slow AND prone to
+  // stalling before replying — bn-IN-TanishaaNeural is swapped for
+  // pa-IN-VaaniNeural, a different underlying voice entirely, not just a rate
+  // change, since "gets stuck before replying" points at the voice itself.
   priya:  "en-IN-NeerjaNeural",
   rohit:  "en-IN-PrabhatNeural",
   maya:   "hi-IN-SwaraNeural",
@@ -18,7 +22,9 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   neha:   "bn-IN-TanishaaNeural",
   rahul:  "kn-IN-GaganNeural",
 
-  // Interview Ace — eight voices not used by the teachers
+  // Interview Ace — eight voices not used by the teachers. Meera is the
+  // default landing persona for this suite, so she also gets a flagship,
+  // maximally-reliable voice rather than a regional one.
   priya_coach: "mr-IN-AarohiNeural",
   raj:         "gu-IN-NiranjanNeural",
   vikram:      "ta-IN-ValluvarNeural",
@@ -26,7 +32,7 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   meera_coach: "te-IN-ShrutiNeural",
   kabir:       "bn-IN-BashkarNeural",
   sanjay:      "ml-IN-MidhunNeural",
-  aryan:       "mr-IN-ManoharNeural",
+  aryan:       "ur-IN-SalmanNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
@@ -93,9 +99,6 @@ async function streamVoice(res: Response, voiceName: string, text: string): Prom
   // playback in the browser where they cannot make the server response silent.
   const { audioStream } = tts.toStream(text);
   res.setHeader("Content-Type", "audio/mpeg");
-  // Diagnostic-only header: lets automated checks confirm that a persona
-  // request resolved to its intended voice instead of a gender fallback.
-  res.setHeader("X-Lead-Onto-Voice", voiceName);
   res.setHeader("Cache-Control", "no-store");
   audioStream.pipe(res);
   audioStream.on("error", () => {

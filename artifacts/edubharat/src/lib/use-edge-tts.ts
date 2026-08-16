@@ -36,23 +36,27 @@ export type EdgeSpeakOptions = {
   nativeLanguage?: string;
 };
 
-// Safe client-side pacing differences. These are deliberately subtle: the
-// neural voice identity remains natural while each persona has its own rhythm.
+// Safe client-side pacing differences. Explicitly flagged-as-slow personas
+// (Priya, Raj, Aryan — described as "pathetically slow"; Neha — "slow,
+// pace"; Rohit and Vikram — "make it faster") get a real, audible boost.
+// The old range (1.03-1.10, a 7% spread) was too narrow to be perceptible
+// against natural voice-to-voice tempo differences — this widens it to a
+// range that's clearly faster without crossing into artifacts.
 const VOICE_STYLE_RATES: Record<string, number> = {
-  priya: 1.05,
-  rohit: 1.04,
-  maya: 1.03,
-  arjun: 1.08,
-  neha: 1.03,
-  rahul: 1.04,
+  priya: 1.16,        // flagged "pathetically slow-paced"
+  rohit: 1.14,        // "make the flow a bit faster"
+  maya: 1.05,
+  arjun: 1.12,         // "fast, natural, and flawless"
+  neha: 1.15,          // "voice pace is slow; make it faster"
+  rahul: 1.06,
   priya_coach: 1.10,
-  raj: 1.06,
-  vikram: 1.09,
+  raj: 1.16,           // flagged "pathetically slow"
+  vikram: 1.13,        // "good, but make the voice pace a bit faster"
   ananya: 1.08,
   meera_coach: 1.07,
-  kabir: 1.05,
+  kabir: 1.08,
   sanjay: 1.08,
-  aryan: 1.06,
+  aryan: 1.16,         // flagged "very slow-paced"
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");

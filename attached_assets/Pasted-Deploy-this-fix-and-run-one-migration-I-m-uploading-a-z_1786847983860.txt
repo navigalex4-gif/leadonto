@@ -1,0 +1,33 @@
+Deploy this fix and run one migration
+
+I'm uploading a zip that replaces the whole app. It already contains fixed code for the issues below — you do NOT need to re-diagnose or re-write these, just deploy correctly and run the one required migration.
+
+What was fixed (for your context, do not redo)
+Root cause of "all teachers/interviewers sound the same": use-student-profile.ts had a stale 6-name voice whitelist while tutors.ts defines 14 personas. Every profile reload silently collapsed any unrecognized voiceStyle to "priya" or "rohit". Fixed — whitelist now matches the full roster.
+Root cause of "picture moving up and down": animated-avatar.tsx's mouth mask used transparent/black gradient stops, which some browsers read as luminance (black = zero luminance = mask does nothing), making the whole photo move instead of just the mouth band. Fixed — mask now uses white with varying alpha, which is correct under either interpretation.
+Root cause of "navigating to Interview Ace from feedback page does nothing": the navbar already appended ?begin=1 to force a reset, but interview-ace.tsx never read it. Fixed — now listens for it and resets to the Begin screen.
+Voice reassignments + per-persona playback-rate boosts for personas flagged as slow (Priya, Raj, Aryan, Neha, Rohit, Vikram).
+English Guru's mic-reopen delay tightened from 650ms to 450ms (matches Interview Ace, matches real natural-pause data from earlier analysis).
+Removed "Hmm" from the AI's own encouraged filler-word list (it was in the system prompt itself) and capped filler frequency.
+No-credit popup now shows "Top Up Credits" for logged-in users instead of "Sign Up" (they already have an account) — guests still see the Sign Up + benefits version.
+New Session button is now sticky at the top of the feedback page.
+Added a permanent used_signup_emails table + normalization logic (api-server/src/lib/normalize-email.ts) that blocks repeat 20-credit signup bonuses via Gmail dot-tricks (j.ane@gmail.com) and plus-aliases (jane+1@gmail.com) resolving to the same real inbox.
+Steps
+Unzip and overwrite the project with this upload.
+Run pnpm install (node_modules is not included, regenerate from pnpm-lock.yaml).
+Required — run the database migration for the new table:
+   cd lib/db && pnpm drizzle-kit push
+
+This creates used_signup_emails. Confirm the shell output shows the table was created before proceeding — do not skip this, credits.ts will throw on every signup until this table exists. 4. Restart the app (pnpm --filter api-server dev and the frontend dev server, or your normal run command).
+
+What you need to verify manually (I could not test audio output myself)
+
+I reassigned several voices and boosted playback rate for the ones described as "pathetically slow," but I cannot listen to synthesized audio from this environment. Please do a real listening pass:
+
+Open English Guru, cycle through all 6 teachers (Priya, Rohit, Maya, Arjun, Neha, Rahul) back to back. Confirm each sounds like a genuinely different person, not just a different name.
+Open Interview Ace, cycle through all 8 coaches. Same check.
+Specifically re-listen to Neha — her voice model was swapped (not just rate-adjusted) because her complaint was "gets stuck before replying," not just pace. Confirm the stall is gone.
+If ANY persona still sounds wrong after this, tell me exactly which one and what's wrong (too slow / robotic / same as X) and I'll iterate — I can't guess which specific Microsoft neural voice sounds best without your ears on it.
+Also confirm
+A fresh signup still receives 20 credits (the abuse guard should only block a SECOND claim from an equivalent email, never the first).
+Test the abuse guard: sign up with youremail+test1@gmail.com, then try youremail+test2@gmail.com — the second should NOT receive another 20 credits (check the credits balance and the server log line "Signup grant skipped").

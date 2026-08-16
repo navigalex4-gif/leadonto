@@ -67,22 +67,16 @@ function LoginContent() {
   }, []);
 
   const handleSendOtp = async () => {
-    // Some Facebook/Instagram WebViews can update the native input before
-    // React's controlled state has received the final input event. Read the
-    // element as a fallback so a valid address is never submitted as empty.
-    const inputValue = document.querySelector<HTMLInputElement>('[data-testid="input-email"]')?.value ?? email;
-    const submittedEmail = inputValue.trim().toLowerCase();
-    if (!submittedEmail) { setError("Please enter your email"); return; }
-    setEmail(submittedEmail);
+    if (!email.trim()) { setError("Please enter your email"); return; }
     setLoading(true);
     setError("");
-    const result = await sendOtp(submittedEmail);
+    const result = await sendOtp(email);
     setLoading(false);
     if (result.error) {
       setError(result.error);
       track("otp_requested", {
         success: false,
-        email_domain: submittedEmail.split("@")[1] ?? "unknown",
+        email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
         error_reason: result.error.slice(0, 120),
       });
     } else {
@@ -90,7 +84,7 @@ function LoginContent() {
       setDevCode(result.dev);
       track("otp_requested", {
         success: true,
-        email_domain: submittedEmail.split("@")[1] ?? "unknown",
+        email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
       });
     }
   };
@@ -110,10 +104,7 @@ function LoginContent() {
     } else {
       track("otp_verify_attempted", { success: true });
       track("otp_verify_success");
-      track("account_created", { auth_method: "email_otp", is_new_user: result.isNewUser === true });
-      if (result.isNewUser === true) {
-        track("signup_completed", { auth_method: "email_otp", webview: isEmbeddedWebView });
-      }
+      track("account_created", { auth_method: "email_otp" });
       const params = new URLSearchParams(search);
       const returnTo = params.get("returnTo");
       navigate(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
@@ -255,12 +246,9 @@ function LoginContent() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     type="email"
-                    name="email"
-                    autoComplete="email"
                     placeholder="Enter your email address"
                     className="h-12 pl-10"
                     value={email}
-                    onInput={e => setEmail(e.currentTarget.value)}
                     onChange={e => setEmail(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleSendOtp()}
                     data-testid="input-email"

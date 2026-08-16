@@ -124,8 +124,18 @@ function PhotoMouth({ imageSrc, px, mouth }: { imageSrc: string; px: number; mou
         // Only a tight band over the mouth/chin is part of the animated copy; the
         // upper face and everything below the chin (neck, collar, chest) is fully
         // masked out so it can never move.
-        WebkitMaskImage: "linear-gradient(to bottom, transparent 49%, black 54%, black 61%, transparent 66%)",
-        maskImage: "linear-gradient(to bottom, transparent 49%, black 54%, black 61%, transparent 66%)",
+        //
+        // IMPORTANT: gradient stops use ONE colour (white) with only the alpha
+        // varying — never transparent-vs-black. CSS mask gradients are read as
+        // *luminance* by some browsers/engines and *alpha* by others; black has
+        // zero luminance either way, so a transparent→black→black→transparent
+        // gradient can collapse to "fully hidden everywhere" under a luminance
+        // reading. That un-masks nothing, so the WHOLE photo — not just the
+        // mouth band — is what visibly moves. White has maximum luminance AND
+        // carries the alpha, so this gradient masks correctly under either
+        // interpretation. Do not change these back to transparent/black.
+        WebkitMaskImage: "linear-gradient(to bottom, rgba(255,255,255,0) 49%, rgba(255,255,255,1) 54%, rgba(255,255,255,1) 61%, rgba(255,255,255,0) 66%)",
+        maskImage: "linear-gradient(to bottom, rgba(255,255,255,0) 49%, rgba(255,255,255,1) 54%, rgba(255,255,255,1) 61%, rgba(255,255,255,0) 66%)",
       }}
       aria-hidden="true"
     >

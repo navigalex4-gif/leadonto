@@ -72,7 +72,7 @@ export function useAuth() {
         body: JSON.stringify({ email, code, ...(guestId ? { guestId } : {}) }),
         credentials: "include",
       });
-      const data = (await res.json()) as { success?: boolean; user?: AuthUser; error?: string; isNewUser?: boolean };
+      const data = (await res.json()) as { success?: boolean; user?: AuthUser; error?: string };
       if (!res.ok) return { error: data.error ?? "We couldn't verify that code. Please try again." };
       if (data.success && data.user) {
         setUser(data.user);

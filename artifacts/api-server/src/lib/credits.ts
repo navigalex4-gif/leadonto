@@ -1,6 +1,7 @@
-import { db, usersTable, creditTransactionsTable } from "@workspace/db";
+import { db, usersTable, creditTransactionsTable, usedSignupEmailsTable } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 import { logger } from "./logger";
+import { normalizeEmailForAbuseCheck } from "./normalize-email";
 
 /** Free credits granted once per account on first sign-in. */
 export const SIGNUP_GRANT = 20;
@@ -215,12 +216,29 @@ export async function reverseCredits(args: {
 }
 
 /**
- * Grant the welcome bonus. The product allows the same email/account to claim
- * this free grant twice, but never on every login. Separate references make
- * both grants independently idempotent and safe under concurrent verification.
+ * Grant the one-time welcome bonus. Idempotent per user (reference =
+ * signup:<id>) AND per real-world inbox: `email` is normalized (Gmail dot/
+ * "+"-alias collapsed — see normalize-email.ts) and checked against a
+ * permanent ledger before granting, so the same person cannot claim the
+ * bonus repeatedly via "jane+1@gmail.com", "jane+2@gmail.com", etc. The
+ * ledger insert is atomic (ON CONFLICT DO NOTHING + row check), so two
+ * concurrent signups for the same normalized email can't both slip through.
  */
-export async function ensureSignupGrant(userId: number): Promise<void> {
+export async function ensureSignupGrant(userId: number, email: string): Promise<void> {
   try {
+    const normalized = normalizeEmailForAbuseCheck(email);
+    const claimed = await db
+      .insert(usedSignupEmailsTable)
+      .values({ normalizedEmail: normalized, firstUserId: userId })
+      .onConflictDoNothing({ target: usedSignupEmailsTable.normalizedEmail })
+      .returning();
+
+    if (claimed.length === 0) {
+      // Someone with an equivalent inbox already claimed the welcome bonus.
+      logger.info({ userId, normalized }, "Signup grant skipped — email already claimed a welcome bonus");
+      return;
+    }
+
     await grantCredits({
       userId,
       amount: SIGNUP_GRANT,
@@ -233,27 +251,12 @@ export async function ensureSignupGrant(userId: number): Promise<void> {
   }
 }
 
-/** Grant the one allowed repeat-login bonus (the second and final free grant). */
-export async function ensureRepeatSignupGrant(userId: number): Promise<void> {
-  try {
-    await grantCredits({
-      userId,
-      amount: SIGNUP_GRANT,
-      type: "signup_grant",
-      description: "Returning welcome bonus — 20 free credits",
-      reference: `signup:${userId}:repeat`,
-    });
-  } catch (err) {
-    logger.error({ err: (err as Error).message, userId }, "ensureRepeatSignupGrant failed");
-  }
-}
-
 /** One-time backfill so existing accounts also receive their welcome credits. Idempotent. */
 export async function backfillSignupGrants(): Promise<void> {
   try {
-    const users = await db.select({ id: usersTable.id }).from(usersTable);
+    const users = await db.select({ id: usersTable.id, email: usersTable.email }).from(usersTable);
     for (const u of users) {
-      await ensureSignupGrant(u.id);
+      await ensureSignupGrant(u.id, u.email);
     }
     logger.info({ users: users.length }, "Signup credit backfill complete");
   } catch (err) {

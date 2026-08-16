@@ -234,6 +234,23 @@ export const siteContentTable = pgTable("site_content", {
 });
 export type SiteContent = typeof siteContentTable.$inferSelect;
 
+// ── Signup grant abuse guard ─────────────────────────────────────────────────
+// Records every NORMALIZED email that has ever claimed the 20-credit welcome
+// bonus, independent of the live `users` row. Without this, the same person
+// could claim the bonus repeatedly using Gmail's dot-insensitivity
+// ("j.ane@gmail.com" == "jane@gmail.com") or "+" sub-addressing
+// ("jane+1@gmail.com" also delivers to jane@gmail.com) — those are different
+// STRINGS but the same real inbox, and a plain unique(email) constraint on
+// `users` does not catch it since Postgres treats them as distinct values.
+// See lib/normalize-email.ts (api-server) for the normalization function —
+// keep both in sync if you change the algorithm.
+export const usedSignupEmailsTable = pgTable("used_signup_emails", {
+  normalizedEmail: text("normalized_email").primaryKey(),
+  firstUserId: integer("first_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type UsedSignupEmail = typeof usedSignupEmailsTable.$inferSelect;
+
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertOtpSchema = createInsertSchema(otpsTable).omit({ id: true, createdAt: true });
 export const insertLearningProgressSchema = createInsertSchema(learningProgressTable).omit({ id: true, createdAt: true });

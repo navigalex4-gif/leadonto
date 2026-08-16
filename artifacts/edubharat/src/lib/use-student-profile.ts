@@ -2,7 +2,15 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "./use-auth";
 
 export type VoiceGender = "male" | "female";
-export type VoiceStyle = "priya" | "neerja" | "meera" | "rohit" | "arjun" | "rahul";
+// Every persona currently defined in tutors.ts (English Guru + Interview Ace).
+// This list MUST be kept in sync with the `voiceStyle` field of every entry in
+// TUTORS and INTERVIEW_COACHES — normalizeVoiceStyle() below silently discards
+// any style not in this list, which is exactly the bug that made Priya/Neha/
+// Maya/Meera (and Rohit/Raj/Vikram/Kabir/Sanjay/Aryan) all collapse to the same
+// voice on every page reload: the old 6-name list predated most of the roster.
+export type VoiceStyle =
+  | "priya" | "rohit" | "maya" | "arjun" | "neha" | "rahul"
+  | "priya_coach" | "raj" | "vikram" | "ananya" | "meera_coach" | "kabir" | "sanjay" | "aryan";
 
 export type StudentProfile = {
   name: string;
@@ -70,9 +78,19 @@ const DEFAULT_PROFILE: StudentProfile = {
   experienceSummary: "",
 };
 
+const VALID_VOICE_STYLES: readonly VoiceStyle[] = [
+  "priya", "rohit", "maya", "arjun", "neha", "rahul",
+  "priya_coach", "raj", "vikram", "ananya", "meera_coach", "kabir", "sanjay", "aryan",
+];
+
 function normalizeVoiceStyle(style: unknown, gender: VoiceGender): VoiceStyle {
-  if (style === "priya" || style === "neerja" || style === "meera" || style === "rohit" || style === "arjun" || style === "rahul") return style;
+  if (typeof style === "string" && (VALID_VOICE_STYLES as readonly string[]).includes(style)) {
+    return style as VoiceStyle;
+  }
+  // Legacy aliases from older builds — map forward instead of discarding.
   if (style === "ravi") return "rohit";
+  if (style === "neerja") return "priya";
+  if (style === "meera") return "meera_coach";
   return gender === "male" ? "rohit" : "priya";
 }
 

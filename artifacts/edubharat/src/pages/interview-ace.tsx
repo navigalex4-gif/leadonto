@@ -455,7 +455,7 @@ function TimerDisplay({ elapsedSeconds, durationMinutes }: { elapsedSeconds: num
   );
 }
 
-function CreditGate({ onClose }: { onClose: () => void }) {
+function CreditGate({ onClose, isLoggedIn }: { onClose: () => void; isLoggedIn: boolean }) {
   return (
     <div
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 px-4"
@@ -468,27 +468,48 @@ function CreditGate({ onClose }: { onClose: () => void }) {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-primary">Interview Ace</p>
             <h2 id="credit-gate-title" className="mt-1 text-xl font-display font-bold text-secondary">
-              Keep practising with free credits
+              {isLoggedIn ? "You're out of credits" : "Keep practising with free credits"}
             </h2>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Close">
             <XCircle className="h-5 w-5" />
           </button>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Your free interview sessions are used up. Sign up to unlock 20 free credits and continue practising with your saved progress.
-        </p>
-        <ul className="mt-4 space-y-2 text-sm text-secondary">
-          <li>✓ 20 free credits to start</li>
-          <li>✓ Save interview reports and score trends</li>
-          <li>✓ Personalised AI feedback after every session</li>
-        </ul>
-        <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>Maybe later</Button>
-          <Link href="/login?returnTo=%2Finterview-ace">
-            <Button className="font-bold">Sign Up — it’s free</Button>
-          </Link>
-        </div>
+        {isLoggedIn ? (
+          <>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Your credit balance is too low to start this interview. Top up to keep practising — your saved progress and reports stay right where they are.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-secondary">
+              <li>✓ Instant top-up, no waiting</li>
+              <li>✓ Credits never expire</li>
+              <li>✓ All your past reports stay saved</li>
+            </ul>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" onClick={onClose}>Maybe later</Button>
+              <Link href="/credits">
+                <Button className="font-bold">Top Up Credits</Button>
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Your free interview sessions are used up. Sign up to unlock 20 free credits and continue practising with your saved progress.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-secondary">
+              <li>✓ 20 free credits to start</li>
+              <li>✓ Save interview reports and score trends</li>
+              <li>✓ Personalised AI feedback after every session</li>
+            </ul>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" onClick={onClose}>Maybe later</Button>
+              <Link href="/login?returnTo=%2Finterview-ace">
+                <Button className="font-bold">Sign Up — it’s free</Button>
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -511,7 +532,7 @@ export default function InterviewAce() {
 }
 
 function InterviewAceContent() {
-  const [routeLocation] = useLocation();
+  const [routeLocation, setLocation] = useLocation();
   const { save } = useHistory();
   const { text: streamText, isStreaming, stream, reset: resetStream } = useGeminiStream();
   const synth = useEdgeTTS();
@@ -636,6 +657,23 @@ function InterviewAceContent() {
   const candidateDisplayName = profile.name || user?.name || "You";
   const [duration, setDuration] = useState(() => b2bParams.duration || 10);
   const [phase, setPhase] = useState<"setup" | "interview" | "report">("setup");
+
+  // The navbar's "Interview Ace" link appends ?begin=1 when the user is ALREADY
+  // on this route (see navbar.tsx) specifically so a click from the feedback/
+  // report page lands back on the setup/Begin screen — wouter keeps this page
+  // mounted for a same-path navigation, so without this the URL changed but
+  // nothing ever reacted to it and the user stayed stuck on the report view.
+  useEffect(() => {
+    if (!routeLocation.includes("begin=1")) return;
+    endingRef.current = true;
+    setPhase("setup");
+    setQuestions([]);
+    setReport(null);
+    setSaved(false);
+    // Strip the flag so it doesn't re-trigger on the next unrelated re-render
+    // and doesn't fight with the user pressing Begin themselves.
+    setLocation("/interview-ace", { replace: true });
+  }, [routeLocation]);
   const [showCreditGate, setShowCreditGate] = useState(false);
   const [questions, setQuestions] = useState<QA[]>([]);
   useEffect(() => {
@@ -1836,7 +1874,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </Button>
         </div>
       </div>
-      {showCreditGate && <CreditGate onClose={() => setShowCreditGate(false)} />}
+      {showCreditGate && <CreditGate onClose={() => setShowCreditGate(false)} isLoggedIn={!!user} />}
       </>
     );
   }
@@ -1850,10 +1888,10 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
 
     return (
       <div className="min-h-full container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        <div className="flex justify-start">
+        <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
           <Button
             onClick={() => { endingRef.current = true; setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}
-            className="font-bold"
+            className="font-bold shadow-md"
           >
             <PlayCircle className="w-4 h-4 mr-2" />New Session
           </Button>
