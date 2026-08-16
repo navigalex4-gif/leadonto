@@ -141,6 +141,11 @@ function EnglishGuruContent() {
    * cut the AI off abruptly. isStreaming alone doesn't cover the TTS window.
    */
   const aiBusyRef = useRef(false);
+  /** Mirrors the global TTS hook synchronously enough to reject delayed mic
+   * results while the coach is still speaking. This is a second line of
+   * defence behind speech.pause(), for browsers that deliver a buffered final
+   * result after recognition.stop(). */
+  const ttsSpeakingRef = useRef(false);
   /** Safety timer: if TTS onEnd never fires, force-clear aiBusyRef so the mic comes back. */
   const speakSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Tracks last user speech activity (interim transcript / phrase) for silence detection. */
@@ -251,6 +256,7 @@ function EnglishGuruContent() {
    */
   const speakRef = useRef(speak);
   useEffect(() => { speakRef.current = speak; }, [speak]);
+  useEffect(() => { ttsSpeakingRef.current = synth.isSpeaking; }, [synth.isSpeaking]);
   // Echo-rejection state: the AI's most recent spoken text and when it finished.
   // handleConvPhrase uses these to drop mic captures that are really the AI's
   // own voice coming back through the speaker.
@@ -344,8 +350,23 @@ function EnglishGuruContent() {
   const handleConvPhrase = useCallback((phrase: string) => {
     const isSilenceProbe = phrase === SILENCE_MARKER;
     // Guard: normal phrases need content; silence probes just need the channel to be free.
-    if (!isSilenceProbe && (!phrase.trim() || (!liveChatRef.current && isStreaming) || aiBusyRef.current || livePausedRef.current)) return;
+    if (!isSilenceProbe && (
+      !phrase.trim()
+      || (!liveChatRef.current && isStreaming)
+      || aiBusyRef.current
+      || ttsSpeakingRef.current
+      || livePausedRef.current
+    )) return;
     if (isSilenceProbe && (aiBusyRef.current || !liveChatRef.current)) return;
+    // A stopped Web Speech instance can still deliver one buffered final result
+    // after the AI audio ends. Do not let that result become a new turn while
+    // room echo is decaying, even when it was transcribed into native script
+    // and therefore cannot match the English-text echo guard below.
+    if (
+      !isSilenceProbe
+      && liveChatRef.current
+      && Date.now() - lastAiSpeechEndRef.current < 2800
+    ) return;
     // Echo guard: a phrase arriving within ~3.5s of the AI finishing, that closely
     // matches what the AI just said, is the mic hearing the speaker — not the user.
     // Drop it so the teacher never "replies to its own voice".
