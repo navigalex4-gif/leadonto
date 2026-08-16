@@ -1,20 +1,22 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeBottomPadding } from '@/hooks/useSafeBottomPadding';
-import { Header } from '@/components/Header';
 import { ToolCard } from '@/components/ToolCard';
 import { StatCard } from '@/components/StatCard';
 import { ProgressRing } from '@/components/ProgressRing';
 import { LoadingPlaceholder } from '@/components/LoadingPlaceholder';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProgress, getProfile, type Progress, type Profile } from '@/lib/storage';
 import type { ToolInfo } from '@/components/ToolCard';
 
 export default function HomeScreen() {
   const colors = useColors();
   const bottomPadding = useSafeBottomPadding();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -56,45 +58,105 @@ export default function HomeScreen() {
     }
   }
 
+  const contentWidth = Math.min(width, 520);
+  const horizontalPadding = width < 360 ? 16 : 20;
+  const headlineSize = Math.max(32, Math.min(42, contentWidth * 0.102));
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: bottomPadding }}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPadding + 16 }]}
       showsVerticalScrollIndicator={false}
     >
-      <Header
-        title={profile.name ? `Namaste, ${profile.name}` : 'Namaste, Learner'}
-        subtitle="Your AI career companion for India"
-      />
+      {/* Compact mobile header: every item remains visible at 320–430pt widths. */}
+      <View style={[styles.mobileHeader, { paddingTop: insets.top + 8, paddingHorizontal: horizontalPadding, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.replace('/(tabs)' as never)} accessibilityRole="button" accessibilityLabel="Lead Onto home">
+          <Text style={[styles.brand, { color: colors.primary }]}>Lead Onto</Text>
+        </Pressable>
+        <View style={styles.headerSuite}>
+          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
+            <Feather name="zap" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Fluency</Text>
+            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+          </Pressable>
+          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/interview-ace' as never)} accessibilityRole="button">
+            <Feather name="briefcase" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Career</Text>
+            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+        <View style={styles.headerActions}>
+          <Pressable style={[styles.creditPill, { borderColor: colors.primary + '55', backgroundColor: colors.primary + '12' }]} onPress={() => router.push('/credits' as never)} accessibilityRole="button" accessibilityLabel="Credits">
+            <Feather name="link-2" size={12} color={colors.primary} />
+            <Text style={[styles.creditText, { color: colors.primary }]}>0</Text>
+          </Pressable>
+          <Pressable style={[styles.avatar, { backgroundColor: colors.secondary }]} onPress={() => router.push('/(tabs)/profile' as never)} accessibilityRole="button" accessibilityLabel="Open profile">
+            <Text style={[styles.avatarText, { color: colors.secondaryForeground }]}>{(profile.name || 'L').slice(0, 1).toUpperCase()}</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/(tabs)/tools' as never)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open menu">
+            <Feather name="menu" size={23} color={colors.foreground} />
+          </Pressable>
+        </View>
+      </View>
 
-      {/* ── Weekly goal card ─────────────────────────────────────────────────── */}
-      <View style={styles.hero}>
+      <View style={[styles.hero, { paddingHorizontal: horizontalPadding }]}>
+        <View style={[styles.learnBadge, { backgroundColor: colors.primary + '16', borderColor: colors.primary + '35' }]}>
+          <Feather name="zap" size={14} color={colors.primary} />
+          <Text style={[styles.learnBadgeText, { color: colors.primary }]}>Learn something new</Text>
+        </View>
+        <Text style={[styles.heroTitle, { color: colors.foreground, fontSize: headlineSize, lineHeight: headlineSize * 1.08 }]}>
+          Master English.{'\n'}Ace Interviews.{'\n'}<Text style={{ color: colors.primary }}>Get the Job.</Text>
+        </Text>
+        <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>
+          Lead Onto catalysing your aspirations
+        </Text>
+        <Pressable style={[styles.primaryCta, { backgroundColor: colors.primary, borderRadius: colors.radius }]} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
+          <Text style={[styles.primaryCtaText, { color: colors.primaryForeground }]}>Try Free 90-Second Check</Text>
+          <Feather name="arrow-right" size={18} color={colors.primaryForeground} />
+        </Pressable>
+        <Pressable style={[styles.secondaryCta, { borderColor: colors.border, backgroundColor: colors.card, borderRadius: colors.radius }]} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
+          <Text style={[styles.secondaryCtaText, { color: colors.foreground }]}>Start Learning Free</Text>
+        </Pressable>
+        <View style={[styles.quote, { borderLeftColor: colors.primary + '66' }]}>
+          <Text style={[styles.quoteText, { color: colors.mutedForeground }]}>
+            “97% of HR decision-makers in India say English proficiency is more important today than it was five years ago, and 87% say the growing use of AI has increased the need for strong English skills.”
+          </Text>
+          <Text style={[styles.quoteSource, { color: colors.mutedForeground }]}>— ETS, TOEIC Global English Skills Report 2026</Text>
+        </View>
+        <View style={styles.benefits}>
+          {[
+            'Native-language support — Hindi, Tamil, Telugu & 10 more',
+            'Voice-powered practice — speak, listen, improve',
+            'Live jobs personalised by experience & location',
+            'CEFR English roadmap from AI to C2',
+          ].map((benefit) => (
+            <View key={benefit} style={styles.benefitRow}>
+              <Feather name="check-circle" size={16} color={colors.success} />
+              <Text style={[styles.benefitText, { color: colors.foreground }]}>{benefit}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.heroLinks}>
+          <Pressable onPress={() => router.push('/(tabs)/jobs' as never)}><Text style={[styles.heroLink, { color: colors.mutedForeground }]}>Browse Jobs</Text></Pressable>
+          <Pressable onPress={() => router.push('/interview-ace' as never)}><Text style={[styles.heroLink, { color: colors.mutedForeground }]}>Open B2B Portal →</Text></Pressable>
+        </View>
+      </View>
+
+      {/* Progress and tools remain below the landing content. */}
+      <View style={[styles.section, { paddingHorizontal: horizontalPadding }]}>
         <View style={[styles.heroCard, { backgroundColor: colors.secondary, borderRadius: colors.radius * 1.5 }]}>
           <View style={styles.heroRow}>
             <ProgressRing value={overall} label="Weekly goal" />
-            <View style={styles.heroText}>
-              <Text style={[styles.heroTitle, { color: colors.secondaryForeground }]}>
-                Keep the momentum going
-              </Text>
-              <Text style={[styles.heroSubtitle, { color: colors.secondaryForeground + 'cc' }]}>
-                {progress.streakDays} day streak · {progress.englishMinutes} min practice
-              </Text>
+            <View style={styles.progressText}>
+              <Text style={[styles.progressTitle, { color: colors.secondaryForeground }]}>Keep the momentum going</Text>
+              <Text style={[styles.progressSubtitle, { color: colors.secondaryForeground + 'cc' }]}>{progress.streakDays} day streak · {progress.englishMinutes} min practice</Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* ── Quick stats ──────────────────────────────────────────────────────── */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Quick actions</Text>
-        <View style={styles.row}>
-          <StatCard icon="message-circle" value={progress.englishMinutes} label="English min"  color={colors.tools.english} />
-          <StatCard icon="briefcase"      value={progress.jobsSaved}      label="Jobs saved"   color={colors.tools.rozgar}  />
-        </View>
-      </View>
-
       {/* ── Fluency Suite ────────────────────────────────────────────────────── */}
-      <View style={styles.section}>
+      <View style={[styles.section, { paddingHorizontal: horizontalPadding }]}>
         <View style={[styles.suiteWrap, { borderColor: colors.tools.english + '35', backgroundColor: colors.tools.english + '0a' }]}>
           <View style={[styles.suiteAccent, { backgroundColor: colors.tools.english }]} />
           <View style={styles.suiteContent}>
@@ -116,7 +178,7 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Career Suite ─────────────────────────────────────────────────────── */}
-      <View style={[styles.section, { marginBottom: 8 }]}>
+      <View style={[styles.section, { paddingHorizontal: horizontalPadding, marginBottom: 8 }]}>
         <View style={[styles.suiteWrap, { borderColor: colors.tools.interview + '35', backgroundColor: colors.tools.interview + '0a' }]}>
           <View style={[styles.suiteAccent, { backgroundColor: colors.tools.interview }]} />
           <View style={styles.suiteContent}>
@@ -142,18 +204,46 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
-  hero: { paddingHorizontal: 20, marginTop: 8 },
+  scrollContent: { flexGrow: 1 },
+  mobileHeader: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  brand: { fontFamily: 'Inter_700Bold', fontSize: 17, letterSpacing: -0.5 },
+  headerSuite: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 4 },
+  headerSuiteButton: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 3 },
+  headerSuiteText: { fontFamily: 'Inter_500Medium', fontSize: 11 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  creditPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 5 },
+  creditText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
+  avatar: { width: 27, height: 27, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
+  avatarText: { fontFamily: 'Inter_700Bold', fontSize: 12 },
+  hero: { marginTop: 46, maxWidth: 520, width: '100%', alignSelf: 'center' },
+  learnBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 20 },
+  learnBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  heroTitle: { fontFamily: 'Inter_700Bold', letterSpacing: -1.3 },
+  heroSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 16, marginTop: 24, marginBottom: 24 },
+  primaryCta: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 16 },
+  primaryCtaText: { fontFamily: 'Inter_700Bold', fontSize: 15 },
+  secondaryCta: { minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginTop: 10, paddingHorizontal: 16 },
+  secondaryCtaText: { fontFamily: 'Inter_500Medium', fontSize: 15 },
+  quote: { borderLeftWidth: 2, paddingLeft: 12, marginTop: 22, gap: 4 },
+  quoteText: { fontFamily: 'Inter_400Regular', fontSize: 12.5, lineHeight: 19, fontStyle: 'italic' },
+  quoteSource: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17, fontStyle: 'italic' },
+  benefits: { gap: 12, marginTop: 24 },
+  benefitRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  benefitText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 19 },
+  heroLinks: { flexDirection: 'row', gap: 20, marginTop: 36, marginBottom: 4 },
+  heroLink: { fontFamily: 'Inter_400Regular', fontSize: 12 },
+  section: { marginTop: 24, gap: 12 },
   heroCard: { padding: 20 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  heroText: { flex: 1, gap: 6 },
-  heroTitle: { fontFamily: 'Inter_700Bold', fontSize: 18 },
-  heroSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14 },
-
-  section: { paddingHorizontal: 20, marginTop: 24, gap: 12 },
-  sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 18 },
-
-  row: { flexDirection: 'row', gap: 12 },
+  progressText: { flex: 1, gap: 6 },
+  progressTitle: { fontFamily: 'Inter_700Bold', fontSize: 18 },
+  progressSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14 },
 
   /* Suite header card */
   suiteWrap: {
