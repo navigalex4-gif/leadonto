@@ -30,9 +30,13 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   vikram:      "ta-IN-ValluvarNeural",
   ananya:      "ta-IN-PallaviNeural",
   meera_coach: "te-IN-ShrutiNeural",
-  kabir:       "bn-IN-BashkarNeural",
+  // Kabir/Aryan were flagged as poor-sounding — swapped to verified-working
+  // mr-IN/te-IN male voices (clearer English delivery than bn-IN/ur-IN here).
+  // NOTE: pa-IN, or-IN, as-IN and all hi-IN v2 voices return ZERO-BYTE audio
+  // from this environment — never map a persona to them.
+  kabir:       "mr-IN-ManoharNeural",
   sanjay:      "ml-IN-MidhunNeural",
-  aryan:       "ur-IN-SalmanNeural",
+  aryan:       "te-IN-MohanNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
@@ -48,9 +52,12 @@ const EDGE_VOICES: Record<string, { male: string; female: string }> = {
   Kannada:   { male: "kn-IN-GaganNeural",     female: "kn-IN-SapnaNeural" },
   Malayalam: { male: "ml-IN-MidhunNeural",    female: "ml-IN-SobhanaNeural" },
   Urdu:      { male: "ur-IN-SalmanNeural",    female: "ur-IN-GulNeural" },
-  Punjabi:   { male: "pa-IN-OjasNeural",      female: "pa-IN-VaaniNeural" },
-  Odia:      { male: "or-IN-SukantNeural",    female: "or-IN-SubhasiniNeural" },
-  Assamese:  { male: "as-IN-PriyomNeural",    female: "as-IN-YashicaNeural" },
+  // pa-IN / or-IN / as-IN Edge voices return HTTP 200 with ZERO-BYTE audio from
+  // this environment (verified 2026-08-16) — route these languages to the
+  // closest verified-working voices instead of silently failing.
+  Punjabi:   { male: "hi-IN-MadhurNeural",    female: "hi-IN-SwaraNeural" },   // Gurmukhi ~ Devanagari-adjacent; hi-IN reads Punjabi-accented Hindi/English
+  Odia:      { male: "bn-IN-BashkarNeural",   female: "bn-IN-TanishaaNeural" }, // closest working eastern-Indic voice
+  Assamese:  { male: "bn-IN-BashkarNeural",   female: "bn-IN-TanishaaNeural" }, // Assamese script ≈ Bengali script
 };
 
 /**

@@ -54,6 +54,7 @@
 - [Tailwind dynamic classes](tailwind-dynamic-classes.md) — never build class strings with template literals (e.g. opacity-${val}); Tailwind JIT won't detect them. Always use full class strings or ternary of two complete class strings.
 - [Credit-based access system](credit-system.md) — live-only credits; 20-credit signup; idempotent grants; UPI+UTR top-ups PENDING→admin-approve→grant + atomic (conditional-update, single-tx) claw-back/reverse; not Stripe.
 - [esbuild bundled sibling-file hazard](esbuild-bundled-sibling-files.md) — bundled pkgs reading sibling files via import.meta __dirname resolve to the BUNDLE dir; copy their files into the build. (App payments are UPI; no Stripe SDK in code.)
+- [Edge voice availability](edge-voice-availability.md) — pa-IN/or-IN/as-IN and all hi-IN v2 voices return zero-byte audio here; byte-test any voice before mapping; user zips keep re-adding dead voices.
 - [Edge TTS SSML constraints](edge-tts-ssml.md) — never inject <break> tags; they silently cause 0-byte audio; percentage rate strings also break it; use enum values or plain text only.
 - [Session isAdmin flag pattern](session-isadmin-pattern.md) — every non-admin login path must delete req.session.isAdmin or privilege sticks across re-auths.
 - [Guest trial + auth gating](guest-trial.md) — device-local localStorage free trial (no credits); ALWAYS wait for useAuth().isLoading before the guest-vs-paid branch or signed-in users skip the charge.

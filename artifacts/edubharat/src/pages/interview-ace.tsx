@@ -649,9 +649,9 @@ function InterviewAceContent() {
     if (b2bParams.coach) {
       return INTERVIEW_COACHES.find(c => c.id === b2bParams.coach) ?? INTERVIEW_COACHES[0]!;
     }
-    // Meera is the default face/voice on the Interview Ace landing screen.
+    // Ananya is the default face/voice on the Interview Ace landing screen.
     // Choosing an interview type still auto-matches the coach afterwards.
-    return INTERVIEW_COACHES.find(c => c.id === "meera") ?? recommendedCoachFor(type);
+    return INTERVIEW_COACHES.find(c => c.id === "ananya") ?? recommendedCoachFor(type);
   });
   const displayCoachName = interviewerDisplayName(coach.name);
   const candidateDisplayName = profile.name || user?.name || "You";
@@ -681,7 +681,7 @@ function InterviewAceContent() {
     // setup is entered with no existing questions, so a candidate can still
     // choose another interviewer manually afterward.
     if (phase !== "setup" || questions.length > 0 || b2bParams.coach) return;
-    const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "meera");
+    const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya");
     if (defaultCoach && coach.id !== defaultCoach.id) setCoach(defaultCoach);
   }, [phase]);
   const questionsRef = useRef<QA[]>([]);
@@ -786,7 +786,7 @@ function InterviewAceContent() {
     synth.stop();
     setPhase("setup");
     if (!b2bParams.coach) {
-      const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "meera");
+      const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya");
       if (defaultCoach) setCoach(defaultCoach);
     }
     setQuestions([]);

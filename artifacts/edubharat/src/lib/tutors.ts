@@ -107,6 +107,21 @@ export const TUTORS: TutorPersona[] = [
 
 export const INTERVIEW_COACHES = [
   {
+    id: "ananya",
+    name: "Ananya Ma'am",
+    role: "Fresher Sales Coach",
+    gender: "female" as const,
+    voiceStyle: "ananya",
+    imageSrc: "/images/tutor-maya.jpg",
+    accentColor: "#A855F7",
+    specialty: "Fresher Sales, Marketing & Comm",
+    icon: "📣",
+    style: "Energetic, target-focused — great for freshers in client-facing roles",
+    promptStyle: "Speak like a high-energy Mumbai sales manager. Be enthusiastic and challenge the candidate to pitch better. Say 'your energy dropped there — say it again with conviction' or 'that's your USP!' when it fits.",
+    intro:
+      "I'm Ananya Ma'am! Sales interviews are about energy and storytelling. I'll help you pitch yourself like a pro.",
+  },
+  {
     id: "priya_coach",
     name: "Priya Ma'am",
     role: "Campus Placement Coach",
@@ -150,21 +165,6 @@ export const INTERVIEW_COACHES = [
     promptStyle: "Speak like a sharp Bengaluru tech lead. Ask precise technical questions. If an answer is vague, push with 'can you be more specific?' or 'what's the time complexity?'. Never accept hand-wavy answers.",
     intro:
       "I'm Vikram Sir. Technical interviews need precision. I'll push you hard so the real thing feels easy.",
-  },
-  {
-    id: "ananya",
-    name: "Ananya Ma'am",
-    role: "Sales & Marketing Coach",
-    gender: "female" as const,
-    voiceStyle: "ananya",
-    imageSrc: "/images/tutor-maya.jpg",
-    accentColor: "#A855F7",
-    specialty: "Sales, Marketing & Comm",
-    icon: "📣",
-    style: "Energetic, target-focused — great for client-facing roles",
-    promptStyle: "Speak like a high-energy Mumbai sales manager. Be enthusiastic and challenge the candidate to pitch better. Say 'your energy dropped there — say it again with conviction' or 'that's your USP!' when it fits.",
-    intro:
-      "I'm Ananya Ma'am! Sales interviews are about energy and storytelling. I'll help you pitch yourself like a pro.",
   },
   {
     id: "meera",

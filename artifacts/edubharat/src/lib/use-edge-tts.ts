@@ -43,7 +43,7 @@ export type EdgeSpeakOptions = {
 // against natural voice-to-voice tempo differences — this widens it to a
 // range that's clearly faster without crossing into artifacts.
 const VOICE_STYLE_RATES: Record<string, number> = {
-  priya: 1.16,        // flagged "pathetically slow-paced"
+  priya: 1.08,        // was 1.16 after "slow" complaint; 1.16 read as rushed — settle mid
   rohit: 1.14,        // "make the flow a bit faster"
   maya: 1.05,
   arjun: 1.12,         // "fast, natural, and flawless"
@@ -54,9 +54,9 @@ const VOICE_STYLE_RATES: Record<string, number> = {
   vikram: 1.13,        // "good, but make the voice pace a bit faster"
   ananya: 1.08,
   meera_coach: 1.07,
-  kabir: 1.08,
-  sanjay: 1.08,
-  aryan: 1.16,         // flagged "very slow-paced"
+  kabir: 1.12,         // re-voiced to mr-IN-Manohar; brisk analyst pace
+  sanjay: 1.12,        // ml-IN-Midhun reads slow in English; speed up
+  aryan: 1.10,         // re-voiced to te-IN-Mohan; moderate formal pace
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
