@@ -49,7 +49,8 @@ export const TUTORS: TutorPersona[] = [
     accent: "Neutral Indian English",
     intro:
       "Namaste! I'm Maya Ma'am. I specialize in business English — writing, negotiation, and executive communication. Ready to elevate your professional language?",
-    imageSrc: "/images/tutor-maya.jpg",
+    // Interview Ace must not reuse Maya Ma'am's English Guru portrait.
+    imageSrc: "/images/lead-onto-ananya.png",
     accentColor: "#0D9488",
   },
   {

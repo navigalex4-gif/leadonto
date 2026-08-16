@@ -1204,7 +1204,9 @@ Rules:
     // almost every turn into a generic fallback question — this value gives the
     // real, role-aware AI question room to land while still keeping the total
     // pause well under the 4 s response promise.
-    const STREAM_DEADLINE_MS = 1800;
+      // Keep the live interviewer response path below three seconds. A short
+      // acknowledgement starts immediately while this stream resolves.
+      const STREAM_DEADLINE_MS = 2800;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1253,7 +1255,7 @@ STYLE — important:
 Output format — exactly two lines, nothing else:
 Ack: <exactly "Okay" or "Got it" — nothing else, never both>
 Next: <the interview question only, may start with a short natural bridge>`,
-          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),

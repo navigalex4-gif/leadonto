@@ -211,6 +211,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    zIndex: 10,
+    elevation: 3,
   },
   brand: { fontFamily: 'Inter_700Bold', fontSize: 17, letterSpacing: -0.5 },
   headerSuite: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 4 },

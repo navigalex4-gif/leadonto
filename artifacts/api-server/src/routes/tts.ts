@@ -85,7 +85,20 @@ function cleanForTTS(text: string): string {
     // Strip leading/trailing quote marks the model sometimes wraps around output
     .replace(/^\s*["'"]/m, "")
     .replace(/["'"]\s*$/m, "")
-    // Collapse extra whitespace
+  // Give common workplace acronyms a pronounceable spoken form.
+  .replace(/\bBFSI\b/gi, "B F S I")
+  .replace(/\bCEFR\b/gi, "C E F R")
+  .replace(/\bRBI\b/gi, "R B I")
+  .replace(/\bB2B\b/gi, "business to business")
+  .replace(/\bUPI\b/gi, "U P I")
+  .replace(/\bAPI\b/gi, "A P I")
+  .replace(/\bSQL\b/gi, "S Q L")
+  .replace(/\bKPI\b/gi, "K P I")
+  .replace(/\bATS\b/gi, "A T S")
+  .replace(/\bMBA\b/gi, "M B A")
+  .replace(/\bHR\b/gi, "H R")
+  .replace(/\bAI\b/gi, "A I")
+  // Collapse extra whitespace
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -145,11 +158,10 @@ router.post("/tts", async (req, res) => {
     return;
   }
 
-  // Voice for English/Latin runs: the tutor's English neural voice when a
-  // voiceStyle is given, else the gender-appropriate en-IN voice.
+  // Voice for English/Latin runs: use the clearest gender-appropriate en-IN
+  // voice for every persona; voiceStyle remains a client-side pacing key.
   const englishVoice =
-    (voiceStyle ? TUTOR_VOICE_MAP[voiceStyle] : undefined) ??
-    (gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female);
+    gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female;
 
   // Voice for native-script runs: only when a real, supported native language is
   // supplied (absent for greetings / Interview Ace / English-only mode).
@@ -185,9 +197,10 @@ router.post("/tts", async (req, res) => {
 
     // ── Default single-voice path (unchanged behaviour) ────────────────────
     const langVoices = EDGE_VOICES[language] ?? EDGE_VOICES["English"]!;
-    const tutorVoice = language === "English" && voiceStyle ? TUTOR_VOICE_MAP[voiceStyle] : undefined;
-    const primaryVoice = tutorVoice ?? (gender === "male" ? langVoices.male : langVoices.female);
-     await streamVoice(res, primaryVoice, cleaned);
+    const primaryVoice = language === "English"
+      ? englishVoice
+      : (gender === "male" ? langVoices.male : langVoices.female);
+    await streamVoice(res, primaryVoice, cleaned);
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: String(err) });

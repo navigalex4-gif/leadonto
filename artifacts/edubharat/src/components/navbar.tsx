@@ -140,10 +140,10 @@ export function Navbar() {
   return (
     <>
       <nav className="border-b bg-white/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-14 flex items-center gap-1">
+        <div className="container mx-auto min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 overflow-visible">
 
           {/* Logo */}
-          <Link href="/" className="font-display font-extrabold text-xl text-primary tracking-tight shrink-0 mr-1">
+          <Link href="/" className="font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1">
             Lead Onto
           </Link>
 
