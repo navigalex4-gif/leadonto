@@ -25,20 +25,20 @@ type SupportedLanguage =
  * never selected by gender, browser availability, or randomness.
  */
 export const CHARACTER_VOICE_MAP: Record<string, string> = {
-  priya: "en-US-Chirp3-HD-Aoede",
-  rohit: "en-US-Chirp3-HD-Algieba",
-  maya: "en-US-Chirp3-HD-Callirrhoe",
-  arjun: "en-US-Chirp3-HD-Fenrir",
-  neha: "en-US-Chirp3-HD-Kore",
-  rahul: "en-US-Chirp3-HD-Orus",
-  ananya: "en-US-Chirp3-HD-Leda",
-  priya_coach: "en-US-Chirp3-HD-Achernar",
-  raj: "en-US-Chirp3-HD-Algenib",
-  vikram: "en-US-Chirp3-HD-Charon",
-  meera_coach: "en-US-Chirp3-HD-Despina",
-  kabir: "en-US-Chirp3-HD-Enceladus",
-  sanjay: "en-US-Chirp3-HD-Iapetus",
-  aryan: "en-US-Chirp3-HD-Gacrux",
+  priya: "en-IN-Chirp3-HD-Aoede",
+  rohit: "en-IN-Chirp3-HD-Algieba",
+  maya: "en-IN-Chirp3-HD-Callirrhoe",
+  arjun: "en-IN-Chirp3-HD-Fenrir",
+  neha: "en-IN-Chirp3-HD-Kore",
+  rahul: "en-IN-Chirp3-HD-Orus",
+  ananya: "en-IN-Chirp3-HD-Leda",
+  priya_coach: "en-IN-Chirp3-HD-Achernar",
+  raj: "en-IN-Chirp3-HD-Algenib",
+  vikram: "en-IN-Chirp3-HD-Charon",
+  meera_coach: "en-IN-Chirp3-HD-Despina",
+  kabir: "en-IN-Chirp3-HD-Enceladus",
+  sanjay: "en-IN-Chirp3-HD-Iapetus",
+  aryan: "en-IN-Chirp3-HD-Gacrux",
 };
 
 // Chirp 3 HD keeps the same timbre family across Google's Indian locales.
@@ -51,7 +51,7 @@ const CHIRP_CHARACTER_FAMILIES = [
 ] as const;
 
 const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
-  English: "en-US",
+  English: "en-IN",
   Hindi: "hi-IN",
   Tamil: "ta-IN",
   Telugu: "te-IN",
