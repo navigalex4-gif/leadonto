@@ -25,7 +25,8 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   // remains crisp and natural for enterprise sales and BFSI interviews.
   priya_coach: "ta-IN-PallaviNeural",
   raj:         "ta-IN-ValluvarNeural",
-  vikram:      "ml-IN-MidhunNeural",
+  // Restored from Vikram's previous clear, technical voice.
+  vikram:      "en-US-AndrewNeural",
   ananya:      "te-IN-ShrutiNeural",
   meera_coach: "bn-IN-BashkarNeural",
   // NOTE: pa-IN, or-IN, as-IN and all hi-IN v2 voices return ZERO-BYTE audio
@@ -158,10 +159,12 @@ router.post("/tts", async (req, res) => {
     return;
   }
 
-  // Voice for English/Latin runs: use the clearest gender-appropriate en-IN
-  // voice for every persona; voiceStyle remains a client-side pacing key.
+  // Use the persona mapping whenever the caller supplies a voiceStyle.
+  // Previously this value was ignored, so every male persona fell back to the
+  // same Prabhat voice despite having a distinct map entry.
   const englishVoice =
-    gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female;
+    (voiceStyle ? TUTOR_VOICE_MAP[voiceStyle] : undefined) ??
+    (gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female);
 
   // Voice for native-script runs: only when a real, supported native language is
   // supplied (absent for greetings / Interview Ace / English-only mode).

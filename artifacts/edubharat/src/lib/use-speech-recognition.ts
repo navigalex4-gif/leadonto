@@ -578,6 +578,28 @@ export function useSpeechRecognition(language = "English") {
   // it competes with the new page's recognizer, breaking multi-turn continuity.
   useEffect(() => stop, [stop]);
 
+  // Mobile browsers can end SpeechRecognition while a tab is backgrounded or
+  // the browser window is minimized. Do not stop an intentional live session:
+  // re-claim the recognizer as soon as the browser gives the page a lifecycle
+  // callback. This does not override the user's explicit pause/end action
+  // because those paths clear shouldContinueRef.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const recoverLiveRecognition = () => {
+      if (shouldContinueRef.current && !recognitionActiveRef.current) {
+        spawnRecognitionRef.current?.();
+      }
+    };
+    document.addEventListener("visibilitychange", recoverLiveRecognition);
+    window.addEventListener("pageshow", recoverLiveRecognition);
+    window.addEventListener("focus", recoverLiveRecognition);
+    return () => {
+      document.removeEventListener("visibilitychange", recoverLiveRecognition);
+      window.removeEventListener("pageshow", recoverLiveRecognition);
+      window.removeEventListener("focus", recoverLiveRecognition);
+    };
+  }, []);
+
   return {
     status,
     transcript,

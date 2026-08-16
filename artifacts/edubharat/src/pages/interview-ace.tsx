@@ -1206,7 +1206,9 @@ Rules:
     // pause well under the 4 s response promise.
       // Keep the live interviewer response path below three seconds. A short
       // acknowledgement starts immediately while this stream resolves.
-      const STREAM_DEADLINE_MS = 2800;
+      // Leave enough time for Edge TTS to fetch and begin playback inside the
+      // four-second conversational response target.
+      const STREAM_DEADLINE_MS = 2200;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1459,13 +1461,13 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // coachSpeaking guard: don't start mic while the AI coach is speaking — prevents
     // the mic from activating between when the stream ends and when TTS actually starts.
     if (phase !== "interview" || !autoListenEnabled || !speech.isSupported || !currentQ || isStreaming || synth.isSpeaking || isRecording || coachSpeaking) return;
-    // Silence window before auto-submit: 7 s. Once the candidate starts
+    // Silence window before auto-submit: 1.7 s. Once the candidate starts
     // talking, this longer pause gives them room to think and avoids
     // cutting off a sentence or a normal mid-answer pause.
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 7000;
+    const silenceMs = 1700;
     setIsRecording(true);
     // Arm the no-reply watchdog: if the candidate never says a word for 30 s after
     // this question, conclude the interview and generate feedback. Cleared the
