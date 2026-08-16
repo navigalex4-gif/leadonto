@@ -54,6 +54,7 @@ const DURATIONS = [
   { value: 15, label: "15 minutes" },
   { value: 25, label: "25 minutes" },
 ];
+const INTERVIEW_SPEECH_RATE = 0.88;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -593,7 +594,11 @@ function InterviewAceContent() {
         speech.suppressUntil(Date.now() + 450);
         speech.blockFor(450);
         setCoachSpeaking(false);
-      }, { ...opts, rate: opts.rate ?? 1.0 });
+      }, {
+        ...opts,
+        // Keep every interviewer response at a calm, conversational pace.
+        rate: Math.min(opts.rate ?? INTERVIEW_SPEECH_RATE, INTERVIEW_SPEECH_RATE),
+      });
     },
     [speech, synth],
   );
@@ -727,9 +732,9 @@ function InterviewAceContent() {
   // question targets. Advances one beat per answered question so consecutive
   // questions cover DIFFERENT areas instead of chaining the same topic.
   const beatIdxRef = useRef(0);
-  // Tracks the last spoken acknowledgement ("Okay." | "Got it.") so consecutive
-  // turns alternate rather than repeating the same word every time.
-  const lastAckRef = useRef<"Okay." | "Got it.">("Got it.");
+  // Tracks the last spoken acknowledgement so the conversational filler does
+  // not repeat back-to-back.
+  const lastAckRef = useRef("");
   // Retries on the current beat, for the 2-attempt rule: a weak answer earns ONE
   // gentle re-ask; after that we move on to a fresh area rather than dwelling.
   const retryRef = useRef(0);
@@ -1218,8 +1223,11 @@ Rules:
     // sits in silence while the model/network are still working. Short and
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
-     const quickAcks = ["Okay.", "Got it."];
-     speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, rate: 1.0 });
+    const quickAcks = ["Okay.", "Right.", "I see.", "Got it.", "Thanks for sharing."];
+    const availableAcks = quickAcks.filter((ack) => ack !== lastAckRef.current);
+    const quickAck = (availableAcks.length > 0 ? availableAcks : quickAcks)[Math.floor(Math.random() * (availableAcks.length > 0 ? availableAcks : quickAcks).length)]!;
+    lastAckRef.current = quickAck;
+    speakCoach(quickAck, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
 
     setCoachThinking(true);
     try {
@@ -1245,8 +1253,8 @@ STYLE — important:
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
         - This is a formal interview, not an informal social conversation. Keep every spoken response focused on the interview.
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
-- Start with a one-word acknowledgement — ONLY "Okay" or "Got it", nothing else, and never both together (never "Okay, got it"). Pick whichever fits naturally; do not use the same one every single turn.
-- After that one-word acknowledgement, bridge naturally into your question — a short, real transition such as "So," or "Now," or referencing something they just said. Then ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
+- A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another acknowledgement; move naturally into the question with a short bridge such as "So," or "Now," when it fits.
+- Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
 - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.
 - LANGUAGE LEVEL: By default ask in SIMPLE, clear, everyday English — short sentences, common words — because many candidates are from average English-medium colleges. Judge ${firstName}'s own English from their answers so far: if they are clearly fluent and comfortable, you may use richer vocabulary and slightly more complex questions to match them; if they struggle, make your wording even simpler. Never make a question harder to follow than the candidate can handle.
@@ -1254,8 +1262,7 @@ STYLE — important:
 - Plain spoken words ONLY: no markdown, no asterisks, no *actions*, no stage directions, no quotes around your reply.
 - The Next line must be the question ONLY — no greeting, no preamble, no name.
 
-Output format — exactly two lines, nothing else:
-Ack: <exactly "Okay" or "Got it" — nothing else, never both>
+Output format — exactly one line, nothing else:
 Next: <the interview question only, may start with a short natural bridge>`,
           `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
@@ -1267,7 +1274,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       console.error("[Interview Ace] follow-up stream failed", err);
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
       const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
-      response = `Ack: I see.\nNext: ${fallback}`;
+      response = `Next: ${fallback}`;
     }
 
     // If the 3.8 s deadline fired OR stream returned empty, cancel the in-flight
@@ -1275,17 +1282,16 @@ Next: <the interview question only, may start with a short natural bridge>`,
     if (streamTimedOut || !response.trim()) {
       resetStream();
       const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
-      response = `Ack: I see.\nNext: ${fallback}`;
+      response = `Next: ${fallback}`;
     }
 
     // If the interview ended while the stream was in flight, stop here.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
 
-    // Robust parsing — tolerates multiline Ack, minor model format drift, or
-    // missing labels. Prevents premature session-end if the model skips "Next:".
-    const ackMatch = response.match(/^Ack:\s*([\s\S]+?)(?=\nNext:|\n\nNext:|$)/im);
+    // Robust parsing — tolerates minor model format drift and missing labels.
+    // The short acknowledgement was already spoken while the model streamed,
+    // so only the new question should be spoken here.
     const nextMatch = response.match(/^Next:\s*([\s\S]+?)$/im);
-    let acknowledgment = ackMatch?.[1]?.trim().replace(/\n+/g, " ") ?? "I see.";
     let nextQuestion = nextMatch?.[1]?.trim().replace(/\n+/g, " ");
 
     // Fallback: if structured parsing failed, split by paragraphs/lines so the
@@ -1293,11 +1299,9 @@ Next: <the interview question only, may start with a short natural bridge>`,
     if (!nextQuestion && response.trim()) {
       const lines = response.trim().split(/\n+/).map(l => l.replace(/^(Ack:|Next:)\s*/i, "").trim()).filter(Boolean);
       if (lines.length >= 2) {
-        acknowledgment = lines.slice(0, -1).join(" ");
         nextQuestion = lines[lines.length - 1];
       } else if (lines.length === 1 && lines[0]!.includes("?")) {
         nextQuestion = lines[0];
-        acknowledgment = "Understood.";
       }
     }
 
@@ -1322,7 +1326,6 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion) {
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
-      acknowledgment = "Understood.";
     }
 
     if (
@@ -1330,17 +1333,6 @@ Next: <the interview question only, may start with a short natural bridge>`,
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
     ) {
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
-    }
-
-    // Enforce the one-word acknowledgement rule regardless of what the model or
-    // any parsing fallback produced: only "Okay." or "Got it.", never both
-    // together, never any other stock phrase ("I see.", "Understood.", etc.).
-    if (!/^(okay|got it)\.?$/i.test(acknowledgment.trim())) {
-      const nextAck: "Okay." | "Got it." = lastAckRef.current === "Okay." ? "Got it." : "Okay.";
-      acknowledgment = nextAck;
-      lastAckRef.current = nextAck;
-    } else {
-      lastAckRef.current = /^okay\.?$/i.test(acknowledgment.trim()) ? "Okay." : "Got it.";
     }
 
     // ── Enforce under-4s response window ──────────────────────────────────────
@@ -1370,7 +1362,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setAnswer("");
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(`${acknowledgment}. ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation, rate: 1.0 });
+    speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
