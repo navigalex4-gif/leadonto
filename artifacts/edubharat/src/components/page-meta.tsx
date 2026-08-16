@@ -1,8 +1,8 @@
 import { Helmet } from "react-helmet-async";
 
 const DEFAULT = {
-  title: "Lead Onto — English Practice in Hindi, Tamil, Telugu +10",
-  description: "Practice English speaking in Hindi, Tamil, Telugu & 10 more languages. Free 90-second skill check. Ace interviews, get CEFR roadmap, find jobs.",
+  title: "Lead Onto — English for Real Situations & Real Roles",
+  description: "Learn what to say in real-life situations, discover the right modern words, get local-language support, and practise interviews tailored to your role.",
   ogImage: "https://leadonto.com/opengraph.jpg",
 };
 

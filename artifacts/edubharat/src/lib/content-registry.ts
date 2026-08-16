@@ -18,7 +18,7 @@ export type ContentEntry = {
 
 export const CONTENT_REGISTRY: ContentEntry[] = [
   // ── Home / landing hero ──────────────────────────────────────────────────
-  { key: "home.hero.badge",       page: "Home", label: "Hero badge",       defaultValue: "AI-powered career platform for India" },
+  { key: "home.hero.badge",       page: "Home", label: "Hero badge",       defaultValue: "English for real situations & real roles" },
   {
     key: "home.hero.subtitle",
     page: "Home",
