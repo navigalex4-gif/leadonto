@@ -18,7 +18,24 @@ type AuthConfig = {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function detectEmbeddedWebView(userAgent: string): boolean {
-  return /FBAN|FBAV|FB_IAB|Instagram|Line\/|WhatsApp|;\s*wv\)/i.test(userAgent);
+  return /FBAN|FBAV|FB_IAB|Instagram|Line\/|WhatsApp|Twitter|LinkedInApp|Snapchat|TikTok|Pinterest|;\s*wv\)|\bwv\b/i.test(userAgent);
+}
+
+function getExternalBrowserUrl(url: string, userAgent: string): string {
+  // Android's generic VIEW intent lets the OS choose an installed browser
+  // instead of forcing Chrome. This is handled by Facebook/Instagram webviews.
+  if (/Android/i.test(userAgent)) {
+    const browserTarget = url.replace(/^https?:\/\//i, "");
+    return `intent://${browserTarget}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+  }
+
+  // Facebook's iOS webview recognizes this handoff scheme for Safari. Users
+  // can still choose another installed browser from the iOS share sheet/menu.
+  if (/(iPhone|iPad|iPod)/i.test(userAgent) && /^https:/i.test(url)) {
+    return url.replace(/^https:/i, "x-safari-https:");
+  }
+
+  return url;
 }
 
 export default function Login() {
@@ -129,7 +146,12 @@ function LoginContent() {
   // Fail open: treat Google as ready until config explicitly says it isn't.
   // This prevents a transient /api/auth/config failure from disabling the button.
   const googleReady = configLoaded ? (config?.googleConfigured ?? true) : true;
-  const openInBrowser = () => window.open(window.location.href, "_blank", "noopener,noreferrer");
+  const externalBrowserUrl = getExternalBrowserUrl(window.location.href, navigator.userAgent);
+  const openExternalBrowser = () => {
+    track("oauth_external_browser_clicked", {
+      platform: /Android/i.test(navigator.userAgent) ? "android" : /(iPhone|iPad|iPod)/i.test(navigator.userAgent) ? "ios" : "other",
+    });
+  };
   const copyCurrentUrl = () => {
     void navigator.clipboard?.writeText(window.location.href);
     setCopied(true);
@@ -146,17 +168,26 @@ function LoginContent() {
 
         {isEmbeddedWebView && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-            <p className="font-semibold">For the best experience, open this in your browser.</p>
-            <p className="mt-1 text-xs text-blue-700">Google sign-in is limited inside in-app browsers. Email OTP works here too.</p>
+            <p className="font-semibold">For secure sign-in, open this in your external browser.</p>
+            <p className="mt-1 text-xs text-blue-700">Social-app browsers can limit sign-in providers. Email OTP works here too.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" className="h-8 border-blue-300 bg-white text-blue-800" onClick={openInBrowser}>
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open in Chrome
-              </Button>
+              <a
+                href={externalBrowserUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 items-center rounded-md border border-blue-300 bg-white px-3 text-sm font-medium text-blue-800 shadow-sm transition-colors hover:bg-blue-50"
+                onClick={openExternalBrowser}
+              >
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open external browser
+              </a>
               <Button type="button" size="sm" variant="ghost" className="h-8 text-blue-800" onClick={copyCurrentUrl}>
                 {copied ? <CheckCheck className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
                 {copied ? "Link copied" : "Copy link"}
               </Button>
             </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-blue-700">
+              If it stays in this window, use the app menu and choose <span className="font-medium">Open in browser</span>.
+            </p>
           </div>
         )}
 
