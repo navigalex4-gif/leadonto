@@ -108,8 +108,8 @@ export default function AboutUs() {
         <h2 className="text-xl font-bold text-secondary mb-3">Our Technology</h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
            Lead Onto is powered by the world's most advanced AI — Google Gemini and Anthropic Claude — delivering responses that are
-          contextual, personalised, and genuinely helpful for Indian career contexts. Our Text-to-Speech uses Microsoft Edge Neural TTS
-          with Indian voices so the AI tutors sound natural and relatable.
+          contextual, personalised, and genuinely helpful for Indian career contexts. Our Text-to-Speech uses Google Cloud Neural and
+          Chirp voices so the AI tutors sound natural and relatable.
         </p>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Our spaced-repetition learning engine (based on the SM-2 algorithm) adapts to each student's pace and retention patterns,

@@ -1,9 +1,8 @@
 /**
- * useEdgeTTS — Google Cloud Text-to-Speech via the API server.
+ * useGoogleTTS — Google Cloud Text-to-Speech via the API server.
  *
  * Produces natural conversational speech for all supported languages. Same
- * interface as useSpeechSynthesis so
- * pages can swap with minimal changes.
+ * stable interface so pages can share one playback implementation.
  *
  * GLOBAL SINGLETON: All hook instances share a single Audio element so
  * English Guru and Interview Ace (or any two tools) can never speak
@@ -14,7 +13,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 export type VoiceGender = "male" | "female" | "auto";
 
-export type EdgeSpeakOptions = {
+export type GoogleSpeakOptions = {
   voiceGender?: VoiceGender;
   /** playbackRate multiplier — default 1.0 */
   rate?: number;
@@ -131,7 +130,7 @@ type QueuedSpeech = {
   chunks: string[];
   language: string;
   gender: "male" | "female";
-  options: EdgeSpeakOptions;
+  options: GoogleSpeakOptions;
   onAllDone: () => void;
 };
 const _speechQueue: QueuedSpeech[] = [];
@@ -346,7 +345,7 @@ function playChunkChain(
   myGen: number,
   language: string,
   gender: "male" | "female",
-  options: EdgeSpeakOptions,
+  options: GoogleSpeakOptions,
   onAllDone: () => void,
 ): void {
   if (myGen !== _speakGen) return; // superseded before this chunk even started
@@ -456,7 +455,7 @@ function playChunkChain(
     });
 }
 
-export function useEdgeTTS() {
+export function useGoogleTTS() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   // Track whether THIS instance is the active speaker so only it fires onEnd
   const ownerRef = useRef(false);
@@ -490,7 +489,7 @@ export function useEdgeTTS() {
       text: string,
       language = "English",
       onEnd?: () => void,
-      options: EdgeSpeakOptions = {},
+      options: GoogleSpeakOptions = {},
     ) => {
       if (!text.trim()) { onEnd?.(); return; }
 

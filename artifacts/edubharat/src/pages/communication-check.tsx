@@ -10,7 +10,7 @@ import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
-import { unlockAudio, useEdgeTTS } from "@/lib/use-edge-tts";
+import { unlockAudio, useGoogleTTS } from "@/lib/use-edge-tts";
 import { track } from "@/lib/analytics";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
@@ -151,7 +151,7 @@ export default function CommunicationCheck() {
   const { user } = useAuth();
   const { toast } = useToast();
   const speech = useSpeechRecognition("English");
-  const synth = useEdgeTTS();
+  const synth = useGoogleTTS();
   const { stream, reset: resetStream } = useGeminiStream();
   const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");
   const [candidate, setCandidate] = useState<Candidate>({

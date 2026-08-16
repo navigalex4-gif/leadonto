@@ -14,7 +14,7 @@ import { useGuestTrial, guestLiveSecondsLeft, addGuestLiveSeconds } from "@/lib/
 import { useProgress } from "@/lib/use-progress";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
-import { useEdgeTTS, unlockAudio } from "@/lib/use-edge-tts";
+import { useGoogleTTS, unlockAudio } from "@/lib/use-edge-tts";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
@@ -75,7 +75,7 @@ function EnglishGuruContent() {
   const { liveSecondsLeft: guestLiveLeft } = useGuestTrial();
   const { track } = useProgress();
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
-  const synth = useEdgeTTS();
+  const synth = useGoogleTTS();
   const { profile, updateProfile } = useStudentProfile();
 
   const [uiLang, setUiLang] = useState(() => normalizeHelperLanguage(profile.preferredLanguage));

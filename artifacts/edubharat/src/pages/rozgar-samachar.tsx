@@ -11,7 +11,7 @@ import { useProgress } from "@/lib/use-progress";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useRozgarLive, type RozgarLiveItem } from "@/lib/use-rozgar-live";
 import { useRozgarJobs } from "@/lib/use-rozgar-jobs";
-import { useSpeechSynthesis } from "@/lib/use-speech-synthesis";
+import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useStudentProfile, type StudentProfile } from "@/lib/use-student-profile";
 import { useSavedJobs, type SavedJob } from "@/lib/use-saved-jobs";
 import {
@@ -549,7 +549,7 @@ function SectionCard({
   section: typeof SECTIONS[number];
   profile: Profile;
   studentProfile: StudentProfile;
-  synth: ReturnType<typeof useSpeechSynthesis>;
+  synth: ReturnType<typeof useGoogleTTS>;
   onSaveJob: (item: RozgarLiveItem) => void;
   onUnsaveJob: (jobId: string) => void;
   onShare: (job: EnrichedJob) => void;
@@ -870,7 +870,7 @@ export default function RozgarSamachar() {
 }
 
 function RozgarSamacharContent() {
-  const synth = useSpeechSynthesis();
+  const synth = useGoogleTTS();
   const { toast } = useToast();
   const { profile: studentProfile, updateProfile: updateStudentProfile } = useStudentProfile();
   const { saveJob, unsaveJob, isJobSaved, savedJobs, count: savedCount } = useSavedJobs();

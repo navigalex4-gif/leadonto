@@ -10,7 +10,7 @@ import { useHistory } from "@/lib/use-history";
 import { useProgress } from "@/lib/use-progress";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
-import { useEdgeTTS } from "@/lib/use-edge-tts";
+import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
@@ -40,7 +40,7 @@ function ToolsProContent() {
   const { save } = useHistory();
   const { track } = useProgress();
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
-  const synth = useEdgeTTS();
+  const synth = useGoogleTTS();
   const { profile, updateProfile } = useStudentProfile();
 
   const [mode, setMode] = useState<Mode>(() => {

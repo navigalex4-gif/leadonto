@@ -102,7 +102,7 @@ export default function PrivacyPolicy() {
           information where possible; neither provider trains on your data by default per their enterprise policies)
         </li>
         <li>
-          <strong>Microsoft Edge TTS:</strong> Text-to-speech audio generation for AI tutor voices
+          <strong>Google Cloud Text-to-Speech:</strong> Neural and Chirp text-to-speech audio generation for AI tutor voices
         </li>
       </UL>
 

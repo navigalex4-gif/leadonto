@@ -13,7 +13,7 @@ import { mapEnglishLevel, LEVEL_TO_STAGE } from "@/lib/english-roadmap";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useAuth } from "@/lib/use-auth";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
-import { useEdgeTTS } from "@/lib/use-edge-tts";
+import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useHistory } from "@/lib/use-history";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { downloadText } from "@/lib/export-data";
@@ -375,7 +375,7 @@ export default function LearningJourneyPage() {
   const [nextDueDate, setNextDueDate] = useState<string | null>(null);
 
   const { profile } = useStudentProfile();
-  const synth = useEdgeTTS();
+  const synth = useGoogleTTS();
   const { save } = useHistory();
   const { text: planText, isStreaming: planStreaming, stream: streamPlan } = useGeminiStream();
   const [planSaved, setPlanSaved] = useState(false);

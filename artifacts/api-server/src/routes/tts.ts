@@ -41,23 +41,14 @@ export const CHARACTER_VOICE_MAP: Record<string, string> = {
   aryan: "en-US-Chirp3-HD-Gacrux",
 };
 
-// Regional Google voices are assigned deterministically by character order.
-// Where a locale has fewer voices, the same character keeps the same regional
-// voice every time; English identity is never changed by native-language mode.
-const REGIONAL_VOICES: Record<Exclude<SupportedLanguage, "English">, string[]> = {
-  Hindi: ["hi-IN-Neural2-A", "hi-IN-Neural2-B", "hi-IN-Neural2-C", "hi-IN-Neural2-D"],
-  Tamil: ["ta-IN-Neural2-A", "ta-IN-Neural2-B", "ta-IN-Neural2-C", "ta-IN-Neural2-D"],
-  Telugu: ["te-IN-Neural2-A", "te-IN-Neural2-B", "te-IN-Neural2-C", "te-IN-Neural2-D"],
-  Bengali: ["bn-IN-Neural2-A", "bn-IN-Neural2-B", "bn-IN-Neural2-C", "bn-IN-Neural2-D"],
-  Marathi: ["mr-IN-Wavenet-A", "mr-IN-Wavenet-B", "mr-IN-Wavenet-C", "mr-IN-Wavenet-D"],
-  Gujarati: ["gu-IN-Wavenet-A", "gu-IN-Wavenet-B", "gu-IN-Wavenet-C", "gu-IN-Wavenet-D"],
-  Kannada: ["kn-IN-Wavenet-A", "kn-IN-Wavenet-B", "kn-IN-Wavenet-C", "kn-IN-Wavenet-D"],
-  Malayalam: ["ml-IN-Wavenet-A", "ml-IN-Wavenet-B", "ml-IN-Wavenet-C", "ml-IN-Wavenet-D"],
-  Punjabi: ["pa-IN-Wavenet-A", "pa-IN-Wavenet-B", "pa-IN-Wavenet-C", "pa-IN-Wavenet-D"],
-  Odia: ["or-IN-Wavenet-A", "or-IN-Wavenet-B", "or-IN-Wavenet-C", "or-IN-Wavenet-D"],
-  Assamese: ["as-IN-Wavenet-A", "as-IN-Wavenet-B", "as-IN-Wavenet-C", "as-IN-Wavenet-D"],
-  Urdu: ["ur-IN-Wavenet-A", "ur-IN-Wavenet-B", "ur-IN-Wavenet-C", "ur-IN-Wavenet-D"],
-};
+// Chirp 3 HD keeps the same timbre family across Google's Indian locales.
+// The suffix is permanently assigned by character order, never randomized.
+const CHIRP_CHARACTER_FAMILIES = [
+  "Aoede", "Algieba", "Callirrhoe", "Fenrir",
+  "Kore", "Orus", "Leda", "Achernar",
+  "Algenib", "Charon", "Despina", "Enceladus",
+  "Iapetus", "Gacrux",
+] as const;
 
 const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
   English: "en-US",
@@ -70,8 +61,11 @@ const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
   Kannada: "kn-IN",
   Malayalam: "ml-IN",
   Punjabi: "pa-IN",
-  Odia: "or-IN",
-  Assamese: "as-IN",
+  // Google currently publishes no or-IN/as-IN voice catalog entries. These
+  // two scripts use Google's hi-IN Chirp voice as the server-side fallback
+  // rather than a silent response.
+  Odia: "hi-IN",
+  Assamese: "hi-IN",
   Urdu: "ur-IN",
 };
 
@@ -135,8 +129,8 @@ function chooseVoice(language: SupportedLanguage, voiceStyle?: string): string {
   const index = CHARACTER_ORDER.indexOf(
     (voiceStyle ?? "maya") as (typeof CHARACTER_ORDER)[number],
   );
-  const voices = REGIONAL_VOICES[language];
-  return voices[Math.max(0, index) % voices.length]!;
+  const family = CHIRP_CHARACTER_FAMILIES[Math.max(0, index) % CHIRP_CHARACTER_FAMILIES.length]!;
+  return `${LANGUAGE_CODES[language]}-Chirp3-HD-${family}`;
 }
 
 async function synthesize(

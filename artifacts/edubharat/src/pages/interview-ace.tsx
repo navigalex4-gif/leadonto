@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useHistory } from "@/lib/use-history";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
-import { useEdgeTTS, unlockAudio, useMouthLevel } from "@/lib/use-edge-tts";
+import { useGoogleTTS, unlockAudio, useMouthLevel } from "@/lib/use-edge-tts";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useAuth } from "@/lib/use-auth";
 import { useCredits, chargeInterview, tickInterview, endInterview, interviewCreditCost, interviewBlockSeconds, INTERVIEW_MAX_BLOCKS } from "@/lib/use-credits";
@@ -545,7 +545,7 @@ function InterviewAceContent() {
   const [routeLocation, setLocation] = useLocation();
   const { save } = useHistory();
   const { text: streamText, isStreaming, stream, reset: resetStream } = useGeminiStream();
-  const synth = useEdgeTTS();
+  const synth = useGoogleTTS();
   const speech = useSpeechRecognition("English");
   // Real-time loudness of whatever the coach is currently saying — drives the
   // voice-visualiser bars below with the actual waveform instead of a canned
