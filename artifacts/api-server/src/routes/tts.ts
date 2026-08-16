@@ -3,41 +3,6 @@ import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 
 const router = Router();
 
-/**
- * Every AI persona has a unique Indian neural voice. Do not reuse a voiceStyle
- * mapping: sharing Neerja/Prabhat was the reason all female/male characters
- * sounded identical. Regional Indian neural voices still speak English
- * naturally, while providing a clearly different accent and timbre.
- */
-const TUTOR_VOICE_MAP: Record<string, string> = {
-  // English Guru — six distinct voices. Maya remains the default landing
-  // persona. English-capable Indian regional voices are used where Edge only
-  // exposes two en-IN voices, keeping every persona distinct.
-  priya:  "mr-IN-AarohiNeural",
-  rohit:  "gu-IN-NiranjanNeural",
-  maya:   "hi-IN-SwaraNeural",
-  arjun:  "te-IN-MohanNeural",
-  neha:   "bn-IN-TanishaaNeural",
-  rahul:  "kn-IN-GaganNeural",
-
-  // Interview Ace — eight distinct voices not used by the teachers. Sanjay
-  // and Aryan are intentionally on the two clearest en-IN voices so English
-  // remains crisp and natural for enterprise sales and BFSI interviews.
-  priya_coach: "ta-IN-PallaviNeural",
-  raj:         "ta-IN-ValluvarNeural",
-  // Restored from Vikram's previous clear, technical voice.
-  vikram:      "en-US-AndrewNeural",
-  ananya:      "te-IN-ShrutiNeural",
-  meera_coach: "bn-IN-BashkarNeural",
-  // NOTE: pa-IN, or-IN, as-IN and all hi-IN v2 voices return ZERO-BYTE audio
-  // from this environment — never map a persona to them.
-  kabir:       "mr-IN-ManoharNeural",
-  sanjay:      "en-IN-PrabhatNeural",
-  // Aryan is a male BFSI interviewer; keep his voice clearly masculine.
-  // Salman is a distinct, verified Indian male neural voice.
-  aryan:       "ur-IN-SalmanNeural",
-};
-
 // Microsoft Edge Neural voices for all 13 Indian languages + English
 // Sourced from verified Microsoft voice list (all -Neural suffix voices)
 const EDGE_VOICES: Record<string, { male: string; female: string }> = {
@@ -131,13 +96,11 @@ router.post("/tts", async (req, res) => {
     text,
     language = "English",
     gender = "female",
-    voiceStyle,
     nativeLanguage,
   } = req.body as {
     text?: string;
     language?: string;
     gender?: "male" | "female";
-    voiceStyle?: string;
     nativeLanguage?: string;
   };
 
@@ -159,15 +122,14 @@ router.post("/tts", async (req, res) => {
     return;
   }
 
-  // Use the persona mapping whenever the caller supplies a voiceStyle.
-  // Previously this value was ignored, so every male persona fell back to the
-  // same Prabhat voice despite having a distinct map entry.
+  // English is deliberately routed through the two verified en-IN voices.
+  // This keeps pronunciation consistent across every teacher and interviewer.
   const englishVoice =
-    (voiceStyle ? TUTOR_VOICE_MAP[voiceStyle] : undefined) ??
     (gender === "male" ? EDGE_VOICES["English"]!.male : EDGE_VOICES["English"]!.female);
 
   // Voice for native-script runs: only when a real, supported native language is
-  // supplied (absent for greetings / Interview Ace / English-only mode).
+  // supplied (absent for greetings / Interview Ace / English-only mode). The
+  // persona map is intentionally not used for English-only speech.
   const nativeVoices =
     nativeLanguage && nativeLanguage !== "English" ? EDGE_VOICES[nativeLanguage] : undefined;
   const nativeVoice = nativeVoices
