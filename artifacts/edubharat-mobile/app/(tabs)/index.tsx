@@ -73,18 +73,6 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.replace('/(tabs)' as never)} accessibilityRole="button" accessibilityLabel="Lead Onto home">
           <Text style={[styles.brand, { color: colors.primary }]}>Lead Onto</Text>
         </Pressable>
-        <View style={styles.headerSuite}>
-          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
-            <Feather name="zap" size={13} color={colors.mutedForeground} />
-            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Fluency</Text>
-            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
-          </Pressable>
-          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/interview-ace' as never)} accessibilityRole="button">
-            <Feather name="briefcase" size={13} color={colors.mutedForeground} />
-            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Career</Text>
-            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
-          </Pressable>
-        </View>
         <View style={styles.headerActions}>
           <Pressable style={[styles.creditPill, { borderColor: colors.primary + '55', backgroundColor: colors.primary + '12' }]} onPress={() => router.push('/credits' as never)} accessibilityRole="button" accessibilityLabel="Credits">
             <Feather name="link-2" size={12} color={colors.primary} />
@@ -95,6 +83,18 @@ export default function HomeScreen() {
           </Pressable>
           <Pressable onPress={() => router.push('/(tabs)/tools' as never)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open menu">
             <Feather name="menu" size={23} color={colors.foreground} />
+          </Pressable>
+        </View>
+        <View style={styles.headerSuite}>
+          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
+            <Feather name="zap" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Fluency Suite</Text>
+            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
+          </Pressable>
+          <Pressable style={styles.headerSuiteButton} onPress={() => router.push('/interview-ace' as never)} accessibilityRole="button">
+            <Feather name="briefcase" size={13} color={colors.mutedForeground} />
+            <Text style={[styles.headerSuiteText, { color: colors.mutedForeground }]}>Career Suite</Text>
+            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
           </Pressable>
         </View>
       </View>
@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
   mobileHeader: {
     minHeight: 64,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -215,10 +216,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   brand: { fontFamily: 'Inter_700Bold', fontSize: 17, letterSpacing: -0.5 },
-  headerSuite: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 4 },
-  headerSuiteButton: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 3 },
+  headerSuite: { flexBasis: '100%', width: '100%', flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  headerSuiteButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 3 },
   headerSuiteText: { fontFamily: 'Inter_500Medium', fontSize: 11 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 },
   creditPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 5 },
   creditText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
   avatar: { width: 27, height: 27, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },

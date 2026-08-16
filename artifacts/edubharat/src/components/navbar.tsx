@@ -57,7 +57,7 @@ function SuiteDropdown({
   useEffect(() => { setOpen(false); }, [location]);
 
   return (
-    <div ref={ref} className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+    <div ref={ref} className="relative max-[480px]:order-2 max-[480px]:basis-[calc(50%-0.25rem)] max-[480px]:grow" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <button
         type="button"
         onClick={() => {
@@ -69,16 +69,15 @@ function SuiteDropdown({
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex min-w-0 shrink items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all select-none whitespace-nowrap max-[480px]:gap-0.5 max-[480px]:px-1.5 ${
+        className={`inline-flex min-w-0 shrink items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all select-none whitespace-nowrap max-[480px]:w-full max-[480px]:gap-1 max-[480px]:px-2 ${
           isAnyActive
             ? `bg-gradient-to-r ${accent.badge} text-white shadow-md`
             : `text-muted-foreground hover:text-secondary hover:bg-muted/60`
         }`}
       >
         <BadgeIcon className="w-3 h-3 shrink-0" />
-        <span className={`hidden min-[400px]:inline ${label === "Career Suite" ? "max-[360px]:hidden" : ""}`}>{label}</span>
-        <span className={`min-[400px]:hidden ${label === "Career Suite" ? "max-[360px]:hidden" : ""}`}>{label.split(" ")[0]}</span>
-        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${label === "Career Suite" ? "max-[360px]:hidden" : ""} ${open ? "rotate-180" : ""}`} />
+        <span>{label}</span>
+        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
@@ -141,10 +140,10 @@ export function Navbar() {
   return (
     <>
        <nav className="w-full max-w-full border-b bg-white/90 backdrop-blur-md sticky top-0 z-50 overflow-visible">
-         <div className="container mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:gap-0.5 overflow-visible">
+         <div className="container mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:flex-wrap max-[480px]:gap-1 max-[480px]:py-1 overflow-visible">
 
           {/* Logo */}
-          <Link href="/" className="font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1 max-[360px]:text-base max-[360px]:mr-0">
+          <Link href="/" className="order-1 font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1 max-[360px]:text-base max-[360px]:mr-0">
             Lead Onto
           </Link>
 
@@ -262,7 +261,7 @@ export function Navbar() {
           </div>}
 
           {/* ── Mobile right side ── */}
-          <div className="flex min-w-0 shrink-0 md:hidden items-center gap-0.5 ml-auto">
+          <div className="order-1 flex min-w-0 shrink-0 md:hidden items-center gap-0.5 ml-auto">
             {!isB2BRoute && authenticated && (
               <Link href="/credits" className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-xs font-bold" title="Your credits">
                 <Coins className="w-3 h-3" />
