@@ -31,10 +31,10 @@ export default function ShippingRefund() {
       <H2>1. Credit Purchases</H2>
       <P>Lead Onto uses a credit-based system for premium AI features (1 credit = ₹1). The purchase process:</P>
       <UL>
-        <li>You complete a UPI payment and submit your UTR (Transaction Reference Number) in the app</li>
-        <li>Our team verifies the UTR against our payment records within 1–4 business hours</li>
-        <li>Credits are added to your account after successful verification</li>
-        <li>You receive a credit ledger update visible in your account dashboard</li>
+        <li>Complete the UPI payment and submit your UTR (Transaction Reference Number).</li>
+        <li>Credits are added to your account instantly after successful payment confirmation.</li>
+        <li>If payment verification subsequently fails, incorrectly credited credits are reversed automatically.</li>
+        <li>Your credit balance and transaction ledger are updated accordingly.</li>
       </UL>
       <P>
         Credits are non-transferable between accounts and do not expire. Credits are debited automatically when you use premium AI features.
@@ -105,11 +105,11 @@ export default function ShippingRefund() {
 
       <H2>5. Failed / Pending Transactions</H2>
       <P>
-        If your UPI payment was deducted but credits were not added within 8 hours, please do not resubmit the payment. Instead, email{" "}
+        If your UPI payment was deducted but payment confirmation is still pending, please do not resubmit the payment. Instead, email{" "}
         <a href={`mailto:${email}`} className="text-primary hover:underline">
           {email}
         </a>{" "}
-        with your UTR and we will investigate and either add the credits or process a refund.
+        with your UTR and we will investigate the confirmation status, apply any necessary reversal, and update your ledger.
       </P>
 
       <H2>6. Disputes and Escalation</H2>
