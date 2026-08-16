@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
   LogIn, ShieldCheck, Infinity as InfinityIcon, QrCode, Clock, CheckCircle2,
-  XCircle, ArrowLeft, Copy,
+  XCircle, ArrowLeft, Copy, Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -238,11 +238,24 @@ export default function BuyCredits() {
 
         <div className="text-center mb-5">
           <p className="font-bold text-secondary text-lg mb-1">Scan to pay ₹{amount}</p>
-          <p className="text-sm text-muted-foreground">Open any UPI app — GPay, PhonePe, Paytm, BHIM</p>
+           <p className="text-sm text-muted-foreground">Use a second device to scan, or pay directly on this phone</p>
         </div>
 
-        {/* QR code */}
-        <div className="flex justify-center mb-4">
+        {/* Same-phone payment is the primary mobile path. The QR remains useful
+            when the user is viewing this page on a laptop or second device. */}
+        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-center sm:hidden">
+          <Smartphone className="mx-auto mb-2 h-6 w-6 text-green-700" />
+          <p className="text-sm font-bold text-secondary">Pay on this phone</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Open your UPI app, confirm the amount, then return here to submit your UTR.</p>
+          <a
+            href={buildUpiUri(amount)}
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white transition-colors hover:bg-green-700"
+          >
+            Open UPI app <ArrowLeft className="h-4 w-4 rotate-180" />
+          </a>
+        </div>
+
+        <div className="mb-4 hidden justify-center sm:flex">
           <div className="rounded-2xl border-4 border-amber-400 p-2 bg-white shadow-lg">
             {qrLoading ? (
               <div className="w-[200px] h-[200px] flex items-center justify-center">
@@ -257,6 +270,7 @@ export default function BuyCredits() {
             )}
           </div>
         </div>
+        <p className="mb-4 hidden text-center text-xs text-muted-foreground sm:block">On a laptop? Scan this QR with your phone.</p>
 
         {/* UPI ID + copy */}
         <div className="flex items-center justify-center gap-2 mb-1">
@@ -273,9 +287,9 @@ export default function BuyCredits() {
 
         {/* Steps */}
         <ol className="text-sm text-muted-foreground space-y-1.5 mb-6 pl-4 list-decimal">
-          <li>Scan the QR with any UPI app and pay <strong className="text-secondary">₹{amount}</strong></li>
+           <li>Pay <strong className="text-secondary">₹{amount}</strong> using the button above on mobile, or scan the QR on a second device</li>
           <li>Note the <strong className="text-secondary">UTR / Reference number</strong> from your payment receipt</li>
-           <li>Enter it below and submit — credits are added instantly while we audit the payment</li>
+           <li>Enter it below and submit — credits are added instantly after confirmation</li>
         </ol>
 
         {/* UTR input */}
@@ -311,7 +325,7 @@ export default function BuyCredits() {
            Your payment of <strong className="text-secondary">₹{amount}</strong> is being checked.
         </p>
         <p className="text-xs text-muted-foreground">
-           Credits appear after submission. We check the payment later and can reverse a false claim.
+           Credits are added after successful confirmation. If verification later fails, incorrectly credited credits are reversed automatically.
           {pollCount > 0 ? ` (checked ${pollCount} time${pollCount > 1 ? "s" : ""})` : ""}.
         </p>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">

@@ -136,21 +136,21 @@ export default function Home() {
     <>
       <HomeMeta />
       <div className="home-shell min-w-0 overflow-hidden">
-        <section className="relative isolate overflow-hidden pb-16 pt-12 sm:pb-20 sm:pt-16 lg:pb-24 lg:pt-20" aria-labelledby="hero-title">
+        <section className="relative isolate overflow-hidden pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14" aria-labelledby="hero-title">
           <div className="home-grid-paper pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-50" />
           <div className="pointer-events-none absolute -right-40 top-10 -z-10 h-72 w-72 rounded-full bg-orange-100 blur-3xl" />
           <div className="container mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
             <div className="home-reveal max-w-2xl">
               <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-primary sm:text-sm">{heroEyebrow}</p>
-              <h1 id="hero-title" className="max-w-2xl text-[clamp(2.25rem,5vw,3.65rem)] font-extrabold leading-[1.02] tracking-[-0.045em] text-secondary">
+              <h1 id="hero-title" className="max-w-2xl text-[clamp(2rem,4.3vw,3.1rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-secondary">
                 Know What to Say.
                 <br />
                 <span className="text-primary">Know How to Say It.</span>
                 <br />
                 Be Ready for What’s Next.
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">{heroSubtitle}</p>
-              <div className="mt-7 flex flex-col gap-2.5 sm:flex-row">
+              <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">{heroSubtitle}</p>
+              <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
                 <PrimaryLink href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "hero" })}>
                   {ctaPrimary}
                   <ArrowRight className="h-4 w-4" />
@@ -166,7 +166,7 @@ export default function Home() {
             <Link
               href="/communication-check"
               onClick={() => track("home_cta_clicked", { cta: "communication_check", placement: "hero_visual" })}
-              className="home-reveal group relative mx-auto block w-full max-w-md rounded-3xl border border-orange-200/70 bg-card p-6 shadow-[0_18px_55px_-30px_rgba(198,112,32,.6)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:p-8"
+              className="home-reveal group relative mx-auto block w-full max-w-md rounded-2xl border border-orange-200/70 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(198,112,32,.6)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -193,25 +193,25 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-y border-secondary/10 bg-secondary py-12 text-secondary-foreground sm:py-16" aria-labelledby="opportunity-title">
+        <section className="border-y border-orange-200/70 bg-gradient-to-br from-orange-50 via-amber-50 to-sky-50 py-9 text-secondary sm:py-11" aria-labelledby="opportunity-title">
           <div className="container mx-auto flex max-w-6xl flex-col gap-5 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
-              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-300">Before the next chance arrives</p>
-              <h2 id="opportunity-title" className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">The next opportunity won’t wait for you to feel ready.</h2>
-              <p className="mt-3 text-sm leading-6 text-secondary-foreground/70 sm:text-base">Start building the communication skills before the opportunity arrives.</p>
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-700">Before the next chance arrives</p>
+              <h2 id="opportunity-title" className="text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">The next opportunity won’t wait for you to feel ready.</h2>
+              <p className="mt-2 text-sm leading-6 text-secondary/70">Start building the communication skills before the opportunity arrives.</p>
             </div>
             <PrimaryLink href="/interview-ace" className="self-start lg:self-center">Start Preparing Free <ArrowRight className="h-4 w-4" /></PrimaryLink>
           </div>
         </section>
 
-        <section className="py-16 sm:py-20" aria-labelledby="different-title">
+        <section className="py-12 sm:py-14" aria-labelledby="different-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="max-w-xl">
               <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Why Lead Onto</p>
               <h2 id="different-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">More Than English. More Than Interview Prep.</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">Communicate better in the situations that matter.</p>
             </div>
-            <div className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {DIFFERENTIATORS.map(({ icon: Icon, title, description }) => (
                 <article key={title} className="rounded-2xl border border-border/80 bg-card/50 p-5 transition-colors hover:border-primary/30">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100 text-orange-700"><Icon className="h-4 w-4" /></div>
@@ -223,19 +223,19 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-y border-border/70 bg-card/40 py-16 sm:py-20" aria-labelledby="suites-title">
+        <section className="border-y border-border/70 bg-card/40 py-12 sm:py-14" aria-labelledby="suites-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="max-w-xl">
               <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">How it works</p>
               <h2 id="suites-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">Two ways to get ready.</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">Build the communication you need now, then prepare for where you want to go next.</p>
             </div>
-            <div className="mt-9 grid gap-5 lg:grid-cols-2">
+            <div className="mt-7 grid gap-4 lg:grid-cols-2">
               {[
                 { title: "Speak Better in the Real World.", icon: BookOpen, color: "orange", tools: FLUENCY_TOOLS, href: "/english-guru", cta: "Start My English Journey" },
                 { title: "Prepare for the Role You Want.", icon: TrendingUp, color: "blue", tools: CAREER_TOOLS, href: "/interview-ace", cta: "Prepare for My Next Role" },
               ].map(({ title, icon: Icon, color, tools, href, cta }) => (
-                <article key={title} className={`rounded-2xl border p-6 sm:p-7 ${color === "orange" ? "border-orange-200/70 bg-orange-50/60" : "border-blue-200/70 bg-blue-50/60"}`}>
+                <article key={title} className={`rounded-2xl border p-5 sm:p-6 ${color === "orange" ? "border-orange-200/70 bg-orange-50/60" : "border-blue-200/70 bg-blue-50/60"}`}>
                   <div className="flex items-center gap-3">
                     <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${color === "orange" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}><Icon className="h-5 w-5" /></span>
                     <span className={`text-[10px] font-extrabold uppercase tracking-wider ${color === "orange" ? "text-orange-700" : "text-blue-700"}`}>{color === "orange" ? "Fluency Suite" : "Career Suite"}</span>
@@ -257,7 +257,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-20" aria-labelledby="roles-title">
+        <section className="py-12 sm:py-14" aria-labelledby="roles-title">
           <div className="container mx-auto grid max-w-6xl gap-10 px-5 sm:px-8 lg:grid-cols-[.95fr_1.05fr] lg:items-center">
             <div>
               <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Made for your next role</p>
@@ -275,7 +275,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-y border-border/70 bg-card/40 py-16 sm:py-20" aria-labelledby="coaches-title">
+        <section className="border-y border-border/70 bg-card/40 py-12 sm:py-14" aria-labelledby="coaches-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-xl">
@@ -289,12 +289,15 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="bg-secondary py-16 text-secondary-foreground sm:py-20" aria-labelledby="final-title">
+        <section className="bg-secondary py-12 text-secondary-foreground sm:py-14" aria-labelledby="final-title">
           <div className="container mx-auto max-w-3xl px-5 text-center sm:px-8">
             <Sparkles className="mx-auto h-5 w-5 text-orange-300" />
             <h2 id="final-title" className="mt-4 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">Be ready when your next opportunity comes.</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-secondary-foreground/70 sm:text-base">Start with one real situation. Find the right words. Build from there.</p>
             <PrimaryLink href="/english-guru" className="mt-7" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "final_cta" })}>Start Free <ArrowRight className="h-4 w-4" /></PrimaryLink>
+            <p className="mx-auto mt-5 max-w-2xl text-[10px] leading-4 text-secondary-foreground/45">
+              97% of HR decision-makers in India say English proficiency is more important today than five years ago. 87% say AI is increasing the need for strong English skills. Source: ETS, TOEIC Global English Skills Report 2026.
+            </p>
           </div>
         </section>
       </div>

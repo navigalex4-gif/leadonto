@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Navbar } from "./navbar";
 import { useContent } from "@/lib/use-content";
 
@@ -12,6 +12,7 @@ const PRODUCT_LINKS = [
 ];
 
 function Footer() {
+  const [, navigate] = useLocation();
   const tagline = useContent(
     "footer.brandStatement",
     "Helping India’s next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
@@ -60,7 +61,14 @@ function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/credits" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
+                <Link
+                  href="/credits"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate("/credits");
+                  }}
+                  className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors"
+                >
                   Buy Credits
                 </Link>
               </li>
