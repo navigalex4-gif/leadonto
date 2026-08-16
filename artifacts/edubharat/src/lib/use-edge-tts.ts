@@ -127,12 +127,12 @@ let _audio: HTMLAudioElement | null = null;
 let _abort: AbortController | null = null;
 let _url:   string | null = null;
 type QueuedSpeech = {
-  chunks: string[];
-  language: string;
+  chunks: SpeechChunk[];
   gender: "male" | "female";
   options: GoogleSpeakOptions;
   onAllDone: () => void;
 };
+type SpeechChunk = { text: string; language: string };
 const _speechQueue: QueuedSpeech[] = [];
 let _queueActive = false;
 // Hook instances register here to be notified when global stop happens
@@ -274,10 +274,10 @@ async function computeEnvelope(blob: Blob): Promise<Envelope | null> {
  * TTS request for a two-word sliver. Falls back to the whole text as a
  * single chunk if the split produces nothing usable.
  */
-function splitIntoSpeechChunks(text: string): string[] {
+function splitSentenceChunks(text: string): string[] {
   const clean = text.trim();
   if (!clean) return [];
-  const raw = clean.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/g).map((s) => s.trim()).filter(Boolean);
+  const raw = clean.split(/(?<=[.!?।॥])\s+/u).map((s) => s.trim()).filter(Boolean);
   if (raw.length <= 1) return [clean];
   const merged: string[] = [];
   for (const part of raw) {
@@ -289,6 +289,63 @@ function splitIntoSpeechChunks(text: string): string[] {
     }
   }
   return merged.length > 0 ? merged : [clean];
+}
+
+const SCRIPT_LANGUAGE_RANGES: Array<{ language: string; re: RegExp }> = [
+  { language: "Hindi", re: /[\u0900-\u097F]/u },
+  { language: "Punjabi", re: /[\u0A00-\u0A7F]/u },
+  { language: "Gujarati", re: /[\u0A80-\u0AFF]/u },
+  { language: "Bengali", re: /[\u0980-\u09FF]/u },
+  { language: "Odia", re: /[\u0B00-\u0B7F]/u },
+  { language: "Tamil", re: /[\u0B80-\u0BFF]/u },
+  { language: "Telugu", re: /[\u0C00-\u0C7F]/u },
+  { language: "Kannada", re: /[\u0C80-\u0CFF]/u },
+  { language: "Malayalam", re: /[\u0D00-\u0D7F]/u },
+  { language: "Urdu", re: /[\u0600-\u06FF]/u },
+];
+
+function languageForCharacter(char: string, nativeLanguage?: string, baseLanguage = "English"): string {
+  if (!nativeLanguage || nativeLanguage === baseLanguage) return baseLanguage;
+  const match = SCRIPT_LANGUAGE_RANGES.find(({ re }) => re.test(char));
+  return match?.language === nativeLanguage ? nativeLanguage : baseLanguage;
+}
+
+/**
+ * Keep one utterance as one ordered queue, but send each script run to the
+ * correct neural voice. Whitespace and punctuation stay with the preceding
+ * run so mixed replies do not sound like isolated words.
+ */
+function splitIntoSpeechChunks(
+  text: string,
+  baseLanguage: string,
+  nativeLanguage?: string,
+): SpeechChunk[] {
+  const clean = text.trim();
+  if (!clean) return [];
+  const runs: SpeechChunk[] = [];
+  let currentLanguage = baseLanguage;
+  let current = "";
+  for (const char of clean) {
+    const charLanguage = languageForCharacter(char, nativeLanguage, baseLanguage);
+    const isWhitespaceOrPunctuation = /[\s.,!?;:'"()[\]{}\-–—/\\]/u.test(char);
+    // Keep separators with the current run. A script character is what starts
+    // a real language transition; this avoids tiny whitespace-only requests.
+    const targetLanguage = isWhitespaceOrPunctuation ? currentLanguage : charLanguage;
+    if (current && targetLanguage !== currentLanguage) {
+      runs.push({ text: current.trim(), language: currentLanguage });
+      current = "";
+    }
+    currentLanguage = targetLanguage;
+    current += char;
+  }
+  if (current.trim()) runs.push({ text: current.trim(), language: currentLanguage });
+
+  return runs.flatMap((run) =>
+    splitSentenceChunks(run.text).map((sentence) => ({
+      text: sentence,
+      language: run.language,
+    })),
+  );
 }
 
 // Small natural gap between chunks — real speech has a breath/beat at full
@@ -321,7 +378,7 @@ function runNextQueuedSpeech(): void {
   const next = _speechQueue.shift()!;
   _queueActive = true;
   const myGen = _speakGen;
-  playChunkChain(next.chunks, 0, myGen, next.language, next.gender, next.options, () => {
+  playChunkChain(next.chunks, 0, myGen, next.gender, next.options, () => {
     _queueActive = false;
     next.onAllDone();
     runNextQueuedSpeech();
@@ -340,10 +397,9 @@ function runNextQueuedSpeech(): void {
  * skipped (not fatal) so one bad sentence doesn't silence the whole reply.
  */
 function playChunkChain(
-  chunks: string[],
+  chunks: SpeechChunk[],
   index: number,
   myGen: number,
-  language: string,
   gender: "male" | "female",
   options: GoogleSpeakOptions,
   onAllDone: () => void,
@@ -351,12 +407,14 @@ function playChunkChain(
   if (myGen !== _speakGen) return; // superseded before this chunk even started
   if (index >= chunks.length) { onAllDone(); return; }
 
-  const chunkText = chunks[index]!;
+  const chunk = chunks[index]!;
+  const chunkText = chunk.text;
+  const language = chunk.language;
   const ctrl = new AbortController();
   _abort = ctrl;
   // Per-chunk hang guard — chunks are short, so 12s is already generous.
   const hangTimer = setTimeout(() => { if (_abort === ctrl) ctrl.abort(); }, 12_000);
-  const next = () => playChunkChain(chunks, index + 1, myGen, language, gender, options, onAllDone);
+  const next = () => playChunkChain(chunks, index + 1, myGen, gender, options, onAllDone);
 
   fetch(`${BASE}/api/tts`, {
     method: "POST",
@@ -502,7 +560,7 @@ export function useGoogleTTS() {
       // Sentence-chunked and queued so each clip finishes before the next
       // begins. This prevents overlapping voices and preserves every response
       // instead of cutting the current speaker off when a new request arrives.
-      const chunks = splitIntoSpeechChunks(text);
+      const chunks = splitIntoSpeechChunks(text, language, options.nativeLanguage);
       if (chunks.length === 0) {
         if (ownerRef.current) { ownerRef.current = false; setIsSpeaking(false); }
         onEnd?.();
@@ -511,7 +569,6 @@ export function useGoogleTTS() {
 
       _speechQueue.push({
         chunks,
-        language,
         gender,
         options,
         onAllDone: () => {

@@ -233,16 +233,15 @@ function EnglishGuruContent() {
   }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
 
   const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string } = {}) => {
-    let t = stripMarkdownForSpeech(text)
+    const t = stripMarkdownForSpeech(text)
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
       .trim();
-    // If the model accidentally echoes instructions, keep only the first natural reply line.
-    const firstSentence = t.split(/\n/).find(l => {
-      const s = l.trim();
-      return s.length > 2 && !s.startsWith("[") && !s.startsWith("(") && !s.startsWith("-") && !/^\d+[.)]\s*$/.test(s);
-    }) ?? t;
-    synth.speak(firstSentence, language, onEnd, {
+    // Send the complete cleaned reply to the shared sentence queue. The queue
+    // owns sentence splitting and mixed-script voice selection; trimming this
+    // to the first line made the UI show a full reply while the teacher spoke
+    // only its opening fragment and released the mic too early.
+    synth.speak(t, language, onEnd, {
       ...opts,
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,

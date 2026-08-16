@@ -91,14 +91,12 @@ function ToolsProContent() {
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
       .trim();
-    // Keep only the first natural reply line if the model echoes instructions.
-    const firstSentence = t.split(/\n/).find(l => {
-      const s = l.trim();
-      return s.length > 2 && !s.startsWith("[") && !s.startsWith("(") && !s.startsWith("-") && !/^\d+[.)]\s*$/.test(s);
-    }) ?? t;
-    synth.speak(firstSentence, language, undefined, {
+    // Let the shared queue speak the complete cleaned result. It handles
+    // sentence boundaries and keeps playback alive until the final chunk.
+    synth.speak(t, language, undefined, {
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
+      nativeLanguage: language !== "English" ? language : undefined,
     });
   }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
 
