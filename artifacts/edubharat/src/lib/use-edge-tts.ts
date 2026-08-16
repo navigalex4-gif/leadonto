@@ -32,6 +32,12 @@ export type GoogleSpeakOptions = {
    * versa). Omit for single-voice output (greetings, English-only replies).
    */
   nativeLanguage?: string;
+  /**
+   * Keep this utterance behind the current utterance instead of replacing it.
+   * Live conversation uses this only for its short acknowledgement; the
+   * complete AI response always replaces any stale audio/queue first.
+   */
+  queueSpeech?: boolean;
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -351,7 +357,7 @@ function splitIntoSpeechChunks(
 // Small natural gap between chunks — real speech has a breath/beat at full
 // stops; stitching chunks with zero gap sounds clipped, and too large a gap
 // sounds like separate thoughts rather than one flowing reply.
-const CHUNK_GAP_MS = 55;
+const CHUNK_GAP_MS = 10;
 
 
 function globalStop() {
@@ -403,6 +409,7 @@ function playChunkChain(
   gender: "male" | "female",
   options: GoogleSpeakOptions,
   onAllDone: () => void,
+  attempt = 0,
 ): void {
   if (myGen !== _speakGen) return; // superseded before this chunk even started
   if (index >= chunks.length) { onAllDone(); return; }
@@ -415,6 +422,14 @@ function playChunkChain(
   // Per-chunk hang guard — chunks are short, so 12s is already generous.
   const hangTimer = setTimeout(() => { if (_abort === ctrl) ctrl.abort(); }, 12_000);
   const next = () => playChunkChain(chunks, index + 1, myGen, gender, options, onAllDone);
+  const retry = () => {
+    if (attempt >= 1) return false;
+    setTimeout(
+      () => playChunkChain(chunks, index, myGen, gender, options, onAllDone, attempt + 1),
+      40,
+    );
+    return true;
+  };
 
   fetch(`${BASE}/api/tts`, {
     method: "POST",
@@ -429,12 +444,17 @@ function playChunkChain(
     .then(async (res) => {
       clearTimeout(hangTimer);
       if (myGen !== _speakGen) return;
-      if (!res.ok || ctrl.signal.aborted) { next(); return; }
+      if (!res.ok || ctrl.signal.aborted) {
+        if (!ctrl.signal.aborted && retry()) return;
+        next();
+        return;
+      }
 
       const blob = await res.blob();
       if (myGen !== _speakGen) return;
       if (blob.size < 512) {
         console.warn("[TTS] audio blob too small (%d bytes) — skipping chunk", blob.size);
+        if (retry()) return;
         next();
         return;
       }
@@ -495,8 +515,17 @@ function playChunkChain(
           onAllDone();
         }
       };
+      const failed = () => {
+        URL.revokeObjectURL(url);
+        if (_url === url) _url = null;
+        if (_audio === audio) _audio = null;
+        publishMouthLevel(CLOSED_MOUTH);
+        if (myGen !== _speakGen) return;
+        if (retry()) return;
+        next();
+      };
       audio.onended = advance;
-      audio.onerror = advance;
+      audio.onerror = failed;
 
       try {
         await audio.play();
@@ -509,7 +538,8 @@ function playChunkChain(
     .catch(() => {
       clearTimeout(hangTimer);
       if (myGen !== _speakGen) return;
-      next(); // this chunk failed outright — try the next one rather than going silent
+      if (retry()) return;
+      next();
     });
 }
 
@@ -550,6 +580,12 @@ export function useGoogleTTS() {
       options: GoogleSpeakOptions = {},
     ) => {
       if (!text.trim()) { onEnd?.(); return; }
+
+      // A normal speak() call starts a new utterance. This prevents late
+      // responses, old tutor handoffs, and prior chunks from playing after a
+      // new turn or an interruption. Callers explicitly opt into queueing for
+      // the tiny conversational acknowledgement only.
+      if (!options.queueSpeech) globalStop();
 
       ownerRef.current = true;
       setIsSpeaking(true);

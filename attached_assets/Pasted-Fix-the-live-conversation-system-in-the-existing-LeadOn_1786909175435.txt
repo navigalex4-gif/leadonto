@@ -1,0 +1,111 @@
+Fix the live conversation system in the existing LeadOnto Replit project.
+
+### Core problem
+
+The live AI teacher/interviewer conversation flow is breaking, especially when switching between English and the user's selected native language.
+
+### Required behavior
+
+* AI teacher must respond naturally using its assigned/generated voice.
+* Do not interrupt, truncate, restart, or reset the conversation when switching languages.
+* The AI teacher may speak:
+
+  * Full English
+  * Full native language
+  * English + native language naturally within the same response
+  * Native language + English naturally within the same response
+* Language switching must happen seamlessly according to the conversation context and user's selected language preference.
+* Preserve the exact conversational context across every language switch.
+* Do not force separate language turns or separate audio segments that create unnatural pauses.
+* The AI should be able to complete its entire intended response before the next user turn.
+* Audio playback must finish cleanly without cutting off the final words.
+* Prevent overlapping AI audio, duplicate responses, repeated sentences, and premature turn termination.
+* User interruption should work naturally: if the user starts speaking while AI is talking, stop the current AI audio cleanly and continue from the user's new turn.
+* Do not restart the entire conversation after interruption.
+
+### Voice requirements
+
+Use the AI teacher's assigned voice consistently throughout the session.
+The same AI teacher should not suddenly switch to a different voice because the language changes.
+
+If the selected voice supports multilingual speech, use that voice for the complete response.
+
+If the TTS provider requires language-specific voice handling, implement seamless multilingual handling without exposing the switch to the user. Maintain the same teacher identity and natural vocal continuity.
+
+### Streaming requirements
+
+Fix the streaming pipeline so that:
+
+1. AI generates the complete conversational response.
+2. Text is streamed/processed without losing language context.
+3. TTS handles mixed-language text correctly.
+4. Audio chunks are queued in the correct order.
+5. Audio plays continuously without gaps between chunks.
+6. The final audio chunk is completely played.
+7. Only then should the system transition cleanly to the user's turn.
+
+Do not generate separate unrelated responses merely because the language changes inside one response.
+
+### Conversation state
+
+Maintain:
+
+* conversation history
+* current topic
+* teacher personality
+* selected native language
+* selected English level
+* interview/teacher mode
+* current turn
+* incomplete/streaming response state
+
+A language switch must never reset any of these.
+
+### Error handling
+
+If TTS fails for one chunk:
+
+* retry safely;
+* do not restart the conversation;
+* do not duplicate previously spoken text;
+* continue from the failed portion when possible;
+* otherwise regenerate only the missing audio portion.
+
+If the AI response generation fails, show/recover gracefully without losing the conversation history.
+
+### Critical multilingual example
+
+If the user's native language is Hindi, the AI should be able to naturally say:
+
+"Your answer is good, लेकिन interview में इसे थोड़ा more specific बनाना चाहिए."
+
+or:
+
+"आपने अच्छा answer दिया है. Now explain why you chose this career."
+
+It must sound like one continuous teacher response, not two separate conversations.
+
+### UI
+
+Do not add unnecessary controls or visual complexity.
+The user should experience this as one uninterrupted live conversation.
+
+### Testing
+
+Test at minimum:
+
+* English → Hindi → English
+* Hindi → English → Hindi
+* English-only
+* Native-language-only
+* Mixed English/native-language responses
+* User interruption while AI is speaking
+* Long AI response
+* Short AI response
+* Slow network
+* TTS failure/retry
+* Multiple consecutive turns
+
+Fix the underlying streaming/state-management problem rather than masking symptoms.
+
+After implementation, run the application and verify that live conversations remain continuous and natural across language switching.

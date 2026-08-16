@@ -232,7 +232,7 @@ function EnglishGuruContent() {
     if (preferred && preferred.id !== tutorId) setTutorId(preferred.id);
   }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
 
-  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string } = {}) => {
+  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; queueSpeech?: boolean } = {}) => {
     const t = stripMarkdownForSpeech(text)
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
@@ -404,7 +404,10 @@ function EnglishGuruContent() {
     // real live-voice turns (not typed mode, not silence probes/re-engagement).
     if (liveChatRef.current && !isSilenceProbe) {
       const quickAcks = ["Ohh, okay.", "Hmm, I see.", "Right.", "Got it.", "Okay."];
-      speakRef.current(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, "English", () => {}, { rate: 1.0 });
+      speakRef.current(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, "English", () => {}, {
+        rate: 1.0,
+        queueSpeech: true,
+      });
     }
     void (async () => {
       try {
