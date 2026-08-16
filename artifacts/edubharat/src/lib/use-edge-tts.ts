@@ -310,7 +310,7 @@ function splitIntoSpeechChunks(text: string): string[] {
 // Small natural gap between chunks — real speech has a breath/beat at full
 // stops; stitching chunks with zero gap sounds clipped, and too large a gap
 // sounds like separate thoughts rather than one flowing reply.
-const CHUNK_GAP_MS = 140;
+const CHUNK_GAP_MS = 55;
 
 
 function globalStop() {

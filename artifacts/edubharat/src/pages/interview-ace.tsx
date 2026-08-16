@@ -1774,7 +1774,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
   if (phase === "setup") {
     return (
       <>
-      <div className="container mx-auto px-4 max-w-4xl pt-3 pb-4">
+      <div className="container mx-auto w-full min-w-0 max-w-full px-4 max-w-4xl pt-3 pb-4 overflow-x-hidden">
         {/* Compact header */}
         <div className="flex items-center justify-between mb-3">
           <div>

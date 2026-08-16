@@ -40,12 +40,12 @@ export default function Home() {
   return (
     <>
       <HomeMeta />
-      <div className="flex flex-col w-full">
+        <div className="flex min-w-0 max-w-full flex-col w-full overflow-x-hidden">
 
         {/* ── Hero ─────────────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden bg-background pt-12 pb-16 lg:pt-16 lg:pb-20">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-50 via-background to-blue-50 pointer-events-none" />
-          <div className="container mx-auto px-4 relative">
+          <div className="container mx-auto w-full min-w-0 px-4 relative">
             <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
 
               {/* Left copy */}
@@ -54,7 +54,7 @@ export default function Home() {
                   <Sparkles className="w-4 h-4" />
                   <span>{heroBadge}</span>
                 </div>
-                <h1 className="max-w-xl text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold tracking-tight text-secondary mb-5 leading-[1.05]">
+                <h1 className="max-w-full min-w-0 break-words text-[clamp(2.25rem,10vw,3.75rem)] font-display font-extrabold tracking-tight text-secondary mb-5 leading-[1.05]">
                   Master English.<br />
                   Ace Interviews.<br />
                   <span className="text-primary">Get the Job.</span>
