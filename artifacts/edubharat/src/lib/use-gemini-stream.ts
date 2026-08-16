@@ -65,8 +65,9 @@ export function useGeminiStream() {
         const response = await fetch(`${base}${options?.endpoint ?? "/api/ai/stream"}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // Clamp default token budget for all UI streams to keep Claude/Gemini calls cheap
-          body: JSON.stringify({ prompt, system, maxTokens: options?.maxTokens ?? 1200 }),
+          // Keep conversational turns compact so the first useful interviewer
+          // sentence starts within the 4–5 second UX target.
+          body: JSON.stringify({ prompt, system, maxTokens: options?.maxTokens ?? 700 }),
           credentials: "include",
           signal: controller.signal,
         });

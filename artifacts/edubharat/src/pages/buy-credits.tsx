@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import QRCode from "qrcode";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
@@ -54,6 +54,7 @@ export default function BuyCredits() {
   const { balance, authenticated, loaded } = useCredits();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const heroTitle = useContent("credits.hero.title", "Lead Onto Credits");
   const heroSubtitle = useContent(
     "credits.hero.subtitle",
@@ -71,6 +72,10 @@ export default function BuyCredits() {
   const [txns, setTxns] = useState<CreditTx[]>([]);
   const [copied, setCopied] = useState(false);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const returnTo = useMemo(() => {
+    const value = new URLSearchParams(search).get("returnTo");
+    return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+  }, [search]);
 
   const valid = Number.isFinite(amount) && amount >= CREDIT_MIN_PURCHASE;
 
@@ -133,7 +138,10 @@ export default function BuyCredits() {
     setSubmitting(false);
     if (result.ok && result.paymentId) {
       setPaymentId(result.paymentId);
-      setStage("pending");
+      setStage(result.status === "approved" ? "approved" : "pending");
+      if (result.status === "approved") {
+        toast({ title: `✅ ${result.credits ?? amount} credits added!`, description: "Your balance is updated instantly." });
+      }
     } else {
       toast({ title: "Submission failed", description: result.error ?? "Please try again.", variant: "destructive" });
     }
@@ -252,7 +260,7 @@ export default function BuyCredits() {
         <ol className="text-sm text-muted-foreground space-y-1.5 mb-6 pl-4 list-decimal">
           <li>Scan the QR with any UPI app and pay <strong className="text-secondary">₹{amount}</strong></li>
           <li>Note the <strong className="text-secondary">UTR / Reference number</strong> from your payment receipt</li>
-          <li>Enter it below and submit — we'll add your credits once we verify</li>
+           <li>Enter it below and submit — credits are added instantly while we audit the payment</li>
         </ol>
 
         {/* UTR input */}
@@ -285,14 +293,14 @@ export default function BuyCredits() {
         </div>
         <h2 className="font-bold text-secondary text-xl mb-2">Waiting for approval</h2>
         <p className="text-sm text-muted-foreground mb-1">
-          Your payment of <strong className="text-secondary">₹{amount}</strong> is under review.
+           Your payment of <strong className="text-secondary">₹{amount}</strong> is being checked.
         </p>
         <p className="text-xs text-muted-foreground">
-          We check within a few minutes. This page updates automatically
+           Credits appear after submission. We check the payment later and can reverse a false claim.
           {pollCount > 0 ? ` (checked ${pollCount} time${pollCount > 1 ? "s" : ""})` : ""}.
         </p>
         <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking every 6 seconds…
+           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking payment status…
         </div>
       </CardContent>
     </Card>
@@ -311,8 +319,8 @@ export default function BuyCredits() {
           Your new balance is <strong className="text-secondary">{balance ?? "…"} credits</strong>.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button className="bg-primary hover:bg-primary/90 font-bold" onClick={() => navigate("/")}>
-            Go to dashboard
+           <Button className="bg-primary hover:bg-primary/90 font-bold" onClick={() => navigate(returnTo ?? "/")}>
+             {returnTo ? "Continue practising" : "Go to dashboard"}
           </Button>
           <Button variant="outline" onClick={() => { setStage("pick"); setUtr(""); setPaymentId(null); }}>
             Buy more credits

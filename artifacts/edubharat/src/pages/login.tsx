@@ -205,7 +205,7 @@ function LoginContent() {
             <CardDescription>Access your personalised career tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-4">
-            {!isEmbeddedWebView && (
+            {(
               <Button
                 variant="outline"
                 className="w-full h-12 font-semibold text-base border-2 disabled:opacity-60"

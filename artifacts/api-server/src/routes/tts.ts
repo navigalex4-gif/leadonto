@@ -15,7 +15,7 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   // stalling before replying — bn-IN-TanishaaNeural is swapped for
   // pa-IN-VaaniNeural, a different underlying voice entirely, not just a rate
   // change, since "gets stuck before replying" points at the voice itself.
-  priya:  "en-IN-NeerjaNeural",
+  priya:  "mr-IN-AarohiNeural",
   rohit:  "en-IN-PrabhatNeural",
   maya:   "hi-IN-SwaraNeural",
   arjun:  "hi-IN-MadhurNeural",
@@ -25,8 +25,8 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   // Interview Ace — eight voices not used by the teachers. Meera is the
   // default landing persona for this suite, so she also gets a flagship,
   // maximally-reliable voice rather than a regional one.
-  priya_coach: "mr-IN-AarohiNeural",
-  raj:         "gu-IN-NiranjanNeural",
+  priya_coach: "en-IN-NeerjaNeural",
+  raj:         "bn-IN-BashkarNeural",
   vikram:      "ta-IN-ValluvarNeural",
   ananya:      "ta-IN-PallaviNeural",
   meera_coach: "te-IN-ShrutiNeural",
@@ -36,7 +36,7 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   // from this environment — never map a persona to them.
   kabir:       "mr-IN-ManoharNeural",
   sanjay:      "ml-IN-MidhunNeural",
-  aryan:       "te-IN-MohanNeural",
+  aryan:       "ur-IN-SalmanNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English

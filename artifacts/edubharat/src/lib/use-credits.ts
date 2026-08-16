@@ -144,10 +144,20 @@ export function endInterview(interviewId?: string): Promise<SpendResult> {
 
 // ── UPI payment helpers ──────────────────────────────────────────────────────
 
-export async function submitUpiPayment(credits: number, utr: string): Promise<{ ok: boolean; paymentId?: number; error?: string }> {
+export async function submitUpiPayment(credits: number, utr: string): Promise<{ ok: boolean; paymentId?: number; status?: string; credits?: number; balance?: number; error?: string }> {
   try {
     const { res, data } = await post("/api/credits/upi/submit", { credits, utr });
-    return { ok: res.ok, paymentId: data["paymentId"] as number | undefined, error: data["error"] as string | undefined };
+    if (typeof data["balance"] === "number") {
+      setState({ balance: data["balance"] as number, authenticated: true, loaded: true });
+    }
+    return {
+      ok: res.ok,
+      paymentId: data["paymentId"] as number | undefined,
+      status: data["status"] as string | undefined,
+      credits: data["credits"] as number | undefined,
+      balance: data["balance"] as number | undefined,
+      error: data["error"] as string | undefined,
+    };
   } catch {
     return { ok: false, error: "Network error. Please try again." };
   }

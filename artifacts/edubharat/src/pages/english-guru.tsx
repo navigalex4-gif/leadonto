@@ -23,7 +23,7 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { exportConversationPdf, exportConversationWord } from "@/lib/export-conversation";
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
-  Users, FileText, FileDown,
+  Users, FileText, FileDown, XCircle,
 } from "lucide-react";
 import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
@@ -95,6 +95,7 @@ function EnglishGuruContent() {
   const [convHistory, setConvHistory] = useState<{ role: "user" | "ai"; text: string }[]>([]);
   const [convInput, setConvInput] = useState("");
   const [liveChat, setLiveChat] = useState(false);
+  const [showCreditGate, setShowCreditGate] = useState(false);
   const [livePaused, setLivePaused] = useState(false);
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
@@ -644,14 +645,14 @@ Rules for spoken replies:
     // Guests get a free 15-minute trial (no signup); signed-in users spend credits (5/hour).
     if (!user) {
       if (guestLiveSecondsLeft() <= 0) {
-        toast({ title: "Free trial finished", description: "That's your 15 free minutes. Sign in to get 20 free credits and keep chatting.", variant: "destructive" });
+        setShowCreditGate(true);
         return;
       }
     } else {
       const charge = await startLiveBlock();
       if (!charge.ok) {
         if (charge.status === 402) {
-          toast({ title: "Not enough credits", description: "Live conversation uses 5 credits/hour. Top up to continue.", variant: "destructive" });
+          setShowCreditGate(true);
         } else {
           toast({ title: "Couldn't start live chat", description: charge.error ?? "Please try again.", variant: "destructive" });
         }
@@ -1132,6 +1133,34 @@ Rules for spoken replies:
 
         </main>
       </div>
+      {showCreditGate && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 px-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-3xl border bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-primary">English Guru</p>
+                <h2 className="mt-1 text-xl font-display font-bold text-secondary">
+                  {user ? "You're out of credits" : "Keep practising with free credits"}
+                </h2>
+              </div>
+              <button type="button" onClick={() => setShowCreditGate(false)} className="rounded-full p-1 text-muted-foreground hover:bg-muted" aria-label="Close">
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {user
+                ? "Live conversation uses 5 credits per hour. Top up now and return here automatically."
+                : "Sign in to receive your welcome credits and return to this conversation."}
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowCreditGate(false)}>Maybe later</Button>
+              <Link href={user ? "/credits?returnTo=%2Fenglish-guru" : "/login?returnTo=%2Fenglish-guru"}>
+                <Button className="font-bold">{user ? "Top Up Credits" : "Sign in — it’s free"}</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

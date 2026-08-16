@@ -28,8 +28,10 @@ function idParam(req: Request): number {
 }
 
 // POST /api/credits/upi/submit { credits, utr } → { ok, paymentId, status }
-// Records the request as PENDING — credits are granted only after an admin verifies
-// the money actually arrived (see /approve). This is what blocks fake-UTR fraud.
+// Records the UTR and grants credits immediately. UPI does not provide a
+// server-side confirmation callback here, so the user's submitted payment is
+// treated as provisionally approved; admins can audit the bank statement and
+// reverse a false claim later. The grant and status change are atomic.
 router.post("/credits/upi/submit", requireAuth, async (req: Request, res: Response) => {
   const userId = req.session.userId!;
   const { credits: rawCredits, utr: rawUtr } = req.body as { credits?: number; utr?: string };
@@ -46,18 +48,30 @@ router.post("/credits/upi/submit", requireAuth, async (req: Request, res: Respon
   }
 
   try {
-    const [payment] = await db
-      .insert(upiPaymentsTable)
-      .values({ userId, credits, amountInr: credits, utr, status: "pending" })
-      .returning();
+    const payment = await db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(upiPaymentsTable)
+        .values({ userId, credits, amountInr: credits, utr, status: "approved", updatedAt: new Date() })
+        .returning();
+      if (!inserted) throw new Error("PAYMENT_INSERT_FAILED");
+      const grant = await grantCreditsTx(tx, {
+        userId,
+        amount: credits,
+        type: "purchase",
+        description: `UPI top-up — ₹${credits} (UTR: ${utr})`,
+        reference: `upi:${inserted.id}`,
+      });
+      if (!grant.ok && !grant.already) throw new Error("GRANT_FAILED");
+      return { payment: inserted, balance: grant.balance };
+    });
 
-    logger.info({ paymentId: payment!.id, userId, credits }, "UPI payment submitted (pending review)");
+    logger.info({ paymentId: payment.payment.id, userId, credits }, "UPI payment submitted and provisionally credited");
 
     // Best-effort acknowledgement email.
     const email = req.session.userEmail ?? (await userEmail(userId));
     if (email) void sendPaymentEmail(email, "received", { credits, utr });
 
-    res.json({ ok: true, paymentId: payment!.id, status: "pending" });
+    res.json({ ok: true, paymentId: payment.payment.id, status: "approved", credits, balance: payment.balance });
   } catch (err) {
     // Duplicate UTR (unique index) → friendly message instead of a 500.
     if ((err as { code?: string }).code === "23505") {

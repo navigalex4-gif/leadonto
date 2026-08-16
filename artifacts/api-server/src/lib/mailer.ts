@@ -72,15 +72,15 @@ export async function sendPaymentEmail(
   data: { credits: number; utr: string; reason?: string | null },
 ): Promise<{ ok: boolean; dev?: boolean }> {
   const subject: Record<PaymentEmailKind, string> = {
-    received: "We've received your top-up request",
+    received: "Your Lead Onto credits are available",
     approved: "Your Lead Onto credits have been added",
     rejected: "Your top-up request was declined",
     reversed: "Your credits were reversed",
   };
   const body: Record<PaymentEmailKind, string> = {
-    received: `<p>Thanks! We've received your UPI top-up request for <b>${data.credits} credits (₹${data.credits})</b>.</p>
+    received: `<p>Thanks! We've received your UPI top-up for <b>${data.credits} credits (₹${data.credits})</b> and made the credits available immediately.</p>
       <p>UTR: <b>${data.utr}</b></p>
-      <p>Our team will verify the payment against our account and add the credits shortly. You'll get another email once it's approved.</p>`,
+      <p>Our team will audit the payment against our account. If the payment cannot be confirmed, the credits may be reversed and you'll receive a separate email.</p>`,
     approved: `<p>Good news — your payment is verified and <b>${data.credits} credits</b> have been added to your account.</p>
       <p>UTR: <b>${data.utr}</b>. Happy learning!</p>`,
     rejected: `<p>We couldn't verify your UPI top-up for <b>${data.credits} credits</b> (UTR: <b>${data.utr}</b>), so it was declined and no credits were added.</p>

@@ -487,7 +487,7 @@ function CreditGate({ onClose, isLoggedIn }: { onClose: () => void; isLoggedIn: 
             </ul>
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={onClose}>Maybe later</Button>
-              <Link href="/credits">
+              <Link href="/credits?returnTo=%2Finterview-ace">
                 <Button className="font-bold">Top Up Credits</Button>
               </Link>
             </div>
@@ -980,7 +980,7 @@ Rules:
 - Ask exactly ONE question.`,
       `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
       undefined,
-      { maxTokens: 120 }
+      { maxTokens: 72 }
     );
     const opening = cleanForSpeech(full.replace(/^\s*["']?|["']?\s*$/g, "").trim());
     if (!opening) return;
