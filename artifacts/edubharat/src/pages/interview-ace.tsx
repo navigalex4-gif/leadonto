@@ -1707,7 +1707,8 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error("Server save failed");
-        toast({ title: "Report saved", description: "Your interview report is synced to your account." });
+        // Account sync is intentionally silent: the report page already shows
+        // the saved state, and a toast obscures the report on mobile browsers.
       } catch {
         toast({ title: "Saved locally", description: "Report saved on this device. Sign in to sync across devices.", variant: "destructive" });
       }
@@ -1902,11 +1903,11 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
     const g = grade(avgScore); // fallback styling used only when there is no AI report
 
     return (
-      <div className="min-h-full container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
+      <div className="min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
           <Button
             onClick={() => { endingRef.current = true; setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}
-            className="font-bold shadow-md"
+            className="w-full sm:w-auto font-bold shadow-md"
           >
             <PlayCircle className="w-4 h-4 mr-2" />New Session
           </Button>
@@ -1916,21 +1917,21 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           <div className="flex justify-center mb-4">
             <AnimatedAvatar name={displayCoachName} subtitle={coach.role} isSpeaking={false} gender={coach.gender} size="lg" imageSrc={coach.imageSrc} />
           </div>
-          <h1 className="text-3xl font-display font-bold text-secondary mt-2 mb-3">Interview Complete!</h1>
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-secondary mt-2 mb-3">Interview Complete!</h1>
 
           {report ? (
             <>
               {(() => {
                 const style = RECOMMENDATION_STYLES[report.recommendation];
                 return (
-                  <div className={`inline-flex items-center gap-4 px-6 py-4 rounded-2xl border-2 ${style.badge}`}>
+                  <div className={`w-full max-w-md justify-center inline-flex items-center gap-3 sm:gap-4 px-3 sm:px-6 py-4 rounded-2xl border-2 ${style.badge}`}>
                     <div className="text-left leading-none">
-                      <span className={`text-5xl font-extrabold ${style.text}`}>{report.weightedScore.toFixed(1)}</span>
-                      <span className={`text-xl font-bold ${style.text}`}> / 5.0</span>
+                      <span className={`text-4xl sm:text-5xl font-extrabold ${style.text}`}>{report.weightedScore.toFixed(1)}</span>
+                      <span className={`text-lg sm:text-xl font-bold ${style.text}`}> / 5.0</span>
                     </div>
                     <div className="text-left border-l-2 pl-4">
                       <div className={`text-[10px] font-bold uppercase tracking-wider ${style.text}`}>Recommendation</div>
-                      <div className={`text-lg font-extrabold ${style.text}`}>{report.recommendation}</div>
+                      <div className={`text-base sm:text-lg font-extrabold break-words ${style.text}`}>{report.recommendation}</div>
                       <div className={`text-xs font-semibold ${style.text} opacity-80`}>{report.overallScore}% overall</div>
                     </div>
                   </div>
@@ -1940,7 +1941,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 const v = verdictFor(report.overallScore);
                 return (
                   <div className="mt-4">
-                    <div className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm border-2 ${v.selected ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
+                    <div className={`max-w-full inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full font-bold text-sm border-2 ${v.selected ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
                       {v.selected ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       Result: {v.label}
                     </div>
@@ -2019,14 +2020,14 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
               </Card>
             )}
 
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Card className="border shadow-sm">
-                <CardHeader className="pb-2 pt-5 px-5">
+                <CardHeader className="pb-2 pt-4 sm:pt-5 px-4 sm:px-5">
                   <CardTitle className="text-base flex items-center gap-2 text-green-700">
                     <Star className="w-4 h-4" />Strengths
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-5 pb-5">
+                <CardContent className="px-4 sm:px-5 pb-5">
                   <ul className="space-y-2">
                     {report.strengths.map((s, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-secondary">
@@ -2037,12 +2038,12 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
                 </CardContent>
               </Card>
               <Card className="border shadow-sm">
-                <CardHeader className="pb-2 pt-5 px-5">
+                <CardHeader className="pb-2 pt-4 sm:pt-5 px-4 sm:px-5">
                   <CardTitle className="text-base flex items-center gap-2 text-orange-700">
                     <AlertCircle className="w-4 h-4" />Concerns / Red Flags
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-5 pb-5">
+                <CardContent className="px-4 sm:px-5 pb-5">
                   {report.concerns.length > 0 ? (
                     <ul className="space-y-2">
                       {report.concerns.map((s, i) => (
@@ -2059,12 +2060,12 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             </div>
 
             <Card className="border shadow-sm">
-              <CardHeader className="pb-2 pt-5 px-5">
+              <CardHeader className="pb-2 pt-4 sm:pt-5 px-4 sm:px-5">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Brain className="w-4 h-4 text-primary" />Personalised Learning Plan
                 </CardTitle>
               </CardHeader>
-              <CardContent className="px-5 pb-5">
+              <CardContent className="px-4 sm:px-5 pb-5">
                 <ol className="space-y-2 list-decimal list-inside text-sm text-secondary">
                   {report.nextSteps.map((s, i) => <li key={i}>{s}</li>)}
                 </ol>
@@ -2088,11 +2089,12 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 justify-center flex-wrap pb-6">
-          <Button variant="outline" onClick={downloadReport}>
+        <div className="flex gap-2 sm:gap-3 justify-center flex-wrap pb-6">
+          <Button className="w-full sm:w-auto" variant="outline" onClick={downloadReport}>
             <Download className="w-4 h-4 mr-2" />Download Report
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant={saved ? "secondary" : "default"}
             onClick={() => report && saveSession(report, answered)}
             disabled={isSaving || saved || !report}

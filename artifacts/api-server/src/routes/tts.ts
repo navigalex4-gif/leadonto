@@ -32,7 +32,9 @@ const TUTOR_VOICE_MAP: Record<string, string> = {
   // from this environment — never map a persona to them.
   kabir:       "mr-IN-ManoharNeural",
   sanjay:      "en-IN-PrabhatNeural",
-  aryan:       "en-IN-NeerjaNeural",
+  // Aryan is a male BFSI interviewer; keep his voice clearly masculine.
+  // Salman is a distinct, verified Indian male neural voice.
+  aryan:       "ur-IN-SalmanNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English
