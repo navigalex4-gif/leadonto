@@ -221,11 +221,6 @@ function EnglishGuruContent() {
 
   // Sync tutor to profile when profile changes externally
   useEffect(() => {
-    const legacyDefault = profile.preferredTutor === "priya" && profile.voiceStyle === "priya";
-    if (legacyDefault) {
-      if (tutorId !== "maya") setTutorId("maya");
-      return;
-    }
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
     const byStyle = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
     const preferred = byId ?? byStyle;
