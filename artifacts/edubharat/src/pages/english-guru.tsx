@@ -60,7 +60,7 @@ export default function EnglishGuru() {
     <>
       <PageMeta
         title="English Guru"
-        description="Practice spoken English with AI teachers in Hindi, Tamil, Telugu, and 10 more Indian languages."
+        description="Practise spoken English with English coaches in Hindi, Tamil, Telugu, and 10 more Indian languages."
         ogUrl="https://leadonto.com/english-guru"
         canonicalUrl="https://leadonto.com/english-guru"
       />

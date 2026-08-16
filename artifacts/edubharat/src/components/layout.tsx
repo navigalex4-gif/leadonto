@@ -13,8 +13,8 @@ const PRODUCT_LINKS = [
 
 function Footer() {
   const tagline = useContent(
-    "footer.tagline",
-    "Empowering India's next generation with AI-driven learning tools for English fluency, interview preparation, and career growth.",
+    "footer.brandStatement",
+    "Helping India’s next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
   );
   const contactEmail = useContent("footer.contact.email", "email@leadonto.com");
 
@@ -101,7 +101,7 @@ function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-secondary-foreground/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-secondary-foreground/40">
           <p>© {new Date().getFullYear()} Lead Onto. All rights reserved.</p>
-          <p>Made with ❤️ in India 🇮🇳</p>
+          <p>Built for learners across India</p>
         </div>
       </div>
     </footer>

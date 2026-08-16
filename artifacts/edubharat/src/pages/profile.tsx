@@ -302,7 +302,7 @@ function ProfilePageContent() {
           </CardHeader>
           <CardContent className="px-5 pb-5 grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Preferred AI Teacher</Label>
+              <Label>Preferred English Coach</Label>
               <Select value={form.preferredTutor} onValueChange={v => set("preferredTutor", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

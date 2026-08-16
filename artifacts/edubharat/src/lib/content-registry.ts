@@ -18,16 +18,16 @@ export type ContentEntry = {
 
 export const CONTENT_REGISTRY: ContentEntry[] = [
   // ── Home / landing hero ──────────────────────────────────────────────────
-  { key: "home.hero.badge",       page: "Home", label: "Hero badge",       defaultValue: "English for real situations & real roles" },
+  { key: "home.hero.eyebrow",     page: "Home", label: "Hero eyebrow",     defaultValue: "Your next opportunity starts with how you communicate." },
   {
-    key: "home.hero.subtitle",
+    key: "home.hero.subheadline",
     page: "Home",
-    label: "Hero subtitle",
-    defaultValue: "Lead Onto gives every Indian learner a personal AI mentor — for spoken English, mock interviews, and live career updates.",
+    label: "Hero subheadline",
+    defaultValue: "Real-world English, the right words for every situation, local-language support, and role-based interview practice — built to help you seize your next opportunity.",
     multiline: true,
   },
-  { key: "home.hero.ctaPrimary",   page: "Home", label: "Primary button",   defaultValue: "Start Learning Free" },
-  { key: "home.hero.ctaSecondary", page: "Home", label: "Secondary button", defaultValue: "Browse Jobs" },
+  { key: "home.hero.startCta",     page: "Home", label: "Primary button",   defaultValue: "Start Free" },
+  { key: "home.hero.checkCta",     page: "Home", label: "Secondary button", defaultValue: "Take the 90-Second Check" },
 
   // ── Buy Credits page ─────────────────────────────────────────────────────
   { key: "credits.hero.title", page: "Buy Credits", label: "Hero title", defaultValue: "Lead Onto Credits" },
@@ -41,10 +41,10 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
 
   // ── Footer ───────────────────────────────────────────────────────────────
   {
-    key: "footer.tagline",
+    key: "footer.brandStatement",
     page: "Footer",
     label: "Brand tagline",
-    defaultValue: "Empowering India's next generation with AI-driven learning tools for English fluency, interview preparation, and career growth.",
+    defaultValue: "Helping India’s next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
     multiline: true,
   },
   { key: "footer.contact.email", page: "Footer", label: "Contact email shown in footer", defaultValue: "email@leadonto.com" },

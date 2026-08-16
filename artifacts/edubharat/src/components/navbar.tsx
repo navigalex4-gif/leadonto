@@ -12,13 +12,13 @@ import { useCredits } from "@/lib/use-credits";
 import { Button } from "@/components/ui/button";
 
 const FLUENCY_LINKS = [
-  { href: "/english-guru",     label: "English Guru", icon: BookOpen, desc: "Live AI conversation" },
+  { href: "/english-guru",     label: "English Guru", icon: BookOpen, desc: "Real-world conversation" },
   { href: "/tools-pro",        label: "Tools Pro",    icon: Sparkles, desc: "Grammar, writing & vocab" },
   { href: "/learning-journey", label: "My Journey",   icon: Route,    desc: "CEFR roadmap A1→C2" },
 ];
 
 const CAREER_LINKS = [
-  { href: "/interview-ace",       label: "Interview Ace",   icon: Mic,      desc: "Mock interviews & feedback" },
+  { href: "/interview-ace",       label: "Interview Ace",   icon: Mic,      desc: "Role practice & feedback" },
   { href: "/rozgar-samachar",     label: "Rozgar Samachar", icon: Newspaper, desc: "Live jobs & career news" },
   { href: "/resume-intelligence", label: "Resume",          icon: FileText,  desc: "ATS score & keywords" },
 ];

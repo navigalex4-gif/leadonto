@@ -459,7 +459,7 @@ ${paragraphs}
         </div>
         <h1 className="text-4xl font-display font-bold text-secondary mb-2">Resume Intelligence</h1>
         <p className="text-muted-foreground max-w-md mx-auto">
-          Upload your resume (PDF or DOCX) and get an AI-powered score, skill gaps, ATS tips, and improvement suggestions.
+          Upload your resume (PDF or DOCX) and get a clear score, skill gaps, ATS tips, and improvement suggestions.
         </p>
       </div>
        <MobilePrimaryCTA label="Scan My Resume Free" href="#resume-upload" />

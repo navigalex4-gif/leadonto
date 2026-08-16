@@ -22,7 +22,7 @@ const TOOLS = [
   {
     icon: FileText,
     title: "Resume Intelligence",
-    desc: "AI-powered resume analysis — section-level scoring, ATS compatibility check, and specific improvement suggestions.",
+    desc: "Resume analysis with section-level scoring, ATS compatibility checks, and specific improvement suggestions.",
   },
   {
     icon: Route,
@@ -76,7 +76,7 @@ export default function AboutUs() {
         <h2 className="text-xl font-bold text-secondary mb-3">Our Mission</h2>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
           India produces millions of graduates every year, but access to quality career coaching has always been limited to those who can
-           afford expensive coaching centres or live in big cities. Lead Onto changes this with AI-powered tools that give every learner a
+           afford expensive coaching centres or live in big cities. Lead Onto changes this with practical tools that give every learner a
           personal mentor — available 24/7, affordable, and in their language.
         </p>
         <p className="text-sm text-muted-foreground leading-relaxed">

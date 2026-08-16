@@ -62,11 +62,11 @@
   --foreground: 222 47% 11%;
   --border: 30 20% 90%;
   
-  --card: 0 0% 100%;
+  --card: 35 40% 99%;
   --card-foreground: 222 47% 11%;
   --card-border: 30 20% 90%;
   
-  --popover: 0 0% 100%;
+  --popover: 35 40% 99%;
   --popover-foreground: 222 47% 11%;
   --popover-border: 30 20% 90%;
   
@@ -131,6 +131,41 @@
   
   --input: 215 27.9% 16.9%;
   --ring: 29 100% 60%;
+}
+
+/* Homepage atmosphere: quiet warmth, crisp editorial rhythm, and a small
+   amount of movement reserved for moments that invite action. */
+.home-shell {
+  background:
+    radial-gradient(circle at 84% 8%, hsl(31 100% 92% / .64), transparent 28rem),
+    radial-gradient(circle at 7% 36%, hsl(204 68% 94% / .56), transparent 24rem),
+    hsl(var(--background));
+}
+
+.home-grid-paper {
+  background-image:
+    linear-gradient(hsl(222 47% 11% / .045) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(222 47% 11% / .045) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 84%);
+}
+
+.home-drift {
+  animation: homeDrift 8s ease-in-out infinite;
+}
+
+@keyframes homeDrift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+
+.home-reveal {
+  animation: homeReveal .7s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes homeReveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @layer base {

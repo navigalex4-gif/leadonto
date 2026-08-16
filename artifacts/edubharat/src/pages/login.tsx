@@ -163,7 +163,7 @@ function LoginContent() {
       <div className="w-full max-w-md space-y-4">
         <div className="text-center mb-6">
            <h1 className="text-4xl font-display font-extrabold text-primary mb-2">Lead Onto</h1>
-          <p className="text-muted-foreground">India's AI Career Ecosystem</p>
+          <p className="text-muted-foreground">Practical communication and career preparation for India</p>
         </div>
 
         {isEmbeddedWebView && (
