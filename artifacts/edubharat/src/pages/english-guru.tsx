@@ -36,6 +36,7 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   neha: 'Speak like a patient Kolkata pronunciation teacher. Slow down for demonstrations, break words into syllables, and say "now repeat after me" or "stress the second syllable".',
   rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
 };
+const ENGLISH_GURU_SPEECH_RATE = 0.92;
 
 function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
@@ -242,10 +243,10 @@ function EnglishGuruContent() {
       return s.length > 2 && !s.startsWith("[") && !s.startsWith("(") && !s.startsWith("-") && !/^\d+[.)]\s*$/.test(s);
     }) ?? t;
     synth.speak(firstSentence, language, onEnd, {
+      ...opts,
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
-      rate: opts.rate ?? 1.0,
-      ...opts,
+      rate: Math.min(opts.rate ?? ENGLISH_GURU_SPEECH_RATE, ENGLISH_GURU_SPEECH_RATE),
     });
   }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
 
@@ -277,12 +278,14 @@ function EnglishGuruContent() {
   const handleSelectTutor = useCallback((id: string) => {
     const t = getTutorById(id);
     if (!t) return;
-    synth.stop();
+    cancelActiveTurn();
+    setConvHistory([]);
+    setConvFlowState("idle");
     // Cancel any pending release/safety timer from an in-flight turn so it can't
     // later fire and unblock the mic in the middle of the handoff greeting.
     if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
-    // Unlock the busy flag — the previous AI reply may still be "speaking" as
-    // far as the flag is concerned, which would silently block the next turn.
+    // Unlock the busy flag — cancelActiveTurn also invalidates any late AI reply
+    // from the previous tutor, so it cannot speak with the wrong identity.
     aiBusyRef.current = false;
     setTutorId(id);
     updateProfile({ voiceStyle: t.voiceStyle as typeof profile.voiceStyle, voiceGender: t.voiceGender, preferredTutor: id });
@@ -329,9 +332,13 @@ function EnglishGuruContent() {
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
       // a native neural voice never reads English text with the wrong accent.
-      synth.speak(stripMarkdownForSpeech(greeting), "English", releaseGreeting, { voiceGender: t.voiceGender, voiceStyle: t.voiceStyle });
+      synth.speak(stripMarkdownForSpeech(greeting), "English", releaseGreeting, {
+        voiceGender: t.voiceGender,
+        voiceStyle: t.voiceStyle,
+        rate: ENGLISH_GURU_SPEECH_RATE,
+      });
     }
-  }, [synth, updateProfile, speech, uiLang]);
+  }, [cancelActiveTurn, synth, updateProfile, speech, uiLang]);
 
   const teacherShort = tutor.name.replace(/\s+(Ma'am|Sir)$/i, "");
 
@@ -608,6 +615,7 @@ Rules for spoken replies:
     synth.speak(greeting, "English", releaseGreeting, {
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
+      rate: ENGLISH_GURU_SPEECH_RATE,
     });
   }, [
     profile.name,
