@@ -17,6 +17,10 @@ type AuthConfig = {
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+function detectEmbeddedWebView(userAgent: string): boolean {
+  return /FBAN|FBAV|FB_IAB|Instagram|Line\/|WhatsApp|;\s*wv\)/i.test(userAgent);
+}
+
 export default function Login() {
   return (
     <>
@@ -48,13 +52,17 @@ function LoginContent() {
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isEmbeddedWebView, setIsEmbeddedWebView] = useState(false);
+  // Detect during the initial render so Google is never clickable before the
+  // page-load effect runs.
+  const [isEmbeddedWebView] = useState(() => detectEmbeddedWebView(navigator.userAgent));
 
   useEffect(() => {
     const userAgent = navigator.userAgent;
-    const embedded = /;\s*wv\)|FBAN|FBAV|Instagram/i.test(userAgent);
-    setIsEmbeddedWebView(embedded);
+    const embedded = detectEmbeddedWebView(userAgent);
     if (embedded) track("oauth_blocked_webview", { userAgent: userAgent.slice(0, 240) });
+    if (embedded && typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.log("[auth] Google OAuth blocked for embedded webview", { userAgent });
+    }
     track("signup_form_viewed", { webview: embedded });
 
     fetch(`${BASE}/api/auth/config`, { credentials: "include" })
@@ -205,7 +213,7 @@ function LoginContent() {
             <CardDescription>Access your personalised career tools</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-4">
-            {(
+            {!isEmbeddedWebView && (
               <Button
                 variant="outline"
                 className="w-full h-12 font-semibold text-base border-2 disabled:opacity-60"
