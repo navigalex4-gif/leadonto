@@ -82,11 +82,16 @@ function EnglishGuruContent() {
 
   const [level, setLevel] = useState(() => mapEnglishLevel(profile.englishLevel));
   const [tutorId, setTutorId] = useState(() => {
+    // Priya was the old implicit default. Treat that untouched legacy profile
+    // as the new Maya landing default, while preserving an explicitly chosen
+    // tutor once the learner has a name/profile selection.
+    const legacyDefault = !profile.name.trim() && profile.preferredTutor === "priya" && profile.voiceStyle === "priya";
+    if (legacyDefault) return "maya";
     // Prefer preferredTutor field; fallback to voiceStyle match
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
     if (byId) return byId.id;
     const match = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
-    return match?.id ?? "priya";
+    return match?.id ?? "maya";
   });
   const [showTutorPicker, setShowTutorPicker] = useState(false);
 
@@ -215,6 +220,11 @@ function EnglishGuruContent() {
 
   // Sync tutor to profile when profile changes externally
   useEffect(() => {
+    const legacyDefault = !profile.name.trim() && profile.preferredTutor === "priya" && profile.voiceStyle === "priya";
+    if (legacyDefault) {
+      if (tutorId !== "maya") setTutorId("maya");
+      return;
+    }
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
     const byStyle = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
     const preferred = byId ?? byStyle;

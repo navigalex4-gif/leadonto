@@ -77,6 +77,11 @@ export default function BuyCredits() {
     return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
   }, [search]);
 
+  // Keep the original feature page through the sign-in step. Previously this
+  // link always returned users to /credits, losing the Interview Ace or
+  // English Guru page that opened the credit gate.
+  const loginReturnTo = returnTo ?? "/credits";
+
   const valid = Number.isFinite(amount) && amount >= CREDIT_MIN_PURCHASE;
 
   // Fetch transactions for history
@@ -119,6 +124,16 @@ export default function BuyCredits() {
     return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, paymentId]);
+
+  // A successful top-up is the completion of the gate flow. Return users to
+  // the feature that asked for credits after briefly showing the new balance;
+  // the button below remains available for users who prefer to continue
+  // manually.
+  useEffect(() => {
+    if (stage !== "approved" || !returnTo) return;
+    const timer = window.setTimeout(() => navigate(returnTo), 1200);
+    return () => window.clearTimeout(timer);
+  }, [stage, returnTo, navigate]);
 
   const handleCopyUpiId = useCallback(() => {
     void navigator.clipboard.writeText(UPI_ID).then(() => {
@@ -389,7 +404,7 @@ export default function BuyCredits() {
                 <p className="text-sm text-muted-foreground">Sign in to claim your welcome bonus and start practising right away.</p>
               </div>
             </div>
-            <Link href="/login?returnTo=%2Fcredits">
+            <Link href={`/login?returnTo=${encodeURIComponent(loginReturnTo)}`}>
               <Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Sign in</Button>
             </Link>
           </CardContent>

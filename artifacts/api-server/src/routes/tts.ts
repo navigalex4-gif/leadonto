@@ -10,33 +10,29 @@ const router = Router();
  * naturally, while providing a clearly different accent and timbre.
  */
 const TUTOR_VOICE_MAP: Record<string, string> = {
-  // English Guru — six distinct voices. Priya keeps the flagship en-IN voice
-  // (she's the default landing persona). Neha was flagged as slow AND prone to
-  // stalling before replying — bn-IN-TanishaaNeural is swapped for
-  // pa-IN-VaaniNeural, a different underlying voice entirely, not just a rate
-  // change, since "gets stuck before replying" points at the voice itself.
+  // English Guru — six distinct voices. Maya remains the default landing
+  // persona. English-capable Indian regional voices are used where Edge only
+  // exposes two en-IN voices, keeping every persona distinct.
   priya:  "mr-IN-AarohiNeural",
-  rohit:  "en-IN-PrabhatNeural",
+  rohit:  "gu-IN-NiranjanNeural",
   maya:   "hi-IN-SwaraNeural",
-  arjun:  "hi-IN-MadhurNeural",
+  arjun:  "te-IN-MohanNeural",
   neha:   "bn-IN-TanishaaNeural",
   rahul:  "kn-IN-GaganNeural",
 
-  // Interview Ace — eight voices not used by the teachers. Meera is the
-  // default landing persona for this suite, so she also gets a flagship,
-  // maximally-reliable voice rather than a regional one.
-  priya_coach: "en-IN-NeerjaNeural",
-  raj:         "bn-IN-BashkarNeural",
-  vikram:      "ta-IN-ValluvarNeural",
-  ananya:      "ta-IN-PallaviNeural",
-  meera_coach: "te-IN-ShrutiNeural",
-  // Kabir/Aryan were flagged as poor-sounding — swapped to verified-working
-  // mr-IN/te-IN male voices (clearer English delivery than bn-IN/ur-IN here).
+  // Interview Ace — eight distinct voices not used by the teachers. Sanjay
+  // and Aryan are intentionally on the two clearest en-IN voices so English
+  // remains crisp and natural for enterprise sales and BFSI interviews.
+  priya_coach: "ta-IN-PallaviNeural",
+  raj:         "ta-IN-ValluvarNeural",
+  vikram:      "ml-IN-MidhunNeural",
+  ananya:      "te-IN-ShrutiNeural",
+  meera_coach: "bn-IN-BashkarNeural",
   // NOTE: pa-IN, or-IN, as-IN and all hi-IN v2 voices return ZERO-BYTE audio
   // from this environment — never map a persona to them.
   kabir:       "mr-IN-ManoharNeural",
-  sanjay:      "ml-IN-MidhunNeural",
-  aryan:       "ur-IN-SalmanNeural",
+  sanjay:      "en-IN-PrabhatNeural",
+  aryan:       "en-IN-NeerjaNeural",
 };
 
 // Microsoft Edge Neural voices for all 13 Indian languages + English

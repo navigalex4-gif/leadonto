@@ -155,7 +155,7 @@ function cleanForSpeech(text: string): string {
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
     .replace(/\b(hello|hi|hey)(?:[,\s!]+)(?:hello|hi|hey)\b/gi, "$1")
-    .replace(/\bchat\b/gi, "conversation")
+    .replace(/\bchat(?:ting)?\b/gi, "conversation")
     .replace(/[#*_]+/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -178,6 +178,16 @@ const INTERVIEW_FALLBACK_QUESTIONS = [
   "How would you make this process easier for the people involved?",
   "What is the first sign that this situation needs attention?",
   "What part of this role would you most like to strengthen?",
+];
+
+const OPENING_QUESTIONS = [
+  "Before we get into the role, could you tell me a little about yourself and what brings you to this opportunity?",
+  "To start us off, what has shaped your interest in this kind of work?",
+  "Let's begin with your journey so far. Which experience has taught you the most about working with people or solving problems?",
+  "Before we discuss the role, what is one project or responsibility you feel genuinely proud of?",
+  "What made you choose this career direction, and what are you hoping to build next?",
+  "Could you give me a quick introduction and tell me what you would most like me to understand about your background?",
+  "When you look back at your studies or work so far, which moment best shows how you approach challenges?",
 ];
 
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
@@ -967,23 +977,28 @@ function InterviewAceContent() {
     resetStream();
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
-    const full = await stream(
+    const openingQuestion = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
+    const openingDeadline = new Promise<string>(resolve =>
+      setTimeout(() => resolve(""), 1800),
+    );
+    const full = await Promise.race([stream(
       `You are ${displayCoachName}, a professional interviewer conducting a formal ${typeMeta.label} interview with ${firstName} (${experience} level).
 
-This interview will cover a broad range of areas. Start by warmly introducing yourself in 1-2 short sentences — say your name only (never "Sir", "Ma'am", or "Madam") and that you will be taking ${firstName}'s interview today, and put them at ease — then ask ONE clear opening question about their educational background: degree, key subjects, and any notable curricular or extra-curricular achievements relevant to the ${typeMeta.label} role.
+This interview will cover a broad range of areas. Start by warmly introducing yourself in one short sentence — say your name only (never "Sir", "Ma'am", or "Madam") and make ${firstName} feel at ease. Then ask ONE natural opening question. Use this opening direction, but phrase it in your own conversational way: ${openingQuestion}
 
 Rules:
-- Keep it to at most 3 sentences. Warm, professional and personable — you want ${firstName} to feel relaxed, and a light, witty touch is welcome to break the ice. Still NO cheesy greetings like "Hey, good to see you", no small talk, no "let's dive in".
+ - Keep it to at most 3 short sentences. Sound like a thoughtful human interviewer, not a form being read aloud. Warm, professional and personable; a light, witty touch is welcome only if it feels natural. Do not use cheesy greetings, filler, or "let's dive in".
 - Plain spoken words ONLY. No asterisks, no *actions*, no markdown, no quotes around your reply.
 - Do NOT list rules, do NOT explain the interview process.
 - LANGUAGE: Use simple, clear, everyday English — short sentences and common words. Many candidates are from average English-medium colleges, so avoid difficult vocabulary, idioms and long, complex sentences (${firstName}'s stated English level: ${profile.englishLevel || "Beginner"}).
-- Ask exactly ONE question.`,
+ - Ask exactly ONE question.`,
       `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
       undefined,
       { maxTokens: 72 }
-    );
+    ), openingDeadline]);
     const opening = cleanForSpeech(full.replace(/^\s*["']?|["']?\s*$/g, "").trim());
-    if (!opening) return;
+    const safeOpening = opening || `${displayCoachName} here. Thanks for joining me, ${firstName}. ${openingQuestion}`;
+    if (!safeOpening) return;
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1021,7 +1036,7 @@ Rules:
       interviewIdRef.current = charge.interviewId ?? null;
     }
     // The opening combines greeting + first question — store as first QA entry
-    setQuestions([{ question: opening }]);
+    setQuestions([{ question: safeOpening }]);
     setCurrentIdx(0);
     setAnswer("");
     setIsRecording(false);
@@ -1040,8 +1055,8 @@ Rules:
     // during the 300ms window between phase="interview" and speakCoach start.
     const pitchVariation = coach.gender === "male" ? 0.88 : 1.08;
     setCoachSpeaking(true);
-    setTimeout(() => speakCoach(opening, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation }), 300);
-  }, [typeMeta, experience, duration, coach, stream, resetStream, speakCoach, buildProfileSummary, profile.name, user, authLoading, toast]);
+    setTimeout(() => speakCoach(safeOpening, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation }), 300);
+  }, [typeMeta, experience, duration, coach, stream, resetStream, speakCoach, profile.name, user, authLoading, toast]);
 
   const toggleRecording = useCallback(() => {
     if (autoListenEnabled) {
@@ -1199,7 +1214,7 @@ Rules:
     // sits in silence while the model/network are still working. Short and
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
-    const quickAcks = ["Okay.", "Got it."];
+     const quickAcks = ["Okay.", "Got it."];
     speakCoach(quickAcks[Math.floor(Math.random() * quickAcks.length)]!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, rate: 1.1 });
 
     setCoachThinking(true);
@@ -1224,7 +1239,7 @@ ${directive}
 STYLE — important:
 - Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Use a light, witty observation only when it genuinely fits; never force a joke, praise, or enthusiasm into every turn.
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
-- This is a formal interview, not a chat. Never use the word "chat" in any spoken response or question.
+        - This is a formal interview, not an informal social conversation. Keep every spoken response focused on the interview.
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
 - Start with a one-word acknowledgement — ONLY "Okay" or "Got it", nothing else, and never both together (never "Okay, got it"). Pick whichever fits naturally; do not use the same one every single turn.
 - After that one-word acknowledgement, bridge naturally into your question — a short, real transition such as "So," or "Now," or referencing something they just said. Then ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.

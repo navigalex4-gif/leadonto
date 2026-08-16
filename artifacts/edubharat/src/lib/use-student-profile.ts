@@ -56,7 +56,7 @@ const DEFAULT_PROFILE: StudentProfile = {
   name: "",
   preferredLanguage: "English",
   voiceGender: "female",
-  voiceStyle: "priya",
+  voiceStyle: "maya",
   gender: "",
   degree: "",
   branch: "",
@@ -72,7 +72,7 @@ const DEFAULT_PROFILE: StudentProfile = {
   experienceLevel: "Fresher",
   englishLevel: "Beginner",
   preferredInterviewer: "raj",
-  preferredTutor: "priya",
+  preferredTutor: "maya",
   resumeFileName: "",
   resumeAnalysis: null,
   experienceSummary: "",
@@ -91,7 +91,7 @@ function normalizeVoiceStyle(style: unknown, gender: VoiceGender): VoiceStyle {
   if (style === "ravi") return "rohit";
   if (style === "neerja") return "priya";
   if (style === "meera") return "meera_coach";
-  return gender === "male" ? "rohit" : "priya";
+    return gender === "male" ? "rohit" : "maya";
 }
 
 function fromApiUser(user: Record<string, unknown>): StudentProfile {
@@ -121,7 +121,7 @@ function fromApiUser(user: Record<string, unknown>): StudentProfile {
     experienceLevel: typeof user["experienceLevel"] === "string" ? user["experienceLevel"] : "Fresher",
     englishLevel: typeof user["englishLevel"] === "string" ? user["englishLevel"] : "Beginner",
     preferredInterviewer: typeof user["preferredInterviewer"] === "string" ? user["preferredInterviewer"] : "raj",
-    preferredTutor: typeof user["preferredTutor"] === "string" ? user["preferredTutor"] : "priya",
+    preferredTutor: typeof user["preferredTutor"] === "string" ? user["preferredTutor"] : "maya",
     resumeFileName: typeof user["resumeFileName"] === "string" ? user["resumeFileName"] : "",
     resumeAnalysis: parseResumeAnalysis(user["resumeAnalysis"]),
     experienceSummary: typeof user["experienceSummary"] === "string" ? user["experienceSummary"] : "",
@@ -165,7 +165,7 @@ function loadLocalProfile(): StudentProfile {
       experienceLevel: typeof parsed["experienceLevel"] === "string" ? parsed["experienceLevel"] : "Fresher",
       englishLevel: typeof parsed["englishLevel"] === "string" ? parsed["englishLevel"] : "Beginner",
       preferredInterviewer: typeof parsed["preferredInterviewer"] === "string" ? parsed["preferredInterviewer"] : "raj",
-      preferredTutor: typeof parsed["preferredTutor"] === "string" ? parsed["preferredTutor"] : "priya",
+       preferredTutor: typeof parsed["preferredTutor"] === "string" ? parsed["preferredTutor"] : "maya",
       resumeFileName: typeof parsed["resumeFileName"] === "string" ? parsed["resumeFileName"] : "",
       resumeAnalysis: parseResumeAnalysis(parsed["resumeAnalysis"]),
       experienceSummary: typeof parsed["experienceSummary"] === "string" ? parsed["experienceSummary"] : "",

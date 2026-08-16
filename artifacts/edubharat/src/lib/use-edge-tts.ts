@@ -50,13 +50,13 @@ const VOICE_STYLE_RATES: Record<string, number> = {
   neha: 1.15,          // "voice pace is slow; make it faster"
   rahul: 1.06,
   priya_coach: 1.10,
-  raj: 1.16,           // flagged "pathetically slow"
+  raj: 0.94,           // deliberately measured, slower HR-interviewer delivery
   vikram: 1.13,        // "good, but make the voice pace a bit faster"
   ananya: 1.08,
   meera_coach: 1.07,
   kabir: 1.12,         // re-voiced to mr-IN-Manohar; brisk analyst pace
-  sanjay: 1.12,        // ml-IN-Midhun reads slow in English; speed up
-  aryan: 1.10,         // re-voiced to te-IN-Mohan; moderate formal pace
+  sanjay: 1.00,        // clear en-IN enterprise-sales delivery
+  aryan: 0.98,         // clear, measured en-IN BFSI delivery
 };
 
 const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
