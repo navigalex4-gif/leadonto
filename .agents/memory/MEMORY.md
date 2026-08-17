@@ -68,3 +68,4 @@
 - [Mobile parity runtime](mobile-parity-runtime.md) — stack screens need safe-area-only fallback; API calls must use injected Replit host, not the Expo preview host.
 - [Interview Ace PiP layout](interview-pip-layout.md) — bottom-anchored PiP inside overflow-hidden stage clips at the TOP if content is too tall; watch for duplicate name captions.
 - [Human-like content variation](human-like-content-variation.md) — live coaching and lessons use per-session variation, adaptive reactions, and shuffled fallbacks instead of fixed scripts.
+- [Mobile Speech Recognition earcon](mobile-speech-recognition-earcon.md) — Android Chrome/Web Speech start-stop chimes are outside page audio and cannot be muted without changing recognition behavior.
