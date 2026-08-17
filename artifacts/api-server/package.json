@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
+    "@google-cloud/speech": "^8.0.1",
     "@google-cloud/text-to-speech": "^7.0.0",
     "@google/genai": "^2.8.0",
     "@replit/connectors-sdk": "^0.4.1",
