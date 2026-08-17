@@ -106,11 +106,15 @@ export function unlockAudio(): void {
   // so the AudioContext layer is not discarded along with the element layer.
   try {
     const a = new Audio(SILENT_MP3);
+    // Keep the autoplay probe completely inaudible. Some mobile browsers can
+    // leak a tiny decoder transient from a zero-volume element at boundaries.
+    a.muted = true;
     a.volume = 0;
     a.play()
       .then(() => {
         a.pause();
-        a.volume = 1;
+        a.muted = true;
+        a.volume = 0;
         a.src = ""; // clear silent data; src will be overwritten in speak()
         _unlockedEl = a; // store the blessed element for speak() to reuse
       })
@@ -367,6 +371,10 @@ function globalStop() {
   _abort?.abort();
   _abort = null;
   if (_audio) {
+    // Mute before pausing/resetting so stopping TTS cannot produce a decoder
+    // click or boundary tone.
+    _audio.muted = true;
+    _audio.volume = 0;
     _audio.pause();
     _audio.onended = null;
     _audio.onerror = null;
@@ -473,6 +481,9 @@ function playChunkChain(
       }
       audio.src = url;
       _audio = audio;
+      // The first real utterance may reuse the muted autoplay probe.
+      audio.muted = false;
+      audio.volume = 1;
 
       const rate = options.rate ?? 1;
       if (rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
