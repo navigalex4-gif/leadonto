@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import QRCode from "qrcode";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
   LogIn, ShieldCheck, Infinity as InfinityIcon, QrCode, Clock, CheckCircle2,
@@ -20,6 +19,7 @@ import { useContent } from "@/lib/use-content";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const UPI_ID = "abcfghijk@ybl";
 const UPI_DISPLAY_NAME = "Edu Bharat";
+const CREDIT_QR_SRC = `${import.meta.env.BASE_URL ?? "/"}images/credit-qr.jpg`;
 
 const TX_LABEL: Record<string, string> = {
   signup_grant: "Welcome bonus",
@@ -63,8 +63,6 @@ export default function BuyCredits() {
 
   const [stage, setStage] = useState<Stage>("pick");
   const [amount, setAmount] = useState(99);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
   const [utr, setUtr] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [paymentId, setPaymentId] = useState<number | null>(null);
@@ -88,15 +86,6 @@ export default function BuyCredits() {
   useEffect(() => {
     if (authenticated) void fetchTransactions().then(setTxns);
   }, [authenticated, balance]);
-
-  // Generate QR when entering qr stage
-  useEffect(() => {
-    if (stage !== "qr" || !valid) return;
-    setQrLoading(true);
-    QRCode.toDataURL(buildUpiUri(amount), { width: 240, margin: 2, color: { dark: "#1a1a2e", light: "#ffffff" } })
-      .then((url) => { setQrDataUrl(url); setQrLoading(false); })
-      .catch(() => { setQrLoading(false); });
-  }, [stage, amount, valid]);
 
   // Poll for payment status when in pending stage
   useEffect(() => {
@@ -257,17 +246,7 @@ export default function BuyCredits() {
 
         <div className="mb-4 hidden justify-center sm:flex">
           <div className="rounded-2xl border-4 border-amber-400 p-2 bg-white shadow-lg">
-            {qrLoading ? (
-              <div className="w-[200px] h-[200px] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-              </div>
-            ) : qrDataUrl ? (
-              <img src={qrDataUrl} alt="UPI QR code" className="w-[200px] h-[200px] rounded-lg" />
-            ) : (
-              <div className="w-[200px] h-[200px] flex items-center justify-center text-muted-foreground text-sm">
-                QR unavailable
-              </div>
-            )}
+             <img src={CREDIT_QR_SRC} alt="UPI QR code" className="w-[200px] h-[200px] rounded-lg object-cover object-center" />
           </div>
         </div>
         <p className="mb-4 hidden text-center text-xs text-muted-foreground sm:block">On a laptop? Scan this QR with your phone.</p>
