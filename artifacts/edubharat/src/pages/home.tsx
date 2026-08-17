@@ -105,7 +105,7 @@ function PrimaryLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-md shadow-orange-200/40 transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 text-sm font-extrabold text-white shadow-md shadow-orange-200/40 transition-all hover:-translate-y-0.5 hover:bg-[#C2410C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-2 ${className}`}
     >
       {children}
     </Link>
@@ -136,20 +136,20 @@ export default function Home() {
     <>
       <HomeMeta />
       <div className="home-shell min-w-0 overflow-hidden">
-        <section className="relative isolate overflow-hidden pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14" aria-labelledby="hero-title">
+        <section className="relative isolate overflow-hidden bg-[#FFFDF9] pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14" aria-labelledby="hero-title">
           <div className="home-grid-paper pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-50" />
           <div className="pointer-events-none absolute -right-40 top-10 -z-10 h-72 w-72 rounded-full bg-orange-100 blur-3xl" />
           <div className="container mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
             <div className="home-reveal max-w-2xl">
-              <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-primary sm:text-sm">{heroEyebrow}</p>
-              <h1 id="hero-title" className="max-w-2xl text-[clamp(2rem,4.3vw,3.1rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-secondary">
+              <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-[#C2410C] sm:text-sm">{heroEyebrow}</p>
+              <h1 id="hero-title" className="max-w-2xl text-[clamp(2rem,4.3vw,3.1rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-[#111827]">
                 Know What to Say.
                 <br />
-                <span className="text-primary">Know How to Say It.</span>
+                <span className="text-[#F97316]">Say It With Confidence.</span>
                 <br />
                 Be Ready for What’s Next.
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">{heroSubtitle}</p>
+              <p className="mt-5 max-w-xl text-base leading-7 text-[#596273] sm:text-lg">{heroSubtitle}</p>
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
                 <PrimaryLink href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "hero" })}>
                   {ctaPrimary}
@@ -160,20 +160,20 @@ export default function Home() {
                   {ctaSecondary}
                 </QuietLink>
               </div>
-              <p className="mt-3 text-xs font-semibold text-muted-foreground">Start free. See where you stand. Build from there.</p>
+              <p className="mt-3 text-xs font-semibold text-[#596273]">Start free. See where you stand. Build from there.</p>
             </div>
 
             <Link
               href="/communication-check"
               onClick={() => track("home_cta_clicked", { cta: "communication_check", placement: "hero_visual" })}
-              className="home-reveal group relative mx-auto block w-full max-w-md rounded-2xl border border-orange-200/70 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(198,112,32,.6)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:p-6"
+              className="home-reveal group relative mx-auto block w-full max-w-md rounded-2xl border border-[#F97316]/35 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(249,115,22,.42)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-4 sm:p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-orange-700">A clear next step</p>
-                  <h2 className="mt-3 max-w-xs text-xl font-extrabold leading-tight tracking-tight text-secondary sm:text-2xl">Find out where you stand in 90 seconds.</h2>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">A clear next step</p>
+                  <h2 className="mt-3 max-w-xs text-xl font-extrabold leading-tight tracking-tight text-[#111827] sm:text-2xl">Find out where you stand in 90 seconds.</h2>
                 </div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white">
                   <Timer className="h-5 w-5" />
                 </span>
               </div>
