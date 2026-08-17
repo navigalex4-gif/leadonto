@@ -181,16 +181,6 @@ const INTERVIEW_FALLBACK_QUESTIONS = [
   "What part of this role would you most like to strengthen?",
 ];
 
-const OPENING_QUESTIONS = [
-  "Could you briefly tell me about yourself?",
-  "What kind of work are you looking for?",
-  "What is one skill you feel confident about?",
-  "What is one project or task you enjoyed recently?",
-  "Why are you interested in this role?",
-  "What are you hoping to learn next?",
-  "What is one strength you bring to a team?",
-];
-
 const INTERVIEW_BEHAVIOR_MOMENTS = [
   "If the answer reveals effort or uncertainty, acknowledge that specific human detail briefly before asking the next question.",
   "If the answer is short, stay curious rather than sounding disappointed; offer a concrete angle that makes answering easier.",
@@ -251,6 +241,18 @@ function domainFallbackQuestions(roleLabel: string): string[] {
     `If you started this ${roleLabel} role tomorrow, what would you want to learn first?`,
     `What do you think separates someone average at ${roleLabel} work from someone really good at it?`,
   ];
+}
+
+/** The selected role is the contract for the whole interview: question wording,
+ * domain expertise, fallback questions, and report language must all use it. */
+function roleLabelFor(
+  preferredRole: string,
+  selectedType: string,
+  typeLabel: string,
+  mapRoleToType: (role: string) => string,
+): string {
+  const savedRole = preferredRole.trim();
+  return savedRole && mapRoleToType(savedRole) === selectedType ? savedRole : typeLabel;
 }
 
 /** Simple Fisher-Yates shuffle so repeated fallbacks (which happen whenever the
@@ -673,9 +675,7 @@ function InterviewAceContent() {
     if (b2bParams.coach) {
       return INTERVIEW_COACHES.find(c => c.id === b2bParams.coach) ?? INTERVIEW_COACHES[0]!;
     }
-    // Ananya is the default face/voice on the Interview Ace landing screen.
-    // Choosing an interview type still auto-matches the coach afterwards.
-    return INTERVIEW_COACHES.find(c => c.id === "ananya") ?? recommendedCoachFor(type);
+    return recommendedCoachFor(type);
   });
   const displayCoachName = interviewerDisplayName(coach.name);
   const candidateDisplayName = profile.name || user?.name || "You";
@@ -700,14 +700,6 @@ function InterviewAceContent() {
   }, [routeLocation]);
   const [showCreditGate, setShowCreditGate] = useState(false);
   const [questions, setQuestions] = useState<QA[]>([]);
-  useEffect(() => {
-    // The Begin screen has a deliberate landing default. This runs only when
-    // setup is entered with no existing questions, so a candidate can still
-    // choose another interviewer manually afterward.
-    if (phase !== "setup" || questions.length > 0 || b2bParams.coach) return;
-    const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya");
-    if (defaultCoach && coach.id !== defaultCoach.id) setCoach(defaultCoach);
-  }, [phase]);
   const questionsRef = useRef<QA[]>([]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
   // phaseRef mirrors `phase` so async callbacks (e.g. an in-flight submit) can
@@ -777,6 +769,13 @@ function InterviewAceContent() {
   const [cameraError, setCameraError] = useState(false);
 
   const typeMeta = INTERVIEW_TYPES.find(t => t.value === type)!;
+  const interviewRoleLabel = roleLabelFor(
+    profile.preferredRole,
+    type,
+    typeMeta.label,
+    mapPreferredRoleToType,
+  );
+  const domainExpertise = functionalKnowledgeFor(typeMeta.value, interviewRoleLabel);
   const recommendedCoachId = recommendedCoachFor(type).id;
   // B2B invites lock the interviewer to the recruiter's choice — the candidate
   // must not be able to swap it (from the type dropdown or the coach grid).
@@ -808,10 +807,7 @@ function InterviewAceContent() {
     speech.stop();
     synth.stop();
     setPhase("setup");
-    if (!b2bParams.coach) {
-      const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya");
-      if (defaultCoach) setCoach(defaultCoach);
-    }
+    if (!b2bParams.coach) setCoach(recommendedCoachFor(type));
     setQuestions([]);
     setReport(null);
     setSaved(false);
@@ -940,13 +936,13 @@ function InterviewAceContent() {
       `Name: ${profile.name || "Candidate"}`,
       `Education: ${profile.degree || "Not specified"}`,
       `Experience: ${experience}`,
-      `Career goal: ${profile.careerGoal || typeMeta.label}`,
-      `Preferred role: ${profile.preferredRole || typeMeta.label}`,
+      `Career goal: ${profile.careerGoal || interviewRoleLabel}`,
+      `Preferred role: ${interviewRoleLabel}`,
       `Industry: ${profile.industryPreference || "Not specified"}`,
       `Skills: ${(profile.skills || []).join(", ") || "Not specified"}`,
       `English level: ${profile.englishLevel || "Beginner"}`,
     ].join(" | ");
-  }, [profile, experience, typeMeta]);
+  }, [profile, experience, interviewRoleLabel]);
 
   const buildTranscript = useCallback((upToIndex: number) => {
     return questions
@@ -990,10 +986,8 @@ function InterviewAceContent() {
     resetStream();
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
-    const openingQuestion = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
-    // Keep the first turn reliable: one brief introduction followed by exactly
-    // one easy question. Later turns use the AI for role-specific variety.
-    const safeOpening = `${displayCoachName} here. Welcome, ${firstName}. ${openingQuestion}`;
+    // Every interview begins with a basic introduction before domain testing.
+    const safeOpening = `Hello, I'm ${displayCoachName}, and I'll be your ${interviewRoleLabel} interviewer today. To begin, please introduce yourself, including your education, relevant experience or projects, and why you're interested in ${interviewRoleLabel}.`;
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1136,7 +1130,7 @@ function InterviewAceContent() {
       durationMin: duration,
       experience,
       type: typeMeta.value,
-      roleLabel: typeMeta.label,
+      roleLabel: interviewRoleLabel,
     });
     // areaForBeat already composes the full focus (role-specific for domain
     // knowledge, experience-specific for the depth probe), so use it directly.
@@ -1169,9 +1163,13 @@ function InterviewAceContent() {
     try {
       response = await Promise.race([
         stream(
-          `You are ${displayCoachName} conducting a friendly but professional ${typeMeta.label} interview. ${remainingMin} minutes left.
+          `You are ${displayCoachName} conducting a friendly but professional ${interviewRoleLabel} interview. ${remainingMin} minutes left.
 
 Candidate: ${firstName} | ${buildProfileSummary()}
+
+DOMAIN EXPERTISE — this is non-negotiable:
+You are the subject-matter expert for ${interviewRoleLabel}. Ask questions that a real hiring panel for this exact role would ask. Use the role's real tools, workflows, decisions, risks, metrics, and day-to-day scenarios at the candidate's experience level. Do not substitute generic HR questions when the target area is functional knowledge.
+${domainExpertise}
 
 Recent exchanges:
 ${recentAnswered || "(This is the first response)"}
@@ -1201,7 +1199,7 @@ STYLE — important:
 
 Output format — exactly one line, nothing else:
 Next: <the interview question only, may start with a short natural bridge>`,
-          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You are the domain-specialist interviewer for ${interviewRoleLabel}. Treat ${interviewRoleLabel} as the authoritative target role and ask questions grounded in its real work, tools, decisions, risks and success measures. You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
           { maxTokens: 220 }
         ),
@@ -1210,7 +1208,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     } catch (err) {
       console.error("[Interview Ace] follow-up stream failed", err);
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
       response = `Next: ${fallback}`;
     }
 
@@ -1218,7 +1216,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
       response = `Next: ${fallback}`;
     }
 
@@ -1262,14 +1260,14 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
     }
 
     if (
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
     ) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
     }
 
     // Speak immediately after the stream or fallback resolves.
@@ -1285,7 +1283,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setIsRecording(false);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
     speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
-  }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
+  }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
    * submitCurrentAnswerRef — always points to the latest submitCurrentAnswer.
@@ -1462,7 +1460,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
         .map((c) => {
           const focus =
             c.key === "domainKnowledge"
-              ? `${c.focus} — ${functionalKnowledgeFor(typeMeta.value, typeMeta.label)}`
+              ? `${c.focus} — ${domainExpertise}`
               : c.focus;
           return `- "${c.key}" — ${c.label} (weight ${Math.round(c.weight * 100)}%): ${focus}`;
         })
@@ -1474,7 +1472,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       const reportText = await stream(
         `You are an expert interview panellist scoring a mock interview against a structured, weighted competency scorecard.
 
-Role: ${typeMeta.label}
+Role: ${interviewRoleLabel}
 Candidate experience level: ${experience}
 Interview length: ${duration} minutes (${formatTime(elapsedSeconds)} used)
 Profile: ${buildProfileSummary()}
@@ -1495,7 +1493,7 @@ Return ONLY a valid JSON object with exactly these keys (no markdown, no comment
   "competencies": {
 ${compJsonKeys}
   },
-  "roleFit": "one honest sentence about this candidate for the ${typeMeta.label} role they interviewed for",
+  "roleFit": "one honest sentence about this candidate for the ${interviewRoleLabel} role they interviewed for",
   "bestFitRole": "name the ONE job role or job title that best fits this candidate based on their interests, motivation, strengths and answers — it may be the same as the role they interviewed for or a different one — with a short reason, one sentence",
   "strengths": ["2-3 specific strengths observed in the transcript"],
   "concerns": ["2-3 honest concerns or red flags — use an empty array [] ONLY if there are genuinely none"],
@@ -1504,7 +1502,7 @@ ${compJsonKeys}
 }
 
 Rate EVERY competency above from evidence in the transcript, calibrated to the experience level — do not leave any unrated. Communication Skills and Personality & Disposition are judged from HOW the candidate expressed every answer (tone, energy, clarity), not from dedicated questions; you cannot see the candidate, so judge personality from vocal energy and content only and never invent visual details like body language, dress or eye contact. Educational Background comes from their introduction. If a competency was only lightly tested in this interview, infer conservatively from the overall conversation and say so in its comment rather than guessing high. Be fair, specific and honest — never inflate a candidate who lacks the core functional knowledge for the role. When naming the best-fit role, weigh the candidate's stated interests, motivation and strengths (including the early getting-to-know-you answers), not only their functional depth. Use Indian hiring context.`,
-        `You are a senior hiring manager and interview panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale.`,
+         `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job.`,
         undefined,
         { maxTokens: 2000 }
       );
@@ -1573,14 +1571,14 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
     };
 
     void generate();
-  }, [phase, report, isGeneratingReport, questions, typeMeta, experience, elapsedSeconds, duration, stream, buildProfileSummary]);
+  }, [phase, report, isGeneratingReport, questions, interviewRoleLabel, domainExpertise, typeMeta, experience, elapsedSeconds, duration, stream, buildProfileSummary]);
 
   const saveSession = useCallback(async (reportData: InterviewReport, answered: QA[]) => {
     if (saved) return;
     setIsSaving(true);
     const durationSeconds = elapsedSeconds;
     const payload = {
-      role: profile.preferredRole || typeMeta.label,
+      role: interviewRoleLabel,
       experienceLevel: experience,
       interviewType: typeMeta.label,
       questionsData: JSON.stringify(answered),
@@ -1633,7 +1631,7 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
     }
     setSaved(true);
     setIsSaving(false);
-  }, [saved, elapsedSeconds, profile.preferredRole, typeMeta, experience, user, toast]);
+  }, [saved, elapsedSeconds, interviewRoleLabel, experience, user, toast]);
 
   const downloadReport = useCallback(() => {
     const label = typeMeta.label;
@@ -1739,23 +1737,23 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
           </Select>
         </div>
 
-        {/* Coach grid — compact. Auto-matched to the interview type; tap to override. */}
+        {/* Coach grid — compact. The selected role determines the domain specialist. */}
         <div className="flex items-baseline gap-2 mb-2 flex-wrap">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Interviewer</p>
           <span className="text-[10px] font-medium text-muted-foreground/70 normal-case">
-            {coachLocked ? "Set by the recruiter for this invite" : `Auto-matched to ${typeMeta.label} · tap to change`}
+            {coachLocked ? "Set by the recruiter for this invite" : `Domain specialist for ${interviewRoleLabel}`}
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
           {INTERVIEW_COACHES.map(c => (
             <button
               key={c.id}
-              onClick={() => { if (!coachLocked) setCoach(c); }}
-              disabled={coachLocked && coach.id !== c.id}
+              onClick={() => { if (!coachLocked && c.id === recommendedCoachId) setCoach(c); }}
+              disabled={coachLocked ? coach.id !== c.id : c.id !== recommendedCoachId}
               className={`text-left rounded-xl border-2 p-3 transition-all ${
                 coach.id === c.id
                   ? "border-primary shadow-md bg-primary/5"
-                  : coachLocked
+                    : (coachLocked || c.id !== recommendedCoachId)
                     ? "border-border bg-card opacity-40 cursor-not-allowed"
                     : "border-border bg-card hover:border-primary/40 hover:shadow-md"
               }`}

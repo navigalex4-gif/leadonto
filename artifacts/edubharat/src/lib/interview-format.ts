@@ -201,10 +201,16 @@ const FUNCTIONAL_KNOWLEDGE: Record<string, string> = {
     "Data & analytics — data cleaning and analysis, Excel/SQL, interpreting results, dashboards/visualisation tools, and turning data into business insight.",
   sales:
     "Sales fundamentals — the sales process, lead generation, handling objections, negotiation and closing, and meeting targets. Ask for real scenarios.",
+  sales_manager:
+    "Sales leadership — territory and account strategy, forecasting, pipeline health, coaching representatives, negotiation, target ownership, and measurable revenue outcomes. Ask senior, scenario-based questions.",
+  business_analyst:
+    "Business analysis — requirements elicitation, stakeholder management, process mapping, SQL or data analysis, prioritisation, acceptance criteria, and measurable business outcomes. Ask for assumptions and trade-offs.",
   marketing:
     "Marketing fundamentals — campaign planning, digital and offline channels, key metrics/ROI, segmentation, and brand positioning.",
   customer_service:
     "Customer service — handling difficult customers, complaint resolution, CRM tools, staying composed under pressure, and service-quality metrics.",
+  bpo:
+    "BPO and call-centre operations — customer handling, active listening, process adherence, quality scores, escalation, productivity metrics, and staying composed under pressure. Ask realistic customer scenarios.",
   operations:
     "Operations — process management and efficiency, quality control, cross-team coordination, SLAs, and practical problem-solving.",
   hr: "HR & behavioural depth — situational judgement, people-handling, and the candidate's own domain knowledge relevant to the role they are applying for.",
