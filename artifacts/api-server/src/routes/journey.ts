@@ -571,8 +571,12 @@ router.get("/journey/lesson-content/:lessonId", async (req: Request, res: Respon
   const nativeLang = (req.query["nativeLang"] as string) || "Hindi";
   const name = (req.query["name"] as string) || "";
   const skills = (req.query["skills"] as string) || "";
+  // A fresh visit should feel like a new lesson, not a replay. The client
+  // supplies a short per-visit seed so the server cache still protects the
+  // provider while allowing the activity framing to change.
+  const variation = (req.query["variation"] as string) || "default";
 
-  const cacheKey = `${lessonId}|${level}|${goal}|${nativeLang}`;
+  const cacheKey = `${lessonId}|${level}|${goal}|${nativeLang}|${variation}`;
   const cached = cacheGet(cacheKey);
   if (cached) { res.json(cached); return; }
 
@@ -593,15 +597,13 @@ Skill: ${lesson.skill_type}
 Description: ${lesson.description}
 Student: ${profileCtx}
 
-Create lesson content tailored to this student. Return ONLY valid JSON with these exact keys:
+Create a fresh lesson experience tailored to this student. Do not reuse a predictable opening, example setting, or practice format. Vary the framing between a mini-story, quick challenge, role-play, contrast, observation, curious question, or surprising mistake. Return ONLY valid JSON with these exact keys:
 {
-  "concept": "2–3 plain sentences explaining the core idea. Use Indian contexts — office, shop, phone call, interview. No jargon.",
+  "concept": "2–3 plain sentences explaining the core idea. Use a vivid Indian context when it fits — office, shop, phone call, interview, family business, commute, or campus. No jargon.",
   "examples": [
-    "Example 1 with context label in brackets",
-    "Example 2 — different scenario",
-    "Example 3 — career/job relevant"
+    "Three varied examples with natural spoken language. Do not make them all the same sentence shape."
   ],
-  "practice": "One specific task the student can do right now in 30–60 seconds. Tie it to ${goal}."
+  "practice": "One specific task the student can do right now in 30–60 seconds. Alternate between speaking, choosing, transforming, noticing, role-playing, and recalling. Tie it to ${goal}."
 }`,
       maxTokens: 450,
       log: req.log,

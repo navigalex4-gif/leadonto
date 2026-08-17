@@ -191,6 +191,15 @@ const OPENING_QUESTIONS = [
   "When you look back at your studies or work so far, which moment best shows how you approach challenges?",
 ];
 
+const INTERVIEW_BEHAVIOR_MOMENTS = [
+  "If the answer reveals effort or uncertainty, acknowledge that specific human detail briefly before asking the next question.",
+  "If the answer is short, stay curious rather than sounding disappointed; offer a concrete angle that makes answering easier.",
+  "If the candidate shares a win, let a little genuine energy through, then test what they personally contributed.",
+  "Occasionally use a short bridge such as “That’s useful context,” “I can see why that mattered,” or “Let’s stay with that for a moment,” but never repeat one.",
+  "Vary the shape of the next question: a choice, a counterfactual, a concrete example, a trade-off, a reflection, or a role-specific scenario.",
+  "Leave room for a natural conversational beat. Do not pack every response with praise or rush to the next competency.",
+];
+
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
   education: [
     "Which part of your education has prepared you best for this role?",
@@ -1223,7 +1232,7 @@ Rules:
     // sits in silence while the model/network are still working. Short and
     // generic on purpose; the real reaction+question follows once ready and
     // simply takes over (the global TTS singleton cuts the filler over cleanly).
-    const quickAcks = ["Okay.", "Right.", "I see.", "Got it.", "Thanks for sharing."];
+     const quickAcks = ["Okay.", "Right.", "I see.", "Got it.", "Thanks for sharing.", "That’s useful.", "Take your time."];
     const availableAcks = quickAcks.filter((ack) => ack !== lastAckRef.current);
     const quickAck = (availableAcks.length > 0 ? availableAcks : quickAcks)[Math.floor(Math.random() * (availableAcks.length > 0 ? availableAcks : quickAcks).length)]!;
     lastAckRef.current = quickAck;
@@ -1253,7 +1262,8 @@ STYLE — important:
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
         - This is a formal interview, not an informal social conversation. Keep every spoken response focused on the interview.
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
-- A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another acknowledgement; move naturally into the question with a short bridge such as "So," or "Now," when it fits.
+ - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
+ - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
 - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
 - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.

@@ -1884,6 +1884,7 @@ function LessonCard({
         nativeLang: profile.preferredLanguage || "Hindi",
         name:       profile.name || "",
         skills:     Array.isArray(profile.skills) ? profile.skills.join(", ") : (typeof profile.skills === "string" ? profile.skills : ""),
+        variation:  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
       });
       const res = await fetch(`${BASE}/api/journey/lesson-content/${lesson.id}?${params}`);
       if (res.ok) {

@@ -193,6 +193,36 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="border-y border-orange-200/70 bg-[#FFF8F0] py-7 sm:py-9" aria-labelledby="instant-practice-title">
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Try the part that helps today</p>
+                <h2 id="instant-practice-title" className="text-xl font-extrabold tracking-tight text-[#111827] sm:text-2xl">Start with a real conversation or a real interview.</h2>
+              </div>
+              <p className="max-w-sm text-sm leading-6 text-[#596273]">No long setup. Pick a coach, speak naturally, and get useful guidance as you go.</p>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <Link href="/english-guru" className="group flex items-center gap-4 rounded-2xl border border-orange-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-700"><MessageCircle className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-secondary">English Guru</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">Have a warm, unscripted English conversation in your own style.</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange-600 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link href="/interview-ace" className="group flex items-center gap-4 rounded-2xl border border-blue-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700"><Mic2 className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-secondary">Interview Ace</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">Meet a role-matched interviewer who adapts to how you answer.</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-blue-600 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <section className="border-y border-orange-200/70 bg-gradient-to-br from-orange-50 via-amber-50 to-sky-50 py-9 text-secondary sm:py-11" aria-labelledby="opportunity-title">
           <div className="container mx-auto flex max-w-6xl flex-col gap-5 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">

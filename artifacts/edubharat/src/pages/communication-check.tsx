@@ -16,7 +16,15 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
-const FIRST_QUESTION = "Tell me a little about yourself and what you are working toward.";
+const OPENING_QUESTIONS = [
+  "What are you working toward at the moment, and what has been on your mind lately?",
+  "Before we begin, what is one thing about your journey you would like me to understand?",
+  "What kind of opportunity would make you feel proud to say, “I’m ready for this”?",
+  "Let’s start somewhere real: what have you been learning, building, or trying to improve recently?",
+  "What brings you here today, and what would you love to feel more confident saying?",
+  "Think of a recent moment that mattered to you. What happened?",
+];
+const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
 const QUESTION_BANK = [
   "What is something you learned recently, and how did you learn it?",
   "Tell me about a time you handled a difficult situation. What did you do?",
@@ -99,7 +107,8 @@ function questionIsRepeated(question: string, askedQuestions: string[]): boolean
 }
 
 function nextUnusedQuestion(askedQuestions: string[]): string {
-  return QUESTION_BANK.find((question) => !questionIsRepeated(question, askedQuestions))
+  const shuffled = [...QUESTION_BANK].sort(() => Math.random() - 0.5);
+  return shuffled.find((question) => !questionIsRepeated(question, askedQuestions))
     ?? "Before we finish, what would you like an interviewer to understand about you?";
 }
 
@@ -307,14 +316,6 @@ export default function CommunicationCheck() {
     setCurrentAnswer("");
     answerRef.current = "";
 
-    // The acknowledgement is spoken immediately. Keep it short and natural so
-    // the interviewer sounds conversational before the next question arrives.
-    // Only "Okay." or "Got it." — never combined, alternated so it doesn't
-    // feel scripted.
-    const acknowledgements = ["Okay.", "Got it."];
-    const acknowledgementFinished = new Promise<void>((resolve) => {
-      speak(acknowledgements[(nextAnswers.length - 1) % acknowledgements.length] ?? "Okay.", resolve);
-    });
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
       deadlineRef.current = setTimeout(() => resolve(""), 1800);
@@ -324,11 +325,11 @@ export default function CommunicationCheck() {
     try {
       response = await Promise.race([
         stream(
-          `Ask one fresh, natural follow-up question after this answer: "${answer}".
-This is a 90-second spoken communication check, so explore a different everyday topic each turn: learning, a challenge, teamwork, explaining an idea, career goals, customer interaction, motivation, or self-reflection.
+          `Respond as a warm human interviewer after this answer: "${answer}".
+This is a 90-second spoken communication check, so notice the emotion or detail in the answer before choosing where to go next. Explore a fresh direction each turn — learning, a challenge, teamwork, explaining an idea, career goals, customer interaction, motivation, family responsibility, a small win, or self-reflection.
 Questions already asked: ${askedQuestions.join(" | ")}
-Never repeat or paraphrase an earlier question. Return only one question, maximum 18 words.`,
-          "You are a warm, curious Indian interviewer. Sound human and conversational, not like a form. Ask one concise spoken-English question with no markdown or preamble.",
+Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific, genuine reaction to what they said, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Maximum 38 words.`,
+          "You are a warm, curious Indian interviewer. Sound present and human, not like a form. Show empathy when the answer is difficult, delight when there is a small win, and gentle energy when the answer is brief. Use natural pauses through punctuation. Never sound overly cheerful or scripted. No markdown or preamble.",
           undefined,
           { maxTokens: 70 },
         ),
@@ -353,12 +354,6 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
     setCurrentQuestion(question);
     setIsThinking(false);
     turnRef.current = false;
-    // Keep the human acknowledgement intact before starting the next TTS
-    // utterance. The timeout is only a safety valve for a blocked audio device.
-    await Promise.race([
-      acknowledgementFinished,
-      new Promise<void>((resolve) => setTimeout(resolve, 1400)),
-    ]);
     if (endingRef.current) return;
     speak(question, startListening);
   }, [clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
@@ -375,7 +370,7 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
           const final = answerRef.current.trim()
             ? [...answersRef.current, { question: questionRef.current, answer: answerRef.current.trim() }]
             : answersRef.current;
-          void finishWithFeedback(final.length ? final : [{ question: FIRST_QUESTION, answer: "" }]);
+           void finishWithFeedback(final.length ? final : [{ question: questionRef.current, answer: "" }]);
           return 0;
         }
         return value - 1;
@@ -423,11 +418,12 @@ Never repeat or paraphrase an earlier question. Return only one question, maximu
     setRemaining(TOTAL_SECONDS);
     setCurrentAnswer("");
     answerRef.current = "";
-    questionRef.current = FIRST_QUESTION;
-    setCurrentQuestion(FIRST_QUESTION);
+    const opening = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
+    questionRef.current = opening;
+    setCurrentQuestion(opening);
     setPhase("interview");
     interviewStartedAtRef.current = Date.now();
-    speak(FIRST_QUESTION, startListening);
+    speak(opening, startListening);
   }, [candidate, speak, startListening, toast]);
 
   if (phase === "feedback" && feedback) {

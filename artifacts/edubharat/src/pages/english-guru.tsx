@@ -37,6 +37,14 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
 };
 const ENGLISH_GURU_SPEECH_RATE = 0.92;
+const LIVE_OPENINGS = [
+  (name: string) => `Hi ${name}! I’m glad you’re here. Tell me about one moment from today that stayed with you.`,
+  (name: string) => `Hey ${name}, let’s make this useful and easy. What’s something you’ve been thinking about lately?`,
+  (name: string) => `Hi ${name}! I’m listening. What’s one small win, worry, or surprise you’ve had recently?`,
+  (name: string) => `Welcome, ${name}. No perfect answers needed today — what would you like to talk about first?`,
+  (name: string) => `Hi ${name}! Let’s start with real life. What conversation do you wish had gone more smoothly recently?`,
+  (name: string) => `Good to see you, ${name}. What are you working toward right now, and how is it feeling?`,
+];
 
 function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
@@ -612,7 +620,8 @@ Rules for spoken replies:
   // because the teacher never initiated the conversation.
   const startLiveGreeting = useCallback(() => {
     const firstName = profile.name?.trim().split(/\s+/)[0] || "there";
-    const greeting = `Hi ${firstName}! I'm ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}. Let's have a relaxed English conversation. Tell me — what did you do today?`;
+    const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
+    const greeting = `${opening} I’m ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}.`;
     aiBusyRef.current = true;
     speechRef.current.pause();
     lastAiSpeechRef.current = greeting;
