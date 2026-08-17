@@ -335,9 +335,10 @@ function EnglishGuruContent() {
         // suppress any recognised result for 2s so room echo of the greeting
         // (which lingers on laptop/phone speakers) is never processed.
         lastAiSpeechEndRef.current = Date.now();
-             speechRef.current.suppressUntil(Date.now() + 2500);
-             // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
-             speechRef.current.blockFor(450);
+             speechRef.current.suppressUntil(Date.now() + 900);
+             // Wake recognition immediately after the audio tail; the short
+             // suppression window still protects against speaker echo.
+             speechRef.current.blockFor(120);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -580,8 +581,8 @@ Rules for spoken replies:
         }
         aiBusyRef.current = false;
         if (liveChatRef.current && !livePausedRef.current) {
-          speechRef.current.suppressUntil(Date.now() + 600);
-          speechRef.current.blockFor(450);
+          speechRef.current.suppressUntil(Date.now() + 900);
+          speechRef.current.blockFor(120);
           setConvFlowState("user-speaking");
           speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
         } else {

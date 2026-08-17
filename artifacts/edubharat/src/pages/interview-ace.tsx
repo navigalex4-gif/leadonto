@@ -594,14 +594,14 @@ function InterviewAceContent() {
       const safetyMs = Math.max(text.length * 50 + 5_000, 16_000);
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
-        speech.suppressUntil(Date.now() + 450);
-        speech.blockFor(450); // short speaker tail — kept brief so the mic listens right away
+        speech.suppressUntil(Date.now() + 900);
+        speech.blockFor(120); // tiny speaker-tail guard; wake the mic immediately
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
-        speech.suppressUntil(Date.now() + 450);
-        speech.blockFor(450);
+        speech.suppressUntil(Date.now() + 900);
+        speech.blockFor(120);
         setCoachSpeaking(false);
       }, {
         ...opts,
@@ -743,7 +743,6 @@ function InterviewAceContent() {
   const beatIdxRef = useRef(0);
   // Tracks the last spoken acknowledgement so the conversational filler does
   // not repeat back-to-back.
-  const lastAckRef = useRef("");
   // Retries on the current beat, for the 2-attempt rule: a weak answer earns ONE
   // gentle re-ask; after that we move on to a fresh area rather than dwelling.
   const retryRef = useRef(0);
@@ -1155,70 +1154,16 @@ function InterviewAceContent() {
     }
 
     let response: string;
-    // ── Thinking-pause guarantee ───────────────────────────────────────────────
-    // Target: interviewer ALWAYS starts the real reply within 4 s of the
-    // candidate stopping. Keep the deliberate pause short so model + TTS time
-    // still fit inside that promise.
-    //
-    // Strategy: start a short minimum-wait timer IN PARALLEL with the AI stream
-    // call so streaming latency counts toward the pause window, AND fire an
-    // immediate short "Okay…" acknowledgement filler the instant the candidate
-    // stops talking (see speakFillerAck below) so the wait never feels silent.
-    // This guarantees:
-    //   • fast stream (< 1 s)  → still waits at least the short floor (feels natural, not instant/robotic)
-    //   • medium stream        → fires within the natural window
-    //   • slow stream (> 1.6 s) → use a short fallback so the reply starts promptly
-    const thinkStart = Date.now();
-
-    // Compute target pause length based on answer length (determined before this call).
-    // Range 700–1 400 ms; short answers get quicker replies, long ones a touch more.
-    const naturalPauseMs = (() => {
-      let base: number;
-      if (wordCount < 15) {
-        base = 700 + Math.random() * 250;    // 0.7–0.95 s
-      } else if (wordCount < 50) {
-        base = 850 + Math.random() * 300;    // 0.85–1.15 s
-      } else {
-        base = 1050 + Math.random() * 350;   // 1.05–1.4 s
-      }
-      // Hesitation markers → slight extra hesitation (stays within cap)
-      if (/\b(um+|uh+|hmm+|err+|like,? you know|i mean|so,? basically|basically)\b/i.test(recordedAnswer)) {
-        base += Math.random() * 200;
-      }
-      return Math.min(1400, Math.max(700, Math.round(base)));
-    })();
-
     // Neutral fallback questions used when the AI stream times out or errors.
     // Defined here so they're available both in the timeout path and the parsing fallback below.
-    // Kick off the minimum floor immediately — runs while streaming proceeds.
-    const minWaitPromise = new Promise<void>(resolve => setTimeout(resolve, 700));
 
-    // Hard deadline: if the AI hasn't replied in time, inject a fallback so the
-    // interviewer ALWAYS starts speaking within a few seconds of the candidate
-    // stopping. Claude's real streaming latency for this call size commonly runs
-    // 1.2-2.5 s (occasionally more), so a too-tight deadline here silently turns
-    // almost every turn into a generic fallback question — this value gives the
-    // real, role-aware AI question room to land while still keeping the total
-    // pause well under the 4 s response promise.
-      // Keep the live interviewer response path below three seconds. A short
-      // acknowledgement starts immediately while this stream resolves.
-      // Leave enough time for Edge TTS to fetch and begin playback inside the
-      // four-second conversational response target.
-      const STREAM_DEADLINE_MS = 2200;
+    // Leave enough time for TTS to begin before the three-second response target.
+    // There is no spoken filler while the AI stream is resolving.
+    const STREAM_DEADLINE_MS = 1800;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
     );
-
-    // Immediate spoken acknowledgement — plays right away so the candidate never
-    // sits in silence while the model/network are still working. Short and
-    // generic on purpose; the real reaction+question follows once ready and
-    // simply takes over (the global TTS singleton cuts the filler over cleanly).
-     const quickAcks = ["Okay.", "Right.", "I see.", "Got it.", "Thanks for sharing.", "That’s useful.", "Take your time."];
-    const availableAcks = quickAcks.filter((ack) => ack !== lastAckRef.current);
-    const quickAck = (availableAcks.length > 0 ? availableAcks : quickAcks)[Math.floor(Math.random() * (availableAcks.length > 0 ? availableAcks : quickAcks).length)]!;
-    lastAckRef.current = quickAck;
-    speakCoach(quickAck, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
 
     setCoachThinking(true);
     try {
@@ -1327,22 +1272,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, typeMeta.label);
     }
 
-    // ── Enforce under-4s response window ──────────────────────────────────────
-    // Step 1: ensure the short floor has elapsed (timer started BEFORE stream call).
-    await minWaitPromise;
-    // Guard: interview may have ended during stream/minWait — don't continue.
-    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
-    // Step 2: wait any remaining time up to naturalPauseMs, but hard-clamp against
-    // the absolute wall-clock budget from thinkStart so TTS can begin comfortably
-    // before the four-second response promise (the stream itself may already
-    // have used most of STREAM_DEADLINE_MS, in which case this adds nothing).
-    const wallRemaining = 2200 - (Date.now() - thinkStart);
-    const targetRemaining = naturalPauseMs - (Date.now() - thinkStart);
-    const remainingWait = Math.min(wallRemaining, targetRemaining);
-    if (remainingWait > 0) {
-      await new Promise(resolve => setTimeout(resolve, remainingWait));
-    }
-    // Re-check after the final wait — the interview may have ended during the pause.
+    // Speak immediately after the stream or fallback resolves.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     setCoachThinking(false);
 

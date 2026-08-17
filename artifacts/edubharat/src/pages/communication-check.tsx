@@ -213,8 +213,8 @@ export default function CommunicationCheck() {
   const speak = useCallback((text: string, onEnd?: () => void) => {
     speech.pause();
     void synth.speak(cleanSpeech(text), "English", () => {
-      speech.suppressUntil(Date.now() + 450);
-      speech.blockFor(450);
+      speech.suppressUntil(Date.now() + 900);
+      speech.blockFor(120);
       onEnd?.();
     }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: 1.0 });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
@@ -319,7 +319,7 @@ export default function CommunicationCheck() {
 
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
-      deadlineRef.current = setTimeout(() => resolve(""), 1800);
+      deadlineRef.current = setTimeout(() => resolve(""), 1200);
     });
     const askedQuestions = nextAnswers.map((item) => item.question);
     let response = "";
