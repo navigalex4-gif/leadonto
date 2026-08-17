@@ -17,12 +17,12 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
 const OPENING_QUESTIONS = [
-  "What are you working toward at the moment, and what has been on your mind lately?",
-  "Before we begin, what is one thing about your journey you would like me to understand?",
-  "What kind of opportunity would make you feel proud to say, “I’m ready for this”?",
-  "Let’s start somewhere real: what have you been learning, building, or trying to improve recently?",
-  "What brings you here today, and what would you love to feel more confident saying?",
-  "Think of a recent moment that mattered to you. What happened?",
+  "How are you feeling today?",
+  "What are you learning or working on these days?",
+  "What is one thing you enjoy doing?",
+  "What kind of job or opportunity are you looking for?",
+  "What is one skill you would like to improve?",
+  "Tell me one small thing that made you happy recently.",
 ];
 const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
 const QUESTION_BANK = [
@@ -44,9 +44,10 @@ const QUESTION_BANK = [
   "If you had one extra hour today, how would you use it?",
 ];
 const INTERVIEWER = {
-  name: "Priya Ma'am",
-  imageSrc: "/images/tutor-priya.jpg",
+  name: "Neha Madam",
+  imageSrc: "/images/tutor-neha.jpg",
   gender: "female" as const,
+  voiceStyle: "neha",
 };
 
 type Candidate = {
@@ -215,7 +216,7 @@ export default function CommunicationCheck() {
       speech.suppressUntil(Date.now() + 450);
       speech.blockFor(450);
       onEnd?.();
-    }, { voiceGender: "female", rate: 1.0 });
+    }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: 1.0 });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
 
   const startListening = useCallback(() => {

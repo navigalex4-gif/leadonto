@@ -38,7 +38,8 @@ export const CHARACTER_VOICE_MAP: Record<string, string> = {
   meera_coach: "en-IN-Chirp3-HD-Despina",
   kabir: "en-IN-Chirp3-HD-Enceladus",
   sanjay: "en-IN-Chirp3-HD-Iapetus",
-  aryan: "en-IN-Chirp3-HD-Gacrux",
+  // Gacrux is a feminine timbre; Aryan must use a clearly masculine voice.
+  aryan: "en-IN-Chirp3-HD-Rasalgethi",
 };
 
 // Chirp 3 HD keeps the same timbre family across Google's Indian locales.
@@ -47,7 +48,7 @@ const CHIRP_CHARACTER_FAMILIES = [
   "Aoede", "Algieba", "Callirrhoe", "Fenrir",
   "Kore", "Orus", "Leda", "Achernar",
   "Algenib", "Charon", "Despina", "Enceladus",
-  "Iapetus", "Gacrux",
+  "Iapetus", "Rasalgethi",
 ] as const;
 
 const LANGUAGE_CODES: Record<SupportedLanguage, string> = {

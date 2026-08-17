@@ -38,13 +38,15 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
 };
 const ENGLISH_GURU_SPEECH_RATE = 0.92;
 const LIVE_OPENINGS = [
-  (name: string) => `Hi ${name}! I’m glad you’re here. Tell me about one moment from today that stayed with you.`,
-  (name: string) => `Hey ${name}, let’s make this useful and easy. What’s something you’ve been thinking about lately?`,
-  (name: string) => `Hi ${name}! I’m listening. What’s one small win, worry, or surprise you’ve had recently?`,
-  (name: string) => `Welcome, ${name}. No perfect answers needed today — what would you like to talk about first?`,
-  (name: string) => `Hi ${name}! Let’s start with real life. What conversation do you wish had gone more smoothly recently?`,
-  (name: string) => `Good to see you, ${name}. What are you working toward right now, and how is it feeling?`,
+  (name: string) => `Hi ${name}! I’m happy you’re here. How are you feeling today?`,
+  (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,
+  (name: string) => `Welcome, ${name}! I’m listening. What is one thing you enjoy doing?`,
+  (name: string) => `Hi ${name}! No perfect answer is needed. What would you like to practise today?`,
+  (name: string) => `Good to see you, ${name}! What is one small win you had recently?`,
+  (name: string) => `Hi ${name}! We’ll take it one step at a time. What are you learning these days?`,
 ];
+const ENERGETIC_TUTOR_DIRECTION =
+  "Be energetic, engaging and encouraging without sounding fake. Keep the learner curious with warm reactions, clear momentum, varied short questions and practical examples. Make the conversation feel rewarding so they want to continue.";
 
 function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
@@ -464,7 +466,7 @@ function EnglishGuruContent() {
 
         const response = await stream(
           `${recentHistory}${silenceInstruction}\n${teacherShort}:`,
-         `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}
+         `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}
 
 This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
 
@@ -621,7 +623,7 @@ Rules for spoken replies:
   const startLiveGreeting = useCallback(() => {
     const firstName = profile.name?.trim().split(/\s+/)[0] || "there";
     const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
-    const greeting = `${opening} I’m ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}.`;
+      const greeting = `${opening} I’m ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}.`;
     aiBusyRef.current = true;
     speechRef.current.pause();
     lastAiSpeechRef.current = greeting;

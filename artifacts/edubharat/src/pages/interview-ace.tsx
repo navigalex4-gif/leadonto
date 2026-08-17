@@ -182,13 +182,13 @@ const INTERVIEW_FALLBACK_QUESTIONS = [
 ];
 
 const OPENING_QUESTIONS = [
-  "Before we get into the role, could you tell me a little about yourself and what brings you to this opportunity?",
-  "To start us off, what has shaped your interest in this kind of work?",
-  "Let's begin with your journey so far. Which experience has taught you the most about working with people or solving problems?",
-  "Before we discuss the role, what is one project or responsibility you feel genuinely proud of?",
-  "What made you choose this career direction, and what are you hoping to build next?",
-  "Could you give me a quick introduction and tell me what you would most like me to understand about your background?",
-  "When you look back at your studies or work so far, which moment best shows how you approach challenges?",
+  "Could you briefly tell me about yourself?",
+  "What kind of work are you looking for?",
+  "What is one skill you feel confident about?",
+  "What is one project or task you enjoyed recently?",
+  "Why are you interested in this role?",
+  "What are you hoping to learn next?",
+  "What is one strength you bring to a team?",
 ];
 
 const INTERVIEW_BEHAVIOR_MOMENTS = [
@@ -992,27 +992,9 @@ function InterviewAceContent() {
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     const openingQuestion = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
-    const openingDeadline = new Promise<string>(resolve =>
-      setTimeout(() => resolve(""), 1800),
-    );
-    const full = await Promise.race([stream(
-      `You are ${displayCoachName}, a professional interviewer conducting a formal ${typeMeta.label} interview with ${firstName} (${experience} level).
-
-This interview will cover a broad range of areas. Start by warmly introducing yourself in one short sentence — say your name only (never "Sir", "Ma'am", or "Madam") and make ${firstName} feel at ease. Then ask ONE natural opening question. Use this opening direction, but phrase it in your own conversational way: ${openingQuestion}
-
-Rules:
- - Keep it to at most 3 short sentences. Sound like a thoughtful human interviewer, not a form being read aloud. Warm, professional and personable; a light, witty touch is welcome only if it feels natural. Do not use cheesy greetings, filler, or "let's dive in".
-- Plain spoken words ONLY. No asterisks, no *actions*, no markdown, no quotes around your reply.
-- Do NOT list rules, do NOT explain the interview process.
-- LANGUAGE: Use simple, clear, everyday English — short sentences and common words. Many candidates are from average English-medium colleges, so avoid difficult vocabulary, idioms and long, complex sentences (${firstName}'s stated English level: ${profile.englishLevel || "Beginner"}).
- - Ask exactly ONE question.`,
-      `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You conduct professional but warm, personable interviews that cover a broad range of areas, and you use light, witty humour to put candidates at ease — never sarcastic and never at their expense. Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Speak in clear, simple, everyday spoken English that an average Indian college graduate can easily follow. Never use markdown, action words, or effusive flattery.`,
-      undefined,
-      { maxTokens: 72 }
-    ), openingDeadline]);
-    const opening = cleanForSpeech(full.replace(/^\s*["']?|["']?\s*$/g, "").trim());
-    const safeOpening = opening || `${displayCoachName} here. Thanks for joining me, ${firstName}. ${openingQuestion}`;
-    if (!safeOpening) return;
+    // Keep the first turn reliable: one brief introduction followed by exactly
+    // one easy question. Later turns use the AI for role-specific variety.
+    const safeOpening = `${displayCoachName} here. Welcome, ${firstName}. ${openingQuestion}`;
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
