@@ -48,6 +48,7 @@ export function useSpeechRecognition(language = "English") {
   const captureStartingRef = useRef(false);
   const transcribingRef = useRef(false);
   const externalSuppressUntilRef = useRef(0);
+  const retryCaptureRef = useRef<(() => void) | null>(null);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -109,6 +110,10 @@ export function useSpeechRecognition(language = "English") {
       }
     } finally {
       transcribingRef.current = false;
+      if (generation === generationRef.current && shouldContinueRef.current) {
+        setStatus("idle");
+        retryCaptureRef.current?.();
+      }
     }
   }, [base, language]);
 
@@ -246,9 +251,12 @@ export function useSpeechRecognition(language = "English") {
       setStatus("error");
       return;
     }
+    const wasContinuing = shouldContinueRef.current;
     shouldContinueRef.current = true;
     onPhraseRef.current = onPhrase;
-    generationRef.current++;
+    // The continuity watchdog calls this repeatedly. Do not invalidate an
+    // active recorder or an in-flight transcription when it re-kicks the loop.
+    if (!wasContinuing) generationRef.current++;
     setError(null);
     void startCapture();
   }, [isSupported, startCapture]);
@@ -267,6 +275,26 @@ export function useSpeechRecognition(language = "English") {
   }, [stop]);
 
   useEffect(() => stop, [stop]);
+
+  // If TTS wakes the mic while an utterance is still being transcribed,
+  // startCapture() intentionally returns. Retry as soon as transcription
+  // finishes, while still respecting the current speaker-tail block.
+  useEffect(() => {
+    retryCaptureRef.current = () => {
+      if (!shouldContinueRef.current || transcribingRef.current || recorderRef.current) return;
+      const delay = Math.max(60, blockedUntilRef.current - Date.now() + 60);
+      if (wakeTimerRef.current !== null) clearTimeout(wakeTimerRef.current);
+      wakeTimerRef.current = setTimeout(() => {
+        wakeTimerRef.current = null;
+        if (shouldContinueRef.current && !transcribingRef.current && !recorderRef.current) {
+          void startCapture();
+        }
+      }, delay);
+    };
+    return () => {
+      retryCaptureRef.current = null;
+    };
+  }, [startCapture]);
 
   useEffect(() => {
     const recover = () => {

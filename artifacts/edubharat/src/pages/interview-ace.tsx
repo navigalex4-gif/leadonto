@@ -55,6 +55,7 @@ const DURATIONS = [
   { value: 25, label: "25 minutes" },
 ];
 const INTERVIEW_SPEECH_RATE = 0.88;
+const ANANYA_SPEECH_RATE = 0.98;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -608,7 +609,10 @@ function InterviewAceContent() {
       }, {
         ...opts,
         // Keep every interviewer response at a calm, conversational pace.
-        rate: Math.min(opts.rate ?? INTERVIEW_SPEECH_RATE, INTERVIEW_SPEECH_RATE),
+         rate: Math.min(
+           opts.rate ?? (coach.id === "ananya" ? ANANYA_SPEECH_RATE : INTERVIEW_SPEECH_RATE),
+           coach.id === "ananya" ? ANANYA_SPEECH_RATE : INTERVIEW_SPEECH_RATE,
+         ),
       });
     },
     [speech, synth],
