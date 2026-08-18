@@ -229,6 +229,51 @@ export function functionalKnowledgeFor(type: string, roleLabel: string): string 
   );
 }
 
+/**
+ * Question-generation framework for the live interviewer. This is deliberately
+ * separate from the scorecard: the scorecard says what to assess, while this
+ * framework says what that work actually looks like for the selected role.
+ *
+ * Keep candidate experience out of the role definition. Experience is supplied
+ * separately as a calibration lens, so a role never silently becomes a senior
+ * or industry-specific interview.
+ */
+export function questionFrameworkFor(
+  type: string,
+  roleLabel: string,
+  experience: string,
+  industry: string,
+): string {
+  const frameworks: Record<string, string> = {
+    sales: [
+      "ROLE FRAMEWORK — Sales Executive: prioritise prospecting, lead generation, customer discovery, product pitching, objection handling, negotiation, closing, target achievement, follow-up, customer relationship management, sales discipline, CRM usage, communication and persuasion.",
+      "Use practical scenarios such as finding prospects, qualifying a lead, discovering a customer's need, responding to an objection, and progressing a deal. Do not introduce banking, operations or another industry unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+    sales_manager: [
+      "ROLE FRAMEWORK — Sales Manager: prioritise sales leadership, coaching, target ownership, pipeline health, forecasting, territory or account strategy, performance management, negotiation and sales strategy.",
+      "Use manager-level scenarios such as a missed target, weak pipeline quality, inconsistent representative performance, forecast accuracy, coaching a team member and balancing short-term revenue with long-term customer relationships. Do not assume the candidate has managed a team; ask about individual-contributor or project leadership evidence when management experience is not confirmed.",
+    ].join(" "),
+    operations: [
+      "ROLE FRAMEWORK — Operations Executive: prioritise process management, accuracy, coordination, SLA/KPI handling, quality control, workflow improvement and operational problem-solving.",
+      "Use practical scenarios involving an error, backlog, missed SLA, handoff between teams, competing priorities or a process that needs improvement. Do not assume banking, logistics, call-centre or any other operations domain unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+    customer_service: [
+      "ROLE FRAMEWORK — Customer Service Executive: prioritise customer discovery through listening, issue diagnosis, complaint handling, empathy, resolution, escalation judgement, follow-up, CRM usage and service-quality metrics.",
+      "Use realistic customer scenarios. Do not assume banking, insurance, BPO or a specific product unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+  };
+
+  const framework =
+    frameworks[type] ??
+    `ROLE FRAMEWORK — ${roleLabel}: prioritise the real day-to-day responsibilities, tools, decisions, risks and success measures of this exact role. Ask applied questions rather than generic HR prompts.`;
+
+  return `${framework}
+Candidate-selected experience level: ${experience || "Not specified"}.
+Selected industry: ${industry || "Not specified"}.
+Experience calibration: for Fresher focus on fundamentals, projects, potential and willingness to learn; for 1-2 years focus on independent routine execution; for 3-5 years focus on ownership and judgement; for 5+ years focus on strategic depth, influence and leadership.
+Evidence rule: candidate-provided experience is only what the profile or a previous answer explicitly confirms. Job-required experience is a requirement, not proof that the candidate has it. Treat anything else as an assumption, never as a fact. If experience is unclear, ask a neutral question that lets the candidate provide evidence.`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Live question rotation
 //

@@ -16,7 +16,7 @@ import { useCredits, chargeInterview, tickInterview, endInterview, interviewCred
 import { useGuestTrial, guestInterviewsLeft, consumeGuestInterview } from "@/lib/guest-trial";
 import { AnimatedAvatar } from "@/components/avatar";
 import { INTERVIEW_COACHES, recommendedCoachFor } from "@/lib/tutors";
-import { COMPETENCIES, coveredCompetencies, weightedScoreFor, areaForBeat, functionalKnowledgeFor, calibrationFor, type CompetencyKey } from "@/lib/interview-format";
+import { COMPETENCIES, coveredCompetencies, weightedScoreFor, areaForBeat, functionalKnowledgeFor, questionFrameworkFor, calibrationFor, type CompetencyKey } from "@/lib/interview-format";
 import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
@@ -247,11 +247,34 @@ const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
 /** Functional/domain fallback questions woven around the actual role label, so
  *  even a fallback question still sounds tied to the job being interviewed for
  *  rather than generic. */
-function domainFallbackQuestions(roleLabel: string): string[] {
+function domainFallbackQuestions(roleLabel: string, type: string, experience: string): string[] {
+  const roleQuestions: Record<string, string[]> = {
+    sales: [
+      "How would you find and qualify a new prospect for this role?",
+      "A prospect says your product is too expensive. How would you respond?",
+      "How would you decide whether to follow up with a lead and what would you record in a CRM?",
+    ],
+    sales_manager: [
+      "A team is behind target halfway through the month. What would you inspect first?",
+      "How would you coach a representative whose activity is high but conversions are low?",
+      "What would you include in a reliable sales forecast, and how would you test it?",
+    ],
+    operations: [
+      "A process is missing its SLA because of a repeated handoff error. How would you investigate it?",
+      "How would you balance speed and accuracy when the team has a growing backlog?",
+      "What would you measure before deciding that an operations process has improved?",
+    ],
+    customer_service: [
+      "A customer is upset because their issue has not been resolved. What would you do first?",
+      "How would you decide whether to resolve a complaint yourself or escalate it?",
+      "Which details would you record after a customer interaction so the next colleague can help effectively?",
+    ],
+  };
   return [
+    ...(roleQuestions[type] ?? []),
     `What part of a ${roleLabel} role do you think you'd pick up the fastest?`,
     `What's one thing about ${roleLabel} work you're still figuring out?`,
-    `If you started this ${roleLabel} role tomorrow, what would you want to learn first?`,
+    `If you started this ${roleLabel} role tomorrow as a ${experience || "new"} candidate, what would you want to learn first?`,
     `What do you think separates someone average at ${roleLabel} work from someone really good at it?`,
   ];
 }
@@ -308,13 +331,13 @@ function isCannedInterviewQuestion(question: string): boolean {
   );
 }
 
-function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, roleLabel: string): string {
+function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, roleLabel: string, type: string, experience: string): string {
   // Area-specific bank first (shuffled, so repeated fallbacks vary between
   // sessions and within one), domain questions woven around the actual role,
   // then the generic bank as a last resort.
   const candidates = [
     ...shuffled(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
-    ...(areaKey === "domainKnowledge" ? shuffled(domainFallbackQuestions(roleLabel)) : []),
+    ...(areaKey === "domainKnowledge" ? shuffled(domainFallbackQuestions(roleLabel, type, experience)) : []),
     ...shuffled(INTERVIEW_FALLBACK_QUESTIONS),
   ];
   return candidates.find(question =>
@@ -806,7 +829,8 @@ function InterviewAceContent() {
     typeMeta.label,
     mapPreferredRoleToType,
   );
-  const domainExpertise = functionalKnowledgeFor(typeMeta.value, interviewRoleLabel);
+  const domainExpertise = `${functionalKnowledgeFor(typeMeta.value, interviewRoleLabel)}
+${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.industryPreference)}`;
   const recommendedCoachId = recommendedCoachFor(type).id;
   // B2B invites lock the interviewer to the recruiter's choice — the candidate
   // must not be able to swap it (from the type dropdown or the coach grid).
@@ -1257,7 +1281,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     } catch (err) {
       console.error("[Interview Ace] follow-up stream failed", err);
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
       response = `Next: ${fallback}`;
     }
 
@@ -1265,7 +1289,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
       response = `Next: ${fallback}`;
     }
 
@@ -1320,14 +1344,14 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 
     if (
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
     ) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 
     // Speak immediately after the stream or fallback resolves.

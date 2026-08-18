@@ -1,0 +1,55 @@
+Fix Interview Ace question generation.
+
+The AI interviewer must NEVER assume the candidate has banking, operations, customer-service, or any other experience unless the candidate profile or previous answer explicitly confirms it.
+
+Questions must be generated dynamically from:
+
+1. Selected job role
+2. Industry
+3. Experience level
+4. Job description, when available
+5. Candidate's actual profile
+6. Previous answers
+
+For example, if the selected role is **Sales Executive**, questions must primarily assess:
+
+* Prospecting
+* Lead generation
+* Customer discovery
+* Product pitching
+* Objection handling
+* Negotiation
+* Closing
+* Target achievement
+* Follow-up
+* Customer relationship management
+* Sales discipline
+* CRM usage
+* Communication and persuasion
+
+Do NOT ask Sales Executive candidates banking-specific or operations-specific questions unless the selected industry/JD explicitly requires them.
+
+If the selected role is Sales Manager, assess leadership, coaching, targets, pipeline, forecasting, performance management and sales strategy.
+
+If the selected role is Operations Executive, assess process management, accuracy, coordination, SLA/KPI handling and operational problem-solving.
+
+Create separate role-specific question frameworks rather than one generic interview template.
+
+The interviewer must also distinguish:
+
+* Candidate-provided experience
+* Job-required experience
+* Assumptions
+
+Never convert an assumption into a fact.
+
+Before generating each question, internally validate:
+
+“Is this question relevant to the selected role, industry and experience level?”
+
+If not, reject it and generate another question.
+
+Questions should progressively adapt based on previous answers rather than following a fixed sequence.
+
+Do not claim this is fixed until you test at least:
+Sales Executive, Sales Manager, Operations Executive and Customer Service Executive with different experience levels and verify that the questions genuinely change according to role and experience.
