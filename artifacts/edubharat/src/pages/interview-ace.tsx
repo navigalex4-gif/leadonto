@@ -690,14 +690,14 @@ function InterviewAceContent() {
       const safetyMs = Math.max(text.length * 50 + 5_000, 16_000);
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
-        speech.suppressUntil(Date.now() + 900);
-         speech.blockFor(220); // short speaker-tail guard; reopen STT within one second
+         speech.suppressUntil(Date.now() + 250);
+         speech.blockFor(0); // reopen the mic immediately after interviewer audio ends
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
-        speech.suppressUntil(Date.now() + 900);
-         speech.blockFor(220);
+         speech.suppressUntil(Date.now() + 250);
+         speech.blockFor(0);
          resumeInterviewListeningRef.current?.();
         setCoachSpeaking(false);
       }, {
@@ -2360,7 +2360,7 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
           </div>
 
           {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 top-3 bottom-3 z-10 w-[46%] sm:w-[48%] rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+           <div className="absolute left-1/2 top-3 bottom-3 z-10 w-[46%] sm:w-[48%] -translate-x-1/2 rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}

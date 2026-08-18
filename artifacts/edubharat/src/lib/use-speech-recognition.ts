@@ -26,9 +26,12 @@ type BrowserSpeechWindow = Window & {
 // Keep natural pauses inside a candidate's answer. Cutting at 650ms was
 // especially damaging on Indian English, where speakers often pause between
 // clauses; the resulting fragments were harder for STT to understand.
-const SILENCE_MS = 900;
+// Keep the final clause of a naturally paced answer in the same utterance.
+// This matters for Indian-English speakers who often pause briefly between
+// clauses; the server model is more accurate when it receives the full thought.
+const SILENCE_MS = 1_200;
 const MIN_UTTERANCE_MS = 360;
-const MAX_UTTERANCE_MS = 24_000;
+const MAX_UTTERANCE_MS = 30_000;
 const VAD_INTERVAL_MS = 50;
 const MIN_VAD_THRESHOLD = 0.022;
 const MAX_VAD_THRESHOLD = 0.06;

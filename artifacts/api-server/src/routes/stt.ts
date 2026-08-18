@@ -56,12 +56,16 @@ async function transcribeWithGoogleCloud(
       // it as 0 Hz and rejects the request before transcription begins.
       sampleRateHertz: 48000,
       languageCode: LANGUAGE_CODES[language] ?? "en-IN",
+      // Keep Indian English primary, but allow Google's recognizer to resolve
+      // common US/UK pronunciations used inside Indian workplace speech.
+      ...(language === "English" ? { alternativeLanguageCodes: ["en-US", "en-GB"] } : {}),
        // latest_long is more reliable for complete candidate answers, which
        // commonly contain pauses and several clauses. The client-side VAD
        // already bounds the utterance, so this does not create an open-ended
        // recognition request.
        model: "latest_long",
       enableAutomaticPunctuation: true,
+      enableSpokenPunctuation: true,
     },
   }, {});
   return (response.results ?? [])
