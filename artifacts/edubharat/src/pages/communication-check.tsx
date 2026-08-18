@@ -188,6 +188,8 @@ export default function CommunicationCheck() {
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceWrapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishWithFeedbackRef = useRef<(finalAnswers: Answer[]) => void>(() => {});
   const endingRef = useRef(false);
   const closingRef = useRef(false);
   const turnRef = useRef(false);
@@ -216,9 +218,11 @@ export default function CommunicationCheck() {
     if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
     if (deadlineRef.current) clearTimeout(deadlineRef.current);
     if (speechSafetyRef.current) clearTimeout(speechSafetyRef.current);
+    if (silenceWrapRef.current) clearTimeout(silenceWrapRef.current);
     autoSubmitRef.current = null;
     deadlineRef.current = null;
     speechSafetyRef.current = null;
+    silenceWrapRef.current = null;
   }, []);
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
@@ -252,9 +256,20 @@ export default function CommunicationCheck() {
     if (!speech.isSupported || endingRef.current || (closingRef.current && !finalWindowRef.current)) return;
     setIsListening(true);
     speech.blockFor(0);
+    if (silenceWrapRef.current) clearTimeout(silenceWrapRef.current);
+    silenceWrapRef.current = setTimeout(() => {
+      if (endingRef.current || turnRef.current || answerRef.current.trim()) return;
+      finishWithFeedbackRef.current(
+        answersRef.current.length
+          ? answersRef.current
+          : [{ question: questionRef.current, answer: "" }],
+      );
+    }, 30_000);
     speech.startContinuous((text) => {
       const chunk = text.trim();
       if (!chunk || endingRef.current) return;
+      if (silenceWrapRef.current) clearTimeout(silenceWrapRef.current);
+      silenceWrapRef.current = null;
       const next = `${answerRef.current ? `${answerRef.current} ` : ""}${chunk}`.trim();
       answerRef.current = next;
       setCurrentAnswer(next);
@@ -302,6 +317,12 @@ export default function CommunicationCheck() {
       setPhase("feedback");
     }
   }, [candidate, clearTimers, speech, synth, toast]);
+
+  useEffect(() => {
+    finishWithFeedbackRef.current = (finalAnswers) => {
+      void finishWithFeedback(finalAnswers);
+    };
+  }, [finishWithFeedback]);
 
   const sendExpandedFeedback = useCallback(async () => {
     if (!feedback) return;
@@ -598,7 +619,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
              <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
-               {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Processing your answer…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Processing your words…" : speech.status === "listening" ? "Listening… take your time." : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
+                {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Your interviewer is preparing the next question…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Your answer is being transcribed…" : speech.status === "listening" ? "Speak naturally…" : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3">
                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
@@ -608,7 +629,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                  "border-slate-200 bg-slate-50 text-slate-600"
                }`}>
                  <span className={`h-2 w-2 rounded-full ${speech.status === "listening" ? "animate-pulse bg-emerald-500" : speech.status === "processing" ? "animate-pulse bg-blue-500" : speech.status === "warming" ? "animate-pulse bg-amber-500" : "bg-slate-400"}`} />
-                 {speech.status === "warming" ? "Preparing" : speech.status === "processing" ? "Processing" : speech.status === "listening" ? "Listening…" : "Mic ready"}
+                  {speech.status === "warming" ? "Preparing" : speech.status === "processing" ? "Transcribing" : speech.status === "listening" ? "Speak" : "Mic ready"}
                  {speech.status === "listening" && <span className="h-1.5 w-10 overflow-hidden rounded-full bg-emerald-100"><span className="block h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.max(8, Math.round(speech.audioLevel * 100))}%` }} /></span>}
                </div>
                <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {

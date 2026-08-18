@@ -32,7 +32,10 @@ const MAX_UTTERANCE_MS = 24_000;
 const VAD_INTERVAL_MS = 50;
 const MIN_VAD_THRESHOLD = 0.022;
 const MAX_VAD_THRESHOLD = 0.06;
-const WARMUP_MS = 300;
+// Keep the state transition responsive after an interviewer finishes. The
+// recorder itself starts immediately; this short visual warmup avoids showing
+// a false "ready" state without delaying capture.
+const WARMUP_MS = 120;
 const PRE_ROLL_CHUNKS = 8;
 const RECORDER_TIMESLICE_MS = 160;
 

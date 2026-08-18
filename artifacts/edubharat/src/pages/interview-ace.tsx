@@ -691,13 +691,13 @@ function InterviewAceContent() {
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
         speech.suppressUntil(Date.now() + 900);
-         speech.blockFor(800); // let speaker reverb fully decay before reopening STT
+         speech.blockFor(220); // short speaker-tail guard; reopen STT within one second
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
         speech.suppressUntil(Date.now() + 900);
-         speech.blockFor(800);
+         speech.blockFor(220);
          resumeInterviewListeningRef.current?.();
         setCoachSpeaking(false);
       }, {
@@ -2450,41 +2450,36 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Mic status pill */}
-          <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-colors ${
-            isRecording
-              ? speech.status === "warming"
-                ? "bg-amber-100 text-amber-700 border border-amber-300"
-                : speech.status === "processing"
-                ? "bg-blue-100 text-blue-700 border border-blue-300"
-                : "bg-green-100 text-green-700 border border-green-300"
-              : "bg-slate-100 text-slate-500"
-          }`}>
-            {isRecording ? <span className="h-2 w-2 rounded-full bg-current animate-pulse" /> : <MicOff className="w-3 h-3" />}
-            {isRecording
-              ? speech.error
-                ? speech.error
-                : speech.status === "processing"
-                ? "Processing…"
-                : "Listening…"
-              : speech.isSupported
-                ? "Mic paused"
-                : "No mic"}
-          </div>
-           {isRecording && speech.status === "listening" && (
+           {isRecording ? (
              <div
-               className="flex h-6 min-w-20 items-center gap-0.5 overflow-hidden rounded-full border border-green-200 bg-green-50 px-2"
-               aria-label="Candidate speaking level"
+               className={`flex h-8 min-w-24 items-center justify-center gap-1 overflow-hidden rounded-full border px-2 ${
+                 speech.status === "processing"
+                   ? "border-blue-300 bg-blue-50"
+                   : speech.status === "warming"
+                   ? "border-amber-300 bg-amber-50"
+                   : "border-green-200 bg-green-50"
+               }`}
+               aria-label="Candidate microphone level"
              >
                {[0.5, 0.8, 1, 0.7, 0.9, 0.6, 0.85, 0.55].map((multiplier, index) => (
                  <span
                    key={index}
-                   className="block flex-1 rounded-full bg-green-500 transition-all duration-75"
-                   style={{ height: `${Math.max(12, Math.round(speech.audioLevel * multiplier * 100))}%` }}
+                   className={`block w-1 rounded-full transition-all duration-75 ${
+                     speech.status === "processing" ? "bg-blue-500" : speech.status === "warming" ? "bg-amber-500" : "bg-green-500"
+                   }`}
+                   style={{ height: `${Math.max(12, Math.round(Math.max(0.08, speech.audioLevel) * multiplier * 100))}%` }}
                  />
                ))}
              </div>
+           ) : (
+             <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+               <MicOff className="w-3 h-3" />
+               {speech.isSupported ? "Mic paused" : "No mic"}
+             </div>
            )}
-
+           {isRecording && speech.error && (
+             <span className="max-w-[14rem] truncate text-xs text-red-600" title={speech.error}>{speech.error}</span>
+           )}
           <Button
             variant="ghost"
             size="sm"

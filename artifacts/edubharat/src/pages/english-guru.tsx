@@ -55,6 +55,31 @@ function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
 }
 
+function alignTutorGender(text: string, voiceGender: "male" | "female"): string {
+  if (voiceGender === "female") {
+    return text
+      .replace(/\bsamajh\s+j(a|ā)unga\b/gi, "samajh jaungi")
+      .replace(/\bkarunga\b/gi, "karungi")
+      .replace(/\bkahunga\b/gi, "kahungi")
+      .replace(/\bbataunga\b/gi, "bataungi")
+      .replace(/\bdunga\b/gi, "dungi")
+      .replace(/समझ जाऊँगा/g, "समझ जाऊँगी")
+      .replace(/करूँगा/g, "करूँगी")
+      .replace(/कहूँगा/g, "कहूँगी")
+      .replace(/बताऊँगा/g, "बताऊँगी");
+  }
+  return text
+    .replace(/\bsamajh\s+jaungi\b/gi, "samajh jaunga")
+    .replace(/\bkarungi\b/gi, "karunga")
+    .replace(/\bkahungi\b/gi, "kahunga")
+    .replace(/\bbataungi\b/gi, "bataunga")
+    .replace(/\bdungi\b/gi, "dunga")
+    .replace(/समझ जाऊँगी/g, "समझ जाऊँगा")
+    .replace(/करूँगी/g, "करूँगा")
+    .replace(/कहूँगी/g, "कहूँगा")
+    .replace(/बताऊँगी/g, "बताऊँगा");
+}
+
 function LanguageHighlight() {
   return (
     <div
@@ -473,6 +498,7 @@ function EnglishGuruContent() {
          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}
 
 This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
+When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
 
 Rules for spoken replies:
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
@@ -542,7 +568,7 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
-          const cleanResponse = stripMarkdownForSpeech(response)
+          const cleanResponse = alignTutorGender(stripMarkdownForSpeech(response), tutor.voiceGender)
             .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
             .trim();
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
