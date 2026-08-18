@@ -6,6 +6,13 @@ description: One startContinuous call only — blockFor() resumes it; calling st
 ## Rule
 The TTS `onEnd` callback must only call `speech.blockFor(N)` to lift the pause — NEVER `speech.stop()` + `speech.startContinuous()` inside `onEnd`. `startContinuous` is now idempotent (single-flight guard, see below), so re-kicking it is safe and the continuity watchdog does exactly that; but calling `stop()` in `onEnd` still kills the poll loop and triggers a stale `onend` race.
 
+## Explicit post-TTS wake
+After a live AI reply, call `blockFor()` and re-kick the existing `startContinuous()` loop without stopping it; this makes the mic/listening indicator recover immediately instead of relying only on a React state-effect round trip. The loop remains single-flight, so this is safe.
+
+**Why:** state-only rearming could leave Live Conversation visibly in a post-TTS state when the recorder wake raced with the previous capture cleanup.
+
+**How to apply:** keep the callback ref current, call `blockFor()` for the speaker-tail window, then `startContinuous()` with the ref callback. Never add `stop()` in that handoff.
+
 ## Why
 `speech.pause()` (called in `handleConvPhrase`) sets a 10-minute block. The single recognition loop started by `toggleLiveChat` then polls every 250ms waiting for the block to lift. `blockFor(300)` in the TTS `onEnd` overrides that 10-minute block with 300ms — the existing poll loop naturally resumes after 300ms.
 

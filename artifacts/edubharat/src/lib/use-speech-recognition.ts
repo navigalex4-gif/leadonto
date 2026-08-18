@@ -21,7 +21,9 @@ type BrowserSpeechWindow = Window & {
   webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
 };
 
-const SILENCE_MS = 900;
+// End a candidate turn promptly after they stop, while still allowing a
+// natural short pause inside an answer.
+const SILENCE_MS = 650;
 const MIN_UTTERANCE_MS = 280;
 const MAX_UTTERANCE_MS = 14_000;
 const VAD_INTERVAL_MS = 50;
@@ -369,7 +371,17 @@ export function useSpeechRecognition(language = "English") {
         wakeTimerRef.current = setTimeout(() => {
           wakeTimerRef.current = null;
           if (serverSttUnavailableRef.current) void startBrowserRecognition();
-          else void startCapture();
+          else {
+            void startCapture();
+            // startCapture can legitimately defer while a previous recorder
+            // transition is settling. Do not leave the mic in that state:
+            // retry on the next tick without creating a second recorder.
+            window.setTimeout(() => {
+              if (shouldContinueRef.current && !recorderRef.current && !browserRecognitionRef.current && !transcribingRef.current) {
+                void startCapture();
+              }
+            }, 180);
+          }
         }, ms + 60);
       }
     } else if (shouldContinueRef.current) {

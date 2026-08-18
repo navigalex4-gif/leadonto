@@ -522,6 +522,10 @@ Rules for spoken replies:
              speechRef.current.suppressUntil(Date.now() + 2500);
              // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
              speechRef.current.blockFor(450);
+             // Re-arm the single recognition loop immediately. blockFor()
+             // handles the short speaker-tail delay and prevents duplicate
+             // recorders; do not wait for a React effect to notice the state.
+             speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
             setConvFlowState("user-speaking");
           } else {
             setConvFlowState("idle");
@@ -645,8 +649,8 @@ Rules for spoken replies:
       speechRef.current.suppressUntil(Date.now() + 2500);
       // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
       speechRef.current.blockFor(450);
-      setConvFlowState("user-speaking");
       speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
+      setConvFlowState("user-speaking");
     };
 
     speakSafetyTimerRef.current = setTimeout(

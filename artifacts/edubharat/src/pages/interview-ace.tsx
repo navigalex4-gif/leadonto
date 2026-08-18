@@ -657,6 +657,9 @@ function InterviewAceContent() {
   // coachSpeaking gets stuck true permanently — the mic never starts. This ref
   // holds a fallback timer that force-clears the flag after a generous timeout.
   const coachSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The TTS callback must be able to wake the current answer listener without
+  // waiting for a React effect/state round-trip.
+  const resumeInterviewListeningRef = useRef<(() => void) | null>(null);
   /**
    * speakCoach — the ONLY way the interviewer should talk. It hard-pauses the
    * mic the instant the AI begins speaking (kills echo/self-repeat on phones
@@ -686,6 +689,7 @@ function InterviewAceContent() {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
         speech.suppressUntil(Date.now() + 900);
          speech.blockFor(800);
+         resumeInterviewListeningRef.current?.();
         setCoachSpeaking(false);
       }, {
         ...opts,
@@ -1507,7 +1511,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // it too). Clear any stale timer first so a mic restart can't stack two.
     if (noReplyRef.current) clearTimeout(noReplyRef.current);
     noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 33_000);
-    speech.startContinuous(text => {
+    const handleCandidatePhrase = (text: string) => {
       const chunk = text.trim();
       if (!chunk) return;
       setAnswer(prev => {
@@ -1527,7 +1531,13 @@ Next: <the interview question only, may start with a short natural bridge>`,
         const latest = answerRef.current.trim();
         if (latest) void submitCurrentAnswerRef.current(latest);
       }, silenceMs);
-    });
+    };
+    resumeInterviewListeningRef.current = () => {
+      if (phaseRef.current !== "interview" || !autoListenEnabled || endingRef.current) return;
+      setIsRecording(true);
+      speech.startContinuous(handleCandidatePhrase);
+    };
+    speech.startContinuous(handleCandidatePhrase);
     // No clearAutoSubmitTimer in cleanup: timer must survive normal dep changes.
     // Unmount cleanup is handled by the dedicated effect above. Clearing here
     // would cancel in-flight auto-submits whenever any dep ticks (e.g. speech.status).
