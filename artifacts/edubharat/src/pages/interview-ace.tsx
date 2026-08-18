@@ -2445,27 +2445,17 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
                 : "bg-green-100 text-green-700 border border-green-300"
               : "bg-slate-100 text-slate-500"
           }`}>
-            {isRecording ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
+            {isRecording ? <span className="h-2 w-2 rounded-full bg-current animate-pulse" /> : <MicOff className="w-3 h-3" />}
             {isRecording
               ? speech.error
                 ? speech.error
-                : speech.status === "warming"
-                ? "Preparing…"
                 : speech.status === "processing"
                 ? "Processing…"
-                : "Speak now 🎤"
+                : "Listening…"
               : speech.isSupported
                 ? "Mic paused"
                 : "No mic"}
           </div>
-          {isRecording && speech.status === "listening" && (
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-green-700">
-              <span className="h-1.5 w-10 overflow-hidden rounded-full bg-green-100">
-                <span className="block h-full rounded-full bg-green-500 transition-all" style={{ width: `${Math.max(8, Math.round(speech.audioLevel * 100))}%` }} />
-              </span>
-              Listening…
-            </div>
-          )}
 
           <Button
             variant="ghost"

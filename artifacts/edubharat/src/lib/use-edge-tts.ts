@@ -361,7 +361,9 @@ function splitIntoSpeechChunks(
 // Small natural gap between chunks — real speech has a breath/beat at full
 // stops; stitching chunks with zero gap sounds clipped, and too large a gap
 // sounds like separate thoughts rather than one flowing reply.
-const CHUNK_GAP_MS = 10;
+// Keep a small human breath between sentence clips. Ten milliseconds made
+// Indic full stops sound clipped; this is still much faster than a real pause.
+const CHUNK_GAP_MS = 90;
 
 
 function globalStop() {

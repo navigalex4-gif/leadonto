@@ -42,15 +42,6 @@ export const CHARACTER_VOICE_MAP: Record<string, string> = {
   aryan: "en-IN-Chirp3-HD-Rasalgethi",
 };
 
-// Chirp 3 HD keeps the same timbre family across Google's Indian locales.
-// The suffix is permanently assigned by character order, never randomized.
-const CHIRP_CHARACTER_FAMILIES = [
-  "Aoede", "Algieba", "Callirrhoe", "Fenrir",
-  "Kore", "Orus", "Leda", "Achernar",
-  "Algenib", "Charon", "Despina", "Enceladus",
-  "Iapetus", "Rasalgethi",
-] as const;
-
 const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
   English: "en-IN",
   Hindi: "hi-IN",
@@ -115,6 +106,9 @@ function cleanForTTS(text: string): string {
     .replace(/\bMBA\b/gi, "M B A")
     .replace(/\bHR\b/gi, "H R")
     .replace(/\bAI\b/gi, "A I")
+    // Give the Hindi affirmative a clean word boundary. Without punctuation
+    // before the following word, some voices blur हाँ into “हान”.
+    .replace(/(हाँ|हां)(?![,\u0964।!?])/gu, "$1,")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -123,15 +117,49 @@ function isSupportedLanguage(value: string): value is SupportedLanguage {
   return value in LANGUAGE_CODES;
 }
 
-function chooseVoice(language: SupportedLanguage, voiceStyle?: string): string {
+type VoiceSelection = { languageCode: string; name: string };
+const nativeVoiceCache = new Map<string, VoiceSelection>();
+
+async function chooseVoice(language: SupportedLanguage, voiceStyle?: string): Promise<VoiceSelection> {
   if (language === "English") {
-    return CHARACTER_VOICE_MAP[voiceStyle ?? ""] ?? CHARACTER_VOICE_MAP.maya!;
+    return {
+      languageCode: LANGUAGE_CODES.English,
+      name: CHARACTER_VOICE_MAP[voiceStyle ?? ""] ?? CHARACTER_VOICE_MAP.maya!,
+    };
   }
+
+  const requestedCode = LANGUAGE_CODES[language];
+  const cached = nativeVoiceCache.get(requestedCode);
+  if (cached) return cached;
+
+  const client = getGoogleTtsClient();
+  const [catalog] = await client.listVoices({ languageCode: requestedCode });
+  const available = (catalog.voices ?? [])
+    .filter((voice) => voice.name && voice.languageCodes?.includes(requestedCode))
+    .sort((a, b) => {
+      const quality = (name: string) => name.includes("Wavenet") ? 0 : name.includes("Neural2") ? 1 : 2;
+      return quality(a.name ?? "") - quality(b.name ?? "") || (a.name ?? "").localeCompare(b.name ?? "");
+    });
+
+  // Odia and Assamese do not have a dedicated catalog entry in this
+  // environment. A valid Hindi voice is preferable to a silent/500 response.
+  const fallbackCode = available.length > 0 ? requestedCode : "hi-IN";
+  const fallbackCatalog = available.length > 0
+    ? available
+    : ((await client.listVoices({ languageCode: fallbackCode }))[0]?.voices ?? [])
+      .filter((voice) => voice.name && voice.languageCodes?.includes(fallbackCode))
+      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  if (fallbackCatalog.length === 0 || !fallbackCatalog[0]?.name) {
+    throw new Error(`No Google Cloud TTS voice is available for ${language}`);
+  }
+
   const index = CHARACTER_ORDER.indexOf(
     (voiceStyle ?? "maya") as (typeof CHARACTER_ORDER)[number],
   );
-  const family = CHIRP_CHARACTER_FAMILIES[Math.max(0, index) % CHIRP_CHARACTER_FAMILIES.length]!;
-  return `${LANGUAGE_CODES[language]}-Chirp3-HD-${family}`;
+  const selected = fallbackCatalog[Math.max(0, index) % fallbackCatalog.length]!;
+  const selection = { languageCode: fallbackCode, name: selected.name! };
+  nativeVoiceCache.set(requestedCode, selection);
+  return selection;
 }
 
 async function synthesize(
@@ -139,14 +167,17 @@ async function synthesize(
   text: string,
   language: SupportedLanguage,
   voiceName: string,
+  voiceLanguageCode: string,
 ): Promise<void> {
   const client = getGoogleTtsClient();
   const [response] = await client.synthesizeSpeech({
     input: { text },
-    voice: { languageCode: LANGUAGE_CODES[language], name: voiceName },
+    voice: { languageCode: voiceLanguageCode, name: voiceName },
     audioConfig: {
       audioEncoding: "MP3",
-      speakingRate: 1.0,
+      // Leave a little room around Indic punctuation; the client applies the
+      // persona-specific playback rate on top of this synthesis rate.
+      speakingRate: 0.96,
       pitch: 0,
     },
   });
@@ -189,7 +220,8 @@ router.post("/tts", async (req, res) => {
   }
 
   try {
-    await synthesize(res, cleaned, targetLanguage, chooseVoice(targetLanguage, voiceStyle));
+    const voice = await chooseVoice(targetLanguage, voiceStyle);
+    await synthesize(res, cleaned, targetLanguage, voice.name, voice.languageCode);
   } catch (err) {
     req.log.error({ err, language: targetLanguage, voiceStyle }, "Google Cloud TTS failed");
     if (!res.headersSent) res.status(500).json({ error: "Google Cloud TTS failed" });

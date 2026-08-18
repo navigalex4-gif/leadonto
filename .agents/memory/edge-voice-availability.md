@@ -10,3 +10,10 @@ Rule: before mapping any persona to an Edge Neural voice, verify it returns non-
 
 **Why:** user-uploaded zips repeatedly re-map personas to dead voices (pa/or/as); applying them blindly silences the persona.
 **How to apply:** run a quick msedge-tts stream byte-count test (script pattern: pipe toStream, count bytes, >1000 = OK) before changing TUTOR_VOICE_MAP; keep the dead-voice warning comment in tts.ts.
+
+## Google native voice catalog
+For Google Cloud native-language TTS, query and cache the provider's actual locale voice catalog instead of hardcoding Wavenet or Chirp names across Indian languages.
+
+**Why:** a plausible Telugu Wavenet name returned `VOICE_DOES_NOT_EXIST` in this environment while other locale voices worked.
+
+**How to apply:** select a valid locale voice from `listVoices(languageCode)`, fall back to a valid Hindi voice for locales without a dedicated entry, and verify every supported language with a non-empty audio response.
