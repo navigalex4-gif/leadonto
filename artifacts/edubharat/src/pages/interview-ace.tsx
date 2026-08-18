@@ -26,6 +26,7 @@ import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
   Star, Clock, Timer, AlertCircle, Save, PhoneOff, VideoOff, Video, Target, XCircle,
+  Maximize2, Minimize2,
 } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -864,6 +865,7 @@ function InterviewAceContent() {
   const webcamStreamRef = useRef<MediaStream | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [candidateVideoExpanded, setCandidateVideoExpanded] = useState(false);
 
   const typeMeta = INTERVIEW_TYPES.find(t => t.value === type)!;
   const interviewRoleLabel = roleLabelFor(
@@ -1512,13 +1514,13 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // coachSpeaking guard: don't start mic while the AI coach is speaking — prevents
     // the mic from activating between when the stream ends and when TTS actually starts.
     if (phase !== "interview" || !autoListenEnabled || !speech.isSupported || !currentQ || isStreaming || synth.isSpeaking || isRecording || coachSpeaking) return;
-    // Silence window before auto-submit: 5 s. Once the candidate starts
+    // Silence window before auto-submit: under 1 s. Once the candidate starts
     // talking, this gives room for a natural mid-answer pause without cutting
     // off a sentence.
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 5000;
+    const silenceMs = 750;
     setIsRecording(true);
     // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
     // this question, conclude the interview and generate feedback. Cleared the
@@ -1535,7 +1537,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
         return next;
       });
       clearAutoSubmitTimer();
-      // 5 s of quiet → auto-submit. The Submit button stays enabled as a manual
+      // 750 ms of quiet → auto-submit. The Submit button stays enabled as a manual
       // override.
       // Uses submitCurrentAnswerRef (not submitCurrentAnswer directly) so the
       // closure always calls the latest version without adding submitCurrentAnswer
@@ -2358,7 +2360,11 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
 
            {/* Candidate camera — compact bottom-right picture-in-picture so
                the centered interviewer remains the visual focus. */}
-           <div className="absolute right-3 bottom-3 z-20 h-[30%] w-[30%] min-w-28 max-w-56 rounded-xl bg-black border border-slate-300 shadow-xl overflow-hidden sm:h-[34%] sm:w-[25%]">
+           <div className={`absolute right-3 bottom-3 z-20 aspect-square rounded-xl bg-black border border-slate-300 shadow-xl overflow-hidden transition-[width,height] duration-200 ${
+             candidateVideoExpanded
+               ? "w-[min(42vw,360px)]"
+               : "w-32 sm:w-40"
+           }`}>
             {cameraOn ? (
               <video
                 ref={webcamRef}
@@ -2379,7 +2385,7 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
               {candidateDisplayName}
             </div>
             <button
-              className="absolute top-3 right-3 z-10"
+               className="absolute top-2 right-2 z-10"
               onClick={cameraOn ? stopWebcam : () => void startWebcam()}
               title={cameraOn ? "Turn off camera" : "Enable camera (optional)"}
             >
@@ -2387,6 +2393,15 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
                 {cameraOn ? "📷 Off" : "📷 Enable"}
               </span>
             </button>
+             <button
+               type="button"
+               className="absolute top-2 left-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+               onClick={() => setCandidateVideoExpanded(value => !value)}
+               title={candidateVideoExpanded ? "Minimize candidate video" : "Enlarge candidate video"}
+               aria-label={candidateVideoExpanded ? "Minimize candidate video" : "Enlarge candidate video"}
+             >
+               {candidateVideoExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+             </button>
           </div>
 
           {/* Interviewer picture-in-picture */}

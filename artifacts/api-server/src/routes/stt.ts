@@ -59,11 +59,10 @@ async function transcribeWithGoogleCloud(
       // Keep Indian English primary, but allow Google's recognizer to resolve
       // common US/UK pronunciations used inside Indian workplace speech.
       ...(language === "English" ? { alternativeLanguageCodes: ["en-US", "en-GB"] } : {}),
-       // latest_long is more reliable for complete candidate answers, which
-       // commonly contain pauses and several clauses. The client-side VAD
-       // already bounds the utterance, so this does not create an open-ended
-       // recognition request.
-       model: "latest_long",
+      // Candidate turns are bounded by the client VAD and need to return
+      // quickly enough for a conversational reply. The short-form model avoids
+      // the long-form recognizer's multi-second tail on ordinary answers.
+      model: "latest_short",
       enableAutomaticPunctuation: true,
     },
   }, {});

@@ -29,7 +29,9 @@ type BrowserSpeechWindow = Window & {
 // Keep the final clause of a naturally paced answer in the same utterance.
 // This matters for Indian-English speakers who often pause briefly between
 // clauses; the server model is more accurate when it receives the full thought.
-const SILENCE_MS = 1_200;
+// Finish a turn quickly enough for the interviewer to answer within roughly
+// three seconds, while retaining a useful pause between clauses.
+const SILENCE_MS = 900;
 const MIN_UTTERANCE_MS = 360;
 const MAX_UTTERANCE_MS = 30_000;
 const VAD_INTERVAL_MS = 50;
