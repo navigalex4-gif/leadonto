@@ -795,6 +795,7 @@ function InterviewAceContent() {
     setLocation("/interview-ace", { replace: true });
   }, [routeLocation]);
   const [showCreditGate, setShowCreditGate] = useState(false);
+  const [showActiveInterviewPrompt, setShowActiveInterviewPrompt] = useState(false);
   const [questions, setQuestions] = useState<QA[]>([]);
   const questionsRef = useRef<QA[]>([]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
@@ -1125,7 +1126,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
         if (charge.status === 402) {
           setShowCreditGate(true);
         } else if (charge.status === 409) {
-          toast({ title: "Interview already in progress", description: "Finish or close your other interview tab before starting a new one.", variant: "destructive" });
+          setShowActiveInterviewPrompt(true);
         } else {
           toast({ title: "Couldn't start interview", description: charge.error ?? "Please try again.", variant: "destructive" });
         }
@@ -1579,7 +1580,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       ) {
         setIsRecording(false); // triggers auto-listen effect to restart mic
       }
-    }, 4_000);
+    }, 1_000);
     return () => clearInterval(id);
   }, [phase, autoListenEnabled, isRecording, speech.status, coachSpeaking, synth.isSpeaking, isStreaming]);
 
@@ -1994,6 +1995,35 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
         </div>
       </div>
       {showCreditGate && <CreditGate onClose={() => setShowCreditGate(false)} isLoggedIn={!!user} />}
+      {showActiveInterviewPrompt && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-red-500" />
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Interview already in progress</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  A previous interview session is still open for this account. Close it here if that tab has already been closed.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowActiveInterviewPrompt(false)}>Keep it open</Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void endInterview().then(() => {
+                    setShowActiveInterviewPrompt(false);
+                    toast({ title: "Previous interview closed", description: "You can start a new interview now." });
+                  });
+                }}
+              >
+                Close previous interview
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       </>
     );
   }
@@ -2326,9 +2356,9 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-2">
         <div className="relative flex-1 min-h-[150px] rounded-2xl bg-gradient-to-br from-sky-50 via-white to-orange-50 border border-slate-200 shadow-md overflow-hidden">
 
-          {/* Candidate display — anchored to the left, with the light
-              background intentionally visible between both participants. */}
-          <div className="absolute left-3 top-3 bottom-3 w-[46%] sm:w-[48%] rounded-xl bg-black border border-slate-300 shadow-sm overflow-hidden">
+           {/* Candidate camera — compact bottom-right picture-in-picture so
+               the centered interviewer remains the visual focus. */}
+           <div className="absolute right-3 bottom-3 z-20 h-[30%] w-[30%] min-w-28 max-w-56 rounded-xl bg-black border border-slate-300 shadow-xl overflow-hidden sm:h-[34%] sm:w-[25%]">
             {cameraOn ? (
               <video
                 ref={webcamRef}

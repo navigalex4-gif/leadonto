@@ -366,7 +366,7 @@ function EnglishGuruContent() {
              speechRef.current.suppressUntil(Date.now() + 900);
              // Wake recognition immediately after the audio tail; the short
              // suppression window still protects against speaker echo.
-             speechRef.current.blockFor(120);
+             speechRef.current.blockFor(0);
       };
       speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
       // Greetings are always English — voice them with the English tutor voice so
@@ -555,7 +555,7 @@ Rules for spoken replies:
             lastAiSpeechEndRef.current = Date.now();
              speechRef.current.suppressUntil(Date.now() + 2500);
              // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
-             speechRef.current.blockFor(450);
+             speechRef.current.blockFor(0);
              // Re-arm the single recognition loop immediately. blockFor()
              // handles the short speaker-tail delay and prevents duplicate
              // recorders; do not wait for a React effect to notice the state.
@@ -624,7 +624,7 @@ Rules for spoken replies:
         aiBusyRef.current = false;
         if (liveChatRef.current && !livePausedRef.current) {
           speechRef.current.suppressUntil(Date.now() + 900);
-          speechRef.current.blockFor(120);
+          speechRef.current.blockFor(0);
           setConvFlowState("user-speaking");
           speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
         } else {
@@ -684,7 +684,7 @@ Rules for spoken replies:
       lastAiSpeechEndRef.current = Date.now();
       speechRef.current.suppressUntil(Date.now() + 2500);
       // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
-      speechRef.current.blockFor(450);
+      speechRef.current.blockFor(0);
       speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
       setConvFlowState("user-speaking");
     };
@@ -797,7 +797,7 @@ Rules for spoken replies:
         if (!liveChatRef.current || livePausedRef.current) return;
         lastAiSpeechEndRef.current = Date.now();
         speechRef.current.suppressUntil(Date.now() + 1200);
-        speechRef.current.blockFor(450);
+        speechRef.current.blockFor(0);
         setConvFlowState("user-speaking");
       };
       speakRef.current(recall, "English", releaseResume, { rate: 1.0 });

@@ -143,9 +143,10 @@ router.post("/credits/interview/tick", requireAuth, async (req: Request, res: Re
 router.post("/credits/interview/end", requireAuth, (req: Request, res: Response) => {
   const meter = req.session.interview;
   const { interviewId } = req.body as { interviewId?: string };
-  // Only the tab that owns the active interview may clear it, so one tab's
-  // cleanup/unmount can't wipe another tab's in-progress meter.
-  if (meter && meter.id === interviewId) {
+  // Normal cleanup supplies the owning interview id. An explicit user action
+  // from the setup screen may omit it to clear a stale session meter belonging
+  // to this same authenticated session after its tab was closed unexpectedly.
+  if (meter && (!interviewId || meter.id === interviewId)) {
     req.session.interview = undefined;
   }
   res.json({ ok: true });

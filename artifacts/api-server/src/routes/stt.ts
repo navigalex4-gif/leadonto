@@ -65,7 +65,6 @@ async function transcribeWithGoogleCloud(
        // recognition request.
        model: "latest_long",
       enableAutomaticPunctuation: true,
-      enableSpokenPunctuation: true,
     },
   }, {});
   return (response.results ?? [])
@@ -95,7 +94,7 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+       model: "gemini-3.6-flash",
       contents: [{
         role: "user",
         parts: [

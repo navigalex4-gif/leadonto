@@ -236,8 +236,8 @@ export default function CommunicationCheck() {
         clearTimeout(speechSafetyRef.current);
         speechSafetyRef.current = null;
       }
-      speech.suppressUntil(Date.now() + 900);
-      speech.blockFor(800);
+      speech.suppressUntil(Date.now() + 250);
+      speech.blockFor(0);
       onEnd?.();
     };
     const spokenText = cleanSpeech(text);
@@ -280,6 +280,14 @@ export default function CommunicationCheck() {
        }, 2200);
     });
   }, [speech]);
+
+  // Recovery for browsers that silently stop MediaRecorder after the first
+  // completed turn. Do not wait for a user click or a React remount.
+  useEffect(() => {
+    if (phase !== "interview" || !isListening || isThinking || speech.status !== "idle") return;
+    const timer = setTimeout(() => startListening(), 350);
+    return () => clearTimeout(timer);
+  }, [phase, isListening, isThinking, speech.status, startListening]);
 
   const finishWithFeedback = useCallback(async (finalAnswers: Answer[]) => {
     if (endingRef.current) return;
