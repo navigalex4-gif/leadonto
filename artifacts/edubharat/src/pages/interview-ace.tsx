@@ -143,29 +143,6 @@ function avgOf(nums: (number | undefined)[]): number {
   return valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
 }
 
-/** Role-aware benchmark used only when the candidate has not manually chosen
- * an experience level. It sets a sensible hiring bar without locking the
- * candidate into it. */
-function recommendedExperienceForType(interviewType: string): string {
-  switch (interviewType) {
-    case "sales_manager":
-    case "marketing":
-    case "operations":
-      return "3-5 years";
-    case "business_analyst":
-    case "data_analytics":
-    case "sales":
-    case "banking":
-    case "insurance":
-    case "finance":
-      return "1-2 years";
-    case "freshers":
-      return "Fresher";
-    default:
-      return "Fresher";
-  }
-}
-
 function grade(score: number): { label: string; color: string; bg: string } {
   if (score >= 90) return { label: "Outstanding", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" };
   if (score >= 80) return { label: "Excellent", color: "text-green-700", bg: "bg-green-50 border-green-200" };
@@ -690,13 +667,6 @@ function InterviewAceContent() {
   const { balance } = useCredits();
   const { interviewsLeft: guestInterviewsRemaining } = useGuestTrial();
 
-  const mapExperience = (raw: string): string => {
-    if (/5\+|senior|6|7|8|9|10/i.test(raw)) return "5+ years";
-    if (/3|4|5\s*year/i.test(raw)) return "3-5 years";
-    if (/1|2/i.test(raw)) return "1-2 years";
-    return "Fresher";
-  };
-
   const mapPreferredRoleToType = (role: string): string => {
     const r = role.toLowerCase();
     if (r.includes("software") || r.includes("developer") || r.includes("engineer") || r.includes("tech")) return "software";
@@ -727,12 +697,9 @@ function InterviewAceContent() {
 
   const initialType = b2bParams.type || mapPreferredRoleToType(profile.preferredRole);
   const [type, setType] = useState(initialType);
-  const experienceTouchedRef = useRef(Boolean(profile.experienceLevel));
-  const [experience, setExperience] = useState(() =>
-    profile.experienceLevel
-      ? mapExperience(profile.experienceLevel)
-      : recommendedExperienceForType(initialType)
-  );
+  // Experience is an explicit candidate choice. Role selection must never
+  // infer seniority because the same role can be appropriate at many levels.
+  const [experience, setExperience] = useState("");
   const [coach, setCoach] = useState<Coach>(() => {
     // B2B invites lock the interviewer to the recruiter's choice; otherwise the
     // interviewer is auto-matched to the interview type the candidate picked.
@@ -1016,6 +983,14 @@ function InterviewAceContent() {
   }, [questions]);
 
   const startSession = useCallback(async () => {
+    if (!experience) {
+      toast({
+        title: "Select your experience level",
+        description: "Choose Fresher, 1–2 years, 3–5 years, or 5+ years before starting.",
+        variant: "destructive",
+      });
+      return;
+    }
     // Unlock browser autoplay policy synchronously within the user-gesture stack.
     // Must run before any await so Chrome still considers this a gesture-initiated play.
     unlockAudio();
@@ -1823,12 +1798,9 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
             value={type}
             onValueChange={(v) => {
               setType(v);
-               // Keep the benchmark role-aware. A manually selected level is
-               // respected; otherwise changing to Sales Manager (or another
-               // role) immediately updates the expected seniority.
-               if (!experienceTouchedRef.current) {
-                 setExperience(recommendedExperienceForType(v));
-               }
+               // Role never infers seniority. Ask the candidate again whenever
+               // they change the role so the benchmark is intentional.
+               setExperience("");
               // Re-match the interviewer to the new type (unless a B2B invite locked it).
               if (!b2bParams.coach) setCoach(recommendedCoachFor(v));
             }}
@@ -1843,17 +1815,21 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
           <Select
             value={experience}
             onValueChange={(v) => {
-              experienceTouchedRef.current = true;
               setExperience(v);
             }}
           >
-            <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed">
-              <SelectValue />
+            <SelectTrigger className={`h-7 text-xs w-[130px] rounded-full border-dashed ${!experience ? "border-primary text-primary" : ""}`}>
+              <SelectValue placeholder="Select experience" />
             </SelectTrigger>
             <SelectContent>
               {EXPERIENCE_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
+          {!experience && (
+            <span className="basis-full text-xs font-semibold text-primary">
+              Select your experience level for this {INTERVIEW_TYPES.find(t => t.value === type)?.label ?? "role"} interview.
+            </span>
+          )}
           <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
             <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed">
               <SelectValue />
@@ -1926,7 +1902,7 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
               )}
             </p>
           </div>
-          <Button className="shrink-0 font-bold shadow-md shadow-primary/20" onClick={startSession} disabled={isStreaming}>
+          <Button className="shrink-0 font-bold shadow-md shadow-primary/20" onClick={startSession} disabled={isStreaming || !experience}>
             {isStreaming
               ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Preparing…</>
               : <><PlayCircle className="w-4 h-4 mr-1.5" />Begin</>}
