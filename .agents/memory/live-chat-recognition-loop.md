@@ -13,6 +13,13 @@ After a live AI reply, call `blockFor()` and re-kick the existing `startContinuo
 
 **How to apply:** keep the callback ref current, call `blockFor()` for the speaker-tail window, then `startContinuous()` with the ref callback. Never add `stop()` in that handoff.
 
+## Provider deadline and TTS release watchdog
+Live voice turns need a client-side AI deadline around 2.5 seconds with a short spoken fallback, and every page that speaks an AI reply needs a bounded TTS release watchdog. Otherwise a slow provider or missing audio completion callback leaves the UI in “AI is speaking” forever.
+
+**Why:** a stalled live stream once took roughly 18 seconds, and a missing TTS completion callback kept the mic blocked even after the visible reply was rendered.
+
+**How to apply:** pass `timeoutMs` to conversational stream calls, use a natural fallback reply after abort, and release the mic through an idempotent timer if TTS `onEnd` never fires.
+
 ## Why
 `speech.pause()` (called in `handleConvPhrase`) sets a 10-minute block. The single recognition loop started by `toggleLiveChat` then polls every 250ms waiting for the block to lift. `blockFor(300)` in the TTS `onEnd` overrides that 10-minute block with 300ms — the existing poll loop naturally resumes after 300ms.
 

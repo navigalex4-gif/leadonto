@@ -51,6 +51,10 @@ async function transcribeWithGoogleCloud(
     audio: { content: buffer.toString("base64") },
     config: {
       encoding,
+      // MediaRecorder emits Opus at the browser's standard 48 kHz rate, but
+      // the WebM container often omits that metadata. Google otherwise reads
+      // it as 0 Hz and rejects the request before transcription begins.
+      sampleRateHertz: 48000,
       languageCode: LANGUAGE_CODES[language] ?? "en-IN",
       model: "latest_short",
       enableAutomaticPunctuation: true,

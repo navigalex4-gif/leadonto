@@ -186,6 +186,7 @@ export default function CommunicationCheck() {
   const answersRef = useRef<Answer[]>([]);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endingRef = useRef(false);
   const closingRef = useRef(false);
   const turnRef = useRef(false);
@@ -213,17 +214,37 @@ export default function CommunicationCheck() {
   const clearTimers = useCallback(() => {
     if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
     if (deadlineRef.current) clearTimeout(deadlineRef.current);
+    if (speechSafetyRef.current) clearTimeout(speechSafetyRef.current);
     autoSubmitRef.current = null;
     deadlineRef.current = null;
+    speechSafetyRef.current = null;
   }, []);
 
   const speak = useCallback((text: string, onEnd?: () => void) => {
     speech.pause();
-    void synth.speak(cleanSpeech(text), "English", () => {
+    if (speechSafetyRef.current) clearTimeout(speechSafetyRef.current);
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      if (speechSafetyRef.current) {
+        clearTimeout(speechSafetyRef.current);
+        speechSafetyRef.current = null;
+      }
       speech.suppressUntil(Date.now() + 900);
       speech.blockFor(800);
       onEnd?.();
-    }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: COMMUNICATION_CHECK_SPEECH_RATE });
+    };
+    const spokenText = cleanSpeech(text);
+    speechSafetyRef.current = setTimeout(
+      release,
+      Math.max(6000, spokenText.length * 65 + 2000),
+    );
+    void synth.speak(spokenText, "English", release, {
+      voiceGender: "female",
+      voiceStyle: INTERVIEWER.voiceStyle,
+      rate: COMMUNICATION_CHECK_SPEECH_RATE,
+    });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
 
   const startListening = useCallback(() => {
@@ -335,7 +356,7 @@ export default function CommunicationCheck() {
 
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
-      deadlineRef.current = setTimeout(() => resolve(""), 1200);
+      deadlineRef.current = setTimeout(() => resolve(""), 2500);
     });
     const askedQuestions = nextAnswers.map((item) => item.question);
     let response = "";
@@ -348,7 +369,7 @@ Questions already asked: ${askedQuestions.join(" | ")}
 Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Keep momentum high. Maximum 32 words.`,
           "You are a warm, lively Indian interviewer. Sound alert, encouraging and genuinely interested, not like a form. Speak at a brisk conversational pace with clear energy, short sentences and varied reactions. Show empathy when the answer is difficult, celebrate a specific small win, and make brief answers easier. Never sound fake, breathless or scripted. No markdown or preamble.",
           undefined,
-          { maxTokens: 70 },
+          { maxTokens: 70, timeoutMs: 2500 },
         ),
         fallbackTimer,
       ]);

@@ -3,6 +3,8 @@ import { useState, useCallback, useRef } from "react";
 export type StreamOptions = {
   maxTokens?: number;
   endpoint?: string;
+  /** Abort a conversational turn that cannot produce a useful reply quickly. */
+  timeoutMs?: number;
 };
 
 async function* parseSSE(response: Response, signal: AbortSignal): AsyncGenerator<string> {
@@ -55,6 +57,9 @@ export function useGeminiStream() {
       const controller = new AbortController();
       abortRef.current = controller;
       const requestId = ++requestIdRef.current;
+      const timeoutId = options?.timeoutMs
+        ? setTimeout(() => controller.abort(), options.timeoutMs)
+        : null;
 
       setIsStreaming(true);
       setText("");
@@ -93,6 +98,7 @@ export function useGeminiStream() {
         setError(friendly);
         return "";
       } finally {
+        if (timeoutId !== null) clearTimeout(timeoutId);
         if (requestId === requestIdRef.current) {
           setIsStreaming(false);
         }

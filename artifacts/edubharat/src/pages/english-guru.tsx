@@ -467,7 +467,7 @@ function EnglishGuruContent() {
           ? `\n\nLive web context (use naturally if relevant): "${webContext}"`
           : "";
 
-        const response = await stream(
+        let response = await stream(
           `${recentHistory}${silenceInstruction}\n${teacherShort}:`,
          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}
 
@@ -487,8 +487,15 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}`,
           undefined,
-         { maxTokens: 140 }
+          { maxTokens: 140, timeoutMs: 2500 }
         );
+        // Never leave the student waiting while a provider stalls. The
+        // fallback is spoken normally, so the mic handoff still completes.
+        if (!response.trim()) {
+          response = isSilenceProbe
+            ? "Take your time. What would you like to talk about?"
+            : "I’m here with you. Tell me a little more about that.";
+        }
         if (
           turnGeneration !== liveTurnGenerationRef.current ||
           (liveChatRef.current && livePausedRef.current)
@@ -544,7 +551,9 @@ Rules for spoken replies:
           // chunk. The old timeout was short enough to reopen the mic during a
           // long mixed-language response, so allow network retries and every
           // language chunk to finish before treating TTS as stuck.
-          const safetyMs = Math.max(cleanResponse.length * 100 + 12_000, 30_000);
+          // Audio completion is normally released by TTS onEnd. Keep a short
+          // watchdog so a missing audio callback cannot strand the mic.
+          const safetyMs = Math.max(cleanResponse.length * 70 + 4_000, 6_000);
           speakSafetyTimerRef.current = setTimeout(releaseTurn, safetyMs);
           // Voice the reply in English by default — the AI is instructed to speak
           // MOSTLY English here, so a native neural voice (e.g. Malayalam) reading
