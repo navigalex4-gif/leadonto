@@ -54,8 +54,8 @@ const DURATIONS = [
   { value: 15, label: "15 minutes" },
   { value: 25, label: "25 minutes" },
 ];
-const INTERVIEW_SPEECH_RATE = 0.98;
-const ANANYA_SPEECH_RATE = 1.02;
+const INTERVIEW_SPEECH_RATE = 1.08;
+const ANANYA_SPEECH_RATE = 1.1;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,6 +78,10 @@ type Coach = typeof INTERVIEW_COACHES[number];
 /** Interviewers introduce themselves by name only, without honorifics. */
 function interviewerDisplayName(name: string): string {
   return name.replace(/\s+(?:sir|ma['’]am|madam)\b/gi, "").trim();
+}
+
+function spokenRoleLabel(label: string): string {
+  return label.replace(/\s+Interview$/i, "").trim() || label;
 }
 
 type CompetencyRating = { rating: number; comment: string };
@@ -661,7 +665,8 @@ function InterviewAceContent() {
         setCoachSpeaking(false);
       }, {
         ...opts,
-        // Keep every interviewer response at a calm, conversational pace.
+         // Keep interviewer replies brisk and conversational so the candidate
+         // gets the next question within the live-turn budget.
          rate: Math.min(
            opts.rate ?? (coach.id === "ananya" ? ANANYA_SPEECH_RATE : INTERVIEW_SPEECH_RATE),
            coach.id === "ananya" ? ANANYA_SPEECH_RATE : INTERVIEW_SPEECH_RATE,
@@ -829,6 +834,7 @@ function InterviewAceContent() {
     typeMeta.label,
     mapPreferredRoleToType,
   );
+  const spokenInterviewRoleLabel = spokenRoleLabel(interviewRoleLabel);
   const domainExpertise = `${functionalKnowledgeFor(typeMeta.value, interviewRoleLabel)}
 ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.industryPreference)}`;
   const recommendedCoachId = recommendedCoachFor(type).id;
@@ -1050,7 +1056,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     // Every interview begins with a basic introduction before domain testing.
-    const safeOpening = `Hello, I'm ${displayCoachName}, and I'll be your ${interviewRoleLabel} interviewer today. To begin, please introduce yourself, including your education, relevant experience or projects, and why you're interested in ${interviewRoleLabel}.`;
+    const safeOpening = `Hello, I'm ${displayCoachName}, your ${spokenInterviewRoleLabel} interviewer. To begin, please introduce yourself, including your education, relevant experience or projects, and why you're interested in ${spokenInterviewRoleLabel}.`;
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1221,12 +1227,12 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const naturalPauseMs = (() => {
       const words = recordedAnswer.split(/\s+/).filter(Boolean).length;
       const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 250 : 0;
-      const base = words < 15 ? 3200 : words <= 50 ? 3450 : 3700;
-      return Math.min(4000, Math.max(3000, base + hesitationMs));
+      const base = words < 15 ? 1300 : words <= 50 ? 1550 : 1800;
+      return Math.min(2200, Math.max(1200, base + hesitationMs));
     })();
     const turnStartedAt = performance.now();
-    const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
-    const STREAM_DEADLINE_MS = 3200;
+    const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 1200));
+    const STREAM_DEADLINE_MS = 1800;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1274,7 +1280,7 @@ Output format — exactly one line, nothing else:
 Next: <the interview question only, may start with a short natural bridge>`,
           `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You are the domain-specialist interviewer for ${interviewRoleLabel}. Treat ${interviewRoleLabel} as the authoritative target role and ask questions grounded in its real work, tools, decisions, risks and success measures. You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
-          { maxTokens: 220 }
+           { maxTokens: 140 }
         ),
         streamDeadlinePromise,
       ]);
@@ -1293,13 +1299,13 @@ Next: <the interview question only, may start with a short natural bridge>`,
       response = `Next: ${fallback}`;
     }
 
-    // Hold the natural conversational floor, then use the remaining wall-clock
-    // budget to land the response between three and four seconds.
+    // Keep a short human pause without delaying the next question. The hard
+    // stream deadline plus this pause keeps normal replies under three seconds.
     await minWaitPromise;
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     const remainingPause = Math.min(
       Math.max(0, naturalPauseMs - (performance.now() - turnStartedAt)),
-      4000 - (performance.now() - turnStartedAt),
+      2200 - (performance.now() - turnStartedAt),
     );
     if (remainingPause > 0) await new Promise<void>((resolve) => setTimeout(resolve, remainingPause));
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
@@ -1365,6 +1371,11 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setCurrentIdx(prev => prev + 1);
     setAnswer("");
     setIsRecording(false);
+    // speech.stop() is intentionally used at the start of a turn to cancel
+    // stale capture. Explicitly clear any speaker block before the next
+    // continuous listener starts; relying only on the state transition can
+    // leave the mic visually active but not actually capturing.
+    speech.blockFor(0);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
     speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);

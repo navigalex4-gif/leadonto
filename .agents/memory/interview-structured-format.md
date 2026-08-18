@@ -88,3 +88,10 @@ The live interview screen uses a light theme (not dark) and a `grid grid-cols-2`
 The 30s-ish no-reply watchdog (see above) reliably fires during automated Playwright testing because the testing subagent's own per-step verification/reasoning overhead (screenshotting, describing, analyzing) often exceeds the watchdog window between a question appearing and the next answer being submitted. An interview that "ends after 1-2 questions" during a test run is very often this watchdog working as designed, not a regression — cross-check the API server log timestamps for a gap near/above the watchdog threshold between the last TTS call and the next AI stream call before concluding it's a bug.
 **Why:** wasted a full test cycle chasing a false-positive "premature termination" failure; server log timing (a 46s gap between calls) confirmed the watchdog, not a crash.
 **How to apply:** when writing a test plan for multi-question interview flows, explicitly instruct the tester to submit each answer within ~10-15s of the question appearing and defer detailed analysis until after the full question set is collected.
+
+# Live Interview Ace latency and STT provider order
+Candidate turn handling should target a sub-three-second reply: keep the AI deadline short, use only a brief conversational pause, and restart continuous mic capture explicitly after the coach finishes speaking. Speech-to-text should use Google Cloud first when Gemini quota is exhausted; otherwise every answer waits several seconds for a failed Gemini attempt before fallback.
+
+**Why:** a deliberate three-to-four-second pause plus a 3.2-second stream deadline made the interviewer feel slow, while Gemini quota failures caused 5–6 second STT requests and left the mic appearing stuck in processing.
+
+**How to apply:** keep TTS brisk but intelligible, clear any speaker block before starting the next listener, and treat role labels ending in “Interview” as natural spoken labels (for example, “HR interviewer,” not “HR Interview interviewer”).

@@ -70,11 +70,20 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   const language = String(req.body.language || "English");
   const mimeType = req.file.mimetype || "audio/webm";
   try {
+    // Google Cloud is the low-latency primary for Interview Ace. Gemini's
+    // project is currently quota-exhausted, and trying it first adds 5–6
+    // seconds before this same reliable fallback can return the transcript.
+    const text = await transcribeWithGoogleCloud(req.file.buffer, mimeType, language);
+    res.json({ text });
+    return;
+  } catch (googleError) {
+    console.warn("[stt] Google Cloud Speech-to-Text unavailable; trying Gemini:", googleError);
+  }
+
+  try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      // Keep Gemini first while it is available; Google Cloud below is the
-      // reliable fallback when the Gemini project is quota-exhausted.
-      model: "gemini-3.6-flash",
+      model: "gemini-2.5-flash",
       contents: [{
         role: "user",
         parts: [
@@ -89,17 +98,9 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
           },
         ],
       }],
-      config: { maxOutputTokens: 8192 },
+      config: { maxOutputTokens: 512 },
     });
     res.json({ text: response.text?.trim() ?? "" });
-    return;
-  } catch (geminiError) {
-    console.warn("[stt] Gemini unavailable; trying Google Cloud Speech-to-Text:", geminiError);
-  }
-
-  try {
-    const text = await transcribeWithGoogleCloud(req.file.buffer, mimeType, language);
-    res.json({ text });
   } catch (googleError) {
     console.error("[stt] all transcription providers failed:", googleError);
     res.status(502).json({ error: "Speech transcription is temporarily unavailable." });
