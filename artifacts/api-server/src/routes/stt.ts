@@ -51,6 +51,10 @@ async function transcribeWithGoogleCloud(
     audio: { content: buffer.toString("base64") },
     config: {
       encoding,
+      // MediaRecorder commonly emits WEBM/Opus without a reliable container
+      // sample-rate header. Supplying the capture rate prevents Google Cloud
+      // from rejecting valid audio with "Opus sample rate (0)".
+      sampleRateHertz: 48000,
       languageCode: LANGUAGE_CODES[language] ?? "en-IN",
       model: "latest_short",
       enableAutomaticPunctuation: true,

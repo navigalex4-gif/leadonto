@@ -331,6 +331,33 @@ function isCannedInterviewQuestion(question: string): boolean {
   );
 }
 
+/**
+ * The selected industry and role are interview settings, not proof of past
+ * employment. Models can still turn that context into an unsupported claim,
+ * so reject it before the question reaches the screen or TTS.
+ */
+function hasUnsupportedExperienceClaim(question: string, candidateEvidence: string): boolean {
+  const normalizedQuestion = normalizeInterviewQuestion(question);
+  const normalizedEvidence = normalizeInterviewQuestion(candidateEvidence);
+  const domainTerms = [
+    "banking", "branch operations", "branch banking", "bfsi", "finance",
+    "insurance", "lending", "loan", "kyc", "sales", "customer service",
+    "operations", "retail", "logistics", "call centre", "call center",
+  ];
+  const claimAboutPastWork =
+    /\byour\b[\w\s-]{0,70}\b(?:work|working|experience|background|role|job|career)\b/.test(normalizedQuestion)
+    || /\byour\b[\w\s-]{0,70}\bover the past\b/.test(normalizedQuestion)
+    || /\b(?:over|in) the past \w+ years?\b/.test(normalizedQuestion);
+  if (!claimAboutPastWork) return false;
+
+  return domainTerms.some(term => {
+    if (!normalizedQuestion.includes(term)) return false;
+    const evidenceHasDomain = normalizedEvidence.includes(term);
+    const evidenceHasWorkContext = /\b(?:worked|working|experience|role|job|handled|managed|employed|internship|project)\b/.test(normalizedEvidence);
+    return !evidenceHasDomain || !evidenceHasWorkContext;
+  });
+}
+
 function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, roleLabel: string, type: string, experience: string): string {
   // Area-specific bank first (shuffled, so repeated fallbacks vary between
   // sessions and within one), domain questions woven around the actual role,
@@ -1171,6 +1198,10 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       .map((q, i) => `Q: ${q.question}\nA: ${q.answer}`)
       .join("\n\n");
     const askedQuestions = questionsRef.current.map(q => q.question);
+    const candidateEvidence = [
+      ...questionsRef.current.filter(q => q.answer).map(q => q.answer ?? ""),
+      ...(profile.skills ?? []),
+    ].join(" ");
 
     // Detect whether the candidate could not answer, so we can apply the
     // 2-attempt rule (give ONE more chance, then move on kindly) instead of
@@ -1262,7 +1293,8 @@ STYLE — important:
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
  - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
  - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
-- Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
+ - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
+ - HARD EVIDENCE RULE: Never state or imply that the candidate has worked in a particular industry, branch, company, function, or number of years unless the candidate explicitly said that in an answer or it appears in their explicit skills. The selected industry, role label, and experience level are interview settings, not candidate work history. When evidence is missing, ask neutrally: "Tell me about a time you handled..." Do not write "in your banking work", "your branch experience", "over your past two years", or similar unsupported claims.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
 - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.
 - LANGUAGE LEVEL: By default ask in SIMPLE, clear, everyday English — short sentences, common words — because many candidates are from average English-medium colleges. Judge ${firstName}'s own English from their answers so far: if they are clearly fluent and comfortable, you may use richer vocabulary and slightly more complex questions to match them; if they struggle, make your wording even simpler. Never make a question harder to follow than the candidate can handle.
@@ -1350,6 +1382,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     if (
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
+      || hasUnsupportedExperienceClaim(nextQuestion, candidateEvidence)
     ) {
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
@@ -2266,9 +2299,9 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 gap-2">
         <div className="relative flex-1 min-h-[150px] rounded-2xl bg-gradient-to-br from-sky-50 via-white to-orange-50 border border-slate-200 shadow-md overflow-hidden">
 
-          {/* Candidate display — anchored to the left, with the light
-              background intentionally visible between both participants. */}
-          <div className="absolute left-3 top-3 bottom-3 w-[46%] sm:w-[48%] rounded-xl bg-black border border-slate-300 shadow-sm overflow-hidden">
+          {/* Candidate display stays as a small call tile so the interviewer
+              remains the centered primary view while the candidate is speaking. */}
+          <div className="absolute right-3 top-3 z-20 h-[28%] min-h-[92px] w-[30%] max-w-[260px] rounded-xl bg-black border border-slate-300 shadow-lg overflow-hidden">
             {cameraOn ? (
               <video
                 ref={webcamRef}
@@ -2299,8 +2332,9 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
             </button>
           </div>
 
-          {/* Interviewer picture-in-picture */}
-          <div className="absolute right-3 top-3 bottom-3 z-10 w-[46%] sm:w-[48%] rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+          {/* Interviewer primary view — centered so the candidate always faces
+              the interviewer during the live conversation. */}
+          <div className="absolute inset-3 z-10 rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-2 p-3 overflow-hidden">
             <div
               className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
@@ -2314,7 +2348,7 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
                 isSpeaking={synth.isSpeaking}
                 isThinking={isStreaming || coachThinking}
                 gender={coach.gender}
-                size="xl"
+                 size="xl"
                 imageSrc={coach.imageSrc}
                 hideCaption
               />
