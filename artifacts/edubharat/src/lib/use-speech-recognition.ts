@@ -25,8 +25,11 @@ const SILENCE_MS = 900;
 const MIN_UTTERANCE_MS = 280;
 const MAX_UTTERANCE_MS = 14_000;
 const VAD_INTERVAL_MS = 50;
-const VAD_THRESHOLD = 0.035;
+const MIN_VAD_THRESHOLD = 0.022;
+const MAX_VAD_THRESHOLD = 0.06;
 const WARMUP_MS = 300;
+const PRE_ROLL_CHUNKS = 8;
+const RECORDER_TIMESLICE_MS = 160;
 
 function getMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
@@ -47,6 +50,7 @@ export function useSpeechRecognition(language = "English") {
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
 
   const shouldContinueRef = useRef(false);
   const onPhraseRef = useRef<((text: string) => void) | null>(null);
@@ -59,8 +63,16 @@ export function useSpeechRecognition(language = "English") {
   const frameRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const rollingChunksRef = useRef<Blob[]>([]);
+  const utteranceChunksRef = useRef<Blob[]>([]);
+  const utteranceActiveRef = useRef(false);
   const utteranceStartedRef = useRef(0);
   const lastVoiceRef = useRef(0);
+  const noiseFloorRef = useRef(0.008);
+  const audioLevelRef = useRef(0);
+  const speechStartRef = useRef(0);
+  const firstAudioRef = useRef(0);
+  const firstInterimRef = useRef(0);
   const generationRef = useRef(0);
   const captureStartingRef = useRef(false);
   const transcribingRef = useRef(false);
@@ -88,6 +100,9 @@ export function useSpeechRecognition(language = "English") {
     const recorder = recorderRef.current;
     recorderRef.current = null;
     chunksRef.current = [];
+    rollingChunksRef.current = [];
+    utteranceChunksRef.current = [];
+    utteranceActiveRef.current = false;
     if (recorder && recorder.state !== "inactive") {
       recorder.ondataavailable = null;
       recorder.onstop = null;
@@ -137,16 +152,24 @@ export function useSpeechRecognition(language = "English") {
     const recognition = new Recognition();
     recognition.lang = browserLocale;
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
       let text = "";
+      let interim = "";
       for (let index = 0; index < event.results.length; index += 1) {
         const result = event.results[index];
         if (result?.isFinal) text += ` ${result[0]?.transcript ?? ""}`;
+        else interim += ` ${result[0]?.transcript ?? ""}`;
+      }
+      const interimText = interim.trim();
+      if (interimText) {
+        firstInterimRef.current ||= performance.now();
+        setInterimTranscript(interimText);
       }
       const trimmed = text.trim();
       if (trimmed && shouldContinueRef.current) {
+        setInterimTranscript("");
         setTranscript((previous) => `${previous}${previous ? " " : ""}${trimmed}`);
         onPhraseRef.current?.(trimmed);
       }
@@ -197,6 +220,7 @@ export function useSpeechRecognition(language = "English") {
     } catch (err) {
       if (generation === generationRef.current && shouldContinueRef.current) {
         serverSttUnavailableRef.current = true;
+        stopMonitoring();
         if (!startBrowserRecognition()) {
           setError(err instanceof Error ? err.message : "Speech transcription failed. Try again.");
           setStatus("error");
@@ -205,28 +229,34 @@ export function useSpeechRecognition(language = "English") {
     } finally {
       transcribingRef.current = false;
       if (generation === generationRef.current && shouldContinueRef.current && !browserRecognitionRef.current) {
-        setStatus("idle");
-        retryCaptureRef.current?.();
+        setStatus("listening");
       }
     }
-  }, [base, language, startBrowserRecognition]);
+  }, [base, language, startBrowserRecognition, stopMonitoring]);
 
   const startCapture = useCallback(async () => {
     if (!shouldContinueRef.current || !isSupported || captureStartingRef.current || browserRecognitionRef.current) return;
-    if (Date.now() < blockedUntilRef.current || transcribingRef.current || recorderRef.current) return;
+    if (Date.now() < blockedUntilRef.current || transcribingRef.current) return;
     captureStartingRef.current = true;
     const generation = generationRef.current;
     try {
       if (!streamRef.current) {
         streamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: { ideal: 48_000 },
+            sampleSize: { ideal: 16 },
+          },
         });
       }
       if (!shouldContinueRef.current || generation !== generationRef.current) return;
       if (!contextRef.current) {
         const AC = window.AudioContext ?? (window as AnyWindow).webkitAudioContext;
         if (!AC) throw new Error("Audio input is not supported in this browser.");
-        contextRef.current = new AC();
+        contextRef.current = new AC({ latencyHint: "interactive", sampleRate: 48_000 });
         const source = contextRef.current.createMediaStreamSource(streamRef.current);
         const analyser = contextRef.current.createAnalyser();
         analyser.fftSize = 1024;
@@ -243,6 +273,23 @@ export function useSpeechRecognition(language = "English") {
         if (shouldContinueRef.current && generation === generationRef.current) setStatus("listening");
       }, WARMUP_MS);
 
+      if (!recorderRef.current) {
+        const mimeType = getMimeType();
+        const recorder = new MediaRecorder(streamRef.current!, mimeType ? { mimeType } : undefined);
+        recorderRef.current = recorder;
+        recorder.ondataavailable = (event) => {
+          if (!event.data.size) return;
+          firstAudioRef.current ||= performance.now();
+          if (utteranceActiveRef.current) {
+            utteranceChunksRef.current.push(event.data);
+          } else {
+            rollingChunksRef.current.push(event.data);
+            if (rollingChunksRef.current.length > PRE_ROLL_CHUNKS) rollingChunksRef.current.shift();
+          }
+        };
+        recorder.start(RECORDER_TIMESLICE_MS);
+      }
+      if (frameRef.current !== null) return;
       const data = new Float32Array(analyserRef.current!.fftSize);
       const monitor = () => {
         if (!shouldContinueRef.current || generation !== generationRef.current) return;
@@ -252,33 +299,46 @@ export function useSpeechRecognition(language = "English") {
         let sum = 0;
         for (const sample of data) sum += sample * sample;
         const rms = Math.sqrt(sum / data.length);
+        const normalizedLevel = Math.min(1, rms * 8);
+        if (Math.abs(normalizedLevel - audioLevelRef.current) > 0.025) {
+          audioLevelRef.current = normalizedLevel;
+          setAudioLevel(normalizedLevel);
+        }
         const now = Date.now();
         const recorder = recorderRef.current;
+        const threshold = Math.min(
+          MAX_VAD_THRESHOLD,
+          Math.max(MIN_VAD_THRESHOLD, noiseFloorRef.current * 2.2),
+        );
+        if (!utteranceActiveRef.current && rms < threshold) {
+          noiseFloorRef.current = noiseFloorRef.current * 0.96 + rms * 0.04;
+        }
 
-        if (!recorder && !transcribingRef.current && now >= blockedUntilRef.current && rms >= VAD_THRESHOLD) {
-          const mimeType = getMimeType();
-          const nextRecorder = new MediaRecorder(streamRef.current!, mimeType ? { mimeType } : undefined);
-          chunksRef.current = [];
+        if (recorder && !transcribingRef.current && !utteranceActiveRef.current && now >= blockedUntilRef.current && rms >= threshold) {
+          utteranceActiveRef.current = true;
+          utteranceChunksRef.current = [...rollingChunksRef.current];
+          rollingChunksRef.current = [];
           utteranceStartedRef.current = now;
           lastVoiceRef.current = now;
-          recorderRef.current = nextRecorder;
-          nextRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) chunksRef.current.push(event.data);
-          };
-          nextRecorder.onstop = () => {
-            if (recorderRef.current === nextRecorder) recorderRef.current = null;
-            const utterance = new Blob(chunksRef.current, { type: nextRecorder.mimeType || mimeType || "audio/webm" });
-            chunksRef.current = [];
-            void transcribe(utterance, generation);
-          };
-          nextRecorder.start(200);
+          speechStartRef.current = performance.now();
+          firstAudioRef.current = 0;
+          firstInterimRef.current = 0;
+          console.info("[stt] speech started", { atMs: Math.round(speechStartRef.current), threshold });
           setStatus("listening");
-        } else if (recorder && recorder.state === "recording") {
-          if (rms >= VAD_THRESHOLD) lastVoiceRef.current = now;
+        } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
+          if (rms >= threshold) lastVoiceRef.current = now;
           const quietLongEnough = now - lastVoiceRef.current >= SILENCE_MS;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
           if ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength) {
-            try { recorder.stop(); } catch { /* already stopped */ }
+            utteranceActiveRef.current = false;
+            const utterance = new Blob(utteranceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+            utteranceChunksRef.current = [];
+            console.info("[stt] speech ended", {
+              atMs: Math.round(performance.now()),
+              durationMs: now - utteranceStartedRef.current,
+              bytes: utterance.size,
+            });
+            void transcribe(utterance, generation);
           }
         }
         frameRef.current = requestAnimationFrame(monitor);
@@ -340,6 +400,8 @@ export function useSpeechRecognition(language = "English") {
     if (contextRef.current) void contextRef.current.close().catch(() => {});
     contextRef.current = null;
     transcribingRef.current = false;
+    audioLevelRef.current = 0;
+    setAudioLevel(0);
     setStatus("idle");
     setInterimTranscript("");
   }, [clearTimers, stopBrowserRecognition, stopMonitoring]);
@@ -417,6 +479,7 @@ export function useSpeechRecognition(language = "English") {
     status,
     transcript,
     interimTranscript,
+    audioLevel,
     error,
     isSupported,
     isListening: status === "listening" || status === "warming",

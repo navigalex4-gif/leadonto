@@ -378,8 +378,9 @@ function parseReportJson(text: string, durationMin: number): InterviewReport | n
       parsed["competencies"] && typeof parsed["competencies"] === "object"
         ? (parsed["competencies"] as Record<string, unknown>)
         : {};
-    // Keep only the competencies this interview length covers; default any
-    // missing covered competency to a neutral 3 so every covered row still shows.
+    // Keep the complete scorecard; every competency is required for every
+    // interview, with a neutral note when the transcript contains limited
+    // evidence for one area.
     const competencies: Partial<Record<CompetencyKey, CompetencyRating>> = {};
     for (const c of coveredCompetencies(durationMin)) {
       competencies[c.key] =
@@ -598,13 +599,13 @@ function InterviewAceContent() {
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
         speech.suppressUntil(Date.now() + 900);
-        speech.blockFor(120); // tiny speaker-tail guard; wake the mic immediately
+         speech.blockFor(800); // let speaker reverb fully decay before reopening STT
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
         speech.suppressUntil(Date.now() + 900);
-        speech.blockFor(120);
+         speech.blockFor(800);
         setCoachSpeaking(false);
       }, {
         ...opts,
@@ -721,7 +722,7 @@ function InterviewAceContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // No-reply watchdog: if the candidate says NOTHING for 30 s after a question is
+  // No-reply watchdog: if the candidate says NOTHING for 33 s after a question is
   // asked (never even starts an answer), we conclude the interview and generate
   // feedback. Armed when the mic starts listening; cleared the instant they speak.
   const noReplyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1155,9 +1156,19 @@ function InterviewAceContent() {
     // Neutral fallback questions used when the AI stream times out or errors.
     // Defined here so they're available both in the timeout path and the parsing fallback below.
 
-    // Leave enough time for TTS to begin before the three-second response target.
-    // There is no spoken filler while the AI stream is resolving.
-    const STREAM_DEADLINE_MS = 1800;
+    // Keep the response human-paced without letting a slow model stall the
+    // interview. The stream and the minimum conversational pause run in
+    // parallel, so fast responses still wait at least three seconds while a
+    // slow response has a hard deadline and a useful fallback.
+    const naturalPauseMs = (() => {
+      const words = recordedAnswer.split(/\s+/).filter(Boolean).length;
+      const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 250 : 0;
+      const base = words < 15 ? 3200 : words <= 50 ? 3450 : 3700;
+      return Math.min(4000, Math.max(3000, base + hesitationMs));
+    })();
+    const turnStartedAt = performance.now();
+    const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+    const STREAM_DEADLINE_MS = 3200;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1224,7 +1235,18 @@ Next: <the interview question only, may start with a short natural bridge>`,
       response = `Next: ${fallback}`;
     }
 
-    // If the interview ended while the stream was in flight, stop here.
+    // Hold the natural conversational floor, then use the remaining wall-clock
+    // budget to land the response between three and four seconds.
+    await minWaitPromise;
+    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+    const remainingPause = Math.min(
+      Math.max(0, naturalPauseMs - (performance.now() - turnStartedAt)),
+      4000 - (performance.now() - turnStartedAt),
+    );
+    if (remainingPause > 0) await new Promise<void>((resolve) => setTimeout(resolve, remainingPause));
+    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+
+    // If the interview ended while the stream or pause was in flight, stop here.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
 
     // Robust parsing — tolerates minor model format drift and missing labels.
@@ -1377,20 +1399,20 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // coachSpeaking guard: don't start mic while the AI coach is speaking — prevents
     // the mic from activating between when the stream ends and when TTS actually starts.
     if (phase !== "interview" || !autoListenEnabled || !speech.isSupported || !currentQ || isStreaming || synth.isSpeaking || isRecording || coachSpeaking) return;
-    // Silence window before auto-submit: 1.7 s. Once the candidate starts
-    // talking, this longer pause gives them room to think and avoids
-    // cutting off a sentence or a normal mid-answer pause.
+    // Silence window before auto-submit: 5 s. Once the candidate starts
+    // talking, this gives room for a natural mid-answer pause without cutting
+    // off a sentence.
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 1700;
+    const silenceMs = 5000;
     setIsRecording(true);
-    // Arm the no-reply watchdog: if the candidate never says a word for 30 s after
+    // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
     // this question, conclude the interview and generate feedback. Cleared the
     // moment any speech arrives (clearAutoSubmitTimer in the chunk handler clears
     // it too). Clear any stale timer first so a mic restart can't stack two.
     if (noReplyRef.current) clearTimeout(noReplyRef.current);
-    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 30_000);
+    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 33_000);
     speech.startContinuous(text => {
       const chunk = text.trim();
       if (!chunk) return;
@@ -1400,9 +1422,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
         return next;
       });
       clearAutoSubmitTimer();
-      // 7 s of quiet → auto-submit. Long enough that a candidate with natural
-      // mid-sentence pauses isn't cut off mid-thought, short enough to keep the
-      // interview moving. The Submit button stays enabled as a manual override.
+      // 5 s of quiet → auto-submit. The Submit button stays enabled as a manual
+      // override.
       // Uses submitCurrentAnswerRef (not submitCurrentAnswer directly) so the
       // closure always calls the latest version without adding submitCurrentAnswer
       // to deps. Without this, elapsedSeconds (a dep of submitCurrentAnswer) gives
@@ -1505,8 +1526,8 @@ ${compJsonKeys}
   "verdictReason": "1-2 honest sentences summarising your hiring recommendation for THIS role at THIS experience level and why"
 }
 
-Rate EVERY competency above from evidence in the transcript, calibrated to the experience level — do not leave any unrated. Communication Skills and Personality & Disposition are judged from HOW the candidate expressed every answer (tone, energy, clarity), not from dedicated questions; you cannot see the candidate, so judge personality from vocal energy and content only and never invent visual details like body language, dress or eye contact. Educational Background comes from their introduction. If a competency was only lightly tested in this interview, infer conservatively from the overall conversation and say so in its comment rather than guessing high. Be fair, specific and honest — never inflate a candidate who lacks the core functional knowledge for the role. When naming the best-fit role, weigh the candidate's stated interests, motivation and strengths (including the early getting-to-know-you answers), not only their functional depth. Use Indian hiring context.`,
-         `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job.`,
+Rate EVERY competency above from evidence in the transcript, calibrated to the experience level — do not leave any unrated. Communication Skills and Personality & Disposition are judged from HOW the candidate expressed every answer (tone, energy, clarity), not from dedicated questions; you cannot see the candidate, so judge personality from vocal energy and content only and never invent visual details like body language, dress or eye contact. Educational Background comes from their introduction. If a competency was only lightly tested in this interview, infer conservatively from the overall conversation and say so in its comment rather than guessing high. Evaluate role-relevant clarity, reasoning, relevance, professionalism, problem-solving and knowledge — not accent, nationality, regional pronunciation, or minor grammar slips. A non-native or Indian accent must never reduce a score when the answer is understandable; grammar matters only when it materially obscures meaning. Be fair, specific and honest — never inflate a candidate who lacks the core functional knowledge for the role. When naming the best-fit role, weigh the candidate's stated interests, motivation and strengths (including the early getting-to-know-you answers), not only their functional depth. Use Indian and globally common hiring standards.`,
+          `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job. Do not penalise Indian accents, non-native English, or minor grammar errors unless meaning is genuinely unclear.`,
         undefined,
         { maxTokens: 2000 }
       );
@@ -1523,7 +1544,7 @@ Rate EVERY competency above from evidence in the transcript, calibrated to the e
 
 ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.answer ?? ""}`).join("\n\n")}
 
-Return ONLY a valid JSON array (no markdown) with one object per question in order:
+Judge the answer's relevance, reasoning, role knowledge, professionalism and clarity. Do not penalise an Indian or non-native accent, and do not lower grammar just for minor errors that do not obscure meaning. Return ONLY a valid JSON array (no markdown) with one object per question in order:
 [{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10,"feedback":"2-3 sentences"}]`,
           `You are a concise interview evaluator. Be honest, specific, and encouraging.`,
           undefined,
@@ -2186,6 +2207,8 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
             isRecording
               ? speech.status === "warming"
                 ? "bg-amber-100 text-amber-700 border border-amber-300"
+                : speech.status === "processing"
+                ? "bg-blue-100 text-blue-700 border border-blue-300"
                 : "bg-green-100 text-green-700 border border-green-300"
               : "bg-slate-100 text-slate-500"
           }`}>
@@ -2194,12 +2217,22 @@ Return ONLY a valid JSON array (no markdown) with one object per question in ord
               ? speech.error
                 ? speech.error
                 : speech.status === "warming"
-                ? "Get ready…"
+                ? "Preparing…"
+                : speech.status === "processing"
+                ? "Processing…"
                 : "Speak now 🎤"
               : speech.isSupported
                 ? "Mic paused"
                 : "No mic"}
           </div>
+          {isRecording && speech.status === "listening" && (
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-green-700">
+              <span className="h-1.5 w-10 overflow-hidden rounded-full bg-green-100">
+                <span className="block h-full rounded-full bg-green-500 transition-all" style={{ width: `${Math.max(8, Math.round(speech.audioLevel * 100))}%` }} />
+              </span>
+              Listening…
+            </div>
+          )}
 
           <Button
             variant="ghost"

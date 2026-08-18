@@ -214,7 +214,7 @@ export default function CommunicationCheck() {
     speech.pause();
     void synth.speak(cleanSpeech(text), "English", () => {
       speech.suppressUntil(Date.now() + 900);
-      speech.blockFor(120);
+      speech.blockFor(800);
       onEnd?.();
     }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: 1.0 });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
@@ -233,7 +233,7 @@ export default function CommunicationCheck() {
       autoSubmitRef.current = setTimeout(() => {
         const latest = answerRef.current.trim();
         if (latest) void submitAnswerRef.current(latest);
-      }, 1600);
+      }, 5000);
     });
   }, [speech]);
 
@@ -557,11 +557,21 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                />
                <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
-            <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
-              {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Preparing the next question…" : isListening ? "Listening — take your time…" : "Get ready to speak…"}</span>}
+             <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
+               {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Processing your answer…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Processing your words…" : speech.status === "listening" ? "Listening… take your time." : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
+               <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
+                 speech.status === "listening" ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
+                 speech.status === "processing" ? "border-blue-300 bg-blue-50 text-blue-700" :
+                 speech.status === "warming" ? "border-amber-300 bg-amber-50 text-amber-700" :
+                 "border-slate-200 bg-slate-50 text-slate-600"
+               }`}>
+                 <span className={`h-2 w-2 rounded-full ${speech.status === "listening" ? "animate-pulse bg-emerald-500" : speech.status === "processing" ? "animate-pulse bg-blue-500" : speech.status === "warming" ? "animate-pulse bg-amber-500" : "bg-slate-400"}`} />
+                 {speech.status === "warming" ? "Preparing" : speech.status === "processing" ? "Processing" : speech.status === "listening" ? "Listening…" : "Mic ready"}
+                 {speech.status === "listening" && <span className="h-1.5 w-10 overflow-hidden rounded-full bg-emerald-100"><span className="block h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.max(8, Math.round(speech.audioLevel * 100))}%` }} /></span>}
+               </div>
+               <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
                 if (isListening) { speech.stop(); setIsListening(false); } else startListening();
               }}>
                 {isListening ? <><MicOff className="mr-2 h-5 w-5" />Stop speaking</> : <><Mic className="mr-2 h-5 w-5" />{isThinking ? "Interviewer is replying…" : "Tap to speak"}</>}
