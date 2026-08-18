@@ -56,7 +56,7 @@ const DURATIONS = [
 ];
 // A calm, deliberate interviewer voice. This changes delivery speed only;
 // reply-start timing remains live-conversation speed.
-const INTERVIEW_SPEECH_RATE = 0.96;
+const INTERVIEW_SPEECH_RATE = 1.0;
 const ANANYA_SPEECH_RATE = 0.97;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -230,6 +230,15 @@ const INTERVIEW_BEHAVIOR_MOMENTS = [
   "Vary the shape of the next question: a choice, a counterfactual, a concrete example, a trade-off, a reflection, or a role-specific scenario.",
   "Leave room for a natural conversational beat. Do not pack every response with praise or rush to the next competency.",
 ];
+
+const INTERVIEW_OPENINGS = [
+  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. To begin, please introduce yourself and tell me why you're interested in ${role}.`,
+  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Let's start with your background, education, and the experience most relevant to ${role}.`,
+  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Please give me a brief introduction and describe one project or responsibility you are proud of.`,
+  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Tell me about your path so far and what attracts you to this role.`,
+];
+
+const QUICK_ACKNOWLEDGEMENTS = ["Okay", "Got it"];
 
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
   education: [
@@ -1084,7 +1093,10 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     // Every interview begins with a basic introduction before domain testing.
-    const safeOpening = `Hello, I'm ${displayCoachName}, your ${spokenInterviewRoleLabel} interviewer. To begin, please introduce yourself, including your education, relevant experience or projects, and why you're interested in ${spokenInterviewRoleLabel}.`;
+    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(
+      displayCoachName,
+      spokenInterviewRoleLabel,
+    );
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1406,7 +1418,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // leave the mic visually active but not actually capturing.
     speech.blockFor(0);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
+    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
+    speakCoach(`${acknowledgement}, ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
@@ -1435,7 +1448,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
     resetStream();
     // Guard against the 300ms window before speakCoach fires
     setCoachSpeaking(true);
-    setTimeout(() => speakCoach(questions[nextIdx]!.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
+    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
+    setTimeout(() => speakCoach(`${acknowledgement}, ${questions[nextIdx]!.question}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
   }, [currentIdx, questions, resetStream, speakCoach, clearAutoSubmitTimer]);
 
   const endEarly = useCallback(() => {
@@ -2456,6 +2470,20 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
                 ? "Mic paused"
                 : "No mic"}
           </div>
+           {isRecording && speech.status === "listening" && (
+             <div
+               className="flex h-6 min-w-20 items-center gap-0.5 overflow-hidden rounded-full border border-green-200 bg-green-50 px-2"
+               aria-label="Candidate speaking level"
+             >
+               {[0.5, 0.8, 1, 0.7, 0.9, 0.6, 0.85, 0.55].map((multiplier, index) => (
+                 <span
+                   key={index}
+                   className="block flex-1 rounded-full bg-green-500 transition-all duration-75"
+                   style={{ height: `${Math.max(12, Math.round(speech.audioLevel * multiplier * 100))}%` }}
+                 />
+               ))}
+             </div>
+           )}
 
           <Button
             variant="ghost"

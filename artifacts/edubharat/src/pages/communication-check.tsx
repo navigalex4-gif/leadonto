@@ -16,7 +16,8 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
-const COMMUNICATION_CHECK_SPEECH_RATE = 0.95;
+const COMMUNICATION_CHECK_SPEECH_RATE = 1.0;
+const QUICK_ACKNOWLEDGEMENTS = ["Okay", "Got it"];
 const OPENING_QUESTIONS = [
   "Tell me about something you are working towards right now.",
   "What is one recent experience you would enjoy telling a colleague about?",
@@ -393,7 +394,8 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     setIsThinking(false);
     turnRef.current = false;
     if (endingRef.current) return;
-    speak(question, startListening);
+    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
+    speak(`${acknowledgement}, ${question}`, startListening);
   }, [clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
 
   const submitAnswerRef = useRef<typeof submitAnswer>(submitAnswer);
