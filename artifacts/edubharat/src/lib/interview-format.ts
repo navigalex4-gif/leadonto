@@ -269,9 +269,9 @@ export function questionFrameworkFor(
 
   return `${framework}
 Candidate-selected experience level: ${experience || "Not specified"}.
-Selected industry: ${industry || "Not specified"}.
+Selected industry preference (not verified employment): ${industry || "Not specified"}.
 Experience calibration: for Fresher focus on fundamentals, projects, potential and willingness to learn; for 1-2 years focus on independent routine execution; for 3-5 years focus on ownership and judgement; for 5+ years focus on strategic depth, influence and leadership.
-Evidence rule: candidate-provided experience is only what the profile or a previous answer explicitly confirms. Job-required experience is a requirement, not proof that the candidate has it. Treat anything else as an assumption, never as a fact. If experience is unclear, ask a neutral question that lets the candidate provide evidence.`;
+Evidence rule: candidate-provided experience is only what the candidate explicitly confirms in the profile or a previous answer. A career goal, preferred industry, listed skill, job requirement, or recruiter-selected domain is NOT proof that the candidate worked there. Never ask "in your [industry] experience" unless the candidate explicitly said they worked in that industry. If experience is unclear, ask a neutral question that lets the candidate provide evidence.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

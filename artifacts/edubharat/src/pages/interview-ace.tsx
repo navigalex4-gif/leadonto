@@ -73,6 +73,9 @@ type QA = {
   question: string;
   answer?: string;
   feedback?: string;
+  relevance?: string;
+  alignment?: string;
+  authenticityObservation?: string;
   score?: number;
 } & SubScores;
 
@@ -132,6 +135,7 @@ type InterviewReport = {
   questionScores?: Array<{
     score: number; communication: number; grammar: number;
     confidence: number; technical: number; feedback: string;
+    relevance?: string; alignment?: string; authenticityObservation?: string;
   }>;
 };
 
@@ -1039,8 +1043,8 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       `Experience: ${experience}`,
       `Career goal: ${profile.careerGoal || interviewRoleLabel}`,
       `Preferred role: ${interviewRoleLabel}`,
-      `Industry: ${profile.industryPreference || "Not specified"}`,
-      `Skills: ${(profile.skills || []).join(", ") || "Not specified"}`,
+      `Industry preference (not proof of employment): ${profile.industryPreference || "Not specified"}`,
+      `Profile-listed skills (unverified until demonstrated): ${(profile.skills || []).join(", ") || "Not specified"}`,
       `English level: ${profile.englishLevel || "Beginner"}`,
     ].join(" | ");
   }, [profile, experience, interviewRoleLabel]);
@@ -1304,6 +1308,12 @@ ${firstName} answered: "${recordedAnswer}"
 
 ${directive}
 
+IMPORTANT EVIDENCE BOUNDARY:
+- The candidate has NOT confirmed working in banking or any other industry unless their own answer explicitly says so.
+- Do not turn an industry preference, career goal, profile skill, job requirement, or selected interview domain into employment history.
+- Never ask a question such as "in your banking experience" unless the candidate has already explicitly stated that they worked in banking.
+- For this HR interview, ask about HR responsibilities, people situations, learning, or neutral transferable experience. If prior work is unknown, ask: "What work, study, or project experience would you like to tell me about?"
+
 STYLE — important:
 - Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Use a light, witty observation only when it genuinely fits; never force a joke, praise, or enthusiasm into every turn.
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
@@ -1522,12 +1532,12 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // enabled the whole time as a manual override to submit sooner.
     const silenceMs = 750;
     setIsRecording(true);
-    // Arm the no-reply watchdog: if the candidate never says a word for 33 s after
+    // Arm the no-reply watchdog: if the candidate never says a word for 30 s after
     // this question, conclude the interview and generate feedback. Cleared the
     // moment any speech arrives (clearAutoSubmitTimer in the chunk handler clears
     // it too). Clear any stale timer first so a mic restart can't stack two.
     if (noReplyRef.current) clearTimeout(noReplyRef.current);
-    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 33_000);
+    noReplyRef.current = setTimeout(() => { concludeNoReplyRef.current(); }, 30_000);
     const handleCandidatePhrase = (text: string) => {
       const chunk = text.trim();
       if (!chunk) return;
@@ -1674,13 +1684,17 @@ HIRING DECISION CALIBRATION: A ten-minute practice interview cannot establish th
       // scores and competencies never get lost to truncation (the old cause of a
       // uniform-60 fallback when a long questionScores array overflowed the cap).
       {
-        const fbText = await stream(
+       const fbText = await stream(
           `You are an interview coach. For each answer below, give a 2-3 sentence honest, natural, specific feedback.
 
 ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.answer ?? ""}`).join("\n\n")}
 
-Judge the answer's relevance, reasoning, role knowledge, professionalism and clarity. Do not penalise an Indian or non-native accent, and do not lower grammar just for minor errors that do not obscure meaning. Return ONLY a valid JSON array (no markdown) with one object per question in order:
-[{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10,"feedback":"2-3 sentences"}]`,
+ Judge each answer against the exact question and the selected ${interviewRoleLabel} role. Explicitly check:
+ - relevance: whether the answer actually addresses the question
+ - alignment: whether the demonstrated content supports the selected role, not an assumed industry or unverified profile claim
+ - authenticityObservation: only observable evidence behaviour such as a concrete example, ownership language, measurable detail, consistency, or appropriate uncertainty; never declare the candidate honest or dishonest
+ Do not penalise an Indian or non-native accent, and do not lower grammar just for minor errors that do not obscure meaning. If transcription is unclear, say that evidence is uncertain rather than inventing meaning. Return ONLY a valid JSON array (no markdown) with one object per question in order:
+[{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10,"relevance":"Relevant | Partly relevant | Not demonstrated","alignment":"Aligned | Partly aligned | Not demonstrated","authenticityObservation":"observable evidence only","feedback":"2-3 sentences"}]`,
           `You are a concise interview evaluator. Be honest, specific, and encouraging.`,
           undefined,
           { maxTokens: 2000 }
@@ -1700,6 +1714,9 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
               grammar: Math.min(10, Math.max(1, Number(qs["grammar"]) || 5)),
               confidence: Math.min(10, Math.max(1, Number(qs["confidence"]) || 5)),
               technical: Math.min(10, Math.max(1, Number(qs["technical"]) || 5)),
+                relevance: String(qs["relevance"] || "Not assessed"),
+                alignment: String(qs["alignment"] || "Not assessed"),
+                authenticityObservation: String(qs["authenticityObservation"] || "No authenticity conclusion can be drawn from a transcript alone."),
               feedback: String(qs["feedback"] || ""),
             }));
           }
@@ -1712,7 +1729,18 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
         updatedAnswered = answered.map((q, i) => {
           const qs = parsed.questionScores![i];
           if (!qs) return q;
-          return { ...q, feedback: qs.feedback, score: qs.score, communication: qs.communication, grammar: qs.grammar, confidence: qs.confidence, technical: qs.technical };
+           return {
+             ...q,
+             feedback: qs.feedback,
+             relevance: qs.relevance,
+             alignment: qs.alignment,
+             authenticityObservation: qs.authenticityObservation,
+             score: qs.score,
+             communication: qs.communication,
+             grammar: qs.grammar,
+             confidence: qs.confidence,
+             technical: qs.technical,
+           };
         });
         // Use index-based mapping so text-match failures don't drop feedback
         setQuestions(prev => {
@@ -2649,6 +2677,28 @@ function QuestionReview({ q, idx, coachName, hasReport }: { q: QA; idx: number; 
             <p className="text-xs font-bold text-green-700 mb-1">{coachName}'s Feedback</p>
             <p className="text-sm text-green-950 whitespace-pre-wrap leading-relaxed">{formatGeneratedText(q.feedback ?? (hasReport ? "See overall analysis above for feedback on this answer." : "Generating your personalised feedback…"))}</p>
           </div>
+          {hasReport && (q.relevance || q.alignment || q.authenticityObservation) && (
+            <div className="grid gap-2 sm:grid-cols-3">
+              {q.relevance && (
+                <div className="rounded-lg border bg-blue-50/60 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-blue-700">Question relevance</p>
+                  <p className="mt-0.5 text-xs text-blue-950">{q.relevance}</p>
+                </div>
+              )}
+              {q.alignment && (
+                <div className="rounded-lg border bg-violet-50/60 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700">Role alignment</p>
+                  <p className="mt-0.5 text-xs text-violet-950">{q.alignment}</p>
+                </div>
+              )}
+              {q.authenticityObservation && (
+                <div className="rounded-lg border bg-amber-50/60 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Evidence observation</p>
+                  <p className="mt-0.5 text-xs text-amber-950">{q.authenticityObservation}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </Card>
