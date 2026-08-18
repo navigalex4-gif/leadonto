@@ -18,3 +18,10 @@ The live check uses a finite, varied topic bank plus normalized word-overlap che
 **Why:** a 90-second voice flow can ask many short prompts; relying on the model alone makes repetition visible and reduces trust.
 
 **How to apply:** keep the hard 90-second timer, preserve the full asked-question history, and use the existing `AnimatedAvatar` portrait with `isSpeaking` bound to the TTS hook. Never connect the lip animation to the audio analyser graph.
+
+## Final response window and communication-signal question bank
+The Communication Check keeps the final 10 seconds as a real response window. It must not stop the microphone or reject the candidate's answer when the countdown reaches 10; one answer received during that window is captured and sent directly to feedback, while the timer still finishes the session if the candidate stays silent.
+
+**Why:** stopping at 10 seconds made the interviewer announce the wrap-up before the candidate could answer the last question, so the check lost its most recent communication signal.
+
+**How to apply:** use a dedicated final-window ref separate from the overall ending guard. The question bank should sample observable communication dimensions — structure, clarity, explanation, listening/empathy, collaboration, persuasion, adaptability, confidence and self-awareness — rather than generic small talk. Keep interviewer TTS brisk and energetic but intelligible.

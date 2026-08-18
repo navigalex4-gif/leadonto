@@ -54,8 +54,8 @@ const DURATIONS = [
   { value: 15, label: "15 minutes" },
   { value: 25, label: "25 minutes" },
 ];
-const INTERVIEW_SPEECH_RATE = 0.88;
-const ANANYA_SPEECH_RATE = 0.98;
+const INTERVIEW_SPEECH_RATE = 0.98;
+const ANANYA_SPEECH_RATE = 1.02;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 

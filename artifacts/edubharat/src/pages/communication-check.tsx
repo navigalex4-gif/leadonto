@@ -16,32 +16,38 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
+const COMMUNICATION_CHECK_SPEECH_RATE = 1.08;
 const OPENING_QUESTIONS = [
-  "How are you feeling today?",
-  "What are you learning or working on these days?",
-  "What is one thing you enjoy doing?",
-  "What kind of job or opportunity are you looking for?",
-  "What is one skill you would like to improve?",
-  "Tell me one small thing that made you happy recently.",
+  "Tell me about something you are working towards right now.",
+  "What is one recent experience you would enjoy telling a colleague about?",
+  "What is something you learned recently, and why did it matter to you?",
+  "Tell me about a small win you had recently.",
 ];
 const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
 const QUESTION_BANK = [
-  "What is something you learned recently, and how did you learn it?",
-  "Tell me about a time you handled a difficult situation. What did you do?",
-  "What is one strength you bring to a team? Can you give a quick example?",
-  "How would you explain your current work or studies to someone new?",
-  "What kind of role or opportunity are you hoping to find next?",
-  "Imagine you are meeting a customer or colleague for the first time. How would you introduce yourself?",
-  "What is one communication skill you would like to improve?",
+  // The bank is intentionally balanced across the strongest observable
+  // communication signals: structure, clarity, listening/empathy, explanation,
+  // collaboration, persuasion, adaptability and self-awareness.
+  "Explain a task or idea you know well to someone who is new to it.",
+  "Tell me about a time you had to handle a difficult conversation. What did you say first?",
+  "Describe a problem you faced, the action you took, and what happened next.",
+  "What is one strength you bring to a team? Give a short example.",
+  "How would you introduce yourself to a new customer or colleague?",
+  "Tell me about a time you changed your approach after receiving feedback.",
+  "When you disagree with someone at work or in a group, how do you explain your view?",
+  "Imagine you need someone to support your idea. How would you persuade them?",
+  "What do you do when you are not sure you understand someone's instructions?",
+  "Tell me about a time you helped another person understand something.",
   "What motivates you when a task becomes challenging?",
-  "What does good teamwork look like to you in everyday work or study?",
+  "How do you decide what information is important when explaining something?",
   "Tell me about a small decision you made recently and why you made it.",
-  "How do you usually prepare when you need to speak in front of others?",
-  "What kind of feedback helps you improve the most?",
-  "What is one goal you would like to make progress on this year?",
-  "How do you make a new person feel comfortable in a conversation?",
-  "What helps you stay calm when something does not go as planned?",
-  "If you had one extra hour today, how would you use it?",
+  "What helps you stay calm and clear when something does not go as planned?",
+  "How do you usually prepare before speaking to a group or interviewer?",
+  "What kind of feedback helps you improve the way you communicate?",
+  "Tell me about a time you had to adapt your message for a different person.",
+  "What is one communication habit you are actively trying to improve?",
+  "If you had one extra hour today, how would you use it and why?",
+  "Before we finish, what would you like an interviewer to understand about you?",
 ];
 const INTERVIEWER = {
   name: "Neha Madam",
@@ -185,6 +191,7 @@ export default function CommunicationCheck() {
   const turnRef = useRef(false);
   const [remaining, setRemaining] = useState(TOTAL_SECONDS);
   const [isListening, setIsListening] = useState(false);
+  const finalWindowRef = useRef(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -216,11 +223,11 @@ export default function CommunicationCheck() {
       speech.suppressUntil(Date.now() + 900);
       speech.blockFor(800);
       onEnd?.();
-    }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: 1.0 });
+    }, { voiceGender: "female", voiceStyle: INTERVIEWER.voiceStyle, rate: COMMUNICATION_CHECK_SPEECH_RATE });
   }, [speech.pause, speech.suppressUntil, speech.blockFor, synth.speak]);
 
   const startListening = useCallback(() => {
-    if (!speech.isSupported || endingRef.current || closingRef.current) return;
+    if (!speech.isSupported || endingRef.current || (closingRef.current && !finalWindowRef.current)) return;
     setIsListening(true);
     speech.blockFor(0);
     speech.startContinuous((text) => {
@@ -305,7 +312,7 @@ export default function CommunicationCheck() {
   }, [candidate, feedback, toast]);
 
   const submitAnswer = useCallback(async (spokenAnswer: string) => {
-    if (turnRef.current || endingRef.current || closingRef.current) return;
+    if (turnRef.current || endingRef.current || (closingRef.current && !finalWindowRef.current)) return;
     turnRef.current = true;
     clearTimers();
     speech.stop();
@@ -317,6 +324,15 @@ export default function CommunicationCheck() {
     setCurrentAnswer("");
     answerRef.current = "";
 
+    // During the final ten-second window, capture this last answer immediately
+    // instead of spending the remaining time generating another question.
+    if (finalWindowRef.current) {
+      setIsThinking(false);
+      turnRef.current = false;
+      void finishWithFeedback(nextAnswers);
+      return;
+    }
+
     setIsThinking(true);
     const fallbackTimer = new Promise<string>((resolve) => {
       deadlineRef.current = setTimeout(() => resolve(""), 1200);
@@ -326,11 +342,11 @@ export default function CommunicationCheck() {
     try {
       response = await Promise.race([
         stream(
-          `Respond as a warm human interviewer after this answer: "${answer}".
-This is a 90-second spoken communication check, so notice the emotion or detail in the answer before choosing where to go next. Explore a fresh direction each turn — learning, a challenge, teamwork, explaining an idea, career goals, customer interaction, motivation, family responsibility, a small win, or self-reflection.
+          `Respond as a fast, energetic but natural human interviewer after this answer: "${answer}".
+This is a 90-second spoken communication check. Choose the next question because it gives the strongest new evidence about communication — structure, clarity, listening, empathy, explanation, collaboration, persuasion, adaptability, confidence or self-awareness. Notice a real detail in the answer and explore a fresh direction.
 Questions already asked: ${askedQuestions.join(" | ")}
-Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific, genuine reaction to what they said, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Maximum 38 words.`,
-          "You are a warm, curious Indian interviewer. Sound present and human, not like a form. Show empathy when the answer is difficult, delight when there is a small win, and gentle energy when the answer is brief. Use natural pauses through punctuation. Never sound overly cheerful or scripted. No markdown or preamble.",
+Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Keep momentum high. Maximum 32 words.`,
+          "You are a warm, lively Indian interviewer. Sound alert, encouraging and genuinely interested, not like a form. Speak at a brisk conversational pace with clear energy, short sentences and varied reactions. Show empathy when the answer is difficult, celebrate a specific small win, and make brief answers easier. Never sound fake, breathless or scripted. No markdown or preamble.",
           undefined,
           { maxTokens: 70 },
         ),
@@ -383,13 +399,13 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
   useEffect(() => {
     if (phase !== "interview" || remaining > 10 || remaining <= 0 || closingRef.current) return;
     closingRef.current = true;
-    clearTimers();
-    speech.stop();
-    setIsListening(false);
-    setIsThinking(false);
-    synth.stop();
-    speak("We have about ten seconds left. I’m wrapping up now, and your result will be ready in a moment.");
-  }, [clearTimers, phase, remaining, speak, speech, synth]);
+    finalWindowRef.current = true;
+    // Do not stop the microphone here. The candidate gets the full final
+    // question response window; submitAnswer will capture it and finish.
+    if (!isListening && !isThinking && !synth.isSpeaking) {
+      speak("You have ten seconds for your final answer. Go ahead.", startListening);
+    }
+  }, [clearTimers, phase, remaining, speak, speech, synth, isListening, isThinking, startListening]);
 
   useEffect(() => () => {
     endingRef.current = true;
@@ -413,6 +429,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     track("communication_check_started", { targetRole: candidate.targetRole || "unspecified" });
     endingRef.current = false;
     closingRef.current = false;
+    finalWindowRef.current = false;
     turnRef.current = false;
     answersRef.current = [];
     setAnswers([]);

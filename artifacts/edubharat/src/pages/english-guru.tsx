@@ -36,7 +36,7 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   neha: 'Speak like a patient Kolkata pronunciation teacher. Slow down for demonstrations, break words into syllables, and say "now repeat after me" or "stress the second syllable".',
   rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
 };
-const ENGLISH_GURU_SPEECH_RATE = 0.92;
+const ENGLISH_GURU_SPEECH_RATE = 1.02;
 const LIVE_OPENINGS = [
   (name: string) => `Hi ${name}! I’m happy you’re here. How are you feeling today?`,
   (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,
@@ -1064,7 +1064,7 @@ Rules for spoken replies:
                           ? "bg-blue-500 animate-pulse"
                           : "bg-muted-foreground"
                   }`} />
-                  {convFlowState === "user-speaking" && (
+                   {convFlowState === "user-speaking" && (
                     speech.interimTranscript
                       ? `"${speech.interimTranscript}"`
                       : speech.error
@@ -1078,6 +1078,20 @@ Rules for spoken replies:
                   {convFlowState === "ai-thinking" && `${tutor.name} is thinking...`}
                   {convFlowState === "ai-speaking" && `${tutor.name} is speaking... (mic restarts when done)`}
                   {convFlowState === "idle" && (livePaused ? "Live chat paused" : "Live chat off")}
+                   {convFlowState === "user-speaking" && speech.status === "listening" && (
+                     <span
+                       className="ml-auto flex h-2 w-16 items-center gap-0.5 overflow-hidden rounded-full bg-green-100"
+                       aria-label="Microphone listening level"
+                     >
+                       {[0.55, 0.85, 0.65, 1, 0.72, 0.92, 0.5].map((multiplier, index) => (
+                         <span
+                           key={index}
+                           className="block flex-1 rounded-full bg-green-500 transition-all"
+                           style={{ height: `${Math.max(15, Math.round(speech.audioLevel * multiplier * 100))}%` }}
+                         />
+                       ))}
+                     </span>
+                   )}
                   {liveChat && speech.error && (
                     <Button
                       type="button"
