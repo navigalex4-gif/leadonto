@@ -20,6 +20,13 @@ Live voice turns need a client-side AI deadline around 2.5 seconds with a short 
 
 **How to apply:** pass `timeoutMs` to conversational stream calls, use a natural fallback reply after abort, and release the mic through an idempotent timer if TTS `onEnd` never fires.
 
+## Preview versus published voice fixes
+Voice behavior must be validated against the same artifact the user is testing. A healthy Replit preview does not update the already-published web/API build until Publish is run.
+
+**Why:** production logs can continue showing the old multi-second AI stream and Opus STT failure even after the development workflows contain the fix.
+
+**How to apply:** after verifying web and API workflows, explicitly surface Publish and treat live screenshots/logs as stale until a new build is published.
+
 ## Why
 `speech.pause()` (called in `handleConvPhrase`) sets a 10-minute block. The single recognition loop started by `toggleLiveChat` then polls every 250ms waiting for the block to lift. `blockFor(300)` in the TTS `onEnd` overrides that 10-minute block with 300ms — the existing poll loop naturally resumes after 300ms.
 
