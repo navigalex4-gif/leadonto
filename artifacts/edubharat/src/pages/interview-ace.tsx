@@ -95,6 +95,18 @@ type InterviewReport = {
   confidenceScore: number;
   technicalScore: number;
   roleFit: string;
+  /** Concise hiring-panel summary grounded in transcript evidence. */
+  hiringSummary?: string;
+  /** How much usable evidence the interview produced; not a truth detector. */
+  evidenceQuality?: "High" | "Medium" | "Low";
+  /** Observable answer-quality signals, never a claim that the candidate is truthful. */
+  authenticitySignals?: string[];
+  /** Specific gaps or untested areas that prevent a confident hiring decision. */
+  evidenceLimitations?: string[];
+  /** Questions a human panel should verify in the next round. */
+  followUpChecks?: string[];
+  /** Practical next action for the candidate or recruiter. */
+  recommendedNextStep?: string;
   /** The job role that best suits this candidate based on their interests,
    *  motivation, strengths and answers — may differ from the role interviewed
    *  for. Empty string when not assessed (e.g. older saved reports). */
@@ -129,6 +141,29 @@ function parseSubScore(text: string, key: string): number | undefined {
 function avgOf(nums: (number | undefined)[]): number {
   const valid = nums.filter((n): n is number => n !== undefined);
   return valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
+}
+
+/** Role-aware benchmark used only when the candidate has not manually chosen
+ * an experience level. It sets a sensible hiring bar without locking the
+ * candidate into it. */
+function recommendedExperienceForType(interviewType: string): string {
+  switch (interviewType) {
+    case "sales_manager":
+    case "marketing":
+    case "operations":
+      return "3-5 years";
+    case "business_analyst":
+    case "data_analytics":
+    case "sales":
+    case "banking":
+    case "insurance":
+    case "finance":
+      return "1-2 years";
+    case "freshers":
+      return "Fresher";
+    default:
+      return "Fresher";
+  }
 }
 
 function grade(score: number): { label: string; color: string; bg: string } {
@@ -396,6 +431,23 @@ function parseReportJson(text: string, durationMin: number): InterviewReport | n
     return {
       ...deriveScores(competencies, durationMin),
       roleFit: String(parsed["roleFit"] || ""),
+      hiringSummary: String(parsed["hiringSummary"] || ""),
+      evidenceQuality:
+        parsed["evidenceQuality"] === "High" ||
+        parsed["evidenceQuality"] === "Medium" ||
+        parsed["evidenceQuality"] === "Low"
+          ? parsed["evidenceQuality"]
+          : "Medium",
+      authenticitySignals: Array.isArray(parsed["authenticitySignals"])
+        ? parsed["authenticitySignals"].map(String).slice(0, 5)
+        : [],
+      evidenceLimitations: Array.isArray(parsed["evidenceLimitations"])
+        ? parsed["evidenceLimitations"].map(String).slice(0, 5)
+        : [],
+      followUpChecks: Array.isArray(parsed["followUpChecks"])
+        ? parsed["followUpChecks"].map(String).slice(0, 5)
+        : [],
+      recommendedNextStep: String(parsed["recommendedNextStep"] || ""),
       bestFitRole: String(parsed["bestFitRole"] || ""),
       verdictReason: String(parsed["verdictReason"] || parsed["recommendation"] || ""),
       competencies,
@@ -648,6 +700,7 @@ function InterviewAceContent() {
   const mapPreferredRoleToType = (role: string): string => {
     const r = role.toLowerCase();
     if (r.includes("software") || r.includes("developer") || r.includes("engineer") || r.includes("tech")) return "software";
+    if (r.includes("sales manager") || r.includes("sales lead") || r.includes("sales head")) return "sales_manager";
     if (r.includes("sales")) return "sales";
     if (r.includes("market")) return "marketing";
     if (r.includes("customer") || r.includes("support")) return "customer_service";
@@ -672,8 +725,14 @@ function InterviewAceContent() {
   }, []);
   const b2bToken = b2bParams.token;
 
-  const [type, setType] = useState(() => b2bParams.type || mapPreferredRoleToType(profile.preferredRole));
-  const [experience, setExperience] = useState(() => mapExperience(profile.experienceLevel));
+  const initialType = b2bParams.type || mapPreferredRoleToType(profile.preferredRole);
+  const [type, setType] = useState(initialType);
+  const experienceTouchedRef = useRef(Boolean(profile.experienceLevel));
+  const [experience, setExperience] = useState(() =>
+    profile.experienceLevel
+      ? mapExperience(profile.experienceLevel)
+      : recommendedExperienceForType(initialType)
+  );
   const [coach, setCoach] = useState<Coach>(() => {
     // B2B invites lock the interviewer to the recruiter's choice; otherwise the
     // interviewer is auto-matched to the interview type the candidate picked.
@@ -1518,6 +1577,12 @@ Return ONLY a valid JSON object with exactly these keys (no markdown, no comment
   "competencies": {
 ${compJsonKeys}
   },
+  "hiringSummary": "2-3 sentences for a recruiter: what the candidate demonstrated for this exact role, at this experience level, and the decision confidence",
+  "evidenceQuality": "High | Medium | Low",
+  "authenticitySignals": ["2-4 observable signals such as specific examples, ownership language, measurable detail, consistency, or thoughtful uncertainty — never call these proof of honesty"],
+  "evidenceLimitations": ["1-4 important gaps, untested areas, vague claims, or transcript limitations that reduce decision confidence"],
+  "followUpChecks": ["2-4 targeted questions or practical checks for a human next round"],
+  "recommendedNextStep": "one practical next action for the candidate or recruiter",
   "roleFit": "one honest sentence about this candidate for the ${interviewRoleLabel} role they interviewed for",
   "bestFitRole": "name the ONE job role or job title that best fits this candidate based on their interests, motivation, strengths and answers — it may be the same as the role they interviewed for or a different one — with a short reason, one sentence",
   "strengths": ["2-3 specific strengths observed in the transcript"],
@@ -1526,8 +1591,10 @@ ${compJsonKeys}
   "verdictReason": "1-2 honest sentences summarising your hiring recommendation for THIS role at THIS experience level and why"
 }
 
-Rate EVERY competency above from evidence in the transcript, calibrated to the experience level — do not leave any unrated. Communication Skills and Personality & Disposition are judged from HOW the candidate expressed every answer (tone, energy, clarity), not from dedicated questions; you cannot see the candidate, so judge personality from vocal energy and content only and never invent visual details like body language, dress or eye contact. Educational Background comes from their introduction. If a competency was only lightly tested in this interview, infer conservatively from the overall conversation and say so in its comment rather than guessing high. Evaluate role-relevant clarity, reasoning, relevance, professionalism, problem-solving and knowledge — not accent, nationality, regional pronunciation, or minor grammar slips. A non-native or Indian accent must never reduce a score when the answer is understandable; grammar matters only when it materially obscures meaning. Be fair, specific and honest — never inflate a candidate who lacks the core functional knowledge for the role. When naming the best-fit role, weigh the candidate's stated interests, motivation and strengths (including the early getting-to-know-you answers), not only their functional depth. Use Indian and globally common hiring standards.`,
-          `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job. Do not penalise Indian accents, non-native English, or minor grammar errors unless meaning is genuinely unclear.`,
+Rate EVERY competency above from evidence in the transcript, calibrated to the experience level — do not leave any unrated. Communication Skills and Personality & Disposition are judged from HOW the candidate expressed every answer (tone, energy, clarity), not from dedicated questions; you cannot see the candidate, so judge personality from vocal energy and content only and never invent visual details like body language, dress or eye contact. Educational Background comes from their introduction. If a competency was only lightly tested in this interview, infer conservatively from the overall conversation and say so in its comment rather than guessing high. Evaluate role-relevant clarity, reasoning, relevance, professionalism, problem-solving and knowledge — not accent, nationality, regional pronunciation, or minor grammar slips. A non-native or Indian accent must never reduce a score when the answer is understandable; grammar matters only when it materially obscures meaning. Be fair, specific and honest — never inflate a candidate who lacks the core functional knowledge for the role. When naming the best-fit role, weigh the candidate's stated interests, motivation and strengths (including the early getting-to-know-you answers), not only their functional depth. Use Indian and globally common hiring standards.
+
+IMPORTANT REPORT GENUINENESS RULES: This is a transcript-based coaching simulation, not a lie detector, background check, or final hiring decision. Never claim that a candidate is honest, dishonest, genuine, deceptive, or culturally fit as a fact. "Authenticity signals" must describe observable answer behaviour only: specific examples, ownership, measurable outcomes, consistency, reflection, or appropriate uncertainty. "Evidence limitations" must name what was not demonstrated. Low evidence quality is appropriate when there are too few answers, vague answers, heavy transcription uncertainty, or a short interview. Do not convert confidence, fluency, accent, eye contact, personality style, or speaking speed into an honesty judgement. Keep hiring recommendations conditional and explain what a human panel should verify.`,
+          `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job. Do not penalise Indian accents, non-native English, or minor grammar errors unless meaning is genuinely unclear. Use evidence-based hiring language suitable for India and overseas employers, and clearly separate demonstrated evidence from assumptions and follow-up checks.`,
         undefined,
         { maxTokens: 2000 }
       );
@@ -1670,9 +1737,26 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
       `Date: ${new Date().toLocaleDateString("en-IN")}`,
       report ? `Total Weighted Score: ${report.weightedScore.toFixed(1)} / 5.0 (${report.overallScore}%) — ${report.recommendation}` : `Overall Score: ${avgScore}% — ${grade(avgScore).label}`,
       report ? `Result: ${verdictFor(report.overallScore).label}${report.verdictReason ? ` — ${report.verdictReason}` : ""}` : `Result: ${verdictFor(avgScore).label}`,
+      report?.hiringSummary ? `Hiring Summary: ${report.hiringSummary}` : "",
+      report?.evidenceQuality ? `Evidence Quality: ${report.evidenceQuality} (transcript-based; not a lie detector)` : "",
       report ? `Role Fit: ${report.roleFit}` : "",
       report && report.bestFitRole ? `Best-Fit Role: ${report.bestFitRole}` : "",
       ``,
+      ...(report?.authenticitySignals?.length ? [
+        `OBSERVABLE AUTHENTICITY SIGNALS (not proof of honesty)`,
+        ...report.authenticitySignals,
+        ``,
+      ] : []),
+      ...(report?.evidenceLimitations?.length ? [
+        `EVIDENCE LIMITATIONS`,
+        ...report.evidenceLimitations,
+        ``,
+      ] : []),
+      ...(report?.followUpChecks?.length ? [
+        `HUMAN FOLLOW-UP CHECKS`,
+        ...report.followUpChecks,
+        ``,
+      ] : []),
       ...(report?.competencies ? [
         `COMPETENCY SCORECARD (rated 1-5)`,
         ...COMPETENCIES.filter(c => report.competencies![c.key]).map(c => {
@@ -1733,6 +1817,12 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
             value={type}
             onValueChange={(v) => {
               setType(v);
+               // Keep the benchmark role-aware. A manually selected level is
+               // respected; otherwise changing to Sales Manager (or another
+               // role) immediately updates the expected seniority.
+               if (!experienceTouchedRef.current) {
+                 setExperience(recommendedExperienceForType(v));
+               }
               // Re-match the interviewer to the new type (unless a B2B invite locked it).
               if (!b2bParams.coach) setCoach(recommendedCoachFor(v));
             }}
@@ -1744,7 +1834,13 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
               {INTERVIEW_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={experience} onValueChange={setExperience}>
+          <Select
+            value={experience}
+            onValueChange={(v) => {
+              experienceTouchedRef.current = true;
+              setExperience(v);
+            }}
+          >
             <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed">
               <SelectValue />
             </SelectTrigger>
@@ -1925,6 +2021,91 @@ Judge the answer's relevance, reasoning, role knowledge, professionalism and cla
 
         {report && (
           <>
+            <Card className="border-primary/20 bg-primary/[0.03] shadow-sm">
+              <CardHeader className="pb-2 pt-5 px-5">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  Hiring panel summary
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Evidence-based guidance for the selected {interviewRoleLabel} role at {experience} level
+                </p>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 space-y-3">
+                <p className="text-sm leading-relaxed text-secondary">
+                  {report.hiringSummary || report.verdictReason || "The report is based only on the answers captured in this practice interview."}
+                </p>
+                {report.recommendedNextStep && (
+                  <div className="rounded-xl border border-primary/15 bg-background/80 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Recommended next step</p>
+                    <p className="text-sm text-secondary">{report.recommendedNextStep}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    Evidence & authenticity signals
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {report.evidenceQuality ?? "Medium"} evidence
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-5 pb-5">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Observable answer behaviour only — this is not a lie detector or background check.
+                  </p>
+                  <ul className="space-y-2">
+                    {(report.authenticitySignals?.length ? report.authenticitySignals : ["Review specific examples and measurable outcomes in a human interview."]).map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-secondary">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />{item}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
+                  <CardTitle className="text-base flex items-center gap-2 text-orange-700">
+                    <AlertCircle className="w-4 h-4" />
+                    Gaps & decision limits
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-5 pb-5">
+                  <ul className="space-y-2">
+                    {(report.evidenceLimitations?.length ? report.evidenceLimitations : ["A practice transcript cannot verify employment history, references, qualifications, or real-world performance."]).map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-secondary">
+                        <AlertCircle className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />{item}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+
+            {!!report.followUpChecks?.length && (
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-primary" />
+                    Human follow-up checks
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use these checks in the next round before making a hiring decision.
+                  </p>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-5 pb-5">
+                  <ol className="space-y-2 list-decimal list-inside text-sm text-secondary">
+                    {report.followUpChecks.map((item, i) => <li key={i}>{item}</li>)}
+                  </ol>
+                </CardContent>
+              </Card>
+            )}
+
             {report.competencies && (
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2 pt-5 px-5">
