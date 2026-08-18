@@ -89,6 +89,13 @@ The 30s-ish no-reply watchdog (see above) reliably fires during automated Playwr
 **Why:** wasted a full test cycle chasing a false-positive "premature termination" failure; server log timing (a 46s gap between calls) confirmed the watchdog, not a crash.
 **How to apply:** when writing a test plan for multi-question interview flows, explicitly instruct the tester to submit each answer within ~10-15s of the question appearing and defer detailed analysis until after the full question set is collected.
 
+# Calm speech with live response timing
+AI voice delivery should be slower and easier to follow globally, while live Interview Ace turn-start timing stays fast. Interview Ace questions must be one short, simple question; enforce this in both the prompt and final client parsing.
+
+**Why:** faster TTS made teachers and interviewers feel rushed, but slowing the AI generation/response handoff would make the interview feel unnatural.
+
+**How to apply:** change playback speed/caps rather than adding response waits, and fall back to a short unused question when generated output is multi-question or too long.
+
 # Live Interview Ace latency and STT provider order
 Candidate turn handling should target a sub-three-second reply: keep the AI deadline short, use only a brief conversational pause, and restart continuous mic capture explicitly after the coach finishes speaking. Speech-to-text should use Google Cloud first when Gemini quota is exhausted; otherwise every answer waits several seconds for a failed Gemini attempt before fallback.
 

@@ -36,7 +36,9 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   neha: 'Speak like a patient Kolkata pronunciation teacher. Slow down for demonstrations, break words into syllables, and say "now repeat after me" or "stress the second syllable".',
   rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
 };
-const ENGLISH_GURU_SPEECH_RATE = 1.02;
+// Calm, teacher-like delivery. Keep the live turn timing unchanged; only the
+// audio itself is slower and easier to follow.
+const ENGLISH_GURU_SPEECH_RATE = 0.94;
 const LIVE_OPENINGS = [
   (name: string) => `Hi ${name}! I’m happy you’re here. How are you feeling today?`,
   (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,

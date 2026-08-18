@@ -16,7 +16,7 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
-const COMMUNICATION_CHECK_SPEECH_RATE = 1.08;
+const COMMUNICATION_CHECK_SPEECH_RATE = 0.95;
 const OPENING_QUESTIONS = [
   "Tell me about something you are working towards right now.",
   "What is one recent experience you would enjoy telling a colleague about?",

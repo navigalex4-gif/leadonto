@@ -54,8 +54,10 @@ const DURATIONS = [
   { value: 15, label: "15 minutes" },
   { value: 25, label: "25 minutes" },
 ];
-const INTERVIEW_SPEECH_RATE = 1.08;
-const ANANYA_SPEECH_RATE = 1.1;
+// A calm, deliberate interviewer voice. This changes delivery speed only;
+// reply-start timing remains live-conversation speed.
+const INTERVIEW_SPEECH_RATE = 0.96;
+const ANANYA_SPEECH_RATE = 0.97;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -179,23 +181,45 @@ function cleanForSpeech(text: string): string {
     .trim();
 }
 
+/**
+ * Keep the live interviewer conversational: one clear question per turn.
+ * The prompt asks the model for this shape, but this final guard prevents a
+ * model occasionally returning a two-part questionnaire or a long paragraph.
+ */
+function keepOneSimpleQuestion(text: string): string {
+  let question = text
+    .replace(/^(?:Next|Question):\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const questionEnd = question.indexOf("?");
+  if (questionEnd >= 0) {
+    question = question.slice(0, questionEnd + 1).trim();
+  } else {
+    const sentenceEnd = question.search(/[.!](?:\s|$)/);
+    if (sentenceEnd >= 0) question = question.slice(0, sentenceEnd + 1).trim();
+  }
+
+  return question;
+}
+
 const INTERVIEW_FALLBACK_QUESTIONS = [
-  "What did you learn from that experience?",
-  "How did you decide what to do first?",
+  "What did you learn?",
+  "What did you do first?",
   "What changed because of your actions?",
-  "How would you handle a similar situation now?",
-  "What would success look like in this situation?",
-  "Which part of this work would you find most challenging?",
-  "How would you explain your approach to a new colleague?",
-  "What would you improve if you had another chance?",
-  "What would you do if your first plan did not work?",
-  "What is one practical example from your work or studies?",
-  "How did you measure whether your approach worked?",
-  "What support or information would help you do this well?",
-  "What would you try differently the next time?",
-  "How would you make this process easier for the people involved?",
-  "What is the first sign that this situation needs attention?",
-  "What part of this role would you most like to strengthen?",
+  "How would you handle it now?",
+  "What would success look like?",
+  "What would be most challenging?",
+  "How would you explain your approach?",
+  "What would you improve next time?",
+  "What would you do if the plan failed?",
+  "What is one example from your work or studies?",
+  "How did you know it worked?",
+  "What would help you do this well?",
+  "What would you try differently?",
+  "How would you make this easier?",
+  "What is the first sign of a problem?",
+  "What would you like to strengthen?",
 ];
 
 const INTERVIEW_BEHAVIOR_MOMENTS = [
@@ -1268,7 +1292,7 @@ STYLE — important:
 - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
  - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
  - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
-- Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist.
+ - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. Use one short sentence of about 8–18 simple words, with one clear idea only. Never join questions with "and", "or", or multiple question marks.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
 - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.
 - LANGUAGE LEVEL: By default ask in SIMPLE, clear, everyday English — short sentences, common words — because many candidates are from average English-medium colleges. Judge ${firstName}'s own English from their answers so far: if they are clearly fluent and comfortable, you may use richer vocabulary and slightly more complex questions to match them; if they struggle, make your wording even simpler. Never make a question harder to follow than the candidate can handle.
@@ -1345,11 +1369,12 @@ Next: <the interview question only, may start with a short natural bridge>`,
       return s.trim();
     };
     if (nextQuestion) nextQuestion = stripGreeting(nextQuestion);
+    if (nextQuestion) nextQuestion = keepOneSimpleQuestion(nextQuestion);
     // Capitalise first letter if stripping lowercased it
     if (nextQuestion) nextQuestion = nextQuestion.charAt(0).toUpperCase() + nextQuestion.slice(1);
 
     // Safety: never let a parsing failure silently end the interview.
-    if (!nextQuestion) {
+    if (!nextQuestion || nextQuestion.split(/\s+/).filter(Boolean).length > 24) {
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 

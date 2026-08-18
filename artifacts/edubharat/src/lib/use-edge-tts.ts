@@ -15,7 +15,7 @@ export type VoiceGender = "male" | "female" | "auto";
 
 export type GoogleSpeakOptions = {
   voiceGender?: VoiceGender;
-  /** playbackRate multiplier — default 1.0 */
+  /** playbackRate multiplier — default 0.94 for calm, clear speech */
   rate?: number;
   /** retained for caller compatibility; Google controls natural pitch */
   pitch?: number;
@@ -485,7 +485,10 @@ function playChunkChain(
       audio.muted = false;
       audio.volume = 1;
 
-      const rate = options.rate ?? 1;
+      // Keep all AI voices calm by default. Product-specific callers can use
+      // an even slower cap, but should not make teachers/interviewers sound
+      // rushed unless they explicitly opt into it.
+      const rate = options.rate ?? 0.94;
       if (rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this
