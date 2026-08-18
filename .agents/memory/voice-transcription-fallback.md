@@ -12,3 +12,10 @@ The shared voice hook uses MediaRecorder/VAD and sends utterances to `/api/stt`.
 Google Speech-to-Text V2 Chirp 3 was tested in production and rejected with `PERMISSION_DENIED` for `speech.recognizers.recognize` on the implicit recognizer. Do not make Chirp 3 the sole transcription path unless that IAM permission and recognizer configuration are verified in the deployed project.
 
 **Why:** A successful local build did not imply deployed recognizer permission; the resulting failure made all voice turns appear unresponsive.
+
+## Accuracy-first retry policy
+The shared hook should not switch to browser SpeechRecognition after one server STT error. Retry the server path once and only use browser recognition after consecutive provider failures.
+
+**Why:** browser recognition is a useful recovery path but is noticeably less reliable for Indian English and mixed-accent answers; a transient network/provider error should not permanently downgrade the whole session.
+
+**How to apply:** reset the consecutive-failure counter on any non-empty server transcript, keep the MediaRecorder path active for the retry, and use the browser only as a bounded fallback.

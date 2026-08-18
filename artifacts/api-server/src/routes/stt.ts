@@ -56,7 +56,11 @@ async function transcribeWithGoogleCloud(
       // it as 0 Hz and rejects the request before transcription begins.
       sampleRateHertz: 48000,
       languageCode: LANGUAGE_CODES[language] ?? "en-IN",
-      model: "latest_short",
+       // latest_long is more reliable for complete candidate answers, which
+       // commonly contain pauses and several clauses. The client-side VAD
+       // already bounds the utterance, so this does not create an open-ended
+       // recognition request.
+       model: "latest_long",
       enableAutomaticPunctuation: true,
     },
   }, {});

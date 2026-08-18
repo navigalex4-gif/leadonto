@@ -44,8 +44,9 @@ const LIVE_OPENINGS = [
   (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,
   (name: string) => `Welcome, ${name}! I’m listening. What is one thing you enjoy doing?`,
   (name: string) => `Hi ${name}! No perfect answer is needed. What would you like to practise today?`,
-  (name: string) => `Good to see you, ${name}! What is one small win you had recently?`,
   (name: string) => `Hi ${name}! We’ll take it one step at a time. What are you learning these days?`,
+  (name: string) => `Hi ${name}! What would you like to talk about or practise today?`,
+  (name: string) => `Good to see you, ${name}! What would make this practice useful for you today?`,
 ];
 const ENERGETIC_TUTOR_DIRECTION =
   "Be energetic, engaging and encouraging without sounding fake. Keep the learner curious with warm reactions, clear momentum, varied short questions and practical examples. Make the conversation feel rewarding so they want to continue.";

@@ -23,9 +23,12 @@ type BrowserSpeechWindow = Window & {
 
 // End a candidate turn promptly after they stop, while still allowing a
 // natural short pause inside an answer.
-const SILENCE_MS = 650;
-const MIN_UTTERANCE_MS = 280;
-const MAX_UTTERANCE_MS = 14_000;
+// Keep natural pauses inside a candidate's answer. Cutting at 650ms was
+// especially damaging on Indian English, where speakers often pause between
+// clauses; the resulting fragments were harder for STT to understand.
+const SILENCE_MS = 900;
+const MIN_UTTERANCE_MS = 360;
+const MAX_UTTERANCE_MS = 24_000;
 const VAD_INTERVAL_MS = 50;
 const MIN_VAD_THRESHOLD = 0.022;
 const MAX_VAD_THRESHOLD = 0.06;
@@ -82,6 +85,7 @@ export function useSpeechRecognition(language = "English") {
   const retryCaptureRef = useRef<(() => void) | null>(null);
   const browserRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const serverSttUnavailableRef = useRef(false);
+  const serverSttFailureCountRef = useRef(0);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -216,16 +220,25 @@ export function useSpeechRecognition(language = "English") {
       if (!response.ok) throw new Error(body.error ?? "Speech transcription failed.");
       const text = body.text?.trim() ?? "";
       if (text && generation === generationRef.current && shouldContinueRef.current) {
+        serverSttFailureCountRef.current = 0;
+        serverSttUnavailableRef.current = false;
         setTranscript((previous) => `${previous}${previous ? " " : ""}${text}`);
         onPhraseRef.current?.(text);
       }
     } catch (err) {
       if (generation === generationRef.current && shouldContinueRef.current) {
-        serverSttUnavailableRef.current = true;
-        stopMonitoring();
-        if (!startBrowserRecognition()) {
-          setError(err instanceof Error ? err.message : "Speech transcription failed. Try again.");
-          setStatus("error");
+        // A single timeout or provider hiccup should not permanently move the
+        // session to browser SpeechRecognition, which is materially less
+        // accurate on many Android Chrome devices. Keep the server path for
+        // one retry; use the browser only after two consecutive failures.
+        serverSttFailureCountRef.current += 1;
+        if (serverSttFailureCountRef.current >= 2) {
+          serverSttUnavailableRef.current = true;
+          stopMonitoring();
+          if (!startBrowserRecognition()) {
+            setError(err instanceof Error ? err.message : "Speech transcription failed. Try again.");
+            setStatus("error");
+          }
         }
       }
     } finally {
@@ -277,7 +290,10 @@ export function useSpeechRecognition(language = "English") {
 
       if (!recorderRef.current) {
         const mimeType = getMimeType();
-        const recorder = new MediaRecorder(streamRef.current!, mimeType ? { mimeType } : undefined);
+        const recorder = new MediaRecorder(
+          streamRef.current!,
+          mimeType ? { mimeType, audioBitsPerSecond: 128_000 } : { audioBitsPerSecond: 128_000 },
+        );
         recorderRef.current = recorder;
         recorder.ondataavailable = (event) => {
           if (!event.data.size) return;

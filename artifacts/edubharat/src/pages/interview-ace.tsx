@@ -1252,15 +1252,15 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // interview. The stream and the minimum conversational pause run in
     // parallel, so fast responses still wait at least three seconds while a
     // slow response has a hard deadline and a useful fallback.
-    const naturalPauseMs = (() => {
+     const naturalPauseMs = (() => {
       const words = recordedAnswer.split(/\s+/).filter(Boolean).length;
-      const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 250 : 0;
-      const base = words < 15 ? 1300 : words <= 50 ? 1550 : 1800;
-      return Math.min(2200, Math.max(1200, base + hesitationMs));
+       const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 120 : 0;
+       const base = words < 15 ? 520 : words <= 50 ? 680 : 820;
+       return Math.min(950, Math.max(450, base + hesitationMs));
     })();
     const turnStartedAt = performance.now();
-    const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 1200));
-    const STREAM_DEADLINE_MS = 1800;
+     const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 450));
+     const STREAM_DEADLINE_MS = 1200;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1327,8 +1327,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
       response = `Next: ${fallback}`;
     }
 
-    // Keep a short human pause without delaying the next question. The hard
-    // stream deadline plus this pause keeps normal replies under three seconds.
+     // Keep a tiny human pause without adding the old multi-second delay. The
+     // hard stream deadline plus this pause lets the next question start quickly.
     await minWaitPromise;
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     const remainingPause = Math.min(
