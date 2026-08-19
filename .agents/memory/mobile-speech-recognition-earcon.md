@@ -7,4 +7,4 @@ Android Chrome can play a short two-note earcon when the Web Speech Recognition 
 
 **Why:** The conversation code contains no notification sound effect, while the recorded tone aligns with recognition lifecycle boundaries and the page uses `webkitSpeechRecognition`.
 
-**How to apply:** Do not alter TTS, audio muting, timing, or microphone lifecycle to chase this tone. Suppressing it requires replacing or changing the recognition implementation, which is a microphone-behavior change; communicate that limitation instead.
+**How to apply:** Web Live Conversation, Interview Ace, and Communication Check must use MediaRecorder/VAD plus server STT, with recorder-based provisional text if needed. Never invoke SpeechRecognition or `webkitSpeechRecognition` for these web flows. Expo/mobile-native behavior is a separate decision.

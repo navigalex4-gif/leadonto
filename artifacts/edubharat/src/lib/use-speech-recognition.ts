@@ -75,6 +75,10 @@ export function useSpeechRecognition(language = "English") {
   const externalSuppressUntilRef = useRef(0);
   const retryCaptureRef = useRef<(() => void) | null>(null);
   const serverSttFailureCountRef = useRef(0);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const previewInFlightRef = useRef(false);
+  const lastPreviewAtRef = useRef(0);
+  const utteranceIdRef = useRef(0);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -103,6 +107,9 @@ export function useSpeechRecognition(language = "English") {
       recorder.onstop = null;
       try { recorder.stop(); } catch { /* already stopped */ }
     }
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
+    previewInFlightRef.current = false;
   }, []);
 
   const stopMonitoring = useCallback(() => {
@@ -158,6 +165,50 @@ export function useSpeechRecognition(language = "English") {
       if (generation === generationRef.current && shouldContinueRef.current) {
         setStatus("listening");
       }
+    }
+  }, [base, language]);
+
+  // Provisional text comes from the same silent recorder as final STT. It is
+  // display-only: it never calls onPhrase and can never submit an answer.
+  const requestPreview = useCallback(async (blob: Blob, generation: number, utteranceId: number) => {
+    if (
+      previewInFlightRef.current
+      || blob.size < 1200
+      || generation !== generationRef.current
+      || !shouldContinueRef.current
+    ) return;
+    previewInFlightRef.current = true;
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 7_000);
+    try {
+      const form = new FormData();
+      form.append("audio", blob, `preview.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
+      form.append("language", language);
+      const response = await fetch(`${base}/api/stt`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => ({})) as { text?: string };
+      const text = body.text?.trim() ?? "";
+      if (
+        response.ok
+        && text
+        && generation === generationRef.current
+        && utteranceId === utteranceIdRef.current
+        && utteranceActiveRef.current
+        && shouldContinueRef.current
+      ) {
+        setInterimTranscript(text);
+      }
+    } catch {
+      // Preview is best-effort; final server transcription remains authoritative.
+    } finally {
+      window.clearTimeout(timeout);
+      if (previewAbortRef.current === controller) previewAbortRef.current = null;
+      previewInFlightRef.current = false;
     }
   }, [base, language]);
 
@@ -246,6 +297,9 @@ export function useSpeechRecognition(language = "English") {
 
         if (recorder && !transcribingRef.current && !utteranceActiveRef.current && now >= blockedUntilRef.current && rms >= threshold) {
           utteranceActiveRef.current = true;
+          utteranceIdRef.current += 1;
+          lastPreviewAtRef.current = 0;
+          setInterimTranscript("");
           utteranceChunksRef.current = [...rollingChunksRef.current];
           rollingChunksRef.current = [];
           utteranceStartedRef.current = now;
@@ -256,10 +310,27 @@ export function useSpeechRecognition(language = "English") {
           setStatus("listening");
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
           if (rms >= threshold) lastVoiceRef.current = now;
+          if (
+            now - utteranceStartedRef.current >= 900
+            && now - lastPreviewAtRef.current >= 1_300
+            && utteranceChunksRef.current.length >= 4
+            && !previewInFlightRef.current
+          ) {
+            lastPreviewAtRef.current = now;
+            void requestPreview(
+              new Blob([...utteranceChunksRef.current], { type: recorder.mimeType || "audio/webm" }),
+              generation,
+              utteranceIdRef.current,
+            );
+          }
           const quietLongEnough = now - lastVoiceRef.current >= SILENCE_MS;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
           if ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength) {
             utteranceActiveRef.current = false;
+            utteranceIdRef.current += 1;
+            previewAbortRef.current?.abort();
+            previewAbortRef.current = null;
+            previewInFlightRef.current = false;
             const utterance = new Blob(utteranceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
             utteranceChunksRef.current = [];
             console.info("[stt] speech ended", {
@@ -282,7 +353,7 @@ export function useSpeechRecognition(language = "English") {
     } finally {
       captureStartingRef.current = false;
     }
-  }, [isSupported, transcribe]);
+  }, [isSupported, requestPreview, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;

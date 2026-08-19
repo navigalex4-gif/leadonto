@@ -523,6 +523,10 @@ Rules for spoken replies:
             ? "Take your time. What would you like to talk about?"
             : "I’m here with you. Tell me a little more about that.";
         }
+        // A fallback reply is a successful recovery, not a failed live turn.
+        // Clear the hook error so mobile users are not left staring at a stale
+        // "AI request failed" banner while the mic has already reopened.
+        resetAI();
         if (
           turnGeneration !== liveTurnGenerationRef.current ||
           (liveChatRef.current && livePausedRef.current)
