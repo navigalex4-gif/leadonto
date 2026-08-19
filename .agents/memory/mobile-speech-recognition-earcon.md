@@ -7,4 +7,4 @@ Android Chrome can play a short two-note earcon when the Web Speech Recognition 
 
 **Why:** The conversation code contains no notification sound effect, while the recorded tone aligns with recognition lifecycle boundaries and the page uses `webkitSpeechRecognition`.
 
-**How to apply:** Do not alter TTS, audio muting, or timing to chase this tone. Web live products use MediaRecorder/VAD plus server-side STT (including bounded interim previews), never browser SpeechRecognition.
+**How to apply:** Do not alter TTS, audio muting, or timing to chase this tone. Web live products use MediaRecorder/VAD plus server-side STT and never browser SpeechRecognition.

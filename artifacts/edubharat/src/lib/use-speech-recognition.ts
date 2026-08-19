@@ -25,11 +25,6 @@ const MAX_VAD_THRESHOLD = 0.06;
 const WARMUP_MS = 120;
 const PRE_ROLL_CHUNKS = 8;
 const RECORDER_TIMESLICE_MS = 160;
-// A small server-transcribed preview makes words appear while the person is
-// speaking, without invoking the Android Web Speech service (which plays a
-// system "ting tong" outside the page's audio controls).
-const INTERIM_STT_INTERVAL_MS = 650;
-const MAX_INTERIM_STT_REQUESTS_PER_UTTERANCE = 6;
 
 function getMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
@@ -80,11 +75,6 @@ export function useSpeechRecognition(language = "English") {
   const externalSuppressUntilRef = useRef(0);
   const retryCaptureRef = useRef<(() => void) | null>(null);
   const serverSttFailureCountRef = useRef(0);
-  const interimAbortRef = useRef<AbortController | null>(null);
-  const interimTokenRef = useRef(0);
-  const interimLastRequestRef = useRef(0);
-  const interimRequestsRef = useRef(0);
-  const interimInFlightRef = useRef(false);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -121,72 +111,8 @@ export function useSpeechRecognition(language = "English") {
     cancelRecorder();
   }, [cancelRecorder]);
 
-  const cancelInterimTranscription = useCallback(() => {
-    interimTokenRef.current += 1;
-    interimAbortRef.current?.abort();
-    interimAbortRef.current = null;
-    interimInFlightRef.current = false;
-  }, []);
-
-  const transcribeInterim = useCallback(async (generation: number) => {
-    if (
-      interimInFlightRef.current ||
-      !utteranceActiveRef.current ||
-      interimRequestsRef.current >= MAX_INTERIM_STT_REQUESTS_PER_UTTERANCE ||
-      generation !== generationRef.current
-    ) return;
-
-    const recorder = recorderRef.current;
-    const chunks = utteranceChunksRef.current.slice();
-    const preview = new Blob(chunks, { type: recorder?.mimeType || "audio/webm" });
-    if (preview.size < 1_200) return;
-
-    const token = ++interimTokenRef.current;
-    const controller = new AbortController();
-    interimAbortRef.current?.abort();
-    interimAbortRef.current = controller;
-    interimInFlightRef.current = true;
-    interimRequestsRef.current += 1;
-    interimLastRequestRef.current = Date.now();
-
-    try {
-      const form = new FormData();
-      form.append("audio", preview, `speaking.${preview.type.includes("mp4") ? "mp4" : "webm"}`);
-      form.append("language", language);
-      const timeout = window.setTimeout(() => controller.abort(), 7_000);
-      const response = await fetch(`${base}/api/stt`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-        signal: controller.signal,
-      });
-      window.clearTimeout(timeout);
-      const body = await response.json().catch(() => ({})) as { text?: string };
-      const text = body.text?.trim() ?? "";
-      if (
-        response.ok &&
-        text &&
-        token === interimTokenRef.current &&
-        generation === generationRef.current &&
-        shouldContinueRef.current &&
-        utteranceActiveRef.current
-      ) {
-        setInterimTranscript(text);
-      }
-    } catch {
-      // The final transcription remains authoritative. A slow preview must
-      // never interrupt capture or show a microphone error to the learner.
-    } finally {
-      if (token === interimTokenRef.current) {
-        interimInFlightRef.current = false;
-        interimAbortRef.current = null;
-      }
-    }
-  }, [base, language]);
-
   const transcribe = useCallback(async (blob: Blob, generation: number) => {
     if (blob.size < 800 || generation !== generationRef.current) return;
-    cancelInterimTranscription();
     transcribingRef.current = true;
     setStatus("processing");
     setInterimTranscript("");
@@ -233,7 +159,7 @@ export function useSpeechRecognition(language = "English") {
         setStatus("listening");
       }
     }
-  }, [base, cancelInterimTranscription, language]);
+  }, [base, language]);
 
   const startCapture = useCallback(async () => {
     if (!shouldContinueRef.current || !isSupported || captureStartingRef.current) return;
@@ -324,30 +250,18 @@ export function useSpeechRecognition(language = "English") {
           rollingChunksRef.current = [];
           utteranceStartedRef.current = now;
           lastVoiceRef.current = now;
-          cancelInterimTranscription();
-          interimLastRequestRef.current = now;
-          interimRequestsRef.current = 0;
-          setInterimTranscript("");
           speechStartRef.current = performance.now();
           firstAudioRef.current = 0;
           console.info("[stt] speech started", { atMs: Math.round(speechStartRef.current), threshold });
           setStatus("listening");
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
           if (rms >= threshold) lastVoiceRef.current = now;
-          if (
-            now - interimLastRequestRef.current >= INTERIM_STT_INTERVAL_MS &&
-            !interimInFlightRef.current &&
-            interimRequestsRef.current < MAX_INTERIM_STT_REQUESTS_PER_UTTERANCE
-          ) {
-            void transcribeInterim(generation);
-          }
           const quietLongEnough = now - lastVoiceRef.current >= SILENCE_MS;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
           if ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength) {
             utteranceActiveRef.current = false;
             const utterance = new Blob(utteranceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
             utteranceChunksRef.current = [];
-            cancelInterimTranscription();
             console.info("[stt] speech ended", {
               atMs: Math.round(performance.now()),
               durationMs: now - utteranceStartedRef.current,
@@ -368,7 +282,7 @@ export function useSpeechRecognition(language = "English") {
     } finally {
       captureStartingRef.current = false;
     }
-  }, [cancelInterimTranscription, isSupported, transcribe, transcribeInterim]);
+  }, [isSupported, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;
@@ -395,10 +309,9 @@ export function useSpeechRecognition(language = "English") {
     clearTimers();
     blockedUntilRef.current = Date.now() + 10 * 60 * 1000;
     stopMonitoring();
-    cancelInterimTranscription();
     setInterimTranscript("");
     setStatus("idle");
-  }, [cancelInterimTranscription, clearTimers, stopMonitoring]);
+  }, [clearTimers, stopMonitoring]);
 
   const stop = useCallback(() => {
     shouldContinueRef.current = false;
@@ -406,7 +319,6 @@ export function useSpeechRecognition(language = "English") {
     generationRef.current++;
     clearTimers();
     stopMonitoring();
-    cancelInterimTranscription();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     analyserRef.current = null;
@@ -417,7 +329,7 @@ export function useSpeechRecognition(language = "English") {
     setAudioLevel(0);
     setStatus("idle");
     setInterimTranscript("");
-  }, [cancelInterimTranscription, clearTimers, stopMonitoring]);
+  }, [clearTimers, stopMonitoring]);
 
   const startContinuous = useCallback((onPhrase: (text: string) => void) => {
     if (!isSupported) {

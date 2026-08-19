@@ -203,13 +203,6 @@ export default function CommunicationCheck() {
   const [emailSending, setEmailSending] = useState(false);
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const interviewStartedAtRef = useRef<number | null>(null);
-  // Finalized server turns live in currentAnswer; the shared speech hook supplies
-  // a separate in-progress server-STT preview while the candidate is talking.
-  // Keep them visually contiguous without committing preview words twice.
-  const visibleAnswer = [currentAnswer, speech.interimTranscript]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
 
   useEffect(() => {
     if (user) {
@@ -443,9 +436,8 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
       setRemaining((value) => {
         if (value <= 1) {
           clearInterval(timer);
-          const finalDraft = [answerRef.current, speech.interimTranscript].filter(Boolean).join(" ").trim();
-          const final = finalDraft
-            ? [...answersRef.current, { question: questionRef.current, answer: finalDraft }]
+          const final = answerRef.current.trim()
+            ? [...answersRef.current, { question: questionRef.current, answer: answerRef.current.trim() }]
             : answersRef.current;
            void finishWithFeedback(final.length ? final : [{ question: questionRef.current, answer: "" }]);
           return 0;
@@ -454,7 +446,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [clearTimers, finishWithFeedback, phase, speech.interimTranscript]);
+  }, [clearTimers, finishWithFeedback, phase]);
 
   useEffect(() => {
     if (phase !== "interview" || remaining > 10 || remaining <= 0 || closingRef.current) return;
@@ -634,8 +626,8 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                />
                <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
-              <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary" aria-live="polite" aria-label="Your live answer">
-                {visibleAnswer || <span className="text-muted-foreground">{isThinking ? "Your interviewer is preparing the next question…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Your answer is being transcribed…" : speech.status === "listening" ? "Speak naturally — your words will appear here…" : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
+             <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
+                {currentAnswer || <span className="text-muted-foreground">{isThinking ? "Your interviewer is preparing the next question…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Your answer is being transcribed…" : speech.status === "listening" ? "Speak naturally…" : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
             </div>
             <div className="flex flex-wrap items-center gap-3">
                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
