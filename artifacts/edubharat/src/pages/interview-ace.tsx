@@ -27,6 +27,7 @@ import {
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
   Star, Clock, Timer, AlertCircle, Save, PhoneOff, VideoOff, Video, Target, XCircle,
   Maximize2, Minimize2,
+  RotateCw,
 } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -388,7 +389,7 @@ function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, 
 }
 
 function technicalRelevanceForQuestion(question: string): "high" | "low" {
-  return /\b(introduce yourself|tell me about your path|background|education|hobby|hobbies|interest|outside work|outside studies|why are you interested|what attracts you|strengths|proud of)\b/i.test(question)
+  return /\b(introduce yourself|tell me about your path|background|education|hobby|hobbies|interest|outside work|outside studies|why are you interested|what attracts you|strengths|proud of|what kind of work|what do you like|what do you enjoy|what appeals|working as|working in|learn something new|respond when feedback|feedback catches|personality|grow into)\b/i.test(question)
     ? "low"
     : "high";
 }
@@ -878,6 +879,7 @@ function InterviewAceContent() {
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [candidateVideoExpanded, setCandidateVideoExpanded] = useState(false);
+  const [landscapeMode, setLandscapeMode] = useState(false);
 
   const typeMeta = INTERVIEW_TYPES.find(t => t.value === type)!;
   const interviewRoleLabel = roleLabelFor(
@@ -1023,8 +1025,33 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     setCameraOn(false);
   }, []);
 
+  const toggleLandscapeMode = useCallback(async () => {
+    const next = !landscapeMode;
+    setLandscapeMode(next);
+    try {
+      const orientation = window.screen.orientation as ScreenOrientation & {
+        lock?: (orientation: "landscape" | "portrait") => Promise<void>;
+        unlock?: () => void;
+      };
+      if (next) await orientation.lock?.("landscape");
+      else orientation.unlock?.();
+    } catch {
+      // Some mobile browsers permit orientation locking only in fullscreen.
+      // Keep the in-app layout state changed so the control still remains useful.
+    }
+  }, [landscapeMode]);
+
   // Cleanup webcam on unmount
   useEffect(() => () => stopWebcam(), [stopWebcam]);
+
+  // Never leave the device locked in landscape after leaving the call.
+  useEffect(() => () => {
+    try {
+      (window.screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
+    } catch {
+      // Orientation APIs are unavailable in some desktop browsers.
+    }
+  }, []);
 
   // Auto-release the candidate's camera the moment the interview is over
   // (time-up, all questions answered, or hang-up). The webcam PiP lives only in
@@ -1761,19 +1788,23 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
         try {
           const arr = JSON.parse(cleaned) as Array<Record<string, unknown>>;
           if (Array.isArray(arr)) {
-            parsed.questionScores = arr.map(qs => ({
+           parsed.questionScores = arr.map((qs, questionIndex) => ({
+             // Warm-up and behavioural prompts do not test technical knowledge.
+             // Enforce this locally even if the evaluator ignores the prompt.
+             technical: technicalRelevanceForQuestion(answered[questionIndex]?.question ?? "") === "low"
+               ? undefined
+               : (typeof qs["technical"] === "number" && Number.isFinite(qs["technical"])
+                 ? Math.min(10, Math.max(1, Math.round(qs["technical"])))
+                 : undefined),
               score: Math.min(10, Math.max(1, Number(qs["score"]) || 5)),
               communication: Math.min(10, Math.max(1, Number(qs["communication"]) || 5)),
               grammar: Math.min(10, Math.max(1, Number(qs["grammar"]) || 5)),
               confidence: Math.min(10, Math.max(1, Number(qs["confidence"]) || 5)),
-              technical: typeof qs["technical"] === "number" && Number.isFinite(qs["technical"])
-                ? Math.min(10, Math.max(1, Math.round(qs["technical"])))
-                : undefined,
-                relevance: String(qs["relevance"] || "Not assessed"),
-                alignment: String(qs["alignment"] || "Not assessed"),
-                authenticityObservation: String(qs["authenticityObservation"] || "No authenticity conclusion can be drawn from a transcript alone."),
-              feedback: String(qs["feedback"] || ""),
-            }));
+             relevance: String(qs["relevance"] || "Not assessed"),
+             alignment: String(qs["alignment"] || "Not assessed"),
+             authenticityObservation: String(qs["authenticityObservation"] || "No authenticity conclusion can be drawn from a transcript alone."),
+             feedback: String(qs["feedback"] || ""),
+           }));
           }
         } catch { /* keep without per-question scores */ }
       }
@@ -2416,7 +2447,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 
   // ── Interview — Video Call Mode ────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-slate-50 text-slate-900 flex flex-col z-[9999]" style={{ top: 56 }}>
+    <div className={`fixed inset-0 bg-slate-50 text-slate-900 flex flex-col z-[9999] ${landscapeMode ? "interview-landscape" : ""}`} style={{ top: 56 }}>
 
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
       <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200 shadow-sm z-10">
@@ -2429,6 +2460,15 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500" : ""}>
             {formatTime(elapsedSeconds)} / {duration}:00
           </span>
+            <button
+              type="button"
+              onClick={() => void toggleLandscapeMode()}
+              className="ml-1 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-100"
+              aria-label={landscapeMode ? "Switch to portrait view" : "Switch to landscape view"}
+            >
+              <RotateCw className="h-3 w-3" />
+              <span className="hidden sm:inline">{landscapeMode ? "Portrait" : "Landscape"}</span>
+            </button>
         </div>
       </div>
 
@@ -2621,6 +2661,16 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           >
             {autoListenEnabled ? "Pause mic" : "Resume mic"}
           </Button>
+
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={cameraOn ? stopWebcam : () => void startWebcam()}
+             className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-xs shrink-0"
+             title={cameraOn ? "Turn camera off" : "Turn camera on"}
+           >
+             {cameraOn ? "Camera off" : "Camera on"}
+           </Button>
 
           {isRecording && speech.error && (
             <Button

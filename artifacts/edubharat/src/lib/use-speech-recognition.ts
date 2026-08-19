@@ -3,24 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export type SpeechRecognitionStatus = "idle" | "warming" | "listening" | "processing" | "error";
 
 type AnyWindow = Window & { webkitAudioContext?: typeof AudioContext };
-type BrowserSpeechResult = { isFinal: boolean; 0?: { transcript?: string } };
-type BrowserSpeechEvent = { results: ArrayLike<BrowserSpeechResult> };
-type BrowserSpeechRecognition = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onresult: ((event: BrowserSpeechEvent) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-type BrowserSpeechWindow = Window & {
-  SpeechRecognition?: new () => BrowserSpeechRecognition;
-  webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
-};
-
 // End a candidate turn promptly after they stop, while still allowing a
 // natural short pause inside an answer.
 // Keep natural pauses inside a candidate's answer. Cutting at 650ms was
@@ -87,13 +69,11 @@ export function useSpeechRecognition(language = "English") {
   const audioLevelRef = useRef(0);
   const speechStartRef = useRef(0);
   const firstAudioRef = useRef(0);
-  const firstInterimRef = useRef(0);
   const generationRef = useRef(0);
   const captureStartingRef = useRef(false);
   const transcribingRef = useRef(false);
   const externalSuppressUntilRef = useRef(0);
   const retryCaptureRef = useRef<(() => void) | null>(null);
-  const serverSttUnavailableRef = useRef(false);
   const serverSttFailureCountRef = useRef(0);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -131,86 +111,6 @@ export function useSpeechRecognition(language = "English") {
     cancelRecorder();
   }, [cancelRecorder]);
 
-  const stopBrowserRecognition = useCallback(() => {
-    const recognition = browserRecognitionRef.current;
-    browserRecognitionRef.current = null;
-    if (recognition) {
-      recognition.onresult = null;
-      recognition.onend = null;
-      recognition.onerror = null;
-      try { recognition.stop(); } catch { /* already stopped */ }
-    }
-  }, []);
-
-  const browserLocale = ({
-    English: "en-IN",
-    Hindi: "hi-IN",
-    Tamil: "ta-IN",
-    Telugu: "te-IN",
-    Bengali: "bn-IN",
-    Marathi: "mr-IN",
-    Gujarati: "gu-IN",
-    Kannada: "kn-IN",
-    Malayalam: "ml-IN",
-    Punjabi: "pa-Guru-IN",
-    Odia: "hi-IN",
-    Assamese: "en-IN",
-    Urdu: "ur-IN",
-  } as Record<string, string>)[language] ?? "en-IN";
-
-  const startBrowserRecognition = useCallback((): boolean => {
-    if (!shouldContinueRef.current || browserRecognitionRef.current) return true;
-    const speechWindow = window as BrowserSpeechWindow;
-    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-    if (!Recognition) return false;
-
-    const recognition = new Recognition();
-    recognition.lang = browserLocale;
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      let text = "";
-      let interim = "";
-      for (let index = 0; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        if (result?.isFinal) text += ` ${result[0]?.transcript ?? ""}`;
-        else interim += ` ${result[0]?.transcript ?? ""}`;
-      }
-      const interimText = interim.trim();
-      if (interimText) {
-        firstInterimRef.current ||= performance.now();
-        setInterimTranscript(interimText);
-      }
-      const trimmed = text.trim();
-      if (trimmed && shouldContinueRef.current) {
-        setInterimTranscript("");
-        setTranscript((previous) => `${previous}${previous ? " " : ""}${trimmed}`);
-        onPhraseRef.current?.(trimmed);
-      }
-    };
-    recognition.onerror = () => {
-      browserRecognitionRef.current = null;
-      if (shouldContinueRef.current) setStatus("error");
-    };
-    recognition.onend = () => {
-      if (browserRecognitionRef.current === recognition) browserRecognitionRef.current = null;
-      if (shouldContinueRef.current && serverSttUnavailableRef.current) {
-        window.setTimeout(() => void startBrowserRecognition(), 180);
-      }
-    };
-    browserRecognitionRef.current = recognition;
-    setError(null);
-    setStatus("listening");
-    try {
-      recognition.start();
-      return true;
-    } catch {
-      browserRecognitionRef.current = null;
-      return false;
-    }
-  }, [browserLocale]);
-
   const transcribe = useCallback(async (blob: Blob, generation: number) => {
     if (blob.size < 800 || generation !== generationRef.current) return;
     transcribingRef.current = true;
@@ -234,16 +134,15 @@ export function useSpeechRecognition(language = "English") {
       const text = body.text?.trim() ?? "";
       if (text && generation === generationRef.current && shouldContinueRef.current) {
         serverSttFailureCountRef.current = 0;
-        serverSttUnavailableRef.current = false;
         setTranscript((previous) => `${previous}${previous ? " " : ""}${text}`);
         onPhraseRef.current?.(text);
       }
     } catch (err) {
       if (generation === generationRef.current && shouldContinueRef.current) {
-        // A single timeout or provider hiccup should not permanently move the
-        // session to browser SpeechRecognition, which is materially less
-        // accurate on many Android Chrome devices. Keep the server path for
-        // one retry; use the browser only after two consecutive failures.
+        // Keep the silent MediaRecorder/server path after a provider hiccup.
+        // Native Web Speech fallback is intentionally disabled because Android
+        // Chrome emits an external start/stop earcon and can suspend competing
+        // recognition sessions.
         serverSttFailureCountRef.current += 1;
         if (serverSttFailureCountRef.current >= 2) {
           // Do not fall back to Web Speech Recognition here. Android Chrome
@@ -256,7 +155,7 @@ export function useSpeechRecognition(language = "English") {
       }
     } finally {
       transcribingRef.current = false;
-      if (generation === generationRef.current && shouldContinueRef.current && !browserRecognitionRef.current) {
+      if (generation === generationRef.current && shouldContinueRef.current) {
         setStatus("listening");
       }
     }
@@ -353,7 +252,6 @@ export function useSpeechRecognition(language = "English") {
           lastVoiceRef.current = now;
           speechStartRef.current = performance.now();
           firstAudioRef.current = 0;
-          firstInterimRef.current = 0;
           console.info("[stt] speech started", { atMs: Math.round(speechStartRef.current), threshold });
           setStatus("listening");
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
@@ -396,7 +294,6 @@ export function useSpeechRecognition(language = "English") {
     wakeTimerRef.current = null;
     if (ms > 0) {
       stopMonitoring();
-      stopBrowserRecognition();
       if (shouldContinueRef.current) {
         wakeTimerRef.current = setTimeout(() => {
           wakeTimerRef.current = null;
@@ -406,16 +303,15 @@ export function useSpeechRecognition(language = "English") {
     } else if (shouldContinueRef.current) {
       void startCapture();
     }
-  }, [startCapture, stopBrowserRecognition, stopMonitoring]);
+  }, [startCapture, stopMonitoring]);
 
   const pause = useCallback(() => {
     clearTimers();
     blockedUntilRef.current = Date.now() + 10 * 60 * 1000;
     stopMonitoring();
-    stopBrowserRecognition();
     setInterimTranscript("");
     setStatus("idle");
-  }, [clearTimers, stopBrowserRecognition, stopMonitoring]);
+  }, [clearTimers, stopMonitoring]);
 
   const stop = useCallback(() => {
     shouldContinueRef.current = false;
@@ -423,7 +319,6 @@ export function useSpeechRecognition(language = "English") {
     generationRef.current++;
     clearTimers();
     stopMonitoring();
-    stopBrowserRecognition();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     analyserRef.current = null;
@@ -434,7 +329,7 @@ export function useSpeechRecognition(language = "English") {
     setAudioLevel(0);
     setStatus("idle");
     setInterimTranscript("");
-  }, [clearTimers, stopBrowserRecognition, stopMonitoring]);
+  }, [clearTimers, stopMonitoring]);
 
   const startContinuous = useCallback((onPhrase: (text: string) => void) => {
     if (!isSupported) {
