@@ -392,9 +392,27 @@ function EnglishGuruContent() {
     "Let’s restart gently. What was one moment from today that stood out to you?",
   ];
   const normalizeReply = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const collapseRepeatedSpeech = (text: string) => {
+    const words = text.trim().split(/\s+/);
+    // Android/server transcription can append the same short phrase twice:
+    // "I want to know some I want to know some words." Keep one copy.
+    for (let size = Math.min(8, Math.floor(words.length / 2)); size >= 2; size--) {
+      for (let start = 0; start + size * 2 <= words.length; start++) {
+        const first = words.slice(start, start + size).map((w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ""));
+        const second = words.slice(start + size, start + size * 2).map((w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ""));
+        if (first.every((word, index) => word && word === second[index])) {
+          words.splice(start + size, size);
+          return collapseRepeatedSpeech(words.join(" "));
+        }
+      }
+    }
+    return words.join(" ");
+  };
   const variedFallback = (userMsg: string, isSilenceProbe: boolean) => {
     const turn = liveFallbackTurnRef.current++;
     const lower = userMsg.toLowerCase();
+    const definitionMatch = lower.match(/\b(?:what is|what does|meaning of|define)\s+([a-z][a-z-]*)/i);
+    const definitionWord = definitionMatch?.[1]?.toLowerCase() ?? "";
     const contentWords = userMsg
       .replace(/[^\p{L}\p{N}\s]/gu, " ")
       .split(/\s+/)
@@ -404,9 +422,30 @@ function EnglishGuruContent() {
     let pool: string[];
     if (isSilenceProbe) {
       pool = silenceFallbacks;
+    } else if (definitionWord) {
+      const definitions: Record<string, string> = {
+        social: "Social means connected with spending time or communicating with other people. For example, “I enjoy social conversations with my friends.” Can you make your own sentence with “social”?",
+        family: "Family means the people who are related to you, such as your parents, siblings, cousins, or children. For example, “My family supports me.” Can you make a sentence with “family”?",
+        vocabulary: "Vocabulary means the words that a person knows and uses. For example, “I’m building my English vocabulary.” Tell me one new word you want to learn.",
+        confident: "Confident means feeling sure about your ability. For example, “I feel confident when I practise.” When do you feel confident speaking English?",
+      };
+      pool = [
+        definitions[definitionWord] ?? `“${definitionWord}” means the idea or thing described by that word. For example, “I use ${definitionWord} in a sentence.” Would you like another example?`,
+      ];
+    } else if (
+      (lower.includes("family") && (lower.includes("vocabulary") || lower.includes("word") || lower.includes("words")))
+      || lower.includes("teach me some english")
+      || lower.includes("teach me english")
+      || lower.includes("learn some english")
+    ) {
+      pool = [
+        "Let’s learn useful family vocabulary. A parent is your mother or father, a sibling is your brother or sister, and a cousin is your aunt or uncle’s child. Make one sentence with “sibling.”",
+        "Here are three family words for today: relative, cousin, and sibling. A relative is anyone in your family. Which word would you like to practise in a sentence?",
+        "Let’s practise English with family. You can say, “I live with my parents,” or “I often visit my cousins.” Now tell me one sentence about your family.",
+      ];
     } else if (lower.includes("word") || lower.includes("learn") || lower.includes("english") || lower.includes("speak")) {
       pool = [
-        "Daily English is a great place to start. Where would you use these words first: at work, while travelling, or with friends?",
+        "Let’s learn one useful word at a time. “Helpful” means useful or kind; for example, “Your advice was helpful.” Can you make a sentence with “helpful”?",
         `I like that goal${contentWords ? ` — ${contentWords} can make everyday conversations much easier` : ""}. What situation should we practise first?`,
         "Let’s make it practical. Imagine you are meeting someone new; what would you like to say naturally?",
         "That’s useful learning. Which feels harder for you right now: finding the words, making sentences, or speaking confidently?",
@@ -506,7 +545,7 @@ function EnglishGuruContent() {
     setConvFlowState("ai-thinking");
     void (async () => {
       try {
-        const userMsg = isSilenceProbe ? "" : phrase.trim();
+        const userMsg = isSilenceProbe ? "" : collapseRepeatedSpeech(phrase);
         // Only add normal phrases to visible conversation history
         if (!isSilenceProbe) {
           setConvHistory(h => [...h, { role: "user", text: userMsg }]);
@@ -569,6 +608,8 @@ When using Hindi or another gendered Indian-language phrase, keep the teacher's 
 Rules for spoken replies:
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
 - Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
+- If the student asks what a word means, define that word simply, give one short example, and ask them to make their own sentence. Do not respond with a generic life question.
+- If the student asks to learn vocabulary or English, teach 2–3 useful words or phrases immediately, with meanings and one example. Do not only ask where they want to use English.
 - Start replies smoothly with the substance of your answer. Do not open with "Oh", "Hmm", "Okay", "Got it", "Right", or another filler acknowledgement.
 - Do not repeat acknowledgement phrases before answering; move directly from understanding what the student said to the useful response or follow-up question.
 - Ask follow-up questions based on what they just said — never repeat a question already covered in this conversation.
