@@ -193,6 +193,7 @@ function EnglishGuruContent() {
   /** Counts consecutive silence probes since the user last spoke; max 2 nudges then stop. */
   const silenceProbeCountRef = useRef(0);
   const lastLiveFallbackRef = useRef("");
+  const liveFallbackTurnRef = useRef(0);
 
   useEffect(() => {
     if (user?.name && !profile.name) updateProfile({ name: user.name });
@@ -384,14 +385,6 @@ function EnglishGuruContent() {
 
   // Sentinel value for silence-probe turns (no visible user message added)
   const SILENCE_MARKER = "__silence__";
-  const liveFallbacks = [
-    "I’m listening. Pick one detail from that and tell me what happened next.",
-    "That gives us a starting point. Can you add a short example from your own experience?",
-    "Let’s build on that. What part of this matters most to you?",
-    "I caught the main idea. Now tell me what you learned from it.",
-    "Good, keep going. What would you say to someone who has never experienced that?",
-    "Can you explain that in one clear sentence, then add one reason?",
-  ];
   const silenceFallbacks = [
     "Take your time. What is one small thing you would like to talk about today?",
     "No rush. Tell me about something that has been on your mind recently.",
@@ -400,19 +393,59 @@ function EnglishGuruContent() {
   ];
   const normalizeReply = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
   const variedFallback = (userMsg: string, isSilenceProbe: boolean) => {
+    const turn = liveFallbackTurnRef.current++;
     const lower = userMsg.toLowerCase();
-    const pool = isSilenceProbe
-      ? silenceFallbacks
-      : lower.includes("work") || lower.includes("job") || lower.includes("project")
-        ? [
-            "That sounds connected to your goals. What was your specific responsibility in it?",
-            "Tell me about the result. What changed because of your work?",
-            "What was the hardest part of that job or project, and how did you handle it?",
-          ]
-        : liveFallbacks;
+    const contentWords = userMsg
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !/^(want|like|would|about|that|this|with|from|have|they|what|when|where|tell|know|learn|used|daily)$/i.test(word))
+      .slice(0, 4)
+      .join(" ");
+    let pool: string[];
+    if (isSilenceProbe) {
+      pool = silenceFallbacks;
+    } else if (lower.includes("word") || lower.includes("learn") || lower.includes("english") || lower.includes("speak")) {
+      pool = [
+        "Daily English is a great place to start. Where would you use these words first: at work, while travelling, or with friends?",
+        `I like that goal${contentWords ? ` — ${contentWords} can make everyday conversations much easier` : ""}. What situation should we practise first?`,
+        "Let’s make it practical. Imagine you are meeting someone new; what would you like to say naturally?",
+        "That’s useful learning. Which feels harder for you right now: finding the words, making sentences, or speaking confidently?",
+      ];
+    } else if (lower.includes("work") || lower.includes("job") || lower.includes("project")) {
+      pool = [
+        "That connects to your goals. What was your personal responsibility in that work?",
+        "Tell me about the result. What changed because of your effort?",
+        "What part felt difficult, and what did you try first?",
+        "If you could do that project again, what would you change?",
+      ];
+    } else if (lower.includes("family") || lower.includes("friend") || lower.includes("home")) {
+      pool = [
+        "That sounds meaningful. What is one small detail that makes it special?",
+        "I can picture that. How did the other person respond?",
+        "That kind of experience stays with us. What did it teach you?",
+        "Would you describe that moment as funny, difficult, or comforting — and why?",
+      ];
+    } else if (lower.includes("feel") || lower.includes("happy") || lower.includes("difficult") || lower.includes("problem")) {
+      pool = [
+        "That sounds honest. What helped you handle the moment?",
+        "I hear the feeling in that. What happened just before things changed?",
+        "That was a real experience. What would you tell a friend facing something similar?",
+        "What did you learn about yourself from that situation?",
+      ];
+    } else {
+      pool = [
+        "That’s interesting. What happened next?",
+        "I can follow the main idea. Which detail stands out most to you?",
+        "That gives us something to explore. How did it affect your day?",
+        "Nice, let’s take it one step further. What made you choose that?",
+        "I’m curious about your point of view. What would someone close to you say about it?",
+        "That’s a good thread to follow. Can you give me a quick real-life example?",
+      ];
+    }
     const previous = normalizeReply(lastLiveFallbackRef.current);
     const available = pool.filter((reply) => normalizeReply(reply) !== previous);
-    const reply = (available.length ? available : pool)[Math.floor(Math.random() * (available.length ? available.length : pool.length))]!;
+    const source = available.length ? available : pool;
+    const reply = source[turn % source.length]!;
     lastLiveFallbackRef.current = reply;
     return reply;
   };
