@@ -134,7 +134,7 @@ type InterviewReport = {
   nextSteps: string[];
   questionScores?: Array<{
     score: number; communication: number; grammar: number;
-    confidence: number; technical: number; feedback: string;
+    confidence: number; technical?: number; feedback: string;
     relevance?: string; alignment?: string; authenticityObservation?: string;
   }>;
 };
@@ -237,10 +237,10 @@ const INTERVIEW_BEHAVIOR_MOMENTS = [
 ];
 
 const INTERVIEW_OPENINGS = [
-  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. To begin, please introduce yourself and tell me why you're interested in ${role}.`,
-  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Let's start with your background, education, and the experience most relevant to ${role}.`,
-  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Please give me a brief introduction and describe one project or responsibility you are proud of.`,
-  (name: string, role: string) => `Hello, I'm ${name}, your ${role} interviewer. Tell me about your path so far and what attracts you to this role.`,
+  (name: string) => `Hello, I'm ${name}. To begin, please introduce yourself and tell me what interests you about this opportunity.`,
+  (name: string) => `Hello, I'm ${name}. Let's start with your background, education, and one experience that shaped you.`,
+  (name: string) => `Hello, I'm ${name}. Please give me a brief introduction and describe one project or responsibility you are proud of.`,
+  (name: string) => `Hello, I'm ${name}. Tell me about your path so far and what kind of work you would like to grow into.`,
 ];
 
 const QUICK_ACKNOWLEDGEMENTS = ["Okay", "Got it"];
@@ -385,6 +385,12 @@ function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, 
   return candidates.find(question =>
     !isRepeatedInterviewQuestion(question, askedQuestions) && !isCannedInterviewQuestion(question),
   ) ?? "What is one new thing you would try next time?";
+}
+
+function technicalRelevanceForQuestion(question: string): "high" | "low" {
+  return /\b(introduce yourself|tell me about your path|background|education|hobby|hobbies|interest|outside work|outside studies|why are you interested|what attracts you|strengths|proud of)\b/i.test(question)
+    ? "low"
+    : "high";
 }
 
 function parseCompetencyRating(v: unknown): CompetencyRating {
@@ -831,6 +837,8 @@ function InterviewAceContent() {
   // marks the true end of a turn (coachSpeaking stays true through the thinking pause).
   const turnInFlightRef = useRef(false);
   useEffect(() => { if (!coachSpeaking) turnInFlightRef.current = false; }, [coachSpeaking]);
+  const turnRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const turnRecoveredRef = useRef(false);
   // Diversified interview rotation: which "beat" (competency area) the current
   // question targets. Advances one beat per answered question so consecutive
   // questions cover DIFFERENT areas instead of chaining the same topic.
@@ -1100,10 +1108,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     // Every interview begins with a basic introduction before domain testing.
-    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(
-      displayCoachName,
-      spokenInterviewRoleLabel,
-    );
+    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(displayCoachName);
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1186,6 +1191,46 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // stage. The ref is synchronous, closing even a same-tick double submit.
     if (turnInFlightRef.current) return;
     turnInFlightRef.current = true;
+    turnRecoveredRef.current = false;
+    if (turnRecoveryTimerRef.current) clearTimeout(turnRecoveryTimerRef.current);
+    // A model/network failure must never strand the candidate on the current
+    // question. The normal path commits well before this deadline; if it does
+    // not, advance with a deterministic unused question and ignore the late
+    // model response.
+    turnRecoveryTimerRef.current = setTimeout(() => {
+      if (!turnInFlightRef.current || phaseRef.current !== "interview") return;
+      turnRecoveredRef.current = true;
+      turnInFlightRef.current = false;
+      turnRecoveryTimerRef.current = null;
+      resetStream();
+      setCoachThinking(false);
+      setCoachSpeaking(false);
+      const asked = questionsRef.current.map(q => q.question);
+      const recoveryArea = areaForBeat(beatIdxRef.current + 1, {
+        durationMin: duration,
+        experience,
+        type: typeMeta.value,
+        roleLabel: interviewRoleLabel,
+      });
+      const recoveryQuestion = nextUnusedInterviewQuestion(
+        asked,
+        recoveryArea.key,
+        interviewRoleLabel,
+        typeMeta.value,
+        experience,
+      );
+      beatIdxRef.current += 1;
+      retryRef.current = 0;
+      setQuestions(prev => [...prev, { question: recoveryQuestion }]);
+      setCurrentIdx(prev => prev + 1);
+      setAnswer("");
+      speech.blockFor(0);
+      speakCoach(recoveryQuestion, {
+        voiceGender: coach.gender,
+        voiceStyle: coach.voiceStyle,
+        pitch: coach.gender === "male" ? 0.88 : 1.08,
+      });
+    }, 7_000);
     clearAutoSubmitTimer();
     setIsRecording(false);
     speech.stop();
@@ -1407,6 +1452,10 @@ Next: <the interview question only, may start with a short natural bridge>`,
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 
+    if (turnRecoveredRef.current) {
+      setCoachThinking(false);
+      return;
+    }
     if (
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
@@ -1416,6 +1465,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
     // Speak immediately after the stream or fallback resolves.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+    if (turnRecoveryTimerRef.current) clearTimeout(turnRecoveryTimerRef.current);
+    turnRecoveryTimerRef.current = null;
     setCoachThinking(false);
 
     // Commit the beat advance + retry counter now that we have a valid question.
@@ -1467,6 +1518,8 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
   const endEarly = useCallback(() => {
     endingRef.current = true;
+    if (turnRecoveryTimerRef.current) clearTimeout(turnRecoveryTimerRef.current);
+    turnRecoveryTimerRef.current = null;
     clearAutoSubmitTimer();
     speech.stop();
     synth.stop();
@@ -1687,14 +1740,14 @@ HIRING DECISION CALIBRATION: A ten-minute practice interview cannot establish th
        const fbText = await stream(
           `You are an interview coach. For each answer below, give a 2-3 sentence honest, natural, specific feedback.
 
-${answered.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.answer ?? ""}`).join("\n\n")}
+${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRelevanceForQuestion(q.question) === "low" ? "introductory / behavioural — do not score technical knowledge" : "role or problem-solving — technical score may apply"}\nAnswer: ${q.answer ?? ""}`).join("\n\n")}
 
  Judge each answer against the exact question and the selected ${interviewRoleLabel} role. Explicitly check:
  - relevance: whether the answer actually addresses the question
  - alignment: whether the demonstrated content supports the selected role, not an assumed industry or unverified profile claim
  - authenticityObservation: only observable evidence behaviour such as a concrete example, ownership language, measurable detail, consistency, or appropriate uncertainty; never declare the candidate honest or dishonest
- Do not penalise an Indian or non-native accent, and do not lower grammar just for minor errors that do not obscure meaning. If transcription is unclear, say that evidence is uncertain rather than inventing meaning. Return ONLY a valid JSON array (no markdown) with one object per question in order:
-[{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10,"relevance":"Relevant | Partly relevant | Not demonstrated","alignment":"Aligned | Partly aligned | Not demonstrated","authenticityObservation":"observable evidence only","feedback":"2-3 sentences"}]`,
+ Do not penalise an Indian or non-native accent, and do not lower grammar just for minor errors that do not obscure meaning. If transcription is unclear, say that evidence is uncertain rather than inventing meaning. For introductory, education, hobby, motivation, strengths, and background questions, set technical to null and explain that technical knowledge was not tested; never give those questions an artificial technical score. Return ONLY a valid JSON array (no markdown) with one object per question in order:
+[{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10 or null,"relevance":"Relevant | Partly relevant | Not demonstrated","alignment":"Aligned | Partly aligned | Not demonstrated","authenticityObservation":"observable evidence only","feedback":"2-3 sentences"}]`,
           `You are a concise interview evaluator. Be honest, specific, and encouraging.`,
           undefined,
           { maxTokens: 2000 }
@@ -1713,7 +1766,9 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.answer ?? ""}`).
               communication: Math.min(10, Math.max(1, Number(qs["communication"]) || 5)),
               grammar: Math.min(10, Math.max(1, Number(qs["grammar"]) || 5)),
               confidence: Math.min(10, Math.max(1, Number(qs["confidence"]) || 5)),
-              technical: Math.min(10, Math.max(1, Number(qs["technical"]) || 5)),
+              technical: typeof qs["technical"] === "number" && Number.isFinite(qs["technical"])
+                ? Math.min(10, Math.max(1, Math.round(qs["technical"])))
+                : undefined,
                 relevance: String(qs["relevance"] || "Not assessed"),
                 alignment: String(qs["alignment"] || "Not assessed"),
                 authenticityObservation: String(qs["authenticityObservation"] || "No authenticity conclusion can be drawn from a transcript alone."),
@@ -1875,7 +1930,11 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.answer ?? ""}`).
         `Q${i + 1}: ${q.question}`,
         `Your Answer: ${q.answer ?? ""}`,
         `Score: ${q.score ?? "N/A"}/10`,
-        ...(q.communication !== undefined ? [`  Communication: ${q.communication}/10 | Grammar: ${q.grammar}/10 | Confidence: ${q.confidence}/10 | Technical: ${q.technical}/10`] : []),
+         ...(q.communication !== undefined ? [
+           `  Communication: ${q.communication}/10 | Grammar: ${q.grammar}/10 | Confidence: ${q.confidence}/10${
+             q.technical !== undefined ? ` | Technical: ${q.technical}/10` : " | Technical: Not tested"
+           }`,
+         ] : []),
         `Feedback:\n${q.feedback ?? ""}`,
         "",
       ].join("\n")),

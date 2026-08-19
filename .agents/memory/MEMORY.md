@@ -46,6 +46,7 @@
 - [Live turn cancellation](live-turn-cancellation.md) — invalidate a turn generation before aborting its stream so pause/end cannot let late AI output reach history or TTS.
 - [Live filter continuity](live-filter-continuity.md) — mid-session setting changes (language/level) apply via the turn-handler's deps + langCodeRef (next turn), NEVER by synth.stop()/stream-abort (drops the reply → broken continuity).
 - [Interview timed end + stream race](interview-timeout-end.md) — end at time-up even while recording; async turn handlers must re-check endingRef/phaseRef after every await or a late stream adds a question after the sign-off.
+- [Interview turn recovery](interview-turn-recovery.md) — every submitted answer needs a bounded local-question fallback so a slow/failed AI stream cannot strand the candidate.
 - [Live chat news enrichment](live-chat-news-enrichment.md) — DuckDuckGo Instant Answer enriches AI context for news queries; NEWS_RE must be specific; 1500ms client timeout.
 - [Voice transcription fallback](voice-transcription-fallback.md) — shared STT tries Gemini, then Google Cloud, then browser recognition so all voice products recover together.
 - [Journey AI content endpoint](journey-ai-content.md) — GET /journey/lesson-content/:lessonId; in-memory cache capped at 200 entries (FIFO eviction); useEffect([expanded]) triggers fetch; static LESSON_CONTENT is immediate fallback.
