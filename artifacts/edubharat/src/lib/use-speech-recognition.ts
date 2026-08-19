@@ -93,11 +93,6 @@ export function useSpeechRecognition(language = "English") {
   const transcribingRef = useRef(false);
   const externalSuppressUntilRef = useRef(0);
   const retryCaptureRef = useRef<(() => void) | null>(null);
-  const browserRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  // Display-only browser recognition gives the candidate immediate words while
-  // the more accurate server STT prepares the final answer. It never submits
-  // text or affects scoring.
-  const interimRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const serverSttUnavailableRef = useRef(false);
   const serverSttFailureCountRef = useRef(0);
 
@@ -163,56 +158,6 @@ export function useSpeechRecognition(language = "English") {
     Urdu: "ur-IN",
   } as Record<string, string>)[language] ?? "en-IN";
 
-  const stopInterimRecognition = useCallback(() => {
-    const recognition = interimRecognitionRef.current;
-    interimRecognitionRef.current = null;
-    if (recognition) {
-      recognition.onresult = null;
-      recognition.onend = null;
-      recognition.onerror = null;
-      try { recognition.stop(); } catch { /* already stopped */ }
-    }
-  }, []);
-
-  const startInterimRecognition = useCallback(() => {
-    if (!shouldContinueRef.current || interimRecognitionRef.current) return;
-    const speechWindow = window as BrowserSpeechWindow;
-    const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-    if (!Recognition) return;
-
-    const recognition = new Recognition();
-    recognition.lang = browserLocale;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      let visible = "";
-      for (let index = 0; index < event.results.length; index += 1) {
-        visible += ` ${event.results[index]?.[0]?.transcript ?? ""}`;
-      }
-      if (visible.trim() && shouldContinueRef.current) setInterimTranscript(visible.trim());
-    };
-    recognition.onerror = () => {
-      if (interimRecognitionRef.current === recognition) interimRecognitionRef.current = null;
-    };
-    recognition.onend = () => {
-      if (interimRecognitionRef.current === recognition) interimRecognitionRef.current = null;
-      if (
-        shouldContinueRef.current
-        && Date.now() >= blockedUntilRef.current
-        && !browserRecognitionRef.current
-      ) {
-        window.setTimeout(() => startInterimRecognition(), 120);
-      }
-    };
-    interimRecognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch {
-      interimRecognitionRef.current = null;
-    }
-  }, [browserLocale]);
-
   const startBrowserRecognition = useCallback((): boolean => {
     if (!shouldContinueRef.current || browserRecognitionRef.current) return true;
     const speechWindow = window as BrowserSpeechWindow;
@@ -275,11 +220,15 @@ export function useSpeechRecognition(language = "English") {
       const form = new FormData();
       form.append("audio", blob, `utterance.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
       form.append("language", language);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 12_000);
       const response = await fetch(`${base}/api/stt`, {
         method: "POST",
         credentials: "include",
         body: form,
+        signal: controller.signal,
       });
+      window.clearTimeout(timeout);
       const body = await response.json().catch(() => ({})) as { text?: string; error?: string };
       if (!response.ok) throw new Error(body.error ?? "Speech transcription failed.");
       const text = body.text?.trim() ?? "";
@@ -297,13 +246,12 @@ export function useSpeechRecognition(language = "English") {
         // one retry; use the browser only after two consecutive failures.
         serverSttFailureCountRef.current += 1;
         if (serverSttFailureCountRef.current >= 2) {
-          serverSttUnavailableRef.current = true;
-          stopMonitoring();
-            stopInterimRecognition();
-          if (!startBrowserRecognition()) {
-            setError(err instanceof Error ? err.message : "Speech transcription failed. Try again.");
-            setStatus("error");
-          }
+          // Do not fall back to Web Speech Recognition here. Android Chrome
+          // plays a system start/stop earcon for it, and competing recognition
+          // sessions can make the three voice products appear frozen. The
+          // silent MediaRecorder remains active and will retry the next turn.
+          setError("Transcription is taking longer than usual. Please continue speaking.");
+          serverSttFailureCountRef.current = 0;
         }
       }
     } finally {
@@ -312,10 +260,10 @@ export function useSpeechRecognition(language = "English") {
         setStatus("listening");
       }
     }
-  }, [base, language, startBrowserRecognition, stopMonitoring]);
+  }, [base, language]);
 
   const startCapture = useCallback(async () => {
-    if (!shouldContinueRef.current || !isSupported || captureStartingRef.current || browserRecognitionRef.current) return;
+    if (!shouldContinueRef.current || !isSupported || captureStartingRef.current) return;
     if (Date.now() < blockedUntilRef.current || transcribingRef.current) return;
     captureStartingRef.current = true;
     const generation = generationRef.current;
@@ -372,7 +320,6 @@ export function useSpeechRecognition(language = "English") {
         };
         recorder.start(RECORDER_TIMESLICE_MS);
       }
-       startInterimRecognition();
        if (monitorTimerRef.current !== null) return;
       const data = new Float32Array(analyserRef.current!.fftSize);
       const monitor = () => {
@@ -437,7 +384,7 @@ export function useSpeechRecognition(language = "English") {
     } finally {
       captureStartingRef.current = false;
     }
-  }, [isSupported, startInterimRecognition, transcribe]);
+  }, [isSupported, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;
@@ -450,39 +397,25 @@ export function useSpeechRecognition(language = "English") {
     if (ms > 0) {
       stopMonitoring();
       stopBrowserRecognition();
-      stopInterimRecognition();
       if (shouldContinueRef.current) {
         wakeTimerRef.current = setTimeout(() => {
           wakeTimerRef.current = null;
-          if (serverSttUnavailableRef.current) void startBrowserRecognition();
-          else {
-            void startCapture();
-            // startCapture can legitimately defer while a previous recorder
-            // transition is settling. Do not leave the mic in that state:
-            // retry on the next tick without creating a second recorder.
-            window.setTimeout(() => {
-              if (shouldContinueRef.current && !recorderRef.current && !browserRecognitionRef.current && !transcribingRef.current) {
-                void startCapture();
-              }
-            }, 180);
-          }
+          void startCapture();
         }, ms + 60);
       }
     } else if (shouldContinueRef.current) {
-      if (serverSttUnavailableRef.current) void startBrowserRecognition();
-      else void startCapture();
+      void startCapture();
     }
-  }, [startBrowserRecognition, startCapture, stopBrowserRecognition, stopInterimRecognition, stopMonitoring]);
+  }, [startCapture, stopBrowserRecognition, stopMonitoring]);
 
   const pause = useCallback(() => {
     clearTimers();
     blockedUntilRef.current = Date.now() + 10 * 60 * 1000;
     stopMonitoring();
     stopBrowserRecognition();
-    stopInterimRecognition();
     setInterimTranscript("");
     setStatus("idle");
-  }, [clearTimers, stopBrowserRecognition, stopInterimRecognition, stopMonitoring]);
+  }, [clearTimers, stopBrowserRecognition, stopMonitoring]);
 
   const stop = useCallback(() => {
     shouldContinueRef.current = false;
@@ -491,7 +424,6 @@ export function useSpeechRecognition(language = "English") {
     clearTimers();
     stopMonitoring();
     stopBrowserRecognition();
-    stopInterimRecognition();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     analyserRef.current = null;
@@ -502,7 +434,7 @@ export function useSpeechRecognition(language = "English") {
     setAudioLevel(0);
     setStatus("idle");
     setInterimTranscript("");
-  }, [clearTimers, stopBrowserRecognition, stopInterimRecognition, stopMonitoring]);
+  }, [clearTimers, stopBrowserRecognition, stopMonitoring]);
 
   const startContinuous = useCallback((onPhrase: (text: string) => void) => {
     if (!isSupported) {
@@ -517,9 +449,8 @@ export function useSpeechRecognition(language = "English") {
     // active recorder or an in-flight transcription when it re-kicks the loop.
     if (!wasContinuing) generationRef.current++;
     setError(null);
-    if (serverSttUnavailableRef.current) void startBrowserRecognition();
-    else void startCapture();
-  }, [isSupported, startBrowserRecognition, startCapture]);
+    void startCapture();
+  }, [isSupported, startCapture]);
 
   const start = useCallback((onResult?: (text: string) => void) => {
     startContinuous((text) => {
@@ -541,12 +472,12 @@ export function useSpeechRecognition(language = "English") {
   // finishes, while still respecting the current speaker-tail block.
   useEffect(() => {
     retryCaptureRef.current = () => {
-      if (!shouldContinueRef.current || transcribingRef.current || recorderRef.current || browserRecognitionRef.current) return;
+      if (!shouldContinueRef.current || transcribingRef.current || recorderRef.current) return;
       const delay = Math.max(60, blockedUntilRef.current - Date.now() + 60);
       if (wakeTimerRef.current !== null) clearTimeout(wakeTimerRef.current);
       wakeTimerRef.current = setTimeout(() => {
         wakeTimerRef.current = null;
-        if (shouldContinueRef.current && !transcribingRef.current && !recorderRef.current && !browserRecognitionRef.current) {
+        if (shouldContinueRef.current && !transcribingRef.current && !recorderRef.current) {
           void startCapture();
         }
       }, delay);
@@ -559,8 +490,7 @@ export function useSpeechRecognition(language = "English") {
   useEffect(() => {
     const recover = () => {
       if (shouldContinueRef.current && !recorderRef.current && !transcribingRef.current) {
-        if (serverSttUnavailableRef.current) void startBrowserRecognition();
-        else void startCapture();
+        void startCapture();
       }
     };
     document.addEventListener("visibilitychange", recover);
@@ -571,7 +501,7 @@ export function useSpeechRecognition(language = "English") {
       window.removeEventListener("pageshow", recover);
       window.removeEventListener("focus", recover);
     };
-  }, [startBrowserRecognition, startCapture]);
+  }, [startCapture]);
 
   return {
     status,
