@@ -1,21 +1,21 @@
 ---
 name: Voice transcription provider fallback
-description: Shared STT behavior when Gemini is quota-exhausted or Cloud Speech is unavailable, including the Chirp 3 permission constraint.
+description: Shared silent MediaRecorder/VAD STT behavior and provider fallback when transcription services are unavailable.
 ---
 
-The shared voice hook uses MediaRecorder/VAD and sends utterances to `/api/stt`. The API tries Gemini first, then Google Cloud Speech-to-Text using the existing Google Cloud service-account secret. If both providers fail, the browser SpeechRecognition API is used as a recovery path so Live Conversation, Interview Ace, and Communication Check can keep listening.
+The shared voice hook uses MediaRecorder/VAD and sends utterances to `/api/stt`. It also sends bounded server-side preview samples while a person is speaking so Live Conversation, Interview Ace, and Communication Check can display text before the final turn arrives. The API uses Google Cloud Speech-to-Text first, then Gemini.
 
-**Why:** The Gemini project can return `429 RESOURCE_EXHAUSTED`, while Google Cloud Speech-to-Text may be disabled independently. Without a client fallback, all voice features appear frozen because they share the same transcription endpoint.
+**Why:** Android Chrome's browser SpeechRecognition service emits an unavoidable system earcon and can create competing recognition sessions. Server STT previews keep the interface responsive without reintroducing that sound.
 
-**How to apply:** Preserve the fallback in the shared hook and keep browser recognition lifecycle-aware: stop it during TTS blocking, pause, and end; do not let it overlap MediaRecorder; restart it only while continuity is active.
+**How to apply:** Do not add Web Speech Recognition back to web live products. Keep interim previews bounded, abort them on pause/end/finalization, and treat final utterance transcription as authoritative.
 
 Google Speech-to-Text V2 Chirp 3 was tested in production and rejected with `PERMISSION_DENIED` for `speech.recognizers.recognize` on the implicit recognizer. Do not make Chirp 3 the sole transcription path unless that IAM permission and recognizer configuration are verified in the deployed project.
 
 **Why:** A successful local build did not imply deployed recognizer permission; the resulting failure made all voice turns appear unresponsive.
 
 ## Accuracy-first retry policy
-The shared hook should not switch to browser SpeechRecognition after one server STT error. Retry the server path once and only use browser recognition after consecutive provider failures.
+The shared hook should stay on server STT after a provider error.
 
-**Why:** browser recognition is a useful recovery path but is noticeably less reliable for Indian English and mixed-accent answers; a transient network/provider error should not permanently downgrade the whole session.
+**Why:** browser recognition is noticeably less reliable for Indian English and mixed-accent answers and reintroduces Android's external earcon.
 
-**How to apply:** reset the consecutive-failure counter on any non-empty server transcript, keep the MediaRecorder path active for the retry, and use the browser only as a bounded fallback.
+**How to apply:** reset the consecutive-failure counter on any non-empty server transcript and keep the MediaRecorder path active for the next turn.
