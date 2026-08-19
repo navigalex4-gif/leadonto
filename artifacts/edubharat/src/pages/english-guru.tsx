@@ -192,6 +192,7 @@ function EnglishGuruContent() {
   const silenceProbeActiveRef = useRef(false);
   /** Counts consecutive silence probes since the user last spoke; max 2 nudges then stop. */
   const silenceProbeCountRef = useRef(0);
+  const lastLiveFallbackRef = useRef("");
 
   useEffect(() => {
     if (user?.name && !profile.name) updateProfile({ name: user.name });
@@ -383,6 +384,38 @@ function EnglishGuruContent() {
 
   // Sentinel value for silence-probe turns (no visible user message added)
   const SILENCE_MARKER = "__silence__";
+  const liveFallbacks = [
+    "I’m listening. Pick one detail from that and tell me what happened next.",
+    "That gives us a starting point. Can you add a short example from your own experience?",
+    "Let’s build on that. What part of this matters most to you?",
+    "I caught the main idea. Now tell me what you learned from it.",
+    "Good, keep going. What would you say to someone who has never experienced that?",
+    "Can you explain that in one clear sentence, then add one reason?",
+  ];
+  const silenceFallbacks = [
+    "Take your time. What is one small thing you would like to talk about today?",
+    "No rush. Tell me about something that has been on your mind recently.",
+    "I’m still here. Would you like to talk about work, learning, or your plans?",
+    "Let’s restart gently. What was one moment from today that stood out to you?",
+  ];
+  const normalizeReply = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const variedFallback = (userMsg: string, isSilenceProbe: boolean) => {
+    const lower = userMsg.toLowerCase();
+    const pool = isSilenceProbe
+      ? silenceFallbacks
+      : lower.includes("work") || lower.includes("job") || lower.includes("project")
+        ? [
+            "That sounds connected to your goals. What was your specific responsibility in it?",
+            "Tell me about the result. What changed because of your work?",
+            "What was the hardest part of that job or project, and how did you handle it?",
+          ]
+        : liveFallbacks;
+    const previous = normalizeReply(lastLiveFallbackRef.current);
+    const available = pool.filter((reply) => normalizeReply(reply) !== previous);
+    const reply = (available.length ? available : pool)[Math.floor(Math.random() * (available.length ? available.length : pool.length))]!;
+    lastLiveFallbackRef.current = reply;
+    return reply;
+  };
 
   // Live chat phrase handler
   const handleConvPhrase = useCallback((phrase: string) => {
@@ -519,9 +552,13 @@ Rules for spoken replies:
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
         if (!response.trim()) {
-          response = isSilenceProbe
-            ? "Take your time. What would you like to talk about?"
-            : "I’m here with you. Tell me a little more about that.";
+          response = variedFallback(userMsg, isSilenceProbe);
+        }
+        const previousAiReply = [...convHistoryRef.current]
+          .reverse()
+          .find((item) => item.role === "ai")?.text ?? "";
+        if (normalizeReply(response) === normalizeReply(previousAiReply)) {
+          response = variedFallback(userMsg, isSilenceProbe);
         }
         // A fallback reply is a successful recovery, not a failed live turn.
         // Clear the hook error so mobile users are not left staring at a stale
