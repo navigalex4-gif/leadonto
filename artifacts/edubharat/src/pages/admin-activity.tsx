@@ -236,7 +236,7 @@ export default function AdminActivity() {
              key={scope}
              type="button"
              role="tab"
-             aria-selected={activityScope === scope}
+              aria-selected={activityTab === scope}
              onClick={() => {
                 setActivityTab(scope);
                setEventFilter("all");
@@ -244,7 +244,7 @@ export default function AdminActivity() {
                setLocationFilters([]);
              }}
              className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-               activityScope === scope
+                activityTab === scope
                  ? "bg-primary text-primary-foreground shadow-sm"
                  : "text-muted-foreground hover:bg-muted hover:text-secondary"
              }`}
