@@ -72,6 +72,64 @@ async function transcribeWithGoogleCloud(
     .trim();
 }
 
+function getDeepgramLanguage(language: string): string {
+  // Deepgram accepts the Indian English locale directly. For the Indian
+  // language names used by the app, use Deepgram's base language identifiers.
+  const languages: Record<string, string> = {
+    English: "en-IN",
+    Hindi: "hi",
+    Tamil: "ta",
+    Telugu: "te",
+    Bengali: "bn",
+    Marathi: "mr",
+    Gujarati: "gu",
+    Kannada: "kn",
+    Malayalam: "ml",
+    Punjabi: "pa",
+    Odia: "or",
+    Assamese: "as",
+    Urdu: "ur",
+  };
+  return languages[language] ?? "en-IN";
+}
+
+async function transcribeWithDeepgram(
+  buffer: Buffer,
+  mimeType: string,
+  language: string,
+): Promise<string> {
+  const apiKey = process.env["DEEPGRAM_API_KEY"];
+  if (!apiKey) throw new Error("DEEPGRAM_API_KEY is not configured");
+
+  const params = new URLSearchParams({
+    model: "nova-3",
+    language: getDeepgramLanguage(language),
+    smart_format: "true",
+    punctuate: "true",
+  });
+  const response = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Token ${apiKey}`,
+      "Content-Type": mimeType || "audio/webm",
+    },
+    body: buffer,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Deepgram returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ""}`);
+  }
+  const data = await response.json() as {
+    results?: {
+      channels?: Array<{
+        alternatives?: Array<{ transcript?: string }>;
+      }>;
+    };
+  };
+  return data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? "";
+}
+
 router.post("/stt", upload.single("audio"), async (req: Request, res: Response) => {
   if (!req.file?.buffer?.length) {
     res.status(400).json({ error: "No microphone audio was received." });
@@ -80,14 +138,21 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   const language = String(req.body.language || "English");
   const mimeType = req.file.mimetype || "audio/webm";
   try {
-    // Google Cloud is the low-latency primary for Interview Ace. Gemini's
-    // project is currently quota-exhausted, and trying it first adds 5–6
-    // seconds before this same reliable fallback can return the transcript.
+    // Google Cloud remains the primary recognizer. Deepgram is the dedicated
+    // speech fallback, then Gemini is retained as the final recovery path.
     const text = await transcribeWithGoogleCloud(req.file.buffer, mimeType, language);
     res.json({ text });
     return;
   } catch (googleError) {
-    console.warn("[stt] Google Cloud Speech-to-Text unavailable; trying Gemini:", googleError);
+    console.warn("[stt] Google Cloud Speech-to-Text unavailable; trying Deepgram:", googleError);
+  }
+
+  try {
+    const text = await transcribeWithDeepgram(req.file.buffer, mimeType, language);
+    res.json({ text });
+    return;
+  } catch (deepgramError) {
+    console.warn("[stt] Deepgram Speech-to-Text unavailable; trying Gemini:", deepgramError);
   }
 
   try {
@@ -111,8 +176,8 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
       config: { maxOutputTokens: 512 },
     });
     res.json({ text: response.text?.trim() ?? "" });
-  } catch (googleError) {
-    console.error("[stt] all transcription providers failed:", googleError);
+  } catch (geminiError) {
+    console.error("[stt] all transcription providers failed:", geminiError);
     res.status(502).json({ error: "Speech transcription is temporarily unavailable." });
   }
 });
