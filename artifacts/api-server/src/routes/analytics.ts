@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace/db";
-import { and, desc, eq, inArray, like, not } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, not } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 import { geolocateIp } from "../lib/geo.js";
@@ -84,6 +84,138 @@ router.post("/analytics/events", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Failed to insert analytics event");
     res.status(500).json({ error: "Failed to store event" });
+  }
+});
+
+const FUNNEL_STAGES = [
+  "landing_viewed",
+  "cta_clicked",
+  "communication_check_opened",
+  "communication_check_started",
+  "communication_check_completed",
+  "signup_opened",
+  "signup_started",
+  "otp_requested",
+  "otp_verified",
+  "account_created",
+  "first_session_started",
+] as const;
+
+function parseProperties(raw: string | null): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const value = JSON.parse(raw) as unknown;
+    return value && typeof value === "object" ? value as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function browserFromUserAgent(userAgent: string | null): string {
+  if (!userAgent) return "Unknown";
+  if (/Instagram/i.test(userAgent)) return "Instagram";
+  if (/FBAN|FBAV|FB_IAB/i.test(userAgent)) return "Facebook";
+  if (/CriOS/i.test(userAgent)) return "Chrome iOS";
+  if (/FxiOS/i.test(userAgent)) return "Firefox iOS";
+  if (/Edg/i.test(userAgent)) return "Edge";
+  if (/Chrome/i.test(userAgent)) return "Chrome";
+  if (/Safari/i.test(userAgent)) return "Safari";
+  if (/Firefox/i.test(userAgent)) return "Firefox";
+  return "Other";
+}
+
+function deviceFromUserAgent(userAgent: string | null): string {
+  if (!userAgent) return "Unknown";
+  if (/iPad|Tablet/i.test(userAgent)) return "Tablet";
+  if (/Mobile|Android|iPhone|iPod/i.test(userAgent)) return "Mobile";
+  return "Desktop";
+}
+
+function sourceFrom(properties: Record<string, unknown>, path: string): string {
+  const value = properties.utm_source ?? properties.source ?? properties.trafficSource;
+  if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
+  const match = path.match(/[?&](?:utm_source|source)=([^&]+)/i);
+  if (!match) return "Direct / unknown";
+  try {
+    return decodeURIComponent(match[1]!).slice(0, 80);
+  } catch {
+    return match[1]!.slice(0, 80);
+  }
+}
+
+// Funnel summary deliberately uses anonymous IDs rather than user IDs so a
+// visitor remains one person across the anonymous → OTP/OAuth transition.
+router.get("/admin/funnel", requireAdmin, async (req, res) => {
+  try {
+    const daysRaw = Number(req.query.days ?? 30);
+    const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(180, Math.round(daysRaw))) : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({
+        event: analyticsEventsTable.event,
+        path: analyticsEventsTable.path,
+        properties: analyticsEventsTable.properties,
+        anonymousId: analyticsEventsTable.anonymousId,
+        userId: analyticsEventsTable.userId,
+        userEmail: usersTable.email,
+        userAgent: analyticsEventsTable.userAgent,
+        createdAt: analyticsEventsTable.createdAt,
+      })
+      .from(analyticsEventsTable)
+      .leftJoin(usersTable, eq(analyticsEventsTable.userId, usersTable.id))
+      .where(gte(analyticsEventsTable.createdAt, since))
+      .orderBy(desc(analyticsEventsTable.createdAt))
+      .limit(20000);
+
+    const usable = rows.filter((row) => {
+      if (row.path.startsWith("/admin")) return false;
+      if (row.userEmail?.toLowerCase() === "admin@edubharat.in") return false;
+      const props = parseProperties(row.properties);
+      return props.test !== true && props.isTest !== true && props.environment !== "test";
+    });
+    const unique = (items: typeof usable) => new Set(items.map((row) => row.anonymousId)).size;
+    const stageRows = FUNNEL_STAGES.map((stage) => {
+      const matching = usable.filter((row) => row.event === `funnel_${stage}`);
+      return { stage, events: matching.length, uniqueVisitors: unique(matching) };
+    });
+    const errors = usable
+      .filter((row) => row.event.startsWith("funnel_") && /failed|expired|blocked/.test(row.event.replace("funnel_", "")))
+      .reduce<Record<string, number>>((counts, row) => {
+        counts[row.event] = (counts[row.event] ?? 0) + 1;
+        return counts;
+      }, {});
+    const breakdown = (key: "browser" | "device" | "source") => {
+      const map = new Map<string, Set<string>>();
+      for (const row of usable) {
+        const props = parseProperties(row.properties);
+        const value = key === "browser"
+          ? browserFromUserAgent(row.userAgent)
+          : key === "device"
+            ? deviceFromUserAgent(row.userAgent)
+            : sourceFrom(props, row.path);
+        if (!map.has(value)) map.set(value, new Set());
+        map.get(value)!.add(row.anonymousId);
+      }
+      return [...map.entries()]
+        .map(([label, ids]) => ({ label, uniqueVisitors: ids.size }))
+        .sort((a, b) => b.uniqueVisitors - a.uniqueVisitors);
+    };
+    const landing = stageRows[0]?.uniqueVisitors ?? 0;
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      days,
+      generatedAt: new Date().toISOString(),
+      uniqueVisitors: unique(usable),
+      stages: stageRows.map((stage) => ({
+        ...stage,
+        conversionFromLanding: landing ? Math.round((stage.uniqueVisitors / landing) * 1000) / 10 : 0,
+      })),
+      errors,
+      breakdowns: { browser: breakdown("browser"), device: breakdown("device"), source: breakdown("source") },
+    });
+  } catch (err) {
+    logger.error({ err }, "Failed to load funnel summary");
+    res.status(500).json({ error: "Could not load funnel summary" });
   }
 });
 

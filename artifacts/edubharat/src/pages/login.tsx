@@ -82,6 +82,7 @@ function LoginContent() {
       console.log("[auth] Google OAuth blocked for embedded webview", { userAgent });
     }
     track("signup_form_viewed", { webview: embedded });
+    trackFunnel("signup_opened", { webview: embedded });
 
     fetch(`${BASE}/api/auth/config`, { credentials: "include" })
       .then(r => r.json())
@@ -92,6 +93,12 @@ function LoginContent() {
         setConfigLoaded(true);
       });
   }, []);
+
+  useEffect(() => {
+    const errorCode = new URLSearchParams(search).get("error");
+    if (!errorCode) return;
+    trackFunnel("oauth_failed", { code: errorCode });
+  }, [search]);
 
   const handleSendOtp = async () => {
     trackFunnel("signup_started", { method: "email_otp" });

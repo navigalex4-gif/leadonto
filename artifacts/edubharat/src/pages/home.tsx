@@ -112,10 +112,11 @@ function PrimaryLink({
   );
 }
 
-function QuietLink({ href, children, className = "" }: { href: string; children: React.ReactNode; className?: string }) {
+function QuietLink({ href, children, onClick, className = "" }: { href: string; children: React.ReactNode; onClick?: () => void; className?: string }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-bold text-secondary transition-colors hover:border-secondary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${className}`}
     >
       {children}
