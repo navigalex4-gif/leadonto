@@ -194,7 +194,8 @@ Return JSON only with exactly these fields:
   "strengths": ["two short specific strengths"],
   "evidence": ["two concrete observations grounded in the candidate's actual answers; quote short phrases when useful"],
   "oneNextStep": "one specific practice action",
-  "summary": "one concise sentence, maximum 30 words"
+  "summary": "one concise sentence, maximum 30 words",
+  "personalizedPlan": ["three concrete practice steps based on the candidate's actual answers"]
 }
 Be encouraging but accurate. Judge only what is present in the answers; do not invent achievements or personality traits. The evidence array is mandatory: if an answer does not support a claim, do not make that claim.`,
       system: "You are a concise Indian career communication coach. Never make hiring decisions. Return valid JSON only.",
