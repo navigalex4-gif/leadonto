@@ -11,6 +11,7 @@ const router: IRouter = Router();
 const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const ZAI_MODEL = process.env["ZAI_MODEL"] || "glm-5.2";
+const GROQ_MODEL = process.env["GROQ_MODEL"] || "llama-3.3-70b-versatile";
 
 function getAnthropicModelChain(_maxTokens: number) {
   // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
@@ -254,6 +255,102 @@ async function streamZai(
   res.end();
 }
 
+function getGroqApiKey(): string {
+  const apiKey = process.env["GROQ_API_KEY"] ?? process.env["GROQ API KEY"];
+  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+  return apiKey;
+}
+
+type OpenAIStreamChunk = {
+  choices?: Array<{ delta?: { content?: string } }>;
+};
+
+async function readGroqStream(
+  response: globalThis.Response,
+  onText: (text: string) => void,
+): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Groq returned an empty response stream");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  const processLine = (line: string) => {
+    if (!line.startsWith("data: ")) return;
+    const payload = line.slice(6).trim();
+    if (!payload || payload === "[DONE]") return;
+    const chunk = JSON.parse(payload) as OpenAIStreamChunk;
+    const text = chunk.choices?.[0]?.delta?.content ?? "";
+    if (text) {
+      full += text;
+      onText(text);
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) processLine(line.trim());
+    }
+    if (buffer.trim()) processLine(buffer.trim());
+  } finally {
+    reader.releaseLock();
+  }
+  return full;
+}
+
+async function requestGroqStream(
+  prompt: string,
+  system: string | null | undefined,
+  maxTokens: number,
+  onText: (text: string) => void,
+): Promise<string> {
+  const messages = [
+    ...(system ? [{ role: "system", content: system }] : []),
+    { role: "user", content: prompt },
+  ];
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getGroqApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Groq returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ""}`);
+  }
+  return readGroqStream(response, onText);
+}
+
+async function streamGroq(
+  req: Request,
+  res: Response,
+  prompt: string,
+  system: string | null | undefined,
+  maxTokens: number,
+  state: { wrote: boolean },
+) {
+  await requestGroqStream(prompt, system, maxTokens, (text) => {
+    state.wrote = true;
+    res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+  });
+  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  res.end();
+}
+
 router.post("/ai/stream", async (req, res) => {
   const parseResult = AiChatBody.safeParse(req.body);
   if (!parseResult.success) {
@@ -287,8 +384,14 @@ router.post("/ai/stream", async (req, res) => {
            await streamGemini(req, res, prompt, system, tokens, state);
          } catch (geminiErr) {
            if (state.wrote) throw geminiErr;
-           req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Z.ai");
-           await streamZai(req, res, prompt, system, tokens, state);
+            req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Groq");
+            try {
+              await streamGroq(req, res, prompt, system, tokens, state);
+            } catch (groqErr) {
+              if (state.wrote) throw groqErr;
+              req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Z.ai");
+              await streamZai(req, res, prompt, system, tokens, state);
+            }
          }
       }
     } else {
@@ -296,8 +399,14 @@ router.post("/ai/stream", async (req, res) => {
          await streamGemini(req, res, prompt, system, tokens, state);
        } catch (geminiErr) {
          if (state.wrote) throw geminiErr;
-         req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Z.ai");
-         await streamZai(req, res, prompt, system, tokens, state);
+          req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Groq");
+          try {
+            await streamGroq(req, res, prompt, system, tokens, state);
+          } catch (groqErr) {
+            if (state.wrote) throw groqErr;
+            req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Z.ai");
+            await streamZai(req, res, prompt, system, tokens, state);
+          }
        }
     }
   } catch (err) {
@@ -424,7 +533,7 @@ router.post("/ai/chat", async (req, res) => {
 });
 
 /**
- * Generate text with full provider fallback: Claude, Gemini, then Z.ai.
+ * Generate text with full provider fallback: Claude, Gemini, Groq, then Z.ai.
  *
  * `onDelta` is called with each streamed text fragment so callers can forward
  * SSE `content` events; the full accumulated text is returned for parsing.
@@ -495,6 +604,17 @@ export async function generateTextWithFallback(opts: {
     }
   } catch (err) {
     log?.warn({ err }, "Gemini provider unavailable");
+  }
+  // ── Groq fallback (fast OpenAI-compatible API) ──
+  try {
+    full = "";
+    const groqText = await requestGroqStream(prompt, system, maxTokens, (text) => {
+      full += text;
+      onDelta?.(text);
+    });
+    if (groqText.trim()) return groqText;
+  } catch (err) {
+    log?.warn({ err }, "Groq provider unavailable");
   }
   // ── Z.ai fallback (OpenAI-compatible streaming API) ──
   try {
