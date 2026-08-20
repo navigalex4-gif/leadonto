@@ -367,8 +367,22 @@ router.post("/ai/stream", async (req, res) => {
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
   const tokens = maxTokens ?? 8192;
   const state = { wrote: false };
+  const preferGroq = req.query.provider === "groq";
 
   try {
+    // Live Conversation opts into Groq directly so unavailable Claude/Gemini
+    // providers cannot consume the browser's short live-turn timeout first.
+    if (preferGroq) {
+      try {
+        await streamGroq(req, res, prompt, system, tokens, state);
+        return;
+      } catch (groqErr) {
+        if (state.wrote) throw groqErr;
+        req.log.warn({ err: groqErr }, "Groq live stream failed — falling back to Z.ai");
+        await streamZai(req, res, prompt, system, tokens, state);
+        return;
+      }
+    }
     // Claude is the reliable primary. Gemini's free tier is frequently quota-
     // exhausted (429) or 404s on unavailable models, which adds a multi-second
     // dead delay before every answer and makes live chat feel broken. Try Claude
