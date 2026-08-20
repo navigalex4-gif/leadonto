@@ -11,7 +11,7 @@ const router: IRouter = Router();
 const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const ZAI_MODEL = process.env["ZAI_MODEL"] || "glm-5.2";
-const GROQ_MODEL = process.env["GROQ_MODEL"] || "llama-3.3-70b-versatile";
+const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 
 function getAnthropicModelChain(_maxTokens: number) {
   // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
