@@ -135,6 +135,7 @@ export default function AdminInterviews() {
   const [fetching, setFetching] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState<number | null | "ALL">("ALL");
+  const [selectedSession, setSelectedSession] = useState<number | "ALL">("ALL");
   const [selectedType, setSelectedType] = useState("ALL");
   const [selectedVerdict, setSelectedVerdict] = useState("ALL");
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -167,6 +168,9 @@ export default function AdminInterviews() {
 
   const filtered = useMemo(() => {
     let list = interviews;
+    if (selectedSession !== "ALL") {
+      list = list.filter((r) => r.id === selectedSession);
+    }
     // Filter by selected candidate from dropdown
     if (selectedCandidate !== "ALL") {
       list = list.filter((r) => r.userId === selectedCandidate);
@@ -194,7 +198,7 @@ export default function AdminInterviews() {
       );
     }
     return list;
-  }, [interviews, selectedCandidate, selectedType, selectedVerdict, query]);
+  }, [interviews, selectedCandidate, selectedSession, selectedType, selectedVerdict, query]);
 
   const interviewTypes = useMemo(
     () => Array.from(new Set(interviews.map((row) => row.interviewType ?? "Unknown"))).sort(),
@@ -275,6 +279,34 @@ export default function AdminInterviews() {
           ))}
         </select>
       </div>
+      {/* Full interview-session dropdown */}
+      <div className="mb-3">
+        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+          Select interview session
+        </label>
+        <select
+          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+          value={selectedSession === "ALL" ? "ALL" : String(selectedSession)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSelectedSession(value === "ALL" ? "ALL" : Number(value));
+            setExpanded(null);
+          }}
+        >
+          <option value="ALL">All interview sessions</option>
+          {interviews.map((row) => {
+            const score = row.overallScore;
+            const result = score === null ? "Pending" : score >= PASS_BAR ? "Selected" : "Not Selected";
+            const location = row.lastLoginLocation || row.signupLocation || row.userLocation || row.preferredCity;
+            const candidate = row.userName || row.userEmail || "Unknown candidate";
+            return (
+              <option key={row.id} value={row.id}>
+                {candidate} · {row.interviewType || row.role} · {score === null ? "—" : `${score}/100`} · {result} · {location || "Location not recorded"} · {fmt(row.createdAt)}
+              </option>
+            );
+          })}
+        </select>
+      </div>
       <div className="mb-3 grid gap-3 sm:grid-cols-2">
         <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Interview type
@@ -323,7 +355,7 @@ export default function AdminInterviews() {
           <CardContent className="py-12 text-center text-muted-foreground">No interviews found.</CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[calc(100vh-25rem)] min-h-[18rem] overflow-y-auto pr-1 overscroll-contain">
           {filtered.map((row) => {
             const open = expanded === row.id;
             const score = row.overallScore;
