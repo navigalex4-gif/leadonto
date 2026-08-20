@@ -10,6 +10,7 @@ const router: IRouter = Router();
 // stuck after Claude falls through.
 const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
+const ZAI_MODEL = process.env["ZAI_MODEL"] || "glm-5.2";
 
 function getAnthropicModelChain(_maxTokens: number) {
   // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
@@ -158,6 +159,101 @@ async function streamAnthropic(
   }
 }
 
+function getZaiApiKey(): string {
+  const apiKey = process.env["ZAI_API_KEY"] ?? process.env["ZAI API KEY"];
+  if (!apiKey) throw new Error("ZAI_API_KEY is not configured");
+  return apiKey;
+}
+
+type ZaiStreamChunk = {
+  choices?: Array<{ delta?: { content?: string } }>;
+};
+
+async function readZaiStream(
+  response: globalThis.Response,
+  onText: (text: string) => void,
+): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Z.ai returned an empty response stream");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+
+  const processLine = (line: string) => {
+    if (!line.startsWith("data: ")) return;
+    const payload = line.slice(6).trim();
+    if (!payload || payload === "[DONE]") return;
+    const chunk = JSON.parse(payload) as ZaiStreamChunk;
+    const text = chunk.choices?.[0]?.delta?.content ?? "";
+    if (text) {
+      full += text;
+      onText(text);
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) processLine(line.trim());
+    }
+    if (buffer.trim()) processLine(buffer.trim());
+  } finally {
+    reader.releaseLock();
+  }
+  return full;
+}
+
+async function requestZaiStream(
+  prompt: string,
+  system: string | null | undefined,
+  maxTokens: number,
+  onText: (text: string) => void,
+): Promise<string> {
+  const messages = [
+    ...(system ? [{ role: "system", content: system }] : []),
+    { role: "user", content: prompt },
+  ];
+  const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getZaiApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: ZAI_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Z.ai returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ""}`);
+  }
+  return readZaiStream(response, onText);
+}
+
+async function streamZai(
+  req: Request,
+  res: Response,
+  prompt: string,
+  system: string | null | undefined,
+  maxTokens: number,
+  state: { wrote: boolean },
+) {
+  await requestZaiStream(prompt, system, maxTokens, (text) => {
+    state.wrote = true;
+    res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+  });
+  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  res.end();
+}
+
 router.post("/ai/stream", async (req, res) => {
   const parseResult = AiChatBody.safeParse(req.body);
   if (!parseResult.success) {
@@ -187,10 +283,22 @@ router.post("/ai/stream", async (req, res) => {
       } catch (claudeErr) {
         if (state.wrote) throw claudeErr;
         req.log.warn({ err: claudeErr }, "Claude streaming failed — falling back to Gemini");
-        await streamGemini(req, res, prompt, system, tokens, state);
+         try {
+           await streamGemini(req, res, prompt, system, tokens, state);
+         } catch (geminiErr) {
+           if (state.wrote) throw geminiErr;
+           req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Z.ai");
+           await streamZai(req, res, prompt, system, tokens, state);
+         }
       }
     } else {
-      await streamGemini(req, res, prompt, system, tokens, state);
+       try {
+         await streamGemini(req, res, prompt, system, tokens, state);
+       } catch (geminiErr) {
+         if (state.wrote) throw geminiErr;
+         req.log.warn({ err: geminiErr }, "Gemini streaming failed — falling back to Z.ai");
+         await streamZai(req, res, prompt, system, tokens, state);
+       }
     }
   } catch (err) {
     req.log.error({ err }, "AI streaming error");
@@ -316,9 +424,7 @@ router.post("/ai/chat", async (req, res) => {
 });
 
 /**
- * Generate text with full provider fallback: try every Gemini model in the
- * chain, and if they all fail (e.g. 429 quota exhausted on the free tier) or
- * return empty output, fall back to the Anthropic/Claude chain.
+ * Generate text with full provider fallback: Claude, Gemini, then Z.ai.
  *
  * `onDelta` is called with each streamed text fragment so callers can forward
  * SSE `content` events; the full accumulated text is returned for parsing.
@@ -389,6 +495,17 @@ export async function generateTextWithFallback(opts: {
     }
   } catch (err) {
     log?.warn({ err }, "Gemini provider unavailable");
+  }
+  // ── Z.ai fallback (OpenAI-compatible streaming API) ──
+  try {
+    full = "";
+    const zaiText = await requestZaiStream(prompt, system, maxTokens, (text) => {
+      full += text;
+      onDelta?.(text);
+    });
+    if (zaiText.trim()) return zaiText;
+  } catch (err) {
+    log?.warn({ err }, "Z.ai provider unavailable");
   }
   return full;
 }
