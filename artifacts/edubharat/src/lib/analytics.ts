@@ -4,6 +4,27 @@ const ANON_ID_KEY = "edubharat_anon_id";
 
 export type Consent = "granted" | "denied" | "pending";
 
+/** Stable acquisition funnel vocabulary. Keep failure stages separate so an
+ * auth outage is not mistaken for visitor abandonment in the admin report. */
+export type FunnelEvent =
+  | "landing_viewed"
+  | "cta_clicked"
+  | "communication_check_opened"
+  | "communication_check_started"
+  | "communication_check_completed"
+  | "signup_opened"
+  | "signup_started"
+  | "otp_requested"
+  | "otp_verified"
+  | "account_created"
+  | "first_session_started"
+  | "oauth_failed"
+  | "otp_failed"
+  | "otp_expired"
+  | "validation_failed"
+  | "api_failed"
+  | "webview_blocked";
+
 function getAnonId(): string {
   try {
     let id = localStorage.getItem(ANON_ID_KEY);
@@ -35,6 +56,10 @@ export function canTrack(): boolean {
 
 export function track(event: string, properties?: Record<string, unknown>) {
   sendEvent(event, properties);
+}
+
+export function trackFunnel(event: FunnelEvent, properties?: Record<string, unknown>) {
+  sendEvent(`funnel_${event}`, properties);
 }
 
 function sendEvent(event: string, properties?: Record<string, unknown>) {

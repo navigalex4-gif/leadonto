@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useAuth } from "@/lib/use-auth";
 import { Loader2, Mail, ArrowRight, ShieldCheck, AlertTriangle, Copy, CheckCheck, ExternalLink } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
-import { track } from "@/lib/analytics";
+import { track, trackFunnel } from "@/lib/analytics";
 
 type AuthConfig = {
   googleConfigured: boolean;
@@ -77,6 +77,7 @@ function LoginContent() {
     const userAgent = navigator.userAgent;
     const embedded = detectEmbeddedWebView(userAgent);
     if (embedded) track("oauth_blocked_webview", { userAgent: userAgent.slice(0, 240) });
+    if (embedded) trackFunnel("webview_blocked", { stage: "signup", browser: userAgent.slice(0, 160) });
     if (embedded && typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
       console.log("[auth] Google OAuth blocked for embedded webview", { userAgent });
     }
@@ -86,24 +87,32 @@ function LoginContent() {
       .then(r => r.json())
       .then((d: AuthConfig) => { setConfig(d); setConfigLoaded(true); })
       .catch(() => {
+        trackFunnel("api_failed", { stage: "auth_config" });
         // Config fetch failed — fail open so Google button still works
         setConfigLoaded(true);
       });
   }, []);
 
   const handleSendOtp = async () => {
-    if (!email.trim()) { setError("Please enter your email"); return; }
+    trackFunnel("signup_started", { method: "email_otp" });
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      trackFunnel("validation_failed", { stage: "otp_request", field: "email" });
+      setError("Please enter a valid email address"); return;
+    }
     setLoading(true);
     setError("");
     const result = await sendOtp(email);
     setLoading(false);
     if (result.error) {
+      trackFunnel("otp_failed", { stage: "request", reason: result.error.slice(0, 120) });
+      if (/send|delivery|email/i.test(result.error)) trackFunnel("api_failed", { stage: "otp_request" });
       setError(result.error);
       track("otp_requested", {
         success: false,
         email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
         error_reason: result.error.slice(0, 120),
       });
+      trackFunnel("otp_requested", { method: "email", success: true });
     } else {
       setStep("otp");
       setDevCode(result.dev);
@@ -115,7 +124,10 @@ function LoginContent() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp.trim()) { setError("Please enter the OTP"); return; }
+    if (!otp.trim() || otp.trim().length !== 6) {
+      trackFunnel("validation_failed", { stage: "otp_verify", field: "code" });
+      setError("Please enter the 6-digit OTP"); return;
+    }
     setLoading(true);
     setError("");
     // Pass any guest ID so the server can merge lesson progress into the account
@@ -123,13 +135,17 @@ function LoginContent() {
     const result = await verifyOtp(email, otp, guestId);
     setLoading(false);
     if (result.error) {
+      const expired = /expired/i.test(result.error);
+      trackFunnel(expired ? "otp_expired" : "otp_failed", { stage: "verify", reason: result.error.slice(0, 120) });
       setError(result.error);
       track("otp_verify_attempted", { success: false, error_reason: result.error.slice(0, 120) });
       track("otp_verify_failed", { error_reason: result.error.slice(0, 120) });
     } else {
       track("otp_verify_attempted", { success: true });
       track("otp_verify_success");
+      trackFunnel("otp_verified", { method: "email" });
       track("account_created", { auth_method: "email_otp" });
+      trackFunnel("account_created", { method: "email_otp" });
       const params = new URLSearchParams(search);
       const returnTo = params.get("returnTo");
       navigate(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
@@ -249,10 +265,13 @@ function LoginContent() {
                 variant="outline"
                 className="w-full h-12 font-semibold text-base border-2 disabled:opacity-60"
                 onClick={googleReady
-                  ? () => loginWithGoogle(
+                   ? () => {
+                       trackFunnel("signup_started", { method: "google" });
+                       loginWithGoogle(
                       localStorage.getItem("edubharat_guest_id") ?? undefined,
                       new URLSearchParams(search).get("returnTo") ?? undefined,
-                    )
+                       );
+                     }
                   : copyCallbackUrl}
                 title={!googleReady ? "Google login not yet configured — see setup instructions above" : undefined}
                 data-testid="button-google-login"

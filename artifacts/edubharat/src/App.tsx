@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { reportWebVitals } from "@/lib/web-vitals";
-import { trackPageView } from "@/lib/analytics";
+import { trackFunnel, trackPageView } from "@/lib/analytics";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +55,7 @@ function Analytics() {
   const [location] = useLocation();
   useEffect(() => {
     trackPageView(location);
+    if (location === "/") trackFunnel("landing_viewed", { placement: "homepage" });
   }, [location]);
   return null;
 }

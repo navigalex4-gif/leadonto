@@ -20,7 +20,7 @@ import {
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
 import { useContent } from "@/lib/use-content";
-import { track } from "@/lib/analytics";
+import { track, trackFunnel } from "@/lib/analytics";
 
 const DIFFERENTIATORS = [
   {
@@ -155,7 +155,7 @@ export default function Home() {
                   {ctaPrimary}
                   <ArrowRight className="h-4 w-4" />
                 </PrimaryLink>
-                <QuietLink href="/communication-check">
+                <QuietLink href="/communication-check" onClick={() => trackFunnel("cta_clicked", { cta: "communication_check", placement: "hero" })}>
                   <Timer className="h-4 w-4 text-primary" />
                   {ctaSecondary}
                 </QuietLink>
@@ -165,7 +165,10 @@ export default function Home() {
 
             <Link
               href="/communication-check"
-              onClick={() => track("home_cta_clicked", { cta: "communication_check", placement: "hero_visual" })}
+              onClick={() => {
+                track("home_cta_clicked", { cta: "communication_check", placement: "hero_visual" });
+                trackFunnel("cta_clicked", { cta: "communication_check", placement: "hero_visual" });
+              }}
               className="home-reveal group relative mx-auto block w-full max-w-md rounded-2xl border border-[#F97316]/35 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(249,115,22,.42)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-4 sm:p-6"
             >
               <div className="flex items-start justify-between gap-4">

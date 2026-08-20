@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/use-auth";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { unlockAudio, useGoogleTTS } from "@/lib/use-edge-tts";
-import { track } from "@/lib/analytics";
+import { track, trackFunnel } from "@/lib/analytics";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -205,6 +205,10 @@ export default function CommunicationCheck() {
   const interviewStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
+    trackFunnel("communication_check_opened", { authenticated: Boolean(user) });
+  }, [user]);
+
+  useEffect(() => {
     if (user) {
       setCandidate((current) => ({
         ...current,
@@ -311,11 +315,20 @@ export default function CommunicationCheck() {
         }),
       });
       const data = await response.json() as { feedback?: Feedback; error?: string; emailMessage?: string };
-      if (!response.ok || !data.feedback) throw new Error(data.error || "Could not save feedback");
+      if (!response.ok || !data.feedback) {
+        trackFunnel("api_failed", { stage: "communication_check_submit", status: response.status });
+        throw new Error(data.error || "Could not save feedback");
+      }
       setFeedback(data.feedback);
       setEmailMessage("");
       setLeadSubmitted(false);
+      trackFunnel("communication_check_completed", {
+        authenticated: Boolean(user),
+        saved: response.status === 201,
+        needsDetails: Boolean((data as { needsDetails?: boolean }).needsDetails),
+      });
     } catch {
+      trackFunnel("api_failed", { stage: "communication_check_submit", reason: "network_or_save_error" });
       setFeedback(fallback);
       setEmailMessage("Your result is ready here, but the email could not be delivered. Please check your email address and try again.");
       toast({ title: "Feedback ready", description: "Your indicative score is shown; we could not sync the full result." });
@@ -324,7 +337,7 @@ export default function CommunicationCheck() {
       setIsThinking(false);
       setPhase("feedback");
     }
-  }, [candidate, clearTimers, speech, synth, toast]);
+  }, [candidate, clearTimers, speech, synth, toast, user]);
 
   useEffect(() => {
     finishWithFeedbackRef.current = (finalAnswers) => {
@@ -335,6 +348,7 @@ export default function CommunicationCheck() {
   const sendExpandedFeedback = useCallback(async () => {
     if (!feedback) return;
     if (!candidate.name.trim() || !candidate.email.trim()) {
+      trackFunnel("validation_failed", { stage: "expanded_feedback", missing: "name_or_email" });
       toast({ title: "Add your name and email", description: "We’ll use them to send your expanded personalised feedback.", variant: "destructive" });
       return;
     }
@@ -352,9 +366,13 @@ export default function CommunicationCheck() {
         }),
       });
       const data = await response.json() as { emailMessage?: string; error?: string };
-      if (!response.ok) throw new Error(data.error || "Could not send your feedback");
+      if (!response.ok) {
+        trackFunnel("api_failed", { stage: "expanded_feedback", status: response.status });
+        throw new Error(data.error || "Could not send your feedback");
+      }
       setEmailMessage(data.emailMessage || "Your expanded feedback is on its way.");
       setLeadSubmitted(true);
+      trackFunnel("signup_started", { stage: "expanded_feedback", method: "lead_email" });
     } catch (error) {
       toast({ title: "Could not send feedback", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
     } finally {
@@ -474,11 +492,13 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
         const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
         mic.getTracks().forEach((track) => track.stop());
       } catch {
+        trackFunnel("api_failed", { stage: "microphone_permission" });
         toast({ title: "Microphone access is needed", description: "Allow microphone access, then tap Start again.", variant: "destructive" });
         return;
       }
     }
     track("communication_check_started", { targetRole: candidate.targetRole || "unspecified" });
+    trackFunnel("communication_check_started", { targetRole: candidate.targetRole || "unspecified", authenticated: Boolean(user) });
     endingRef.current = false;
     closingRef.current = false;
     finalWindowRef.current = false;
@@ -494,7 +514,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     setPhase("interview");
     interviewStartedAtRef.current = Date.now();
     speak(opening, startListening);
-  }, [candidate, speak, startListening, toast]);
+  }, [candidate, speak, startListening, toast, user]);
 
   if (phase === "feedback" && feedback) {
     return (
