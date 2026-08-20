@@ -27,6 +27,9 @@ const router: IRouter = Router();
 const activityLocationCache = new Map<string, { location: string | null; expiresAt: number }>();
 const ACTIVITY_LOCATION_TTL_MS = 30 * 60 * 1000;
 const MAX_ACTIVITY_LOCATION_LOOKUPS = 100;
+// This is the PC identified in the supplied activity export. Mobile activity
+// from the same network remains part of Unique Visitors.
+const TARGET_PC_IP = "117.97.191.137";
 
 async function resolveActivityLocations(ips: string[]): Promise<Map<string, string | null>> {
   const resolved = new Map<string, string | null>();
@@ -135,6 +138,10 @@ function isDesktopOrUnknown(userAgent: string | null): boolean {
   return deviceFromUserAgent(userAgent) === "Desktop" || deviceFromUserAgent(userAgent) === "Unknown";
 }
 
+function isTargetPcActivity(userAgent: string | null, ipAddress: string | null): boolean {
+  return ipAddress === TARGET_PC_IP && deviceFromUserAgent(userAgent) === "Desktop";
+}
+
 function sourceFrom(properties: Record<string, unknown>, path: string): string {
   const value = properties.utm_source ?? properties.source ?? properties.trafficSource;
   if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
@@ -163,6 +170,7 @@ router.get("/admin/funnel", requireAdmin, async (req, res) => {
         userId: analyticsEventsTable.userId,
         userEmail: usersTable.email,
         userAgent: analyticsEventsTable.userAgent,
+        ipAddress: analyticsEventsTable.ipAddress,
         createdAt: analyticsEventsTable.createdAt,
       })
       .from(analyticsEventsTable)
@@ -173,7 +181,7 @@ router.get("/admin/funnel", requireAdmin, async (req, res) => {
 
     const usable = rows.filter((row) => {
       if (row.path.startsWith("/admin")) return false;
-      if (isDesktopOrUnknown(row.userAgent)) return false;
+      if (isTargetPcActivity(row.userAgent, row.ipAddress)) return false;
       if (row.userEmail?.toLowerCase() === "admin@edubharat.in") return false;
       const props = parseProperties(row.properties);
       return props.test !== true && props.isTest !== true && props.environment !== "test";
@@ -230,20 +238,18 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
     const scope = req.query.scope === "admin" || req.query.scope === "mobile" || req.query.scope === "pc"
       ? req.query.scope
       : "visitor";
-    const desktopOrUnknownFilter = or(
-      isNull(analyticsEventsTable.userAgent),
-      and(
-        not(like(analyticsEventsTable.userAgent, "%Mobile%")),
-        not(like(analyticsEventsTable.userAgent, "%Android%")),
-        not(like(analyticsEventsTable.userAgent, "%iPhone%")),
-        not(like(analyticsEventsTable.userAgent, "%iPod%")),
-        not(like(analyticsEventsTable.userAgent, "%iPad%")),
-        not(like(analyticsEventsTable.userAgent, "%Tablet%")),
-      ),
-    )!;
+    const targetPcFilter = and(
+      eq(analyticsEventsTable.ipAddress, TARGET_PC_IP),
+      not(like(analyticsEventsTable.userAgent, "%Mobile%")),
+      not(like(analyticsEventsTable.userAgent, "%Android%")),
+      not(like(analyticsEventsTable.userAgent, "%iPhone%")),
+      not(like(analyticsEventsTable.userAgent, "%iPod%")),
+      not(like(analyticsEventsTable.userAgent, "%iPad%")),
+      not(like(analyticsEventsTable.userAgent, "%Tablet%")),
+    );
     const scopeFilter = scope === "admin"
-      ? or(like(analyticsEventsTable.path, "/admin%"), desktopOrUnknownFilter)
-      : and(not(like(analyticsEventsTable.path, "/admin%")), not(desktopOrUnknownFilter));
+      ? or(like(analyticsEventsTable.path, "/admin%"), targetPcFilter)
+      : and(not(like(analyticsEventsTable.path, "/admin%")), not(targetPcFilter));
     const activities = await db
       .select({
         id: analyticsEventsTable.id,
@@ -268,7 +274,7 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
     const scopedActivities = scope === "mobile"
       ? activities.filter((activity) => deviceFromUserAgent(activity.userAgent) === "Mobile" || deviceFromUserAgent(activity.userAgent) === "Tablet")
       : scope === "pc"
-        ? activities.filter((activity) => isDesktopOrUnknown(activity.userAgent))
+        ? activities.filter((activity) => isTargetPcActivity(activity.userAgent, activity.ipAddress))
         : activities;
     const activityIps = Array.from(new Set(
       scopedActivities
