@@ -8,7 +8,7 @@ const router: IRouter = Router();
 // Keep the current Gemini model first. Older model IDs can return NOT_FOUND
 // for newer API projects, which otherwise makes every short live turn appear
 // stuck after Claude falls through.
-const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-1.5-flash"] as const;
+const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const ZAI_MODEL = process.env["ZAI_MODEL"] || "glm-5.2";
 
