@@ -127,6 +127,7 @@ export function useSpeechRecognition(language = "English") {
       const form = new FormData();
       form.append("audio", blob, `utterance.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
       form.append("language", language);
+      form.append("mode", "final");
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 12_000);
       const response = await fetch(`${base}/api/stt`, {
@@ -222,6 +223,7 @@ export function useSpeechRecognition(language = "English") {
       const form = new FormData();
       form.append("audio", blob, `preview.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
       form.append("language", language);
+      form.append("mode", "preview");
       const response = await fetch(`${base}/api/stt`, {
         method: "POST",
         credentials: "include",

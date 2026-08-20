@@ -137,18 +137,14 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   }
   const language = String(req.body.language || "English");
   const mimeType = req.file.mimetype || "audio/webm";
-  // Deepgram Nova-3 is strongest for the short conversational English turns
-  // used by Communication Check. Google Cloud remains first for Indian-language
-  // turns because its locale-specific models are the better fit there.
-  const providers = language === "English"
-    ? [
-        { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
-        { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
-      ]
-    : [
-        { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
-        { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
-      ];
+  const isPreview = req.body.mode === "preview";
+  // Google Cloud handles the browser's WebM/Opus recordings and Indian
+  // locales most reliably. Deepgram Nova-3 remains the stronger recovery path
+  // for English, while Gemini is retained for complete provider failure.
+  const providers = [
+    { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
+    { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
+  ];
 
   for (const provider of providers) {
     try {
@@ -159,6 +155,14 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
     } catch (error) {
       console.warn(`[stt] ${provider.name} unavailable; trying next provider:`, error);
     }
+  }
+
+  // Partial preview blobs can be too short or lack a complete container
+  // header. They are display-only and must never turn a working microphone
+  // session into a failed final transcription.
+  if (isPreview) {
+    res.json({ text: "" });
+    return;
   }
 
   try {
