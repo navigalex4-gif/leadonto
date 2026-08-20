@@ -17,7 +17,16 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
 const COMMUNICATION_CHECK_SPEECH_RATE = 1.0;
-const QUICK_ACKNOWLEDGEMENTS = ["Okay", "Got it"];
+const QUICK_ACKNOWLEDGEMENTS = [
+  "That is a useful example",
+  "I can see the effort there",
+  "That gives me a clearer picture",
+  "Interesting — let us explore that",
+  "That sounds like a practical step",
+  "I like the way you explained that",
+  "That is worth unpacking",
+  "You have given me something specific to work with",
+];
 const OPENING_QUESTIONS = [
   "Tell me about something you are working towards right now.",
   "What is one recent experience you would enjoy telling a colleague about?",
@@ -49,6 +58,35 @@ const QUESTION_BANK = [
   "What is one communication habit you are actively trying to improve?",
   "If you had one extra hour today, how would you use it and why?",
   "Before we finish, what would you like an interviewer to understand about you?",
+  "What is a skill you learned outside school or work that helps you today?",
+  "Tell me about a time you made a mistake and what you changed afterward.",
+  "What is the most useful advice someone has given you?",
+  "Describe a situation where you had to learn something quickly.",
+  "What would you do if a customer or teammate misunderstood your message?",
+  "Tell me about a time you took responsibility without being asked.",
+  "What kind of work makes you lose track of time?",
+  "Describe a day when your plan changed suddenly. How did you respond?",
+  "What is one everyday problem you would like to solve?",
+  "Tell me about a person who has influenced the way you work.",
+  "How would you explain your current goal to a ten-year-old?",
+  "What do you do when you need to disagree respectfully?",
+  "Tell me about a time you encouraged someone else.",
+  "Which part of a new job would you want to understand first?",
+  "What makes a conversation feel successful to you?",
+  "Describe a time you had to wait, persist, or try again.",
+  "If you could improve one service in your city, what would you change?",
+  "Tell me about a recent choice you are proud of.",
+  "What is something you can teach another person confidently?",
+  "How do you prepare when you have to speak to someone senior?",
+  "Tell me about a time you solved a problem with limited information.",
+  "What would your best friend say is your strongest quality?",
+  "What is one question you ask when you join a new team?",
+  "Imagine your first week in your target role. What would success look like?",
+  "Tell me about a moment when listening carefully helped you.",
+  "What is one topic you could discuss for five minutes without preparation?",
+  "Describe a time you changed someone’s mind respectfully.",
+  "What helps you recover when a conversation does not go well?",
+  "What is a small habit that has made you more dependable?",
 ];
 const INTERVIEWER = {
   name: "Neha Madam",
@@ -119,7 +157,7 @@ function questionIsRepeated(question: string, askedQuestions: string[]): boolean
 function nextUnusedQuestion(askedQuestions: string[]): string {
   const shuffled = [...QUESTION_BANK].sort(() => Math.random() - 0.5);
   return shuffled.find((question) => !questionIsRepeated(question, askedQuestions))
-    ?? "Before we finish, what would you like an interviewer to understand about you?";
+    ?? "What is one thing you would like to practise saying more confidently?";
 }
 
 function getAnonymousId(): string {
@@ -419,7 +457,7 @@ Questions already asked: ${askedQuestions.join(" | ")}
 Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Keep momentum high. Maximum 32 words.`,
           "You are a warm, lively Indian interviewer. Sound alert, encouraging and genuinely interested, not like a form. Speak at a brisk conversational pace with clear energy, short sentences and varied reactions. Show empathy when the answer is difficult, celebrate a specific small win, and make brief answers easier. Never sound fake, breathless or scripted. No markdown or preamble.",
           undefined,
-           { maxTokens: 40, timeoutMs: 1000 },
+            { maxTokens: 40, timeoutMs: 4800 },
         ),
         fallbackTimer,
       ]);
@@ -489,15 +527,11 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
 
   const startCheck = useCallback(async () => {
     unlockAudio();
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mic.getTracks().forEach((track) => track.stop());
-      } catch {
-        trackFunnel("api_failed", { stage: "microphone_permission" });
-        toast({ title: "Microphone access is needed", description: "Allow microphone access, then tap Start again.", variant: "destructive" });
-        return;
-      }
+    const microphoneReady = await speech.prepareMicrophone();
+    if (!microphoneReady) {
+      trackFunnel("api_failed", { stage: "microphone_permission" });
+      toast({ title: "Microphone access is needed", description: "Allow microphone access, then tap Start again.", variant: "destructive" });
+      return;
     }
     track("communication_check_started", { targetRole: candidate.targetRole || "unspecified" });
     trackFunnel("communication_check_started", { targetRole: candidate.targetRole || "unspecified", authenticated: Boolean(user) });
@@ -516,7 +550,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     setPhase("interview");
     interviewStartedAtRef.current = Date.now();
     speak(opening, startListening);
-  }, [candidate, speak, startListening, toast, user]);
+  }, [candidate, speak, speech.prepareMicrophone, startListening, toast, user]);
 
   if (phase === "feedback" && feedback) {
     return (

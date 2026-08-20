@@ -168,6 +168,43 @@ export function useSpeechRecognition(language = "English") {
     }
   }, [base, language]);
 
+  const prepareMicrophone = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false;
+    try {
+      if (!streamRef.current) {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: { ideal: 48_000 },
+            sampleSize: { ideal: 16 },
+          },
+        });
+      }
+      if (!contextRef.current) {
+        const AC = window.AudioContext ?? (window as AnyWindow).webkitAudioContext;
+        if (!AC) throw new Error("Audio input is not supported in this browser.");
+        contextRef.current = new AC({ latencyHint: "interactive", sampleRate: 48_000 });
+        const source = contextRef.current.createMediaStreamSource(streamRef.current);
+        const analyser = contextRef.current.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.2;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+      }
+      await contextRef.current.resume().catch(() => {});
+      setError(null);
+      return true;
+    } catch (err) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setError(err instanceof Error ? err.message : "Microphone access failed.");
+      return false;
+    }
+  }, [isSupported]);
+
   // Provisional text comes from the same silent recorder as final STT. It is
   // display-only: it never calls onPhrase and can never submit an answer.
   const requestPreview = useCallback(async (blob: Blob, generation: number, utteranceId: number) => {
@@ -480,6 +517,7 @@ export function useSpeechRecognition(language = "English") {
     isContinuous: shouldContinueRef.current,
     start,
     startContinuous,
+    prepareMicrophone,
     stop,
     reset,
     blockFor,
