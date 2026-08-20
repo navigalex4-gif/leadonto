@@ -238,7 +238,7 @@ export default function AdminActivity() {
   const allVisibleSelected = sessions.length > 0 && sessions.every((session) => session.rows.every((row) => selectedIds.includes(row.id)));
   const scopeLabel = activityTab === "admin" ? "Admin Activity" : "Unique Visitors";
   const scopeDescription = activityTab === "admin"
-    ? "Admin route activity is shown here separately from external visitors."
+    ? "Admin routes and PC activity are shown here separately from mobile visitors."
     : "Unique visitor events include captured IP addresses and resolved location details.";
   const funnelExportRows = funnelSummary
     ? [

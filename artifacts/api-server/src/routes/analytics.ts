@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace/db";
-import { and, desc, eq, gte, inArray, like, not } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, not, or } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 import { geolocateIp } from "../lib/geo.js";
@@ -131,6 +131,10 @@ function deviceFromUserAgent(userAgent: string | null): string {
   return "Desktop";
 }
 
+function isDesktopOrUnknown(userAgent: string | null): boolean {
+  return deviceFromUserAgent(userAgent) === "Desktop" || deviceFromUserAgent(userAgent) === "Unknown";
+}
+
 function sourceFrom(properties: Record<string, unknown>, path: string): string {
   const value = properties.utm_source ?? properties.source ?? properties.trafficSource;
   if (typeof value === "string" && value.trim()) return value.trim().slice(0, 80);
@@ -169,6 +173,7 @@ router.get("/admin/funnel", requireAdmin, async (req, res) => {
 
     const usable = rows.filter((row) => {
       if (row.path.startsWith("/admin")) return false;
+      if (isDesktopOrUnknown(row.userAgent)) return false;
       if (row.userEmail?.toLowerCase() === "admin@edubharat.in") return false;
       const props = parseProperties(row.properties);
       return props.test !== true && props.isTest !== true && props.environment !== "test";
@@ -225,9 +230,20 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
     const scope = req.query.scope === "admin" || req.query.scope === "mobile" || req.query.scope === "pc"
       ? req.query.scope
       : "visitor";
+    const desktopOrUnknownFilter = or(
+      isNull(analyticsEventsTable.userAgent),
+      and(
+        not(like(analyticsEventsTable.userAgent, "%Mobile%")),
+        not(like(analyticsEventsTable.userAgent, "%Android%")),
+        not(like(analyticsEventsTable.userAgent, "%iPhone%")),
+        not(like(analyticsEventsTable.userAgent, "%iPod%")),
+        not(like(analyticsEventsTable.userAgent, "%iPad%")),
+        not(like(analyticsEventsTable.userAgent, "%Tablet%")),
+      ),
+    )!;
     const scopeFilter = scope === "admin"
-      ? like(analyticsEventsTable.path, "/admin%")
-      : not(like(analyticsEventsTable.path, "/admin%"));
+      ? or(like(analyticsEventsTable.path, "/admin%"), desktopOrUnknownFilter)
+      : and(not(like(analyticsEventsTable.path, "/admin%")), not(desktopOrUnknownFilter));
     const activities = await db
       .select({
         id: analyticsEventsTable.id,
@@ -252,7 +268,7 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
     const scopedActivities = scope === "mobile"
       ? activities.filter((activity) => deviceFromUserAgent(activity.userAgent) === "Mobile" || deviceFromUserAgent(activity.userAgent) === "Tablet")
       : scope === "pc"
-        ? activities.filter((activity) => deviceFromUserAgent(activity.userAgent) === "Desktop" || deviceFromUserAgent(activity.userAgent) === "Unknown")
+        ? activities.filter((activity) => isDesktopOrUnknown(activity.userAgent))
         : activities;
     const activityIps = Array.from(new Set(
       scopedActivities
