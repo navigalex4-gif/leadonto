@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod/v4";
 import { db, analyticsEventsTable, webVitalsTable, usersTable } from "@workspace/db";
-import { and, desc, eq, gte, inArray, isNull, like, not, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, not, or } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
 import { geolocateIp } from "../lib/geo.js";
@@ -134,10 +134,6 @@ function deviceFromUserAgent(userAgent: string | null): string {
   return "Desktop";
 }
 
-function isDesktopOrUnknown(userAgent: string | null): boolean {
-  return deviceFromUserAgent(userAgent) === "Desktop" || deviceFromUserAgent(userAgent) === "Unknown";
-}
-
 function isTargetPcActivity(userAgent: string | null, ipAddress: string | null): boolean {
   return ipAddress === TARGET_PC_IP && deviceFromUserAgent(userAgent) === "Desktop";
 }
@@ -246,7 +242,7 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
       not(like(analyticsEventsTable.userAgent, "%iPod%")),
       not(like(analyticsEventsTable.userAgent, "%iPad%")),
       not(like(analyticsEventsTable.userAgent, "%Tablet%")),
-    );
+    )!;
     const scopeFilter = scope === "admin"
       ? or(like(analyticsEventsTable.path, "/admin%"), targetPcFilter)
       : and(not(like(analyticsEventsTable.path, "/admin%")), not(targetPcFilter));
