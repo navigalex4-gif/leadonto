@@ -411,6 +411,16 @@ function EnglishGuruContent() {
   const variedFallback = (userMsg: string, isSilenceProbe: boolean) => {
     const turn = liveFallbackTurnRef.current++;
     const lower = userMsg.toLowerCase();
+    const transliteratedWordMeanings: Record<string, { word: string; meaning: string; example: string }> = {
+      paryavaran: { word: "environment", meaning: "the natural world around us", example: "I care about protecting the environment." },
+      vatavaran: { word: "environment", meaning: "the surroundings or atmosphere around us", example: "The office has a friendly environment." },
+      swachh: { word: "clean", meaning: "not dirty", example: "We should keep our streets clean." },
+      jal: { word: "water", meaning: "the clear liquid that people, animals and plants need", example: "We must save water." },
+      prakriti: { word: "nature", meaning: "the world of plants, animals and the outdoors", example: "I enjoy spending time in nature." },
+    };
+    const transliteratedMatch = Object.entries(transliteratedWordMeanings)
+      .find(([source]) => new RegExp(`\\b${source}\\b`, "i").test(lower));
+    const hasHowAreYou = /\bhow\s+are\s+you\b|\bhow're\s+you\b/.test(lower);
     const definitionMatch = lower.match(/\b(?:what is|what does|meaning of|define)\s+([a-z][a-z-]*)/i);
     const definitionWord = definitionMatch?.[1]?.toLowerCase() ?? "";
     const contentWords = userMsg
@@ -422,6 +432,16 @@ function EnglishGuruContent() {
     let pool: string[];
     if (isSilenceProbe) {
       pool = silenceFallbacks;
+    } else if (transliteratedMatch) {
+      const [, translation] = transliteratedMatch;
+      pool = [
+        `${hasHowAreYou ? "I’m doing well, thank you. " : ""}"${translation.word}" is the English word for ${translation.meaning}. For example, “${translation.example}” Can you make your own sentence?`,
+      ];
+    } else if (hasHowAreYou) {
+      pool = [
+        "I’m doing well, thank you. I’m ready to practise with you. How has your day been?",
+        "I’m good, thank you. Let’s keep this conversation natural. What have you been working on today?",
+      ];
     } else if (definitionWord) {
       const definitions: Record<string, string> = {
         social: "Social means connected with spending time or communicating with other people. For example, “I enjoy social conversations with my friends.” Can you make your own sentence with “social”?",
@@ -609,6 +629,8 @@ Rules for spoken replies:
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
 - Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
 - If the student asks what a word means, define that word simply, give one short example, and ask them to make their own sentence. Do not respond with a generic life question.
+- If the student uses an Indian-language word or transliteration inside an English sentence, explain or translate that specific word briefly before continuing. Never ignore the word.
+- If the student asks “how are you?”, answer that question directly in one short sentence before asking anything else.
 - If the student asks to learn vocabulary or English, teach 2–3 useful words or phrases immediately, with meanings and one example. Do not only ask where they want to use English.
 - Start replies smoothly with the substance of your answer. Do not open with "Oh", "Hmm", "Okay", "Got it", "Right", or another filler acknowledgement.
 - Do not repeat acknowledgement phrases before answering; move directly from understanding what the student said to the useful response or follow-up question.
@@ -621,7 +643,7 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}`,
           undefined,
-          { maxTokens: 140, timeoutMs: 2500 }
+            { maxTokens: 140, timeoutMs: 6500 }
         );
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
