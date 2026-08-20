@@ -27,7 +27,7 @@ The Communication Check keeps the final 10 seconds as a real response window. It
 **How to apply:** use a dedicated final-window ref separate from the overall ending guard. The question bank should sample observable communication dimensions — structure, clarity, explanation, listening/empathy, collaboration, persuasion, adaptability, confidence and self-awareness — rather than generic small talk. Keep interviewer TTS brisk and energetic but intelligible.
 
 ## Grounded feedback and transcription
-Communication-check feedback must distinguish AI-grounded analysis from an indicative fallback. Require concrete evidence from captured answers and a response-specific practice plan; generic fallback wording must never be presented as personalized feedback. The speech path uses Google Cloud Speech-to-Text first for Indian locale handling, then Deepgram Nova-3, then Gemini recovery.
+Communication-check feedback must distinguish AI-grounded analysis from an indicative fallback. Require concrete evidence from captured answers and a response-specific practice plan; generic fallback wording must never be presented as personalized feedback. English speech uses Deepgram Nova-3 first for short conversational turns, then Google Cloud Speech-to-Text, then Gemini recovery; Indian-language turns use Google Cloud first.
 
 **Why:** the provider fallback chain can take longer than a short feedback timeout, causing a generic scorecard to be shown even when answers were captured successfully.
 

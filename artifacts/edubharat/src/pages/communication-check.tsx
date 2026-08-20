@@ -645,21 +645,21 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
       ) : (
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-7">
-             <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. Your interviewer responds quickly.</p></div>
+             <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. Your communication coach responds quickly.</p></div>
             <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 10 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
           </div>
           <CardContent className="space-y-6 p-6 sm:p-9">
             <div className="flex items-start gap-4 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-5">
                <AnimatedAvatar
                  name={INTERVIEWER.name}
-                 subtitle="AI interviewer"
+                  subtitle="Communication coach"
                  isSpeaking={synth.isSpeaking}
                  isThinking={isThinking}
                  gender={INTERVIEWER.gender}
                  size="sm"
                  imageSrc={INTERVIEWER.imageSrc}
                />
-               <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">AI interviewer</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
+                <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Communication coach</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
               <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
                  {currentAnswer || speech.interimTranscript || <span className="text-muted-foreground">{isThinking ? "Your interviewer is preparing the next question…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Your answer is being transcribed…" : speech.status === "listening" ? "Speak naturally…" : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
@@ -676,10 +676,10 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                   {speech.status === "warming" ? "Preparing" : speech.status === "processing" ? "Transcribing" : speech.status === "listening" ? "Speak" : "Mic ready"}
                  {speech.status === "listening" && <span className="h-1.5 w-10 overflow-hidden rounded-full bg-emerald-100"><span className="block h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.max(8, Math.round(speech.audioLevel * 100))}%` }} /></span>}
                </div>
-               <Button variant={isListening ? "destructive" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
+                <Button variant={isListening ? "outline" : "default"} size="lg" disabled={!speech.isSupported || isThinking || isSubmitting} onClick={() => {
                 if (isListening) { speech.stop(); setIsListening(false); } else startListening();
               }}>
-                {isListening ? <><MicOff className="mr-2 h-5 w-5" />Stop speaking</> : <><Mic className="mr-2 h-5 w-5" />{isThinking ? "Interviewer is replying…" : "Tap to speak"}</>}
+                 {isListening ? <><MicOff className="mr-2 h-5 w-5" />Stop</> : <><Mic className="mr-2 h-5 w-5" />{isThinking ? "Coach is replying…" : "Tap to speak"}</>}
               </Button>
               <span className="text-xs text-muted-foreground">{answers.length} answer{answers.length === 1 ? "" : "s"} captured · no credits used</span>
             </div>

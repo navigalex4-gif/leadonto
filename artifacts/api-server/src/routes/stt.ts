@@ -137,22 +137,28 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   }
   const language = String(req.body.language || "English");
   const mimeType = req.file.mimetype || "audio/webm";
-  try {
-    // Google Cloud remains the primary recognizer. Deepgram is the dedicated
-    // speech fallback, then Gemini is retained as the final recovery path.
-    const text = await transcribeWithGoogleCloud(req.file.buffer, mimeType, language);
-    res.json({ text });
-    return;
-  } catch (googleError) {
-    console.warn("[stt] Google Cloud Speech-to-Text unavailable; trying Deepgram:", googleError);
-  }
+  // Deepgram Nova-3 is strongest for the short conversational English turns
+  // used by Communication Check. Google Cloud remains first for Indian-language
+  // turns because its locale-specific models are the better fit there.
+  const providers = language === "English"
+    ? [
+        { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
+        { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
+      ]
+    : [
+        { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
+        { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
+      ];
 
-  try {
-    const text = await transcribeWithDeepgram(req.file.buffer, mimeType, language);
-    res.json({ text });
-    return;
-  } catch (deepgramError) {
-    console.warn("[stt] Deepgram Speech-to-Text unavailable; trying Gemini:", deepgramError);
+  for (const provider of providers) {
+    try {
+      const text = await provider.run();
+      if (!text.trim()) throw new Error(`${provider.name} returned an empty transcript`);
+      res.json({ text });
+      return;
+    } catch (error) {
+      console.warn(`[stt] ${provider.name} unavailable; trying next provider:`, error);
+    }
   }
 
   try {
