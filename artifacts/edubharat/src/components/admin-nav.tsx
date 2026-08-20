@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { CreditCard, Users, FileText, BriefcaseIcon, Building2, Activity, Mail, Timer, BarChart3 } from "lucide-react";
+import { CreditCard, Users, FileText, BriefcaseIcon, Building2, Activity, Mail, Timer } from "lucide-react";
 
 const TABS = [
   { href: "/admin-payments", label: "Payments", icon: CreditCard },
@@ -10,7 +10,6 @@ const TABS = [
   { href: "/admin-content", label: "Content", icon: FileText },
   { href: "/admin-resumes", label: "Resume", icon: FileText },
   { href: "/admin-activity", label: "Activity", icon: Activity },
-  { href: "/admin-funnel", label: "Funnel", icon: BarChart3 },
   { href: "/admin-email", label: "Email", icon: Mail },
 ];
 

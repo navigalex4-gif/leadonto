@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, CheckSquare, Clock3, Download, Globe2, Loader2, MapPin, RefreshCw, Search, Trash2, UserRound } from "lucide-react";
+import { Activity, BarChart3, CheckSquare, Clock3, Download, Globe2, Loader2, MapPin, RefreshCw, Search, Trash2, UserRound, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,16 @@ type ActivityRow = {
   location: string | null;
 };
 
+type FunnelSummary = {
+  days: number;
+  uniqueVisitors: number;
+  stages: { stage: string; events: number; uniqueVisitors: number; conversionFromLanding: number }[];
+  errors: Record<string, number>;
+  breakdowns: Record<string, { label: string; uniqueVisitors: number }[]>;
+};
+
+type ActivityTab = "visitors" | "admin";
+
 function fmt(iso: string): string {
   try {
     return new Date(iso).toLocaleString("en-IN", {
@@ -42,6 +52,10 @@ function fmt(iso: string): string {
   }
 }
 
+function funnelLabel(value: string): string {
+  return value.replace(/^communication_check_/, "check ").replace(/_/g, " ");
+}
+
 export default function AdminActivity() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
@@ -51,7 +65,9 @@ export default function AdminActivity() {
   const [eventFilter, setEventFilter] = useState("all");
   const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
   const [locationFilters, setLocationFilters] = useState<string[]>([]);
-  const [activityScope, setActivityScope] = useState<"admin" | "pc" | "mobile">("pc");
+  const [activityTab, setActivityTab] = useState<ActivityTab>("visitors");
+  const [funnelDays, setFunnelDays] = useState("30");
+  const [funnelSummary, setFunnelSummary] = useState<FunnelSummary | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -61,7 +77,8 @@ export default function AdminActivity() {
   const fetchActivity = useCallback(async () => {
     setFetching(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/visitor-activity?scope=${activityScope}`, { credentials: "include" });
+      const scope = activityTab === "admin" ? "admin" : "visitor";
+      const res = await fetch(`${BASE}/api/admin/visitor-activity?scope=${scope}`, { credentials: "include" });
       if (!res.ok) {
         toast({ title: "Failed to load activity", variant: "destructive" });
         return;
@@ -74,7 +91,18 @@ export default function AdminActivity() {
     } finally {
       setFetching(false);
     }
-  }, [activityScope, toast]);
+  }, [activityTab, toast]);
+
+  const fetchFunnel = useCallback(async () => {
+    try {
+      const response = await fetch(`${BASE}/api/admin/funnel?days=${funnelDays}`, { credentials: "include" });
+      const data = await response.json() as FunnelSummary & { error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not load acquisition funnel");
+      setFunnelSummary(data);
+    } catch (error) {
+      toast({ title: "Could not load acquisition funnel", description: error instanceof Error ? error.message : "Try again.", variant: "destructive" });
+    }
+  }, [funnelDays, toast]);
 
   useEffect(() => {
     if (!isLoading && !isAdmin) navigate("/");
@@ -83,6 +111,10 @@ export default function AdminActivity() {
   useEffect(() => {
     if (isAdmin) void fetchActivity();
   }, [isAdmin, fetchActivity]);
+
+  useEffect(() => {
+    if (isAdmin && activityTab === "visitors") void fetchFunnel();
+  }, [activityTab, fetchFunnel, isAdmin]);
 
   const deleteSelected = async () => {
     if (!selectedIds.length || deleting) return;
@@ -133,12 +165,17 @@ export default function AdminActivity() {
   );
   const allLocationsSelected = locationFilters.length === 0;
   const allVisibleSelected = filtered.length > 0 && filtered.every((row) => selectedIds.includes(row.id));
-  const scopeLabel = activityScope === "admin" ? "Admin Activity" : activityScope === "mobile" ? "This Mobile Activity" : "This PC Activity";
-  const scopeDescription = activityScope === "admin"
-    ? "Admin-only routes are shown here, separately from visitor activity."
-    : activityScope === "mobile"
-      ? "Visitor activity recorded from mobile phones and tablets is shown here."
-      : "Visitor activity recorded from desktop and laptop browsers is shown here.";
+  const scopeLabel = activityTab === "admin" ? "Admin Activity" : "Unique Visitors";
+  const scopeDescription = activityTab === "admin"
+    ? "Admin route activity is shown here separately from external visitors."
+    : "Unique visitor events include captured IP addresses and resolved location details.";
+  const funnelExportRows = funnelSummary
+    ? [
+        ...funnelSummary.stages.map((stage) => ({ type: "stage", ...stage })),
+        ...Object.entries(funnelSummary.breakdowns).flatMap(([type, items]) => items.map((item) => ({ type, stage: item.label, events: "", uniqueVisitors: item.uniqueVisitors, conversionFromLanding: "" }))),
+        ...Object.entries(funnelSummary.errors).map(([error, count]) => ({ type: "error", stage: error, events: count, uniqueVisitors: "", conversionFromLanding: "" })),
+      ]
+    : [];
 
   const prettyProperties = (properties: string | null) => {
     if (!properties) return "No additional event data";
@@ -167,7 +204,7 @@ export default function AdminActivity() {
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-secondary">{rows.length}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
+            <Button
             size="sm"
             className="font-semibold"
             onClick={() => downloadCsv(filtered.map((row) => ({
@@ -183,18 +220,17 @@ export default function AdminActivity() {
           <Button variant="outline" size="sm" onClick={() => void fetchActivity()} disabled={fetching}>
             <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
           </Button>
-           <Button variant="outline" size="sm" onClick={() => void deleteSelected()} disabled={!selectedIds.length || deleting}>
+           <Button variant="outline" size="sm" onClick={() => void deleteSelected()} disabled={!selectedIds.length || deleting || activityTab !== "admin"}>
              {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
              Delete{selectedIds.length ? ` (${selectedIds.length})` : ""}
            </Button>
         </div>
       </div>
 
-       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2" role="tablist" aria-label="Activity type">
+        <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2" role="tablist" aria-label="Activity type">
          {([
-           ["admin", "Admin Activity"],
-           ["pc", "This PC Activity"],
-           ["mobile", "This Mobile Activity"],
+            ["visitors", "Unique Visitors"],
+            ["admin", "Admin Activity"],
          ] as const).map(([scope, label]) => (
            <button
              key={scope}
@@ -202,7 +238,7 @@ export default function AdminActivity() {
              role="tab"
              aria-selected={activityScope === scope}
              onClick={() => {
-               setActivityScope(scope);
+                setActivityTab(scope);
                setEventFilter("all");
                setVisitorFilter("all");
                setLocationFilters([]);
@@ -217,7 +253,59 @@ export default function AdminActivity() {
            </button>
          ))}
        </div>
-       <p className="mb-4 text-sm text-muted-foreground">{scopeDescription} Select a row to view its full data.</p>
+        <p className="mb-4 text-sm text-muted-foreground">{scopeDescription} Select a row to view its full data.</p>
+
+        {activityTab === "visitors" && (
+          <Card className="mb-5">
+            <CardContent className="p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <div>
+                    <h2 className="font-display text-lg font-bold text-secondary">Acquisition funnel</h2>
+                    <p className="text-xs text-muted-foreground">Visitor conversion for the selected duration.</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    Duration
+                    <input
+                      aria-label="Acquisition funnel duration in days"
+                      type="number"
+                      min="1"
+                      max="180"
+                      value={funnelDays}
+                      onChange={(event) => setFunnelDays(event.target.value)}
+                      onBlur={() => void fetchFunnel()}
+                      onKeyDown={(event) => { if (event.key === "Enter") void fetchFunnel(); }}
+                      className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-sm font-normal text-secondary"
+                    />
+                    <span>days</span>
+                  </label>
+                  <Button variant="outline" size="sm" onClick={() => void fetchFunnel()} disabled={fetching}>
+                    <RefreshCw className={`mr-1.5 h-4 w-4 ${fetching ? "animate-spin" : ""}`} />Refresh
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadCsv(funnelExportRows, "leadonto-acquisition-funnel")} disabled={!funnelExportRows.length}>
+                    <Download className="mr-1.5 h-4 w-4" />Download CSV
+                  </Button>
+                </div>
+              </div>
+              {funnelSummary ? (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-lg border border-border bg-muted/20 p-3"><Users className="h-4 w-4 text-primary" /><p className="mt-1 text-2xl font-extrabold text-secondary">{funnelSummary.uniqueVisitors}</p><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Unique visitors</p></div>
+                    <div className="rounded-lg border border-border bg-muted/20 p-3"><p className="text-2xl font-extrabold text-secondary">{funnelSummary.stages.find((stage) => stage.stage === "communication_check_completed")?.uniqueVisitors ?? 0}</p><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Completed checks</p></div>
+                    <div className="rounded-lg border border-border bg-muted/20 p-3"><p className="text-2xl font-extrabold text-secondary">{funnelSummary.stages.find((stage) => stage.stage === "account_created")?.uniqueVisitors ?? 0}</p><p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Accounts created</p></div>
+                  </div>
+                  <div className="rounded-lg border border-border p-3">
+                    <h3 className="mb-2 text-sm font-bold text-secondary">Stage conversion</h3>
+                    <div className="space-y-2">{funnelSummary.stages.map((stage) => <div key={stage.stage} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs"><span className="font-semibold capitalize text-secondary">{funnelLabel(stage.stage)}</span><span className="text-muted-foreground">{stage.uniqueVisitors} visitors</span><span className="font-bold text-primary">{stage.conversionFromLanding}%</span></div>)}</div>
+                  </div>
+                </div>
+              ) : <p className="py-4 text-sm text-muted-foreground">Loading acquisition funnel…</p>}
+            </CardContent>
+          </Card>
+        )}
 
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -329,14 +417,16 @@ export default function AdminActivity() {
                        <p className="mt-1 truncate font-semibold text-secondary" title={row.path}>{row.path}</p>
                        <p className="mt-1 text-xs text-muted-foreground"><Clock3 className="mr-1 inline h-3 w-3" />{fmt(row.createdAt)}</p>
                      </summary>
-                     <div className="mt-3 grid gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:grid-cols-2">
+                      <div className="mt-3 max-h-72 overflow-y-auto border-l-4 border-primary/30 pl-3 pr-2 text-xs text-muted-foreground" style={{ scrollbarColor: "hsl(var(--primary)) transparent", scrollbarWidth: "thin" }}>
+                        <div className="grid gap-2 sm:grid-cols-2">
                        <span className="inline-flex items-center gap-1"><Globe2 className="h-3 w-3" />IP: {row.ipAddress || "Not recorded"}</span>
                        <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{row.location || "Location unavailable"}</span>
                        <span className="break-all">Visitor: {row.anonymousId}</span>
                        <span className="break-all">{row.userEmail || row.userName || "Anonymous visitor"}</span>
                        <span className="break-all sm:col-span-2" title={row.userAgent || undefined}>Device: {row.userAgent || "User agent not recorded"}</span>
-                       <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono sm:col-span-2">{prettyProperties(row.properties)}</pre>
+                        <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono sm:col-span-2">{prettyProperties(row.properties)}</pre>
                      </div>
+                      </div>
                    </details>
                  </div>
                </CardContent>
