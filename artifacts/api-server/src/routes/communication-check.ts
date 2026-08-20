@@ -27,12 +27,14 @@ const submitSchema = z.object({
 });
 
 type Feedback = {
+  source: "ai" | "indicative";
   overallScore: number;
   communicationScore: number;
   confidenceScore: number;
   clarityScore: number;
   headline: string;
   strengths: string[];
+  evidence: string[];
   oneNextStep: string;
   summary: string;
   personalizedPlan: string[];
@@ -48,17 +50,27 @@ function fallbackFeedback(answers: Array<{ answer: string }>): Feedback {
   const totalWords = words.reduce((sum, value) => sum + value, 0);
   const answered = words.filter((value) => value > 0).length;
   const base = Math.max(42, Math.min(84, 48 + Math.min(24, totalWords) + answered * 5));
+  const firstAnswer = answers.find((item) => item.answer.trim())?.answer.trim() ?? "";
+  const evidence = firstAnswer
+    ? [`Captured ${totalWords} spoken words across ${answered} answered prompt${answered === 1 ? "" : "s"}.`]
+    : ["No clear spoken answer was captured, so a genuine communication assessment was not possible."];
   return {
+    source: "indicative",
     overallScore: base,
     communicationScore: Math.max(35, Math.min(90, base + (answered ? 2 : -8))),
     confidenceScore: Math.max(35, Math.min(88, base - 2)),
     clarityScore: Math.max(35, Math.min(88, base + 1)),
-    headline: answered ? "You have a workable foundation." : "Start by getting your voice heard.",
+    headline: answered ? "Your answer was captured, but needs a careful re-check." : "We could not assess a clear spoken answer.",
     strengths: answered
-      ? ["You completed the speaking check", "You communicated your main idea"]
+      ? ["Your spoken response was captured", "You completed the practice check"]
       : ["You took the first step toward practice"],
-    oneNextStep: "Answer in three parts: point, example, and result.",
-    summary: "This is an indicative check. Practice one spoken answer daily to build a clearer, more confident delivery.",
+    evidence,
+    oneNextStep: answered
+      ? "Try the check again so we can analyze your exact wording and delivery."
+      : "Check your microphone permission and answer the next prompt in a quiet room.",
+    summary: answered
+      ? "We captured your response, but the detailed analyzer was unavailable. This score is indicative only and is not personalized feedback."
+      : "No reliable spoken answer reached the analyzer, so this result is indicative only.",
     personalizedPlan: [
       "Record one 60-second answer each day using point, example, and result.",
       "Replay it once and remove filler words before trying again.",
@@ -79,13 +91,19 @@ function parseFeedback(raw: string, fallback: Feedback): Feedback {
     const personalizedPlan = Array.isArray(parsed.personalizedPlan)
       ? parsed.personalizedPlan.map(String).filter(Boolean).slice(0, 5)
       : fallback.personalizedPlan;
+    const evidence = Array.isArray(parsed.evidence)
+      ? parsed.evidence.map(String).filter(Boolean).slice(0, 3)
+      : [];
+    if (evidence.length === 0) return fallback;
     return {
+      source: "ai",
       overallScore: clampScore(parsed.overallScore, fallback.overallScore),
       communicationScore: clampScore(parsed.communicationScore, fallback.communicationScore),
       confidenceScore: clampScore(parsed.confidenceScore, fallback.confidenceScore),
       clarityScore: clampScore(parsed.clarityScore, fallback.clarityScore),
       headline: String(parsed.headline || fallback.headline).slice(0, 160),
       strengths: strengths.length ? strengths : fallback.strengths,
+      evidence,
       oneNextStep: String(parsed.oneNextStep || fallback.oneNextStep).slice(0, 220),
       summary: String(parsed.summary || fallback.summary).slice(0, 360),
       personalizedPlan: personalizedPlan.length ? personalizedPlan : fallback.personalizedPlan,
@@ -174,15 +192,16 @@ Return JSON only with exactly these fields:
   "clarityScore": number 0-100,
   "headline": "one short honest sentence",
   "strengths": ["two short specific strengths"],
+  "evidence": ["two concrete observations grounded in the candidate's actual answers; quote short phrases when useful"],
   "oneNextStep": "one specific practice action",
   "summary": "one concise sentence, maximum 30 words"
 }
-Be encouraging but accurate. Judge only what is present in the answers; do not invent achievements or personality traits.`,
+Be encouraging but accurate. Judge only what is present in the answers; do not invent achievements or personality traits. The evidence array is mandatory: if an answer does not support a claim, do not make that claim.`,
       system: "You are a concise Indian career communication coach. Never make hiring decisions. Return valid JSON only.",
     });
     const raw = await Promise.race([
       aiPromise,
-      new Promise<string>((resolve) => setTimeout(() => resolve(""), 3500)),
+      new Promise<string>((resolve) => setTimeout(() => resolve(""), 10_000)),
     ]);
     if (raw.trim()) feedback = parseFeedback(raw, fallback);
   } catch {

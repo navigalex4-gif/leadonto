@@ -68,12 +68,14 @@ type Candidate = {
 
 type Answer = { question: string; answer: string };
 type Feedback = {
+  source?: "ai" | "indicative";
   overallScore: number;
   communicationScore: number;
   confidenceScore: number;
   clarityScore: number;
   headline: string;
   strengths: string[];
+  evidence?: string[];
   oneNextStep: string;
   summary: string;
   personalizedPlan: string[];
@@ -530,9 +532,14 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-bold text-secondary">Your scorecard</h2>
-                <p className="text-xs text-muted-foreground">Each score is out of 100</p>
+                 <p className="text-xs text-muted-foreground">Each score is out of 100</p>
               </div>
-              <Target className="h-5 w-5 text-primary" />
+               <div className="flex items-center gap-2">
+                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${feedback.source === "ai" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+                   {feedback.source === "ai" ? "Based on your answers" : "Indicative only"}
+                 </span>
+                 <Target className="h-5 w-5 text-primary" />
+               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
@@ -570,6 +577,14 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                  <li className="flex gap-2 text-sm font-semibold text-secondary"><ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Next: {feedback.oneNextStep}</li>
                </ul>
              </div>
+             {feedback.evidence?.length ? (
+               <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                 <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Evidence from your response</p>
+                 <ul className="mt-2 space-y-2">
+                   {feedback.evidence.map((item) => <li key={item} className="text-sm text-secondary">• {item}</li>)}
+                 </ul>
+               </div>
+             ) : null}
              {leadSubmitted ? (
                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
                  <p className="font-bold">Expanded feedback requested.</p>
