@@ -51,7 +51,7 @@ export default function AdminActivity() {
   const [eventFilter, setEventFilter] = useState("all");
   const [visitorFilter, setVisitorFilter] = useState<"all" | "anonymous" | "signed-in">("all");
   const [locationFilters, setLocationFilters] = useState<string[]>([]);
-  const [activityScope, setActivityScope] = useState<"visitor" | "admin">("visitor");
+  const [activityScope, setActivityScope] = useState<"admin" | "pc" | "mobile">("pc");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [fetching, setFetching] = useState(false);
@@ -133,6 +133,21 @@ export default function AdminActivity() {
   );
   const allLocationsSelected = locationFilters.length === 0;
   const allVisibleSelected = filtered.length > 0 && filtered.every((row) => selectedIds.includes(row.id));
+  const scopeLabel = activityScope === "admin" ? "Admin Activity" : activityScope === "mobile" ? "This Mobile Activity" : "This PC Activity";
+  const scopeDescription = activityScope === "admin"
+    ? "Admin-only routes are shown here, separately from visitor activity."
+    : activityScope === "mobile"
+      ? "Visitor activity recorded from mobile phones and tablets is shown here."
+      : "Visitor activity recorded from desktop and laptop browsers is shown here.";
+
+  const prettyProperties = (properties: string | null) => {
+    if (!properties) return "No additional event data";
+    try {
+      return JSON.stringify(JSON.parse(properties), null, 2);
+    } catch {
+      return properties;
+    }
+  };
 
   if (isLoading) {
     return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -148,7 +163,7 @@ export default function AdminActivity() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Activity className="h-6 w-6 text-primary" />
-           <h1 className="font-display text-2xl font-bold text-secondary">{activityScope === "visitor" ? "Visitor Activity" : "Admin Activity"}</h1>
+            <h1 className="font-display text-2xl font-bold text-secondary">{scopeLabel}</h1>
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-secondary">{rows.length}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -175,11 +190,34 @@ export default function AdminActivity() {
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-muted-foreground">
-         {activityScope === "visitor"
-           ? "Visitor activity excludes admin routes. Each row shows the server-recorded location, IP, route, time, and activity."
-           : "Admin-only tracking is kept separate from visitor activity. Each row shows the server-recorded admin route, time, and activity."}
-      </p>
+       <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2" role="tablist" aria-label="Activity type">
+         {([
+           ["admin", "Admin Activity"],
+           ["pc", "This PC Activity"],
+           ["mobile", "This Mobile Activity"],
+         ] as const).map(([scope, label]) => (
+           <button
+             key={scope}
+             type="button"
+             role="tab"
+             aria-selected={activityScope === scope}
+             onClick={() => {
+               setActivityScope(scope);
+               setEventFilter("all");
+               setVisitorFilter("all");
+               setLocationFilters([]);
+             }}
+             className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+               activityScope === scope
+                 ? "bg-primary text-primary-foreground shadow-sm"
+                 : "text-muted-foreground hover:bg-muted hover:text-secondary"
+             }`}
+           >
+             {label}
+           </button>
+         ))}
+       </div>
+       <p className="mb-4 text-sm text-muted-foreground">{scopeDescription} Select a row to view its full data.</p>
 
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -197,13 +235,6 @@ export default function AdminActivity() {
          </button>
          {filtersOpen && <div className="border-t border-border p-3">
          <div className="mb-2 grid gap-2 sm:grid-cols-4">
-           <label htmlFor="activity-scope-filter" className="text-xs font-semibold text-muted-foreground">
-             Activity scope
-             <select id="activity-scope-filter" className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-secondary" value={activityScope} onChange={(event) => { setActivityScope(event.target.value as typeof activityScope); setLocationFilters([]); }}>
-               <option value="visitor">Visitor activity</option>
-               <option value="admin">Admin activity</option>
-             </select>
-           </label>
            <label htmlFor="activity-event-filter" className="text-xs font-semibold text-muted-foreground">
              Event type
              <select
@@ -269,7 +300,7 @@ export default function AdminActivity() {
       {fetching && rows.length === 0 ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No {activityScope === "visitor" ? "visitor" : "admin"} activity found.</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">No {scopeLabel.toLowerCase()} found.</CardContent></Card>
       ) : (
         <div className="space-y-2">
            <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs">
@@ -279,34 +310,38 @@ export default function AdminActivity() {
              </label>
              <span className="text-muted-foreground">{selectedIds.length} selected</span>
            </div>
-          {filtered.map((row) => (
-            <Card key={row.id}>
-               <CardContent className="grid gap-3 p-3 md:grid-cols-[auto_1fr_auto]">
-                 <input type="checkbox" aria-label={`Select activity ${row.id}`} checked={selectedIds.includes(row.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} className="mt-1 h-4 w-4 accent-primary" />
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">{row.event}</span>
-                    {row.userId ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><UserRound className="h-3 w-3" />{row.userName || row.userEmail || `User ${row.userId}`}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Anonymous visitor</span>
-                    )}
-                  </div>
-                  <p className="truncate font-semibold text-secondary" title={row.path}>{row.path}</p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1"><Globe2 className="h-3 w-3" />IP: {row.ipAddress || "Not recorded"}</span>
-                     <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{row.location || "Location unavailable"}</span>
-                    <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{fmt(row.createdAt)}</span>
-                  </div>
-                  <p className="mt-1 truncate text-[11px] text-muted-foreground" title={row.userAgent || undefined}>{row.userAgent || "User agent not recorded"}</p>
-                </div>
-                <div className="text-left text-[11px] text-muted-foreground md:max-w-[260px] md:text-right">
-                  <p className="font-mono">Visitor: {row.anonymousId.slice(0, 16)}…</p>
-                  {row.userEmail && <p className="truncate">{row.userEmail}</p>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+           {filtered.map((row) => (
+             <Card key={row.id}>
+               <CardContent className="p-3">
+                 <div className="flex items-start gap-3">
+                   <input type="checkbox" aria-label={`Select activity ${row.id}`} checked={selectedIds.includes(row.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, row.id] : current.filter((id) => id !== row.id))} className="mt-1 h-4 w-4 accent-primary" />
+                   <details className="min-w-0 flex-1 group">
+                     <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                       <div className="flex flex-wrap items-center gap-2">
+                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">{row.event}</span>
+                         {row.userId ? (
+                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><UserRound className="h-3 w-3" />{row.userName || row.userEmail || `User ${row.userId}`}</span>
+                         ) : (
+                           <span className="text-xs text-muted-foreground">Anonymous visitor</span>
+                         )}
+                         <span className="ml-auto text-xs font-semibold text-muted-foreground group-open:text-primary">View data⌄</span>
+                       </div>
+                       <p className="mt-1 truncate font-semibold text-secondary" title={row.path}>{row.path}</p>
+                       <p className="mt-1 text-xs text-muted-foreground"><Clock3 className="mr-1 inline h-3 w-3" />{fmt(row.createdAt)}</p>
+                     </summary>
+                     <div className="mt-3 grid gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:grid-cols-2">
+                       <span className="inline-flex items-center gap-1"><Globe2 className="h-3 w-3" />IP: {row.ipAddress || "Not recorded"}</span>
+                       <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{row.location || "Location unavailable"}</span>
+                       <span className="break-all">Visitor: {row.anonymousId}</span>
+                       <span className="break-all">{row.userEmail || row.userName || "Anonymous visitor"}</span>
+                       <span className="break-all sm:col-span-2" title={row.userAgent || undefined}>Device: {row.userAgent || "User agent not recorded"}</span>
+                       <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono sm:col-span-2">{prettyProperties(row.properties)}</pre>
+                     </div>
+                   </details>
+                 </div>
+               </CardContent>
+             </Card>
+           ))}
         </div>
       )}
       </main>

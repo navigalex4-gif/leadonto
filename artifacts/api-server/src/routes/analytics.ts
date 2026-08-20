@@ -222,7 +222,9 @@ router.get("/admin/funnel", requireAdmin, async (req, res) => {
 // Admin activity view — includes anonymous visitors as well as signed-in users.
 router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
   try {
-    const scope = req.query.scope === "admin" ? "admin" : "visitor";
+    const scope = req.query.scope === "admin" || req.query.scope === "mobile" || req.query.scope === "pc"
+      ? req.query.scope
+      : "visitor";
     const scopeFilter = scope === "admin"
       ? like(analyticsEventsTable.path, "/admin%")
       : not(like(analyticsEventsTable.path, "/admin%"));
@@ -247,13 +249,18 @@ router.get("/admin/visitor-activity", requireAdmin, async (req, res) => {
       .where(scopeFilter)
       .orderBy(desc(analyticsEventsTable.createdAt))
       .limit(2000);
+    const scopedActivities = scope === "mobile"
+      ? activities.filter((activity) => deviceFromUserAgent(activity.userAgent) === "Mobile" || deviceFromUserAgent(activity.userAgent) === "Tablet")
+      : scope === "pc"
+        ? activities.filter((activity) => deviceFromUserAgent(activity.userAgent) === "Desktop" || deviceFromUserAgent(activity.userAgent) === "Unknown")
+        : activities;
     const activityIps = Array.from(new Set(
-      activities
+      scopedActivities
         .filter((activity) => !activity.lastLoginLocation && !activity.signupLocation && activity.ipAddress)
         .map((activity) => activity.ipAddress as string),
     ));
     const ipLocations = await resolveActivityLocations(activityIps);
-    const enrichedActivities = activities.map(({ signupLocation, lastLoginLocation, ...activity }) => ({
+    const enrichedActivities = scopedActivities.map(({ signupLocation, lastLoginLocation, ...activity }) => ({
       ...activity,
       location: lastLoginLocation || signupLocation || (activity.ipAddress ? ipLocations.get(activity.ipAddress) ?? null : null),
     }));
