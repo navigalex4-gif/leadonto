@@ -643,7 +643,7 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}`,
           undefined,
-            { maxTokens: 140, timeoutMs: 6500 }
+            { maxTokens: 140, timeoutMs: 1000 }
         );
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
@@ -1244,16 +1244,10 @@ Rules for spoken replies:
                           : "bg-muted-foreground"
                   }`} />
                    {convFlowState === "user-speaking" && (
-                    speech.interimTranscript
-                      ? `"${speech.interimTranscript}"`
-                      : speech.error
-                        ? speech.error
-                      : speech.status === "warming"
-                        ? "Get ready to speak…"
-                        : speech.status === "listening"
-                          ? "Speak now 🎤"
-                          : "Mic starting…"
-                  )}
+                     <span className="sr-only" role="status">
+                       {speech.error ? speech.error : "Listening for your voice"}
+                     </span>
+                   )}
                   {convFlowState === "ai-thinking" && `${tutor.name} is thinking...`}
                   {convFlowState === "ai-speaking" && `${tutor.name} is speaking... (mic restarts when done)`}
                   {convFlowState === "idle" && (livePaused ? "Live chat paused" : "Live chat off")}
