@@ -1,0 +1,76 @@
+Fix the entire Lead Onto acquisition-to-signup funnel before any further advertising is scaled.
+
+1. SIGNUP RELIABILITY
+   Fix Google/OTP signup completely. Test:
+
+* Chrome desktop
+* Chrome mobile
+* Instagram in-app browser
+* Facebook in-app browser
+* Android
+* iPhone where available
+
+Ensure signup, OTP entry, account creation, session creation, and redirect all work reliably.
+
+2. OAUTH/WEBVIEW
+   Specifically investigate and fix the OAuth/webview failures identified in analytics. Do not assume the browser is the problem. Identify the exact failure point and provide a fallback signup method when OAuth cannot run inside an in-app browser.
+
+3. REDUCE SIGNUP FRICTION
+   Allow users to experience the 90-Second Communication Check before mandatory account creation, while still protecting results/history appropriately.
+
+Make signup minimal:
+
+* Name
+* Email/phone
+* OTP
+  Avoid unnecessary fields before the user experiences the product.
+
+4. FUNNEL TRACKING
+   Implement reliable analytics events:
+
+Landing page view
+→ CTA click
+→ Communication Check opened
+→ Signup form opened
+→ Signup started
+→ OTP requested
+→ OTP verified
+→ Account created
+→ First session started
+→ Communication Check completed
+
+Record failures separately:
+
+* OAuth failed
+* OTP failed
+* OTP expired
+* signup validation failed
+* API error
+* browser/webview failure
+
+Do not count my own/admin/test activity in conversion metrics.
+
+5. CONVERSION DIAGNOSTICS
+   Create an internal funnel dashboard showing:
+
+* unique external visitors
+* each funnel stage
+* conversion percentage between stages
+* abandonment percentage
+* error rate
+* browser/device breakdown
+* traffic source breakdown
+
+6. TESTING REQUIREMENT
+   Do not claim completion because code compiles.
+
+Actually perform end-to-end signup tests and provide:
+
+* each device/browser tested
+* pass/fail
+* exact failure reason for anything failing
+* before/after funnel conversion where measurable
+
+Do not proceed to advertising optimization until signup and OTP are demonstrably reliable.
+
+The goal is to eliminate technical conversion leakage first, then determine whether the underlying business model converts real external users.
