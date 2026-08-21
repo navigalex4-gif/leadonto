@@ -435,7 +435,7 @@ function deriveScores(
 function neutralReport(durationMin: number): InterviewReport {
   const competencies: Partial<Record<CompetencyKey, CompetencyRating>> = {};
   for (const c of coveredCompetencies(durationMin)) {
-    competencies[c.key] = { rating: 3, comment: "Automated scoring was interrupted — this is an indicative result." };
+        competencies[c.key] = { rating: 3, comment: "Not assessed reliably because automated scoring was interrupted; this rating is indicative only." };
   }
   return {
     ...deriveScores(competencies, durationMin),
@@ -443,9 +443,9 @@ function neutralReport(durationMin: number): InterviewReport {
     bestFitRole: "",
     verdictReason: "Automated scoring was interrupted, so this is an indicative result — please review the detailed feedback below.",
     competencies,
-    strengths: ["Engaged actively throughout the interview", "Attempted every question", "Showed willingness to learn"],
-    concerns: ["Automated scoring was interrupted — re-run the interview for a precise assessment"],
-    nextSteps: ["Practice structured STAR-method answers", "Record yourself and review your clarity", "Book another mock interview this week"],
+    strengths: [],
+    concerns: ["The transcript could not be scored reliably; no strengths or weaknesses should be inferred from this report."],
+    nextSteps: ["Re-run the interview for a precise assessment", "Answer with one specific example per question", "Book another mock interview after reviewing the transcript"],
   };
 }
 
@@ -470,7 +470,7 @@ function parseReportJson(text: string, durationMin: number): InterviewReport | n
       competencies[c.key] =
         rawComp[c.key] !== undefined
           ? parseCompetencyRating(rawComp[c.key])
-          : { rating: 3, comment: "Only lightly tested in this interview." };
+           : { rating: 3, comment: "No direct evidence was captured for this competency; the neutral rating must not be read as observed performance." };
     }
     const concerns = Array.isArray(parsed["concerns"])
       ? parsed["concerns"].map(String)
@@ -1710,7 +1710,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
 Role: ${interviewRoleLabel}
 Candidate experience level: ${experience}
-Interview length: ${duration} minutes (${formatTime(elapsedSeconds)} used)
+Interview length: EXACTLY ${duration} minutes (${formatTime(elapsedSeconds)} used). Never mention a different interview duration.
 Profile: ${buildProfileSummary()}
 
 CALIBRATION — read carefully: ${calibrationFor(experience)}

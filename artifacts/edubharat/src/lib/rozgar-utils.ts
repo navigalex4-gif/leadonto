@@ -170,11 +170,12 @@ export function enrichJob(item: RozgarLiveItem): EnrichedJob {
 export function computeMatchScore(job: EnrichedJob, profile: StudentProfile): number {
   let score = 0;
   const weights = {
-    location: 30,
-    skills: 30,
+    location: 25,
+    skills: 25,
     experience: 15,
     sector: 15,
     education: 10,
+    role: 10,
   };
 
   // Location (30%)
@@ -231,6 +232,15 @@ export function computeMatchScore(job: EnrichedJob, profile: StudentProfile): nu
   else if (job.sector === "unknown") score += weights.sector * 0.5;
   else if (profileIndustry && normalizeText(job.title, job.summary).includes(profileIndustry)) score += weights.sector * 0.7;
 
+  // Role (10%) — prefer the candidate's explicit target role.
+  const targetRole = (profile.preferredRole || "").toLowerCase().trim();
+  if (targetRole) {
+    const roleWords = targetRole.split(/[^a-z0-9]+/).filter(word => word.length >= 3);
+    const roleText = normalizeText(job.title, job.summary);
+    const roleMatches = roleWords.filter(word => roleText.includes(word)).length;
+    if (roleMatches > 0) score += (roleMatches / roleWords.length) * weights.role;
+  }
+
   // Education (10%)
   const profileDegree = (profile.degree || "").toLowerCase();
   const jobText = normalizeText(job.title, job.summary);
@@ -241,6 +251,39 @@ export function computeMatchScore(job: EnrichedJob, profile: StudentProfile): nu
   }
 
   return Math.min(100, Math.round(score));
+}
+
+export function hasPersonalizationProfile(profile: StudentProfile): boolean {
+  return Boolean(
+    profile.preferredRole?.trim() ||
+    profile.industryPreference?.trim() ||
+    profile.skills.length > 0 ||
+    profile.experienceLevel?.trim(),
+  );
+}
+
+export function getMatchReasons(job: EnrichedJob, profile: StudentProfile): string[] {
+  const reasons: string[] = [];
+  const profileCity = (profile.preferredCity || profile.location || "").toLowerCase().trim();
+  const jobLocation = (job.location || "").toLowerCase();
+  if (job.workMode === "remote" || job.workMode === "hybrid") reasons.push("remote-friendly");
+  else if (profileCity && jobLocation.includes(profileCity)) reasons.push(`matches ${profile.preferredCity || profile.location}`);
+
+  const profileSkills = profile.skills.map(s => s.toLowerCase().trim()).filter(Boolean);
+  const matchingSkills = job.requiredSkills.filter(skill =>
+    profileSkills.some(candidateSkill => candidateSkill.includes(skill) || skill.includes(candidateSkill)),
+  );
+  if (matchingSkills.length > 0) reasons.push(`${matchingSkills.slice(0, 2).join(" and ")} skill match`);
+
+  const targetRole = (profile.preferredRole || "").trim();
+  if (targetRole && normalizeText(job.title, job.summary).includes(targetRole.toLowerCase())) {
+    reasons.push(`fits target role: ${targetRole}`);
+  }
+  if (job.experience !== "unknown" && profile.experienceLevel.toLowerCase().includes(job.experience)) {
+    reasons.push(`${job.experience} experience fit`);
+  }
+  if (reasons.length === 0) reasons.push("general profile match — verify requirements");
+  return reasons.slice(0, 3);
 }
 
 export function filterJobs(jobs: EnrichedJob[], filters: FilterState, profile: StudentProfile): EnrichedJob[] {

@@ -70,6 +70,18 @@ function ToolsProContent() {
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
 
   const speech = useSpeechRecognition(uiLang);
+  const candidateContext = [
+    `Name: ${profile.name || "Candidate"}`,
+    `English level: ${level}`,
+    `Preferred language: ${uiLang}`,
+    `Career goal: ${profile.careerGoal || "Not specified"}`,
+    `Target role: ${profile.preferredRole || "Not specified"}`,
+    `Industry: ${profile.industryPreference || "Not specified"}`,
+    `Experience: ${profile.experienceLevel || "Not specified"}`,
+    `Education: ${profile.degree || "Not specified"}${profile.branch ? ` (${profile.branch})` : ""}`,
+    `Skills: ${profile.skills.length ? profile.skills.join(", ") : "Not specified"}`,
+    `Experience summary: ${profile.experienceSummary || profile.resumeAnalysis?.experienceSummary || "Not specified"}`,
+  ].join(" | ");
 
   // Seed student name from the signed-in account
   useEffect(() => {
@@ -112,14 +124,17 @@ function ToolsProContent() {
     resetAI();
     setResult("");
     synth.stop();
-    const full = await stream(prompt, system);
+    const full = await stream(
+      `${prompt}\n\nCandidate context (use only to tailor examples; never invent missing facts): ${candidateContext}`,
+      `${system}\nCandidate context: ${candidateContext}`,
+    );
     setResult(full);
     if (full) {
       track("English Guru", saveTitle);
     }
     // Tool results are NOT auto-spoken — each result panel has its own Speak button.
     return full;
-  }, [stream, resetAI, synth, track]);
+  }, [candidateContext, stream, resetAI, synth, track]);
 
   const saveResult = useCallback((key: string, title: string, content: string) => {
     save({ tool: "English Guru", title, content });
@@ -186,7 +201,7 @@ function ToolsProContent() {
           {/* Settings card */}
           <Card className="border shadow-sm">
             <CardContent className="pt-3 pb-3 space-y-3">
-              <label className="block space-y-1">
+               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Student Name</span>
                 <Input
                   value={profile.name}
@@ -208,7 +223,7 @@ function ToolsProContent() {
               </label>
               <label className="block space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Level</span>
-                <Select value={level} onValueChange={setLevel}>
+                 <Select value={level} onValueChange={(v) => { setLevel(v); updateProfile({ englishLevel: v }); }}>
                   <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {["Beginner", "Intermediate", "Advanced"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
@@ -368,32 +383,31 @@ function ToolsProContent() {
                     const LESSON_TOPICS = [
                       "Greetings and Professional Introductions","Workplace Emails and Messages","Telephone Etiquette","Presenting Ideas in Meetings","Job Interview Phrases","Describing Your Work Experience","Polite Disagreement at Work","Asking and Giving Directions","Numbers, Dates and Time","Shopping and Negotiating","Expressing Opinions Clearly","Talking About Health and Wellbeing","Travel and Transportation","Banking and Financial Terms","Media and Current Events","Sports and Recreation Vocabulary","Technology and Social Media","Family and Relationships","Food and Restaurant English","Education and Learning Terms","Describing People and Personalities","Office Small Talk","Following Instructions","Making and Refusing Requests","Apologies and Reconciliation","Reports and Data Language","Leadership and Teamwork Phrases","Problem-Solving Language","Celebrations and Social Events","Environmental and Science Terms",
                     ];
-                    const INDIAN_CONTEXTS = [
-                      "a software engineer in Bengaluru","a sales executive in Mumbai","a fresh graduate applying to an MNC","a bank teller in Chennai","a nurse at a Delhi hospital","a shop manager in Hyderabad","a government employee in Pune","a college student in Kolkata","a call centre agent in Noida","a schoolteacher in Jaipur","a pharmacist in Ahmedabad","a logistics coordinator in Surat",
-                    ];
-                    // Fully random every click — topic, context, and a unique seed so no two lessons look alike
+                     const candidateRole = profile.preferredRole || profile.careerGoal || "an Indian job seeker";
+                     const candidateIndustry = profile.industryPreference || "the candidate's target industry";
+                     // Keep topic variation, but anchor scenarios to the candidate's
+                     // actual goal instead of assigning a random occupation.
                     const topic = LESSON_TOPICS[Math.floor(Math.random() * LESSON_TOPICS.length)]!;
-                    const ctx   = INDIAN_CONTEXTS[Math.floor(Math.random() * INDIAN_CONTEXTS.length)]!;
                     const seed  = Math.random().toString(36).slice(2, 8);
                     handleStream(
                       `[uid:${seed}] Write a fresh ${level}-level English lesson on: "${topic}"
-Tailor every example to: ${ctx}.
+Tailor every example to a ${candidateRole} in ${candidateIndustry}, with experience level ${profile.experienceLevel || "not specified"}.
 
 Write ONLY plain text. No *, **, #, ---, bullets, or markdown of any kind.
 
 Structure:
 
 1. TODAY'S TOPIC
-Two sentences about "${topic}" and why it helps someone like ${ctx}.
+                     Two sentences about "${topic}" and why it helps someone like a ${candidateRole}.
 
 2. WHY IT MATTERS
-Two specific real-life examples from ${ctx}'s daily work or life.
+                     Two specific real-life examples from a ${candidateRole}'s daily work or life.
 
 3. KEY WORDS
-Five English words for this topic. For each: the word, its ${uiLang} meaning, one example sentence from ${ctx}'s world.
+                     Five English words for this topic. For each: the word, its ${uiLang} meaning, one example sentence from a ${candidateRole}'s world.
 
 4. PRACTICE SENTENCES
-Two fill-in-the-blank exercises set in ${ctx}'s situation. Show the answers below each.
+ Two fill-in-the-blank exercises set in this candidate's situation. Show the answers below each.
 
 5. TODAY'S TASK
 One specific 10-minute speaking or writing activity the student can do right now.

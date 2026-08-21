@@ -16,6 +16,7 @@ import { useStudentProfile, type StudentProfile } from "@/lib/use-student-profil
 import { useSavedJobs, type SavedJob } from "@/lib/use-saved-jobs";
 import {
   enrichJob, filterJobs, activeFilterCount, computeMatchScore,
+  getMatchReasons, hasPersonalizationProfile,
   type EnrichedJob, type FilterState, type SalaryBand,
   DEFAULT_FILTERS, makeJobId, SALARY_BANDS,
 } from "@/lib/rozgar-utils";
@@ -188,7 +189,11 @@ const DEFAULT_PROFILE: Profile = {
   industry: "",
 };
 
-function feedProfileContext(section: typeof SECTIONS[number], profile: Profile): string {
+function feedProfileContext(
+  section: typeof SECTIONS[number],
+  profile: Profile,
+  studentProfile: StudentProfile,
+): string {
   const fields: string[] = [];
   const add = (label: string, value: string) => {
     if (value.trim()) fields.push(`${label}: ${value}`);
@@ -203,6 +208,11 @@ function feedProfileContext(section: typeof SECTIONS[number], profile: Profile):
   if (VACANCY_SECTIONS.has(section.id) || section.id === "salary_insights") {
     add("Salary expectation", profile.salaryExpectation);
   }
+  add("Target role", studentProfile.preferredRole);
+  add("Experience level", studentProfile.experienceLevel);
+  add("Resume experience summary", studentProfile.experienceSummary || studentProfile.resumeAnalysis?.experienceSummary || "");
+  add("Resume skills", studentProfile.resumeAnalysis?.skills?.join(", ") || "");
+  add("Preferred city", studentProfile.preferredCity);
   return fields.join(" | ");
 }
 
@@ -231,6 +241,7 @@ function JobCard({
   onHide,
   saved,
   matchScore,
+  matchReasons,
 }: {
   item: EnrichedJob;
   onSave: (item: RozgarLiveItem) => void;
@@ -239,6 +250,7 @@ function JobCard({
   onHide: (jobId: string) => void;
   saved: boolean;
   matchScore?: number;
+  matchReasons?: string[];
 }) {
   return (
     <div className="block rounded-xl border bg-card hover:border-primary/30 transition-colors">
@@ -285,6 +297,11 @@ function JobCard({
           ))}
         </div>
         {item.summary && <p className="mt-3 text-xs text-secondary line-clamp-2">{item.summary}</p>}
+        {matchReasons && matchReasons.length > 0 && (
+          <p className="mt-2 text-[11px] text-primary">
+            Why it matches: {matchReasons.join(" • ")}
+          </p>
+        )}
       </div>
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 pb-4">
@@ -410,6 +427,10 @@ function StructuredFeedOutput({
   const example = parsed.example[0];
   const mistake = parsed.mistake[0];
   const practice = parsed.practice[0];
+  const isPersonalized = Boolean(
+    profile.careerGoal?.trim() &&
+    (profile.skills?.trim() || profile.industry?.trim() || profile.location?.trim()),
+  );
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
@@ -419,10 +440,15 @@ function StructuredFeedOutput({
           <div>
             <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
               <Sparkles className="h-3.5 w-3.5" />
-              Personalized career brief
+              {isPersonalized ? "Personalized career brief" : "General career guidance"}
             </div>
             <h3 className="font-display text-xl font-bold leading-tight">{section.title}</h3>
             <p className="mt-1 text-xs text-white/80">{sectionAudienceLine(section, profile)}</p>
+            <p className="mt-2 text-[10px] text-white/70">
+              {isPersonalized
+                ? "Profile-aware guidance grounded in the source cards below."
+                : "Add your target role, industry, or skills for stronger personalization."}
+            </p>
           </div>
           {isStreaming && <Loader2 className="mt-1 h-5 w-5 animate-spin text-white" />}
         </div>
@@ -574,7 +600,7 @@ function SectionCard({
     setLoaded(true);
     track("Rozgar Samachar", section.id);
 
-    const profileCtx = feedProfileContext(section, profile);
+    const profileCtx = feedProfileContext(section, profile, studentProfile);
 
     const prompts: Record<SectionId, string> = {
       top_jobs: `Explain only the real job cards supplied below for this candidate. Compare the best 2-3 matches by role, location, skills, and entry fit; do not create vacancies.`,
@@ -605,11 +631,6 @@ function SectionCard({
       goal: profile.careerGoal,
       skills: profile.skills,
     });
-    if (VACANCY_SECTIONS.has(section.id) && (live?.items?.length ?? 0) > 0) {
-      setLoaded(true);
-      return;
-    }
-
     const liveContext = live?.items?.length
       ? [
           `Live sources fetched at ${new Date(live.fetchedAt).toLocaleString("en-IN")}. Candidate context: ${profileCtx}.`,
@@ -680,7 +701,8 @@ function SectionCard({
                         onShare={onShare}
                         onHide={onHide}
                         saved={isJobSaved(makeJobId(item.link))}
-                        matchScore={computeMatchScore(enriched, studentProfile)}
+                        matchScore={hasPersonalizationProfile(studentProfile) ? computeMatchScore(enriched, studentProfile) : undefined}
+                        matchReasons={hasPersonalizationProfile(studentProfile) ? getMatchReasons(enriched, studentProfile) : undefined}
                       />
                     ) : <CareerNewsCard key={`${item.title}-${item.link}`} item={item} />;
                   })}
