@@ -61,6 +61,10 @@ export function useSpeechRecognition(language = "English") {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const rollingChunksRef = useRef<Blob[]>([]);
+  // The first WebM chunk contains the container initialization segment.
+  // Preserve it separately because the rolling pre-roll is intentionally
+  // capped and can otherwise discard the header before speech starts.
+  const recordingHeaderRef = useRef<Blob | null>(null);
   const utteranceChunksRef = useRef<Blob[]>([]);
   const utteranceActiveRef = useRef(false);
   const utteranceStartedRef = useRef(0);
@@ -100,6 +104,7 @@ export function useSpeechRecognition(language = "English") {
     recorderRef.current = null;
     chunksRef.current = [];
     rollingChunksRef.current = [];
+    recordingHeaderRef.current = null;
     utteranceChunksRef.current = [];
     utteranceActiveRef.current = false;
     if (recorder && recorder.state !== "inactive") {
@@ -145,6 +150,7 @@ export function useSpeechRecognition(language = "English") {
       const text = body.text?.trim() ?? "";
       if (text && generation === generationRef.current && shouldContinueRef.current) {
         serverSttFailureCountRef.current = 0;
+         setError(null);
         setTranscript((previous) => `${previous}${previous ? " " : ""}${text}`);
         onPhraseRef.current?.(text);
       }
@@ -302,6 +308,7 @@ export function useSpeechRecognition(language = "English") {
         recorderRef.current = recorder;
         recorder.ondataavailable = (event) => {
           if (!event.data.size) return;
+           recordingHeaderRef.current ||= event.data;
           firstAudioRef.current ||= performance.now();
           if (utteranceActiveRef.current) {
             utteranceChunksRef.current.push(event.data);
@@ -342,7 +349,10 @@ export function useSpeechRecognition(language = "English") {
           utteranceIdRef.current += 1;
           lastPreviewAtRef.current = 0;
           setInterimTranscript("");
-          utteranceChunksRef.current = [...rollingChunksRef.current];
+           utteranceChunksRef.current = [
+             ...(recordingHeaderRef.current ? [recordingHeaderRef.current] : []),
+             ...rollingChunksRef.current.filter((chunk) => chunk !== recordingHeaderRef.current),
+           ];
           rollingChunksRef.current = [];
           utteranceStartedRef.current = now;
           lastVoiceRef.current = now;
@@ -373,7 +383,13 @@ export function useSpeechRecognition(language = "English") {
             previewAbortRef.current?.abort();
             previewAbortRef.current = null;
             previewInFlightRef.current = false;
-            const utterance = new Blob(utteranceChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+             const utterance = new Blob(
+               [
+                 ...(recordingHeaderRef.current ? [recordingHeaderRef.current] : []),
+                 ...utteranceChunksRef.current.filter((chunk) => chunk !== recordingHeaderRef.current),
+               ],
+               { type: recorder.mimeType || "audio/webm" },
+             );
             utteranceChunksRef.current = [];
             console.info("[stt] speech ended", {
               atMs: Math.round(performance.now()),

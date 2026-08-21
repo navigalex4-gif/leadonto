@@ -2640,7 +2640,14 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             isRecording ? "border-green-500/50" : ""
           }`}
           value={isRecording && speech.interimTranscript ? answer + " " + speech.interimTranscript : answer}
-          onChange={e => !isRecording && setAnswer(e.target.value)}
+           // Keep this editable during voice capture. Server STT can be delayed
+           // or unavailable, and a typed answer is the safest recovery path
+           // rather than leaving the candidate stranded on the question.
+           onChange={e => {
+             const next = e.target.value;
+             answerRef.current = next;
+             setAnswer(next);
+           }}
         />
 
         <div className="flex items-center gap-2 flex-wrap">
