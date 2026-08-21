@@ -1,13 +1,13 @@
 ---
 name: Voice transcription provider fallback
-description: Shared STT behavior when Gemini is quota-exhausted or Cloud Speech is unavailable, including the Chirp 3 permission constraint.
+description: Shared silent MediaRecorder/VAD STT path, provider ordering, recovery behavior, and WebM upload compatibility.
 ---
 
-The shared web voice hook uses silent MediaRecorder/VAD and sends utterances to `/api/stt`. It also requests best-effort provisional transcripts while an utterance is still active; those previews are display-only and final server STT remains authoritative. The API tries Gemini first, then Google Cloud Speech-to-Text using the existing Google Cloud service-account secret.
+The shared web voice hook uses silent MediaRecorder/VAD and sends complete utterances to `/api/stt`. Display-only server previews are disabled because duplicate STT requests can delay or exhaust final answer transcription. The API uses Deepgram Nova for conversational English first, Google Cloud Speech-to-Text as recovery, and reverses that ordering for Indian languages.
 
-**Why:** The Gemini project can return `429 RESOURCE_EXHAUSTED`, while Google Cloud Speech-to-Text may be disabled independently. Without a client fallback, all voice features appear frozen because they share the same transcription endpoint.
+**Why:** Duplicate preview uploads competed with final transcription, while model quotas could make the old AI-first fallback path appear frozen.
 
-**How to apply:** Keep provisional preview requests separate from final `onPhrase` delivery, invalidate them at utterance boundaries, and never restore browser SpeechRecognition on the web live-service path because Android Chrome emits an external start/stop earcon.
+**How to apply:** Prioritize one complete final utterance, reject an empty successful response as a failed transcription, preserve the typed-answer recovery path, and never restore browser SpeechRecognition on the web live-service path because Android Chrome emits an external start/stop earcon.
 
 Google Speech-to-Text V2 Chirp 3 was tested in production and rejected with `PERMISSION_DENIED` for `speech.recognizers.recognize` on the implicit recognizer. Do not make Chirp 3 the sole transcription path unless that IAM permission and recognizer configuration are verified in the deployed project.
 

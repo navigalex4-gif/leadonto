@@ -238,10 +238,10 @@ const INTERVIEW_BEHAVIOR_MOMENTS = [
 ];
 
 const INTERVIEW_OPENINGS = [
-  (name: string) => `Hello, I'm ${name}. To begin, please introduce yourself and tell me what interests you about this opportunity.`,
-  (name: string) => `Hello, I'm ${name}. Let's start with your background, education, and one experience that shaped you.`,
-  (name: string) => `Hello, I'm ${name}. Please give me a brief introduction and describe one project or responsibility you are proud of.`,
-  (name: string) => `Hello, I'm ${name}. Tell me about your path so far and what kind of work you would like to grow into.`,
+  (name: string, role: string) => `Hello, I'm ${name}. Please introduce yourself and share one experience that prepared you for ${role} work.`,
+  (name: string, role: string) => `Hello, I'm ${name}. Tell me about your background, then describe a project, customer interaction, or responsibility relevant to ${role}.`,
+  (name: string, _role: string) => `Hello, I'm ${name}. Give me a brief introduction and one example of how you solved a problem while studying or working.`,
+  (name: string, role: string) => `Hello, I'm ${name}. Tell me what interests you about ${role} and one strength you would bring to the role.`,
 ];
 
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
@@ -320,6 +320,74 @@ function domainFallbackQuestions(roleLabel: string, type: string, experience: st
   ];
 }
 
+/** These recovery questions are used if the live model is slow. They keep the
+ * conversation practical and job-specific instead of falling back to a generic
+ * prompt that wastes a short mock interview. */
+function roleScenarioFallbackQuestions(roleLabel: string, type: string, areaKey: string): string[] {
+  const salesQuestions: Record<string, string[]> = {
+    domainKnowledge: [
+      "How would you turn a cold lead into a qualified sales opportunity?",
+      "What would you ask first to understand a prospect before pitching?",
+      "How would you respond when a prospect says they are happy with their current supplier?",
+      "Which signs tell you a lead is serious enough to prioritise?",
+    ],
+    problemSolving: [
+      "Your calls are high but meetings are low. What would you check and change first?",
+      "A promising customer stops replying after a demo. What would you do next?",
+      "You have two days left to hit target. How would you prioritise your pipeline?",
+    ],
+    ownership: [
+      "You miss a weekly sales target. What would you review before planning the next week?",
+      "How would you make sure no important lead is forgotten after a busy day?",
+      "You gave a customer incomplete information. How would you fix it?",
+    ],
+    adaptability: [
+      "Your product price changes suddenly. How would you explain the change to an interested prospect?",
+      "How would you learn a new product quickly before speaking with customers?",
+      "A customer prefers a channel you have not used much. How would you adapt your follow-up?",
+    ],
+    collaboration: [
+      "When would you involve a product or operations colleague in a sales conversation?",
+      "How would you share useful customer feedback with marketing or your manager?",
+      "A teammate and you both contact the same prospect. How would you handle it?",
+    ],
+    itSkills: [
+      "After a customer call, what would you update in the CRM and why?",
+      "How would you use a spreadsheet or CRM to decide who to follow up with today?",
+      "What customer information should never be shared casually in a sales role?",
+    ],
+  };
+  if (type === "sales" && salesQuestions[areaKey]) return salesQuestions[areaKey]!;
+
+  const genericByArea: Record<string, string[]> = {
+    domainKnowledge: [
+      `What is one daily decision a good ${roleLabel} must make well?`,
+      `Which result would tell you that you are doing ${roleLabel} work well?`,
+    ],
+    problemSolving: [
+      `A routine ${roleLabel} task is delayed. What would you check before deciding what to do?`,
+      `How would you handle two urgent ${roleLabel} priorities arriving at once?`,
+    ],
+    ownership: [
+      `How would you keep a ${roleLabel} task on track when no one is checking on you?`,
+      `What would you do after noticing a mistake in your own ${roleLabel} work?`,
+    ],
+    adaptability: [
+      `A process changes in this ${roleLabel} role. How would you learn it without disrupting your work?`,
+      `What new tool or skill would you learn first to become better at ${roleLabel}?`,
+    ],
+    collaboration: [
+      `What information would you share with a teammate to make a ${roleLabel} handoff smooth?`,
+      `How would you handle a disagreement about the best way to complete a ${roleLabel} task?`,
+    ],
+    itSkills: [
+      `Which digital record or tool would help you stay organised in a ${roleLabel} role?`,
+      `How would you keep customer or company data safe while doing ${roleLabel} work?`,
+    ],
+  };
+  return genericByArea[areaKey] ?? [];
+}
+
 /** The selected role is the contract for the whole interview: question wording,
  * domain expertise, fallback questions, and report language must all use it. */
 function roleLabelFor(
@@ -377,6 +445,7 @@ function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, 
   // sessions and within one), domain questions woven around the actual role,
   // then the generic bank as a last resort.
   const candidates = [
+    ...shuffled(roleScenarioFallbackQuestions(roleLabel, type, areaKey)),
     ...shuffled(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
     ...(areaKey === "domainKnowledge" ? shuffled(domainFallbackQuestions(roleLabel, type, experience)) : []),
     ...shuffled(INTERVIEW_FALLBACK_QUESTIONS),
@@ -1140,7 +1209,10 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     // Every interview begins with a basic introduction before domain testing.
-    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(displayCoachName);
+    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(
+      displayCoachName,
+      spokenInterviewRoleLabel,
+    );
     // Now that a real interview is starting:
     // - Valid B2B token: company pays on completion — no charge to the candidate
     // - Guest (no b2b): consume free trial slot
@@ -1199,7 +1271,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const pitchVariation = coach.gender === "male" ? 0.88 : 1.08;
     setCoachSpeaking(true);
     setTimeout(() => speakCoach(safeOpening, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation }), 300);
-  }, [typeMeta, experience, duration, coach, stream, resetStream, speakCoach, profile.name, user, authLoading, toast]);
+  }, [typeMeta, experience, duration, coach, stream, resetStream, speakCoach, profile.name, user, authLoading, toast, spokenInterviewRoleLabel]);
 
   const toggleRecording = useCallback(() => {
     if (autoListenEnabled) {
@@ -1357,7 +1429,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     })();
     const turnStartedAt = performance.now();
      const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 450));
-     const STREAM_DEADLINE_MS = 1200;
+      const STREAM_DEADLINE_MS = 2_500;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1633,7 +1705,10 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // (Initial thinking before the FIRST word is still unlimited — the timer below
     // is only armed once the candidate starts talking.) The Submit button stays
     // enabled the whole time as a manual override to submit sooner.
-    const silenceMs = 750;
+    // A completed server transcript can arrive just before the candidate adds a
+    // final thought. Leave a real conversational pause so fragmented answers
+    // are not submitted as separate one-line turns.
+    const silenceMs = 1_600;
     setIsRecording(true);
     // Arm the no-reply watchdog: if the candidate never says a word for 30 s after
     // this question, conclude the interview and generate feedback. Cleared the

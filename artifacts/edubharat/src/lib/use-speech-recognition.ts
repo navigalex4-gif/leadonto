@@ -13,18 +13,23 @@ type AnyWindow = Window & { webkitAudioContext?: typeof AudioContext };
 // clauses; the server model is more accurate when it receives the full thought.
 // Finish a turn quickly enough for the interviewer to answer within roughly
 // three seconds, while retaining a useful pause between clauses.
-const SILENCE_MS = 900;
+const SILENCE_MS = 1_350;
 const MIN_UTTERANCE_MS = 360;
-const MAX_UTTERANCE_MS = 30_000;
+const MAX_UTTERANCE_MS = 45_000;
 const VAD_INTERVAL_MS = 50;
-const MIN_VAD_THRESHOLD = 0.022;
-const MAX_VAD_THRESHOLD = 0.06;
+const MIN_VAD_THRESHOLD = 0.015;
+const MAX_VAD_THRESHOLD = 0.05;
 // Keep the state transition responsive after an interviewer finishes. The
 // recorder itself starts immediately; this short visual warmup avoids showing
 // a false "ready" state without delaying capture.
 const WARMUP_MS = 120;
-const PRE_ROLL_CHUNKS = 8;
+const PRE_ROLL_CHUNKS = 15;
 const RECORDER_TIMESLICE_MS = 160;
+// A preview makes a second STT request while the candidate is still speaking.
+// That competes with final answer transcription and can exhaust or delay the
+// providers without ever advancing the interview. Final transcription is the
+// authoritative result, so keep preview off until it can be local/on-device.
+const ENABLE_SERVER_PREVIEW = false;
 
 function getMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
@@ -148,6 +153,7 @@ export function useSpeechRecognition(language = "English") {
       const body = await response.json().catch(() => ({})) as { text?: string; error?: string };
       if (!response.ok) throw new Error(body.error ?? "Speech transcription failed.");
       const text = body.text?.trim() ?? "";
+      if (!text) throw new Error("No clear speech was detected in this answer.");
       if (text && generation === generationRef.current && shouldContinueRef.current) {
         serverSttFailureCountRef.current = 0;
          setError(null);
@@ -166,7 +172,7 @@ export function useSpeechRecognition(language = "English") {
           // plays a system start/stop earcon for it, and competing recognition
           // sessions can make the three voice products appear frozen. The
           // silent MediaRecorder remains active and will retry the next turn.
-          setError("Transcription is taking longer than usual. Please continue speaking.");
+          setError("We couldn't hear a clear answer. Please try again or type your answer.");
           serverSttFailureCountRef.current = 0;
         }
       }
@@ -363,6 +369,8 @@ export function useSpeechRecognition(language = "English") {
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
           if (rms >= threshold) lastVoiceRef.current = now;
           if (
+            ENABLE_SERVER_PREVIEW
+            &&
             now - utteranceStartedRef.current >= 900
             && now - lastPreviewAtRef.current >= 1_300
             && utteranceChunksRef.current.length >= 4

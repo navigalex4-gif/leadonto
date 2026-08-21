@@ -346,12 +346,10 @@ function questionRotation(): RotationSlot[] {
 
 /**
  * The competency area a given beat targets. Beat 0 is the opening introduction +
- * educational background; beats 1–4 are a one-time warm "getting to know you"
- * opening (hobbies, a hobbies follow-up, motivation for the role, and strengths /
- * best-fit role); beat 5 onward cycles through the breadth-first competency
- * rotation, which also weaves in a forward-looking Technology & AI awareness
- * question early on and once per cycle thereafter. The returned `focus` is fully
- * composed (role-specific for functional knowledge) so callers can use it directly.
+ * educational background. The next turns move directly into role motivation,
+ * functional knowledge, a realistic problem, and role tools. This makes short
+ * interviews useful: candidates get job-relevant questions before time expires.
+ * Beat 5 onward cycles through the breadth-first competency rotation.
  */
 export function areaForBeat(index: number, ctx: BeatContext): InterviewArea {
   if (index <= 0) {
@@ -361,49 +359,39 @@ export function areaForBeat(index: number, ctx: BeatContext): InterviewArea {
       focus: `a brief self-introduction and their educational background relevant to the ${ctx.roleLabel} role — qualifications, key subjects or skills, and notable curricular or extra-curricular achievements`,
     };
   }
-  // Beats 1–4 are a short, warm "getting to know you" opening that runs once,
-  // before the competency rotation. They relax the candidate and surface real
-  // signal for Personality & Disposition, motivation and role fit — none of which
-  // a functional drill reveals. They are intentionally NOT part of the recurring
-  // rotation, so none of them is ever asked twice:
-  //   1 — hobbies & interests (ice-breaker)
-  //   2 — hobbies & interests (a little deeper)
-  //   3 — why this domain and this role (motivation)
-  //   4 — strengths & the kind of work they'd thrive in (best-fit role)
+  // The early beats remain friendly, but each one is relevant to the selected
+  // role. Generic hobby questions are poor use of a short timed interview.
   if (index === 1) {
-    return {
-      key: "personality",
-      label: "Hobbies & Interests",
-      kind: "warmup",
-      focus:
-        "a warm, light ice-breaker about the candidate's hobbies, interests or how they like to spend their time outside work or study — what they enjoy and what draws them to it. Use it to put them at ease early and to read their personality, energy and self-awareness. Keep it genuine and conversational, not a test.",
-    };
-  }
-  if (index === 2) {
-    return {
-      key: "personality",
-      label: "More About Their Interests",
-      kind: "warmup",
-      focus:
-        "a natural follow-up that goes a little deeper into the hobbies or interests they just mentioned (or another one) — for example what they enjoy most about it, how they got into it, or something they have learned or achieved through it. Keep it light and curious.",
-    };
-  }
-  if (index === 3) {
     return {
       key: "adaptability",
       label: "Motivation for the Role",
       kind: "warmup",
       focus:
-        `why the candidate is interested in the ${ctx.roleLabel} field and in this particular role — what draws them to this domain, what excites them about the work, and what they hope to do or become in it. Use it to gauge genuine motivation and how well their interests align with the role.`,
+        `why the candidate wants the ${ctx.roleLabel} role, what part of the work appeals to them, and one strength, project or experience that they think would help them succeed. Keep it warm and natural, but make the answer relevant to the job.`,
+    };
+  }
+  if (index === 2) {
+    return {
+      key: "domainKnowledge",
+      label: "Role Fundamentals",
+      focus:
+        `${functionalKnowledgeFor(ctx.type, ctx.roleLabel)} Ask one entry-level but practical question that a real hiring manager would use to test whether the candidate understands the work.`,
+    };
+  }
+  if (index === 3) {
+    return {
+      key: "problemSolving",
+      label: "Role Scenario",
+      focus:
+        `a realistic, day-to-day ${ctx.roleLabel} scenario. Ask the candidate to explain their first steps, the information they would need, and how they would judge a good outcome. Keep it suited to their selected experience level.`,
     };
   }
   if (index === 4) {
     return {
-      key: "adaptability",
-      label: "Strengths & Best-Fit Role",
-      kind: "warmup",
+      key: "itSkills",
+      label: "Role Tools & Organisation",
       focus:
-        "the candidate's strongest skills and the kind of work, responsibilities or role they feel they would thrive in and enjoy most — and why. Use it to understand where their strengths and interests point, so you can gauge which job role would fit them best.",
+        `the practical tools, records, digital systems or organised work habits a ${ctx.roleLabel} needs. Ask how they would use a relevant tool accurately, protect customer or company data, or keep work visible for a teammate.`,
     };
   }
   const rotation = questionRotation();

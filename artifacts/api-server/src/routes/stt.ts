@@ -26,6 +26,12 @@ const LANGUAGE_CODES: Record<string, string> = {
 };
 
 let googleSpeechClient: SpeechClient | null = null;
+const WORKPLACE_PHRASES = [
+  "CRM", "customer relationship management", "lead generation", "sales pipeline",
+  "follow up", "prospect", "conversion", "target", "objection handling",
+  "Excel", "dashboard", "KPI", "SLA", "SQL", "KYC", "underwriting",
+  "customer service", "business analyst", "software developer",
+];
 
 function getGoogleSpeechClient(): SpeechClient {
   if (googleSpeechClient) return googleSpeechClient;
@@ -64,6 +70,7 @@ async function transcribeWithGoogleCloud(
       // the long-form recognizer's multi-second tail on ordinary answers.
       model: "latest_short",
       enableAutomaticPunctuation: true,
+      speechContexts: [{ phrases: WORKPLACE_PHRASES, boost: 8 }],
       // Preserve word boundaries and improve clarity for names, tools, and
       // interview terminology without changing the authoritative server STT
       // path or reintroducing browser SpeechRecognition.
@@ -110,6 +117,8 @@ async function transcribeWithDeepgram(
     language: getDeepgramLanguage(language),
     smart_format: "true",
     punctuate: "true",
+    utterances: "true",
+    filler_words: "true",
   });
   // MediaRecorder commonly reports `audio/webm;codecs=opus`. Deepgram's
   // upload endpoint is stricter than browsers and can reject the codec
@@ -151,13 +160,12 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   const language = String(req.body.language || "English");
   const mimeType = req.file.mimetype || "audio/webm";
   const isPreview = req.body.mode === "preview";
-  // Google Cloud handles the browser's WebM/Opus recordings and Indian
-  // locales most reliably. Deepgram Nova-3 remains the stronger recovery path
-  // for English, while Gemini is retained for complete provider failure.
-  const providers = [
-    { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) },
-    { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) },
-  ];
+  // Nova is particularly reliable for natural conversational English. Google
+  // remains first for Indian-language input, where its locale support is
+  // stronger. Both providers are attempted before the AI fallback.
+  const google = { name: "Google Cloud", run: () => transcribeWithGoogleCloud(req.file!.buffer, mimeType, language) };
+  const deepgram = { name: "Deepgram Nova-3", run: () => transcribeWithDeepgram(req.file!.buffer, mimeType, language) };
+  const providers = language === "English" ? [deepgram, google] : [google, deepgram];
 
   for (const provider of providers) {
     try {
