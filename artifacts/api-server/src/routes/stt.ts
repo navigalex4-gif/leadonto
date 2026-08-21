@@ -64,6 +64,10 @@ async function transcribeWithGoogleCloud(
       // the long-form recognizer's multi-second tail on ordinary answers.
       model: "latest_short",
       enableAutomaticPunctuation: true,
+      // Preserve word boundaries and improve clarity for names, tools, and
+      // interview terminology without changing the authoritative server STT
+      // path or reintroducing browser SpeechRecognition.
+      useEnhanced: true,
     },
   }, {});
   return (response.results ?? [])
@@ -107,11 +111,20 @@ async function transcribeWithDeepgram(
     smart_format: "true",
     punctuate: "true",
   });
+  // MediaRecorder commonly reports `audio/webm;codecs=opus`. Deepgram's
+  // upload endpoint is stricter than browsers and can reject the codec
+  // parameter as corrupt even though the container is valid. The container
+  // type is sufficient here; Google remains the primary Indian-language path.
+  const contentType = mimeType.toLowerCase().startsWith("audio/webm")
+    ? "audio/webm"
+    : mimeType.toLowerCase().startsWith("audio/ogg")
+      ? "audio/ogg"
+      : mimeType || "audio/webm";
   const response = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
     method: "POST",
     headers: {
       Authorization: `Token ${apiKey}`,
-      "Content-Type": mimeType || "audio/webm",
+      "Content-Type": contentType,
     },
     body: buffer,
     signal: AbortSignal.timeout(8000),

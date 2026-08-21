@@ -244,8 +244,6 @@ const INTERVIEW_OPENINGS = [
   (name: string) => `Hello, I'm ${name}. Tell me about your path so far and what kind of work you would like to grow into.`,
 ];
 
-const QUICK_ACKNOWLEDGEMENTS = ["Okay", "Got it"];
-
 const AREA_FALLBACK_QUESTIONS: Record<string, string[]> = {
   education: [
     "Which part of your education has prepared you best for this role?",
@@ -684,7 +682,8 @@ function InterviewAceContent() {
   /**
    * speakCoach — the ONLY way the interviewer should talk. It hard-pauses the
    * mic the instant the AI begins speaking (kills echo/self-repeat on phones
-   * and laptop speakers) and releases it ~1.1s after the audio ends.
+   * and laptop speakers) and releases it with the same echo-safe timing as
+   * Live Conversation after the audio ends.
    * coachSpeaking stays true until TTS finishes, letting the auto-listen effect
    * know it should wait before restarting the mic.
    */
@@ -702,13 +701,17 @@ function InterviewAceContent() {
       const safetyMs = Math.max(text.length * 50 + 5_000, 16_000);
       coachSafetyTimerRef.current = setTimeout(() => {
         coachSafetyTimerRef.current = null;
-         speech.suppressUntil(Date.now() + 250);
+          // Pre-warm the recorder immediately, but ignore speaker echo for
+          // 2.5s after TTS ends. This is the same release contract as Live
+          // Conversation and avoids mobile "ting/tong" recognition artefacts
+          // being captured as the next candidate turn.
+          speech.suppressUntil(Date.now() + 2500);
          speech.blockFor(0); // reopen the mic immediately after interviewer audio ends
         setCoachSpeaking(false);
       }, safetyMs);
       void synth.speak(ttsText, "English", () => {
         if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
-         speech.suppressUntil(Date.now() + 250);
+          speech.suppressUntil(Date.now() + 2500);
          speech.blockFor(0);
          resumeInterviewListeningRef.current?.();
         setCoachSpeaking(false);
@@ -734,7 +737,7 @@ function InterviewAceContent() {
   const interruptCoach = useCallback(() => {
     if (coachSafetyTimerRef.current) { clearTimeout(coachSafetyTimerRef.current); coachSafetyTimerRef.current = null; }
     synth.stop();
-    speech.suppressUntil(Date.now() + 450);
+      speech.suppressUntil(Date.now() + 900);
     speech.blockFor(450);
     setCoachSpeaking(false);
   }, [speech, synth]);
@@ -1419,7 +1422,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       response = `Next: ${fallback}`;
     }
 
-    // If the 3.8 s deadline fired OR stream returned empty, cancel the in-flight
+    // If the short deadline fired OR stream returned empty, cancel the in-flight
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
@@ -1493,7 +1496,9 @@ Next: <the interview question only, may start with a short natural bridge>`,
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 
-    // Speak immediately after the stream or fallback resolves.
+      // Speak immediately after the stream or fallback resolves. Do not add a
+      // separate "Okay"/"Got it" TTS clip here: on phones it sounds like a
+      // notification chime between the candidate and the next question.
     if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
     if (turnRecoveryTimerRef.current) clearTimeout(turnRecoveryTimerRef.current);
     turnRecoveryTimerRef.current = null;
@@ -1512,8 +1517,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // leave the mic visually active but not actually capturing.
     speech.blockFor(0);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
-    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
-    speakCoach(`${acknowledgement}, ${nextQuestion}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
+     speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
   }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
 
   /**
@@ -1542,8 +1546,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     resetStream();
     // Guard against the 300ms window before speakCoach fires
     setCoachSpeaking(true);
-    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
-    setTimeout(() => speakCoach(`${acknowledgement}, ${questions[nextIdx]!.question}`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
+     setTimeout(() => speakCoach(questions[nextIdx]!.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
   }, [currentIdx, questions, resetStream, speakCoach, clearAutoSubmitTimer]);
 
   const endEarly = useCallback(() => {

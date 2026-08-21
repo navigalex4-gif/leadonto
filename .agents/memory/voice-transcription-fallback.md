@@ -19,3 +19,10 @@ The shared hook should keep the silent MediaRecorder/server path active after tr
 **Why:** browser recognition is noticeably less reliable for Indian English and mixed-accent answers, and Android Chrome adds a system earcon at recognition lifecycle boundaries.
 
 **How to apply:** reset the consecutive-failure counter on any non-empty server transcript, keep MediaRecorder active for the next turn, and show a recoverable message without stranding the conversation.
+
+## Browser upload compatibility
+Normalize browser MediaRecorder MIME strings before sending audio to external STT providers: Chromium commonly reports `audio/webm;codecs=opus`, while some provider upload endpoints accept only the container MIME.
+
+**Why:** A valid browser recording can otherwise be rejected as corrupt or unsupported by the provider, leaving the interview waiting for a transcript and falling through to an unavailable AI transcription fallback.
+
+**How to apply:** Preserve the original MIME for local Blob/file handling, but send a provider-compatible `Content-Type` such as `audio/webm` to strict upload APIs.

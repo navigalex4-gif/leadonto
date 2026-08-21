@@ -119,7 +119,10 @@ export function useSpeechRecognition(language = "English") {
   }, [cancelRecorder]);
 
   const transcribe = useCallback(async (blob: Blob, generation: number) => {
-    if (blob.size < 800 || generation !== generationRef.current) return;
+    // Very short but valid answers are common in an interview (for example,
+    // "Yes, I have used Excel"). Dropping sub-800-byte WebM blobs made the
+    // session appear frozen because no phrase reached Interview Ace.
+    if (blob.size < 320 || generation !== generationRef.current) return;
     transcribingRef.current = true;
     setStatus("processing");
     setInterimTranscript("");
