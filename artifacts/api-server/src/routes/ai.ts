@@ -10,8 +10,8 @@ const router: IRouter = Router();
 // stuck after Claude falls through.
 const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-3.5-flash-lite"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
-const ZAI_MODEL = process.env["ZAI_MODEL"] || "glm-5.2";
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
+const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 
 function getAnthropicModelChain(_maxTokens: number) {
   // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
@@ -160,55 +160,13 @@ async function streamAnthropic(
   }
 }
 
-function getZaiApiKey(): string {
-  const apiKey = process.env["ZAI_API_KEY"] ?? process.env["ZAI API KEY"];
-  if (!apiKey) throw new Error("ZAI_API_KEY is not configured");
+function getMistralApiKey(): string {
+  const apiKey = process.env["MISTRAL_API_KEY"] ?? process.env["MISTRAL API KEY"];
+  if (!apiKey) throw new Error("MISTRAL_API_KEY is not configured");
   return apiKey;
 }
 
-type ZaiStreamChunk = {
-  choices?: Array<{ delta?: { content?: string } }>;
-};
-
-async function readZaiStream(
-  response: globalThis.Response,
-  onText: (text: string) => void,
-): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Z.ai returned an empty response stream");
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let full = "";
-
-  const processLine = (line: string) => {
-    if (!line.startsWith("data: ")) return;
-    const payload = line.slice(6).trim();
-    if (!payload || payload === "[DONE]") return;
-    const chunk = JSON.parse(payload) as ZaiStreamChunk;
-    const text = chunk.choices?.[0]?.delta?.content ?? "";
-    if (text) {
-      full += text;
-      onText(text);
-    }
-  };
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) processLine(line.trim());
-    }
-    if (buffer.trim()) processLine(buffer.trim());
-  } finally {
-    reader.releaseLock();
-  }
-  return full;
-}
-
-async function requestZaiStream(
+async function requestMistralStream(
   prompt: string,
   system: string | null | undefined,
   maxTokens: number,
@@ -218,28 +176,29 @@ async function requestZaiStream(
     ...(system ? [{ role: "system", content: system }] : []),
     { role: "user", content: prompt },
   ];
-  const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+  const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${getZaiApiKey()}`,
+      Authorization: `Bearer ${getMistralApiKey()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: ZAI_MODEL,
+      model: MISTRAL_MODEL,
       messages,
       max_tokens: maxTokens,
+      temperature: 0.7,
       stream: true,
     }),
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`Z.ai returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ""}`);
+    throw new Error(`Mistral returned ${response.status}${detail ? `: ${detail.slice(0, 240)}` : ""}`);
   }
-  return readZaiStream(response, onText);
+  return readGroqStream(response, onText);
 }
 
-async function streamZai(
+async function streamMistral(
   req: Request,
   res: Response,
   prompt: string,
@@ -247,7 +206,7 @@ async function streamZai(
   maxTokens: number,
   state: { wrote: boolean },
 ) {
-  await requestZaiStream(prompt, system, maxTokens, (text) => {
+  await requestMistralStream(prompt, system, maxTokens, (text) => {
     state.wrote = true;
     res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
   });
@@ -378,8 +337,8 @@ router.post("/ai/stream", async (req, res) => {
         return;
       } catch (groqErr) {
         if (state.wrote) throw groqErr;
-        req.log.warn({ err: groqErr }, "Groq live stream failed — falling back to Z.ai");
-        await streamZai(req, res, prompt, system, tokens, state);
+        req.log.warn({ err: groqErr }, "Groq live stream failed — falling back to Mistral");
+        await streamMistral(req, res, prompt, system, tokens, state);
         return;
       }
     }
@@ -404,8 +363,8 @@ router.post("/ai/stream", async (req, res) => {
               await streamGroq(req, res, prompt, system, tokens, state);
             } catch (groqErr) {
               if (state.wrote) throw groqErr;
-              req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Z.ai");
-              await streamZai(req, res, prompt, system, tokens, state);
+              req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Mistral");
+              await streamMistral(req, res, prompt, system, tokens, state);
             }
          }
       }
@@ -419,8 +378,8 @@ router.post("/ai/stream", async (req, res) => {
             await streamGroq(req, res, prompt, system, tokens, state);
           } catch (groqErr) {
             if (state.wrote) throw groqErr;
-            req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Z.ai");
-            await streamZai(req, res, prompt, system, tokens, state);
+            req.log.warn({ err: groqErr }, "Groq streaming failed — falling back to Mistral");
+            await streamMistral(req, res, prompt, system, tokens, state);
           }
        }
     }
@@ -548,7 +507,7 @@ router.post("/ai/chat", async (req, res) => {
 });
 
 /**
- * Generate text with full provider fallback: Claude, Gemini, Groq, then Z.ai.
+ * Generate text with full provider fallback: Claude, Gemini, Groq, then Mistral.
  *
  * `onDelta` is called with each streamed text fragment so callers can forward
  * SSE `content` events; the full accumulated text is returned for parsing.
@@ -631,16 +590,16 @@ export async function generateTextWithFallback(opts: {
   } catch (err) {
     log?.warn({ err }, "Groq provider unavailable");
   }
-  // ── Z.ai fallback (OpenAI-compatible streaming API) ──
+  // ── Mistral fallback (OpenAI-compatible streaming API) ──
   try {
     full = "";
-    const zaiText = await requestZaiStream(prompt, system, maxTokens, (text) => {
+    const mistralText = await requestMistralStream(prompt, system, maxTokens, (text) => {
       full += text;
       onDelta?.(text);
     });
-    if (zaiText.trim()) return zaiText;
+    if (mistralText.trim()) return mistralText;
   } catch (err) {
-    log?.warn({ err }, "Z.ai provider unavailable");
+    log?.warn({ err }, "Mistral provider unavailable");
   }
   return full;
 }
