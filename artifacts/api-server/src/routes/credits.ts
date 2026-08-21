@@ -82,6 +82,7 @@ router.post("/credits/interview/charge", requireAuth, async (req: Request, res: 
     interviewId: id,
     balance: result.balance,
     charged: result.already ? 0 : INTERVIEW_BLOCK_COST,
+    startedAt: now,
     blockSeconds: interviewBlockSeconds(durationMinutes),
     maxBlocks: INTERVIEW_MAX_BLOCKS,
   });
@@ -159,7 +160,7 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
   const userId = req.session.userId!;
   const active = req.session.live;
   if (active && Date.now() < active.expiresAt) {
-    res.json({ ok: true, balance: await getBalance(userId), liveId: active.id, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
+    res.json({ ok: true, balance: await getBalance(userId), liveId: active.id, startedAt: active.startedAt, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
     return;
   }
   const id = randomUUID();
@@ -184,7 +185,7 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
     // normally clears it, while this expiry only recovers abandoned sessions.
     expiresAt: now + 24 * 60 * 60_000,
   };
-  res.json({ ok: true, balance: result.balance, liveId: id, blockSeconds: LIVE_BLOCK_SECONDS, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: 1 });
+  res.json({ ok: true, balance: result.balance, liveId: id, startedAt: now, blockSeconds: LIVE_BLOCK_SECONDS, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: 1 });
 });
 
 router.post("/credits/live/tick", requireAuth, async (req: Request, res: Response) => {
@@ -221,7 +222,7 @@ router.post("/credits/live/tick", requireAuth, async (req: Request, res: Respons
     return;
   }
   if (block > meter.blocksCharged) req.session.live = { ...meter, blocksCharged: block };
-  res.json({ ok: true, balance: result.balance, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: Math.max(block, meter.blocksCharged) });
+  res.json({ ok: true, balance: result.balance, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: Math.max(block, meter.blocksCharged), startedAt: meter.startedAt });
 });
 
 router.post("/credits/live/end", requireAuth, (req: Request, res: Response) => {

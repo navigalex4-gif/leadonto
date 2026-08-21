@@ -853,6 +853,8 @@ function InterviewAceContent() {
   // charged at start; this counts blocks charged so the meter stops at the max
   // (a full session costs at most INTERVIEW_MAX_BLOCKS credits).
   const interviewBlocksChargedRef = useRef(1);
+  const interviewMeterStartedAtRef = useRef<number | null>(null);
+  const interviewTickInFlightRef = useRef(false);
   // Server-minted token for THIS tab's interview (from /charge); presented on
   // every tick/end so this tab can only bill/clear the interview it started.
   const interviewIdRef = useRef<string | null>(null);
@@ -1171,6 +1173,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
         return;
       }
       interviewIdRef.current = charge.interviewId ?? null;
+      interviewMeterStartedAtRef.current = charge.startedAt ?? Date.now();
     }
     // The opening combines greeting + first question — store as first QA entry
     setQuestions([{ question: safeOpening }]);
@@ -1581,23 +1584,40 @@ Next: <the interview question only, may start with a short natural bridge>`,
     if (phase !== "interview" || !user) return;
     interviewBlocksChargedRef.current = 1; // block 1 was charged at start
     const blockMs = interviewBlockSeconds(duration) * 1000;
-    const id = setInterval(async () => {
+    const chargeDueBlocks = async () => {
+      if (interviewTickInFlightRef.current || !interviewMeterStartedAtRef.current) return;
       if (phaseRef.current !== "interview" || endingRef.current) return;
-      if (interviewBlocksChargedRef.current >= INTERVIEW_MAX_BLOCKS) { clearInterval(id); return; }
-      const nextBlock = interviewBlocksChargedRef.current + 1;
-      const r = await tickInterview(nextBlock, interviewIdRef.current ?? undefined);
-      if (r.ok) {
-        interviewBlocksChargedRef.current = nextBlock;
-      } else if (r.status === 402 || r.status === 401 || r.status === 409) {
-        clearInterval(id);
-        if (endingRef.current) return;
-        if (r.status === 402) {
-          toast({ title: "Credits used up", description: "Wrapping up your interview now. Top up to practise longer next time.", variant: "destructive" });
+      interviewTickInFlightRef.current = true;
+      try {
+        const elapsedBlocks = Math.floor((Date.now() - interviewMeterStartedAtRef.current) / blockMs) + 1;
+        while (interviewBlocksChargedRef.current < Math.min(elapsedBlocks, INTERVIEW_MAX_BLOCKS) && phaseRef.current === "interview" && !endingRef.current) {
+          const nextBlock = interviewBlocksChargedRef.current + 1;
+          const r = await tickInterview(nextBlock, interviewIdRef.current ?? undefined);
+          if (r.ok) {
+            interviewBlocksChargedRef.current = nextBlock;
+          } else if (r.status === 402 || r.status === 401 || r.status === 409) {
+            if (endingRef.current) return;
+            if (r.status === 402) {
+              toast({ title: "Credits used up", description: "Wrapping up your interview now. Top up to practise longer next time.", variant: "destructive" });
+            }
+            endEarlyRef.current();
+            break;
+          } else {
+            break;
+          }
         }
-        endEarlyRef.current();
+      } finally {
+        interviewTickInFlightRef.current = false;
       }
-    }, blockMs);
-    return () => clearInterval(id);
+    };
+    void chargeDueBlocks();
+    const id = setInterval(() => void chargeDueBlocks(), 10_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void chargeDueBlocks(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [phase, user, duration, toast]);
 
   useEffect(() => {

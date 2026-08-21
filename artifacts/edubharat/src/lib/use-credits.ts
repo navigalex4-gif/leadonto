@@ -71,6 +71,7 @@ export type SpendResult = {
   interviewId?: string;
   liveId?: string;
   blocksCharged?: number;
+  startedAt?: number;
   error?: string;
 };
 
@@ -122,6 +123,7 @@ async function spendBody(path: string, body: unknown): Promise<SpendResult> {
     interviewId: data["interviewId"] as string | undefined,
     liveId: data["liveId"] as string | undefined,
     blocksCharged: data["blocksCharged"] as number | undefined,
+    startedAt: data["startedAt"] as number | undefined,
     error: data["error"] as string | undefined,
   };
 }

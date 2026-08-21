@@ -167,6 +167,8 @@ function EnglishGuruContent() {
   const liveChatRef = useRef(liveChat);
   const liveIdRef = useRef<string | null>(null);
   const liveBlocksChargedRef = useRef(1);
+  const liveStartedAtRef = useRef<number | null>(null);
+  const liveTickInFlightRef = useRef(false);
   const livePausedRef = useRef(false);
   useEffect(() => { liveChatRef.current = liveChat; }, [liveChat]);
   const handleConvPhraseRef = useRef<((p: string) => void) | null>(null);
@@ -855,6 +857,7 @@ Rules for spoken replies:
       cancelActiveTurn();
       void endLiveBlock(liveIdRef.current ?? undefined);
       liveIdRef.current = null;
+      liveStartedAtRef.current = null;
       setLiveChat(false);
       setLivePaused(false);
       livePausedRef.current = false;
@@ -903,6 +906,7 @@ Rules for spoken replies:
       }
       liveIdRef.current = charge.liveId ?? null;
       liveBlocksChargedRef.current = charge.blocksCharged ?? 1;
+      liveStartedAtRef.current = charge.startedAt ?? Date.now();
     }
     liveChatRef.current = true;
     livePausedRef.current = false;
@@ -960,24 +964,47 @@ Rules for spoken replies:
       cancelActiveTurn();
       void endLiveBlock(liveIdRef.current ?? undefined);
       liveIdRef.current = null;
+      liveStartedAtRef.current = null;
     };
   }, [cancelActiveTurn]);
+  useEffect(() => () => {
+    if (liveIdRef.current) void endLiveBlock(liveIdRef.current);
+  }, []);
 
   // Meter live conversation: signed-in users spend 1 credit per 12-min block;
   // guests burn down a free 15-minute trial. Both end gracefully when exhausted.
   useEffect(() => {
     if (!liveChat) return;
     if (user) {
-      const id = setInterval(async () => {
-        const nextBlock = liveBlocksChargedRef.current + 1;
-        const r = await tickLiveBlock(nextBlock, liveIdRef.current ?? "");
-        if (r.ok) liveBlocksChargedRef.current = nextBlock;
-        if (!r.ok && r.status === 402) {
-          stopLiveRef.current();
-          toast({ title: "Credits used up", description: "Your live conversation ended. Top up to keep chatting.", variant: "destructive" });
+      const chargeDueBlocks = async () => {
+        if (liveTickInFlightRef.current || !liveStartedAtRef.current || !liveIdRef.current) return;
+        liveTickInFlightRef.current = true;
+        try {
+          const elapsedBlocks = Math.floor((Date.now() - liveStartedAtRef.current) / (LIVE_BLOCK_SECONDS * 1000)) + 1;
+          while (liveBlocksChargedRef.current < elapsedBlocks && liveChatRef.current) {
+            const nextBlock = liveBlocksChargedRef.current + 1;
+            const r = await tickLiveBlock(nextBlock, liveIdRef.current);
+            if (!r.ok) {
+              if (r.status === 402) {
+                stopLiveRef.current();
+                toast({ title: "Credits used up", description: "Your live conversation ended. Top up to keep chatting.", variant: "destructive" });
+              }
+              break;
+            }
+            liveBlocksChargedRef.current = r.blocksCharged ?? nextBlock;
+          }
+        } finally {
+          liveTickInFlightRef.current = false;
         }
-      }, LIVE_BLOCK_SECONDS * 1000);
-      return () => clearInterval(id);
+      };
+      void chargeDueBlocks();
+      const id = setInterval(() => void chargeDueBlocks(), 10_000);
+      const onVisible = () => { if (document.visibilityState === "visible") void chargeDueBlocks(); };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => {
+        clearInterval(id);
+        document.removeEventListener("visibilitychange", onVisible);
+      };
     }
     // Guest trial: tick down the free 15 minutes locally.
     const GUEST_TICK = 10; // seconds
