@@ -128,9 +128,9 @@ export default function Home() {
   const heroEyebrow = useContent("home.hero.eyebrow", "Show Up as Good as You Are.");
   const heroSubtitle = useContent(
     "home.hero.subheadline",
-    "Real-world English, the right words for every situation, local-language support, and role-based interview practice — built to help you seize your next opportunity.",
+    "For job seekers and working professionals: practise one real answer, get clear feedback, and build the confidence to speak well in your next interview or workplace conversation.",
   );
-  const ctaPrimary = useContent("home.hero.startCta", "Start Free");
+  const ctaPrimary = useContent("home.hero.startCta", "Check My Communication Free");
   const ctaSecondary = useContent("home.hero.checkCta", "Take the 90-Second Check");
 
   return (
@@ -144,15 +144,16 @@ export default function Home() {
             <div className="home-reveal max-w-2xl">
               <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-[#C2410C] sm:text-sm">{heroEyebrow}</p>
               <h1 id="hero-title" className="max-w-2xl text-[clamp(1.25rem,2.2vw,1.6rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#111827]">
-                Know What to Say.
+                Speak with confidence.
                 <br />
-                <span className="text-[#F97316]">Say It With Confidence.</span>
-                <br />
-                Be Ready for What’s Next.
+                <span className="text-[#F97316]">Prepare for the role you want.</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-[#596273] sm:text-lg">{heroSubtitle}</p>
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
-                <PrimaryLink href="/english-guru" onClick={() => track("home_cta_clicked", { cta: "start_learning", placement: "hero" })}>
+                <PrimaryLink href="/communication-check" onClick={() => {
+                  track("home_cta_clicked", { cta: "communication_check", placement: "hero_primary" });
+                  trackFunnel("cta_clicked", { cta: "communication_check", placement: "hero_primary" });
+                }}>
                   {ctaPrimary}
                   <ArrowRight className="h-4 w-4" />
                 </PrimaryLink>
@@ -161,7 +162,7 @@ export default function Home() {
                   {ctaSecondary}
                 </QuietLink>
               </div>
-              <p className="mt-3 text-xs font-semibold text-[#596273]">Start free. See where you stand. Build from there.</p>
+              <p className="mt-3 text-xs font-semibold text-[#596273]">90 seconds. No sign-up before you start. Get your next step.</p>
             </div>
 
             <Link

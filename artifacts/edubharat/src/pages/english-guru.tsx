@@ -20,6 +20,7 @@ import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
+import { trackFunnel } from "@/lib/analytics";
 import { exportConversationPdf, exportConversationWord } from "@/lib/export-conversation";
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
@@ -908,6 +909,7 @@ Rules for spoken replies:
       liveBlocksChargedRef.current = charge.blocksCharged ?? 1;
       liveStartedAtRef.current = charge.startedAt ?? Date.now();
     }
+    trackFunnel("first_session_started", { feature: "english_guru_live", authenticated: Boolean(user), guest: !user });
     liveChatRef.current = true;
     livePausedRef.current = false;
     setLiveChat(true);
@@ -1251,9 +1253,9 @@ Rules for spoken replies:
                   {user ? (
                     <>Uses <span className="font-semibold text-secondary">1 credit per 12 minutes</span> (5 credits/hour) · first block charged at start · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
                   ) : guestLiveLeft > 0 ? (
-                    <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
+                    <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Create a free account</Link> for 20 free credits</>
                   ) : (
-                    <>Free trial used up · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Sign in</Link> to get 20 free credits and keep chatting</>
+                    <>Free trial used up · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Create a free account</Link> to get 20 free credits and keep chatting</>
                   )}
                 </p>
               )}

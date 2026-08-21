@@ -41,7 +41,7 @@ function getExternalBrowserUrl(url: string, userAgent: string): string {
 export default function Login() {
   return (
     <>
-      <PageMeta title="Sign In" description="Sign in to Lead Onto to sync your progress across devices and save jobs, sessions, and insights." noindex />
+      <PageMeta title="Create Your Free Account" description="Create a free Lead Onto account to save your progress and receive 20 credits." noindex />
       <LoginContent />
     </>
   );
@@ -263,8 +263,8 @@ function LoginContent() {
 
         <Card className="shadow-xl border-none">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-2xl">Sign In</CardTitle>
-            <CardDescription>Access your personalised career tools</CardDescription>
+             <CardTitle className="text-2xl">Create your free account</CardTitle>
+             <CardDescription>Save your progress and get 20 free credits to keep practising</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-4">
             {!isEmbeddedWebView && (

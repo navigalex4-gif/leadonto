@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { track, trackFunnel } from "@/lib/analytics";
 import { PageMeta } from "@/components/page-meta";
 import {
   useCredits, submitUpiPayment, pollUpiPaymentStatus, fetchTransactions,
@@ -89,6 +90,22 @@ export default function BuyCredits() {
 
   // Poll for payment status when in pending stage
   useEffect(() => {
+    trackFunnel("payment_page_viewed", { returnTo: returnTo ?? undefined });
+  }, [returnTo]);
+
+  useEffect(() => {
+    if (stage === "qr") {
+      trackFunnel("payment_started", { amount, method: "upi" });
+    } else if (stage === "pending") {
+      trackFunnel("payment_submitted", { amount, method: "upi" });
+    } else if (stage === "approved") {
+      trackFunnel("payment_approved", { amount, method: "upi" });
+    } else if (stage === "rejected") {
+      trackFunnel("payment_rejected", { amount, method: "upi" });
+    }
+  }, [stage, amount]);
+
+  useEffect(() => {
     if (stage !== "pending" || paymentId === null) return;
 
     const doPoll = async () => {
@@ -163,10 +180,10 @@ export default function BuyCredits() {
       <CardContent className="py-6">
         <h2 className="font-bold text-secondary mb-4">Choose an amount</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
-          {CREDIT_QUICK_PICKS.map((c) => (
+           {CREDIT_QUICK_PICKS.map((c) => (
             <button
               key={c}
-              onClick={() => setAmount(c)}
+               onClick={() => { setAmount(c); track("payment_amount_selected", { amount: c, source: "quick_pick" }); }}
               className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all hover:shadow-sm ${
                 amount === c ? "border-amber-400 bg-amber-50" : "border-border bg-card hover:border-amber-200"
               }`}
@@ -206,7 +223,7 @@ export default function BuyCredits() {
 
         <Button
           className="w-full h-12 font-bold text-base bg-amber-500 hover:bg-amber-600 text-white"
-          onClick={() => { if (valid) setStage("qr"); }}
+           onClick={() => { if (valid) { track("payment_amount_selected", { amount, source: "custom_or_current" }); setStage("qr"); } }}
           disabled={!valid}
         >
           <QrCode className="w-5 h-5 mr-2" />
@@ -394,11 +411,11 @@ export default function BuyCredits() {
               <Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-secondary">Get 20 free credits</p>
-                <p className="text-sm text-muted-foreground">Sign in to claim your welcome bonus and start practising right away.</p>
+             <p className="text-sm text-muted-foreground">Create your free account to claim 20 credits, save your progress, and start practising right away.</p>
               </div>
             </div>
             <Link href={`/login?returnTo=${encodeURIComponent(loginReturnTo)}`}>
-              <Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Sign in</Button>
+              <Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Create free account</Button>
             </Link>
           </CardContent>
         </Card>

@@ -1,6 +1,8 @@
 const ANALYTICS_BASE = (import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "") + "/api/analytics";
 const CONSENT_KEY = "edubharat_analytics_consent";
 const ANON_ID_KEY = "edubharat_anon_id";
+const ACQUISITION_KEY = "edubharat_acquisition";
+const ACQUISITION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "gad_source", "gad_campaignid"] as const;
 
 export type Consent = "granted" | "denied" | "pending";
 
@@ -12,12 +14,17 @@ export type FunnelEvent =
   | "communication_check_opened"
   | "communication_check_started"
   | "communication_check_completed"
+  | "first_session_started"
+  | "payment_page_viewed"
+  | "payment_started"
+  | "payment_submitted"
+  | "payment_approved"
+  | "payment_rejected"
   | "signup_opened"
   | "signup_started"
   | "otp_requested"
   | "otp_verified"
   | "account_created"
-  | "first_session_started"
   | "oauth_failed"
   | "otp_failed"
   | "otp_expired"
@@ -36,6 +43,34 @@ function getAnonId(): string {
   } catch {
     return "anon-unknown";
   }
+}
+
+type AcquisitionContext = Partial<Record<(typeof ACQUISITION_FIELDS)[number], string>> & {
+  landingPath?: string;
+};
+
+function getAcquisitionContext(): AcquisitionContext {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const current: AcquisitionContext = {};
+    for (const field of ACQUISITION_FIELDS) {
+      const value = params.get(field)?.trim();
+      if (value) current[field] = value.slice(0, 180);
+    }
+    if (Object.keys(current).length) {
+      current.landingPath = window.location.pathname.slice(0, 240);
+      localStorage.setItem(ACQUISITION_KEY, JSON.stringify(current));
+      return current;
+    }
+    const saved = localStorage.getItem(ACQUISITION_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as AcquisitionContext;
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch {
+    // Analytics must never prevent the product from loading.
+  }
+  return {};
 }
 
 export function getConsent(): Consent {
@@ -68,7 +103,10 @@ function sendEvent(event: string, properties?: Record<string, unknown>) {
     anonymousId: getAnonId(),
     event,
     path,
-    properties,
+    properties: {
+      ...(properties ?? {}),
+      acquisition: getAcquisitionContext(),
+    },
   };
   const body = JSON.stringify(payload);
   const blob = new Blob([body], { type: "application/json" });

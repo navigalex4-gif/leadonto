@@ -645,6 +645,11 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
              )}
             <div className="flex flex-wrap gap-3">
               <Link href="/interview-ace"><Button className="font-bold">Practise a full interview <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+               {!user && (
+                 <Link href="/login?returnTo=%2Finterview-ace" onClick={() => trackFunnel("signup_started", { stage: "communication_check_result", method: "account_cta" })}>
+                   <Button variant="outline" className="font-bold">Save my result + get 20 free credits <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                 </Link>
+               )}
               <Link href="/"><Button variant="outline">Back to Lead Onto</Button></Link>
             </div>
           </CardContent>
