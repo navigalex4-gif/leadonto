@@ -96,6 +96,7 @@ async function streamGemini(
         const text = chunk.text;
         if (text) { state.wrote = true; res.write(`data: ${JSON.stringify({ content: text })}\n\n`); }
       }
+      if (!state.wrote) throw new Error(`${model} returned an empty response`);
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
       return;
@@ -206,10 +207,11 @@ async function streamMistral(
   maxTokens: number,
   state: { wrote: boolean },
 ) {
-  await requestMistralStream(prompt, system, maxTokens, (text) => {
+  const text = await requestMistralStream(prompt, system, maxTokens, (text) => {
     state.wrote = true;
     res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
   });
+  if (!text.trim()) throw new Error("Mistral returned an empty response");
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   res.end();
 }
@@ -303,10 +305,11 @@ async function streamGroq(
   maxTokens: number,
   state: { wrote: boolean },
 ) {
-  await requestGroqStream(prompt, system, maxTokens, (text) => {
+  const text = await requestGroqStream(prompt, system, maxTokens, (text) => {
     state.wrote = true;
     res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
   });
+  if (!text.trim()) throw new Error("Groq returned an empty response");
   res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   res.end();
 }
@@ -474,6 +477,14 @@ router.post("/ai/chat", async (req, res) => {
             ...(system ? { system } : {}),
           });
           const block = response.content.find((part) => part.type === "text");
+          if (!block?.text?.trim()) {
+            req.log.warn({ model }, "Claude returned an empty chat response");
+            if (i === modelChain.length - 1) {
+              claudeFailed = true;
+              break;
+            }
+            continue;
+          }
           res.json({ text: block?.text ?? "" });
           return;
         } catch (err) {
@@ -504,7 +515,14 @@ router.post("/ai/chat", async (req, res) => {
             contents,
             config: { maxOutputTokens: maxTokens ?? 8192 },
           });
-          res.json({ text: response.text ?? "" });
+          if (!response.text?.trim()) {
+            req.log.warn({ model }, "Gemini returned an empty chat response");
+            if (i === GEMINI_MODEL_CHAIN.length - 1) {
+              throw new Error(`${model} returned an empty response`);
+            }
+            continue;
+          }
+          res.json({ text: response.text });
           return;
         } catch (err) {
           const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
@@ -520,6 +538,7 @@ router.post("/ai/chat", async (req, res) => {
     req.log.warn({ err }, "Claude/Gemini chat providers unavailable — trying Groq");
     try {
       const text = await requestGroqStream(prompt, system, maxTokens ?? 8192, () => {});
+      if (!text.trim()) throw new Error("Groq returned an empty response");
       res.json({ text });
       return;
     } catch (groqErr) {
@@ -527,6 +546,7 @@ router.post("/ai/chat", async (req, res) => {
     }
     try {
       const text = await requestMistralStream(prompt, system, maxTokens ?? 8192, () => {});
+      if (!text.trim()) throw new Error("Mistral returned an empty response");
       res.json({ text });
       return;
     } catch (mistralErr) {

@@ -23,7 +23,9 @@ returns `429 RESOURCE_EXHAUSTED` (free-tier quota effectively 0) or `404 NOT_FOU
 of the "AI not responding / stops mid-reply / robotic / empty stream" symptoms
 across English Guru, Interview Ace, and the 30-day plan. Flipping to Claude-first
 dropped `/ai/stream` from 5+s to ~1.7s and made responses reliable.
-`ANTHROPIC_API_KEY` is present and healthy.
+`ANTHROPIC_API_KEY` may be present while the provider account is still unable to serve
+requests (for example, an account-credit rejection). Treat any non-successful request
+or empty completion as a fallback trigger rather than assuming the key is healthy.
 
 **Model chain:** keep `ANTHROPIC_MODEL_CHAIN` to REAL models only
 (`claude-haiku-4-5`, `claude-sonnet-4-5`). Do NOT invent names like
