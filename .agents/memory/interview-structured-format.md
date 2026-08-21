@@ -74,6 +74,11 @@ If `STREAM_DEADLINE_MS` (the race timeout on the per-turn AI question-generation
 **Why:** diagnosed from a transcript where 7 of 11 questions matched the hardcoded fallback bank near-verbatim; empirical Claude latency for this call is commonly 1.1–2.5s and sometimes higher, so a ~1600ms deadline lost most races.
 **How to apply:** keep `STREAM_DEADLINE_MS` generously above observed p90 latency (currently 3200ms) and keep the fallback banks themselves high-quality as a safety net (3–4 shuffled, role/competency-aware questions per area via `shuffled()`, plus a `domainFallbackQuestions(roleLabel)` generator) — never a single static sentence per competency — since the fallback path still fires occasionally and must not feel repetitive when it does.
 
+# Turn recovery must invalidate late work
+Every submitted answer needs both a bounded recovery timer and a monotonic turn generation. If recovery advances the interview, late AI/STT/TTS callbacks from the old turn must be ignored even when the candidate has already answered the recovery question.
+**Why:** a boolean recovered flag can be reset by the next answer before a slow provider response returns, allowing stale output to append a duplicate question or disrupt the new turn.
+**How to apply:** increment the generation at turn start and again when recovery/cancellation wins; check it after every awaited stream/pause and before committing the next question.
+
 # Spoken acknowledgement vocabulary is locked to exactly "Okay." / "Got it."
 Every interviewer turn's spoken acknowledgement before the next question must be ONE of these two words, alternated, never both combined ("Okay, got it." is banned) and never any other stock phrase ("I see.", "Understood.", "Alright.", "Right.", "Thank you."). Enforced by a final regex sanitize (`/^(okay|got it)\.?$/i`) that overrides whatever the AI/parsing produced, using a `lastAckRef` to alternate. This rule applies interview-system-wide — both `interview-ace.tsx` and the free `communication-check.tsx` assessment.
 **Why:** explicit user requirement; the AI and various fallback paths had drifted into a handful of different stock acknowledgements including a combined "Okay, got it." which the user singled out as wrong.

@@ -293,9 +293,9 @@ export type InterviewArea = {
   label: string;
   /** Fully-composed guidance for what to probe — roughly one question's worth. */
   focus: string;
-  /** "warmup" marks the early conversational beats (hobbies, motivation, best-fit
-   *  role) that should flow naturally rather than being framed as a switch to a
-   *  "different area". Standard rotation beats leave this undefined. */
+  /** "warmup" marks early conversational beats that should flow naturally
+   *  rather than being framed as a switch to a "different area". Standard
+   *  rotation beats leave this undefined. */
   kind?: "warmup";
 };
 
@@ -310,8 +310,8 @@ export type BeatContext = {
 /** Parameters that get a DEDICATED question in the RECURRING rotation, in
  *  priority order. Communication (delivery-judged) and Educational Background
  *  (the opening) are absent. Personality is absent from the recurring rotation
- *  too, but gets warm one-time hobbies beats in the opening (see areaForBeat).
- *  Motivation for the role and best-fit-role are likewise covered once there. */
+ *  too; the opening uses role motivation and practical job context instead.
+ *  Motivation for the role is covered once there. */
 const DEDICATED_AREAS: CompetencyKey[] = [
   "problemSolving",
   "ownership",

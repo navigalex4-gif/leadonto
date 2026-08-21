@@ -1423,9 +1423,9 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     } else if (isWeakAnswer) {
       directive = `${firstName} could not answer that even after a second attempt — do NOT dwell on it or ask it again. Acknowledge briefly and kindly (something like "No problem, let's move on."), then ask a fresh question on a NEW area. New area — ${area.label}. Focus on: ${areaFocus}.`;
     } else if (area.kind === "warmup") {
-      directive = `Keep the conversation warm, personal and flowing — this is the friendly "getting to know you" part of the interview, not a test. Ask about: ${areaFocus} You may briefly and genuinely react to what ${firstName} just said before your question. Ask EXACTLY ONE question, and never one you have already asked.`;
+      directive = `Keep the conversation warm and focused on the role. Briefly react to one real detail in ${firstName}'s answer, then ask one fresh question about: ${areaFocus}. Make the bridge sound natural, not like a section change.`;
     } else {
-      directive = `Now move to a DIFFERENT area to keep the interview varied — do NOT keep drilling the previous topic. New area — ${area.label}. Focus on: ${areaFocus}. You may briefly connect to what they just said, but the question itself must target this new area. Ask a genuinely fresh question you have not asked before.`;
+      directive = `Keep the interview varied, but do not sound like you are changing sections. Use one concrete detail from ${firstName}'s answer as a brief bridge. Then ask one fresh question in the new area — ${area.label}. Focus on: ${areaFocus}. If their answer included a real example, probe a decision, trade-off or result; if it was vague, ask for one simple practical detail.`;
     }
 
     let response: string;
@@ -1433,9 +1433,8 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // Defined here so they're available both in the timeout path and the parsing fallback below.
 
     // Keep the response human-paced without letting a slow model stall the
-    // interview. The stream and the minimum conversational pause run in
-    // parallel, so fast responses still wait at least three seconds while a
-    // slow response has a hard deadline and a useful fallback.
+    // interview. The stream and the short conversational pause run in parallel;
+    // a slow response has a hard deadline and a useful fallback.
      const naturalPauseMs = (() => {
       const words = recordedAnswer.split(/\s+/).filter(Boolean).length;
        const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 120 : 0;
@@ -1483,8 +1482,9 @@ STYLE — important:
 - Warm, encouraging and genuinely personable — you want ${firstName} to relax and enjoy the conversation. Use a light, witty observation only when it genuinely fits; never force a joke, praise, or enthusiasm into every turn.
 - Sound like a human interviewer speaking live, not like someone reading a written report. Use contractions, short spoken phrases, varied sentence lengths, and occasional natural bridges such as "Right", "I see", or "And then…". Avoid stiff phrases such as "thank you for sharing", "that's very interesting", "moving forward", "let us delve", and "could you please elaborate" unless the answer truly calls for them.
         - This is a formal interview, not an informal social conversation. Keep every spoken response focused on the interview.
-- Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
- - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
+ - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
+  - Make the turn feel responsive: briefly pick up one meaningful detail from the answer, then ask a useful follow-up or a naturally connected new-area question. Do not praise every answer and do not announce a competency transition.
+  - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
  - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
  - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. Use one short sentence of about 8–18 simple words, with one clear idea only. Never join questions with "and", "or", or multiple question marks.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
@@ -1496,7 +1496,7 @@ STYLE — important:
 
 Output format — exactly one line, nothing else:
 Next: <the interview question only, may start with a short natural bridge>`,
-          `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You are the domain-specialist interviewer for ${interviewRoleLabel}. Treat ${interviewRoleLabel} as the authoritative target role and ask questions grounded in its real work, tools, decisions, risks and success measures. You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
+           `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You are the domain-specialist interviewer for ${interviewRoleLabel}. Treat ${interviewRoleLabel} as the authoritative target role and ask questions grounded in its real work, tools, decisions, risks and success measures. You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. React briefly to a concrete detail from the candidate's answer before the next question when it feels natural. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
            { maxTokens: 140 }
         ),
@@ -2615,8 +2615,8 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                the centered interviewer remains the visual focus. */}
            <div className={`absolute right-3 bottom-3 z-20 aspect-square rounded-xl bg-black border border-slate-300 shadow-xl overflow-hidden transition-[width,height] duration-200 ${
              candidateVideoExpanded
-               ? "w-[min(42vw,360px)]"
-               : "w-32 sm:w-40"
+                ? "w-[32%] sm:w-[min(42vw,360px)]"
+                : "w-[28%] sm:w-40"
            }`}>
             {cameraOn ? (
               <video
@@ -2658,13 +2658,14 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           </div>
 
           {/* Interviewer picture-in-picture */}
-           <div className="absolute left-1/2 top-3 bottom-3 z-10 w-[46%] sm:w-[48%] -translate-x-1/2 rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
-            <div
-              className={`rounded-full transition-all duration-300 shrink-0 ${synth.isSpeaking ? "cursor-pointer" : ""}`}
+           <div className="absolute left-3 top-3 bottom-3 right-[36%] sm:left-1/2 sm:right-auto z-10 sm:w-[48%] sm:-translate-x-1/2 rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+             <button
+               type="button"
+               className={`rounded-full transition-all duration-300 shrink-0 appearance-none border-0 bg-transparent p-0 ${synth.isSpeaking ? "cursor-pointer" : "cursor-default"}`}
               style={synth.isSpeaking ? { boxShadow: "0 0 0 10px rgba(249,115,22,0.12), 0 0 0 20px rgba(249,115,22,0.06)" } : {}}
               onClick={synth.isSpeaking ? interruptCoach : undefined}
-              role={synth.isSpeaking ? "button" : undefined}
               aria-label={synth.isSpeaking ? "Tap to interrupt and respond" : undefined}
+               disabled={!synth.isSpeaking}
             >
               <AnimatedAvatar
                 name={displayCoachName}
@@ -2676,7 +2677,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                 imageSrc={coach.imageSrc}
                 hideCaption
               />
-            </div>
+            </button>
 
             {/* Voice visualiser bars — heights track the coach's ACTUAL live
                 audio loudness (same signal driving lip-sync), not a fixed
