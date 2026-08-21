@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import {
   Download, Bookmark, RefreshCw, Target, Zap, Shield,
   BookOpen, Briefcase, GraduationCap, User, AlertCircle,
   ChevronDown, ChevronUp, X,
+  Link2, ExternalLink, MessageCircleQuestion,
 } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
 import { formatGeneratedText } from "@/lib/english-tools";
@@ -50,6 +52,20 @@ const EXPERIENCE_LEVELS = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPT_TYPES = ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+type JobMatchResult = {
+  matchScore: number;
+  roleTitle: string;
+  company: string;
+  location: string;
+  salary: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  resumeChanges: string[];
+  interviewQuestions: string[];
+  practicePrompt: string;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -180,6 +196,9 @@ function ResumeIntelligenceContent() {
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [savedToHistory, setSavedToHistory] = useState(false);
+  const [jobUrl, setJobUrl] = useState("");
+  const [jobMatch, setJobMatch] = useState<JobMatchResult | null>(null);
+  const [isMatchingJob, setIsMatchingJob] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const targetRoleMeta = TARGET_ROLES.find(r => r.value === targetRole)!;
@@ -322,6 +341,36 @@ function ResumeIntelligenceContent() {
     }
   }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile]);
 
+  const matchJob = useCallback(async () => {
+    if (!jobUrl.trim()) {
+      setError("Paste a public job posting URL first.");
+      return;
+    }
+    if (!hasResume && !resumeText.trim()) {
+      setError("Upload or paste your resume before matching it to a job.");
+      return;
+    }
+    setIsMatchingJob(true);
+    setJobMatch(null);
+    setError(null);
+    try {
+      const response = await fetch(`${base}/api/resume/job-match`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobUrl: jobUrl.trim(), guestText: resumeText.trim() || undefined }),
+      });
+      const data = await response.json() as { result?: JobMatchResult; error?: string };
+      if (!response.ok || !data.result) throw new Error(data.error || "Job match failed");
+      setJobMatch(data.result);
+      track("Rozgar Samachar", `Job match — ${data.result.roleTitle || targetRoleMeta.label}`, data.result.matchScore);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not analyse this job posting.");
+    } finally {
+      setIsMatchingJob(false);
+    }
+  }, [base, hasResume, jobUrl, resumeText, targetRoleMeta.label, track]);
+
   /** Shared API call — fetch the AI-improved resume text */
   const fetchImprovedText = useCallback(async (): Promise<string> => {
     const res = await fetch(`${base}/api/resume/improved`, {
@@ -463,6 +512,37 @@ ${paragraphs}
         </p>
       </div>
        <MobilePrimaryCTA label="Scan My Resume Free" href="#resume-upload" />
+
+      <Card className="border-primary/20 bg-primary/[0.03]">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Target className="h-5 w-5 text-primary" />
+            Match your resume to a real job
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Paste a public job link to see your fit, missing skills, truthful resume changes, and interview questions.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={jobUrl}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setJobUrl(e.target.value)}
+                placeholder="https://company.com/careers/job-posting"
+                className="pl-9"
+                disabled={isMatchingJob || isAnalysing}
+                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") void matchJob(); }}
+              />
+            </div>
+            <Button onClick={matchJob} disabled={isMatchingJob || isAnalysing || (!hasResume && !resumeText.trim())}>
+              {isMatchingJob ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Reading job…</> : <><Sparkles className="mr-2 h-4 w-4" />Match this job</>}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">The page must be publicly accessible. Your resume stays in Lead Onto.</p>
+        </CardContent>
+      </Card>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <label className="block space-y-2">
@@ -609,6 +689,63 @@ ${paragraphs}
           </div>
         </div>
       )}
+
+      {jobMatch && !isMatchingJob && (
+        <div className="space-y-4">
+          <Card className="border-2 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex flex-wrap items-start gap-5">
+                <div className="text-center">
+                  <div className="text-5xl font-display font-extrabold text-primary">{jobMatch.matchScore}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">job match /100</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-bold text-secondary">{jobMatch.roleTitle || "Job opportunity"}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {[jobMatch.company, jobMatch.location, jobMatch.salary].filter(Boolean).join(" · ") || "Details extracted from the posting"}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-secondary">{formatGeneratedText(jobMatch.summary)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <JobMatchList title="Your strengths for this role" items={jobMatch.strengths} tone="green" />
+            <JobMatchList title="Gaps to close" items={jobMatch.gaps} tone="amber" />
+            <JobMatchList title="Resume changes" items={jobMatch.resumeChanges} tone="blue" />
+            <JobMatchList title="Likely interview questions" items={jobMatch.interviewQuestions} tone="purple" icon={<MessageCircleQuestion className="h-4 w-4" />} />
+          </div>
+          {jobMatch.practicePrompt && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-5">
+                <p className="flex items-center gap-2 text-sm font-bold text-blue-800"><MessageCircleQuestion className="h-4 w-4" />Practice this answer out loud</p>
+                <p className="mt-2 text-sm leading-6 text-blue-950">{jobMatch.practicePrompt}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function JobMatchList({ title, items, tone, icon }: { title: string; items: string[]; tone: "green" | "amber" | "blue" | "purple"; icon?: ReactNode }) {
+  const styles = {
+    green: "border-green-200 bg-green-50 text-green-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    blue: "border-blue-200 bg-blue-50 text-blue-950",
+    purple: "border-violet-200 bg-violet-50 text-violet-950",
+  }[tone];
+  return (
+    <Card className={styles}>
+      <CardContent className="p-5">
+        <h3 className="flex items-center gap-2 text-sm font-bold">{icon ?? <CheckCircle2 className="h-4 w-4" />}{title}</h3>
+        {items.length ? (
+          <ul className="mt-3 space-y-2 text-sm leading-5">
+            {items.map((item, index) => <li key={`${title}-${index}`} className="flex gap-2"><span aria-hidden="true">•</span><span>{item}</span></li>)}
+          </ul>
+        ) : <p className="mt-3 text-sm opacity-80">No specific items found.</p>}
+      </CardContent>
+    </Card>
   );
 }

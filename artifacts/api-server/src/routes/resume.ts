@@ -10,6 +10,7 @@ import { generateTextWithFallback } from "./ai.js";
 export const router: IRouter = Router();
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const FIRECRAWL_TIMEOUT_MS = 25_000;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
@@ -73,6 +74,183 @@ async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
   const result = await mammoth.extractRawText({ buffer });
   return result.value ?? "";
 }
+
+type JobMatchResult = {
+  matchScore: number;
+  roleTitle: string;
+  company: string;
+  location: string;
+  salary: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  resumeChanges: string[];
+  interviewQuestions: string[];
+  practicePrompt: string;
+};
+
+function isSafePublicUrl(rawUrl: string): URL | null {
+  try {
+    const url = new URL(rawUrl);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+    const host = url.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "::1" ||
+      host === "0.0.0.0" ||
+      host.startsWith("127.") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal")
+    ) return null;
+    url.username = "";
+    url.password = "";
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function scrapeJobUrl(url: URL): Promise<{ markdown: string; title?: string; sourceUrl: string }> {
+  const apiKey = process.env["FIRECRAWL_API_KEY"];
+  if (!apiKey) throw new Error("Firecrawl is not configured yet. Please try again later.");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
+  try {
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: url.toString(),
+        formats: ["markdown"],
+        onlyMainContent: true,
+      }),
+    });
+    const payload = await response.json().catch(() => null) as {
+      success?: boolean;
+      error?: string;
+      data?: { markdown?: string; metadata?: { title?: string; sourceURL?: string } };
+    } | null;
+    if (!response.ok || !payload?.data?.markdown?.trim()) {
+      throw new Error(payload?.error || "Could not read that job posting.");
+    }
+    return {
+      markdown: payload.data.markdown.slice(0, 40_000),
+      title: payload.data.metadata?.title,
+      sourceUrl: payload.data.metadata?.sourceURL || url.toString(),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// POST /api/resume/job-match — extract a public job posting and compare it with the resume
+router.post("/resume/job-match", async (req, res) => {
+  try {
+    const { jobUrl, guestText } = req.body as Record<string, unknown>;
+    if (typeof jobUrl !== "string" || !jobUrl.trim()) {
+      res.status(400).json({ error: "Paste a public job posting URL first." });
+      return;
+    }
+    const safeUrl = isSafePublicUrl(jobUrl.trim());
+    if (!safeUrl) {
+      res.status(400).json({ error: "Please use a valid public http or https job URL." });
+      return;
+    }
+
+    let resumeTextToAnalyse = "";
+    if (req.session.userId) {
+      const [user] = await db
+        .select({ resumeText: usersTable.resumeText })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+      resumeTextToAnalyse = user?.resumeText || (typeof guestText === "string" ? guestText : "");
+    } else if (typeof guestText === "string") {
+      resumeTextToAnalyse = guestText;
+    }
+    if (!resumeTextToAnalyse.trim()) {
+      res.status(400).json({ error: "Upload or paste your resume before matching it to a job." });
+      return;
+    }
+
+    const scraped = await scrapeJobUrl(safeUrl);
+    const prompt = `Compare this candidate's resume with the public job posting and return valid JSON only.
+
+JOB POSTING URL: ${scraped.sourceUrl}
+JOB POSTING:
+${scraped.markdown}
+
+CANDIDATE RESUME:
+${resumeTextToAnalyse.slice(0, 24_000)}
+
+Return exactly this shape:
+{
+  "matchScore": 0-100,
+  "roleTitle": "role title",
+  "company": "company or empty string",
+  "location": "location or empty string",
+  "salary": "salary or empty string",
+  "summary": "2 concise sentences explaining fit for this role",
+  "strengths": ["specific matching strength"],
+  "gaps": ["specific missing skill or experience"],
+  "resumeChanges": ["specific truthful change to make"],
+  "interviewQuestions": ["role-specific question"],
+  "practicePrompt": "one spoken answer prompt for the candidate"
+}
+
+Rules:
+- Never invent experience, qualifications, employers, salary, or company facts.
+- Keep every list to at most 6 useful items.
+- Use plain, direct English suitable for an Indian job seeker.
+- Return JSON only, with no markdown fences.`;
+
+    const fullText = await generateTextWithFallback({
+      prompt,
+      system: "You are an expert Indian career coach and ATS reviewer. Return valid JSON only.",
+      maxTokens: 3000,
+      log: req.log,
+    });
+    const stripped = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const start = stripped.indexOf("{");
+    const end = stripped.lastIndexOf("}");
+    const parsedText = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+    let result: JobMatchResult;
+    try {
+      result = JSON.parse(parsedText) as JobMatchResult;
+    } catch {
+      res.status(502).json({ error: "The job match was incomplete. Please try again." });
+      return;
+    }
+
+    res.json({
+      success: true,
+      sourceUrl: scraped.sourceUrl,
+      scrapedTitle: scraped.title || "",
+      result: {
+        ...result,
+        matchScore: Math.max(0, Math.min(100, Number(result.matchScore) || 0)),
+        strengths: Array.isArray(result.strengths) ? result.strengths.slice(0, 6) : [],
+        gaps: Array.isArray(result.gaps) ? result.gaps.slice(0, 6) : [],
+        resumeChanges: Array.isArray(result.resumeChanges) ? result.resumeChanges.slice(0, 6) : [],
+        interviewQuestions: Array.isArray(result.interviewQuestions) ? result.interviewQuestions.slice(0, 6) : [],
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Job URL match error");
+    const message = err instanceof Error && /configured|public|valid|posting|read/i.test(err.message)
+      ? err.message
+      : "Could not analyse that job posting. Check that the URL is public and try again.";
+    res.status(500).json({ error: message });
+  }
+});
 
 // POST /api/resume/upload — works for guests AND authenticated users
 // Guests: text is extracted and returned in the response (not saved to DB)
