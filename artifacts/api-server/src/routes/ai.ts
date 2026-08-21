@@ -412,14 +412,30 @@ router.post("/ai/gemini-stream", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Gemini feed streaming error");
     // Rozgar should remain useful during Gemini quota/model outages. If Gemini
-    // failed before emitting any content, use the normal Claude provider as a
-    // server-side fallback while keeping this endpoint Gemini-first.
+    // failed before emitting any content, use the normal fallback providers
+    // server-side while keeping this endpoint Gemini-first.
     if (!state.wrote && process.env["ANTHROPIC_API_KEY"]) {
       try {
         await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state);
         return;
       } catch (fallbackErr) {
         req.log.error({ err: fallbackErr }, "Gemini feed fallback error");
+      }
+    }
+    if (!state.wrote) {
+      try {
+        await streamGroq(req, res, prompt, system, maxTokens ?? 8192, state);
+        return;
+      } catch (fallbackErr) {
+        req.log.warn({ err: fallbackErr }, "Gemini feed Groq fallback unavailable");
+      }
+    }
+    if (!state.wrote) {
+      try {
+        await streamMistral(req, res, prompt, system, maxTokens ?? 8192, state);
+        return;
+      } catch (fallbackErr) {
+        req.log.warn({ err: fallbackErr }, "Gemini feed Mistral fallback unavailable");
       }
     }
     if (!state.wrote) {
@@ -501,8 +517,22 @@ router.post("/ai/chat", async (req, res) => {
       }
     }
   } catch (err) {
-    req.log.error({ err }, "AI request error");
-    res.status(503).json({ error: userFriendlyError(err) });
+    req.log.warn({ err }, "Claude/Gemini chat providers unavailable — trying Groq");
+    try {
+      const text = await requestGroqStream(prompt, system, maxTokens ?? 8192, () => {});
+      res.json({ text });
+      return;
+    } catch (groqErr) {
+      req.log.warn({ err: groqErr }, "Groq chat provider unavailable — trying Mistral");
+    }
+    try {
+      const text = await requestMistralStream(prompt, system, maxTokens ?? 8192, () => {});
+      res.json({ text });
+      return;
+    } catch (mistralErr) {
+      req.log.error({ err: mistralErr }, "All AI chat providers unavailable");
+      res.status(503).json({ error: userFriendlyError(err) });
+    }
   }
 });
 
