@@ -30,6 +30,8 @@ declare module "express-session" {
      * `expiresAt` lets an abandoned meter be replaced so the user is never locked out.
      */
     interview?: { id: string; blocksCharged: number; startedAt: number; expiresAt: number };
+    /** Server-authoritative meter for Live Conversation blocks. */
+    live?: { id: string; blocksCharged: number; startedAt: number; expiresAt: number };
     /** B2B company session — set by /api/b2b/auth/login, never by student login paths. */
     b2bCompanyId?: number;
     b2bCompanyEmail?: string;

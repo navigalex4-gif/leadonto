@@ -152,23 +152,82 @@ router.post("/credits/interview/end", requireAuth, (req: Request, res: Response)
   res.json({ ok: true });
 });
 
-// POST /api/credits/live/start and /tick — one credit per 12-minute block (5 credits/hour).
-async function chargeLiveBlock(req: Request, res: Response) {
+// Live Conversation is one credit per 12-minute block. The server session owns
+// the block counter so retries and overlapping timer requests cannot create
+// duplicate debits.
+router.post("/credits/live/start", requireAuth, async (req: Request, res: Response) => {
   const userId = req.session.userId!;
+  const active = req.session.live;
+  if (active && Date.now() < active.expiresAt) {
+    res.json({ ok: true, balance: await getBalance(userId), liveId: active.id, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
+    return;
+  }
+  const id = randomUUID();
   const result = await spendCredits({
     userId,
     amount: LIVE_BLOCK_COST,
     type: "spend_live",
-    description: "Live conversation (12-minute block)",
+    description: "Live conversation (block 1 · 12 minutes)",
+    reference: `live:${id}:1`,
+    idempotent: true,
   });
   if (!result.ok) {
     res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: LIVE_BLOCK_COST });
     return;
   }
-  res.json({ ok: true, balance: result.balance, blockSeconds: LIVE_BLOCK_SECONDS, charged: LIVE_BLOCK_COST });
-}
-router.post("/credits/live/start", requireAuth, chargeLiveBlock);
-router.post("/credits/live/tick", requireAuth, chargeLiveBlock);
+  const now = Date.now();
+  req.session.live = {
+    id,
+    blocksCharged: 1,
+    startedAt: now,
+    expiresAt: now + LIVE_BLOCK_SECONDS * 1000 * 6 + 5 * 60_000,
+  };
+  res.json({ ok: true, balance: result.balance, liveId: id, blockSeconds: LIVE_BLOCK_SECONDS, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: 1 });
+});
+
+router.post("/credits/live/tick", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.session.userId!;
+  const meter = req.session.live;
+  if (!meter) {
+    res.status(409).json({ error: "no_active_live" });
+    return;
+  }
+  const body = req.body as { block?: number; liveId?: string };
+  if (body.liveId !== meter.id) {
+    res.status(409).json({ error: "live_superseded" });
+    return;
+  }
+  const block = Number(body.block);
+  if (!Number.isInteger(block) || block < 2 || block > 6) {
+    res.status(400).json({ error: "invalid_block" });
+    return;
+  }
+  if (block > meter.blocksCharged + 1) {
+    res.status(409).json({ error: "block_out_of_order", expected: meter.blocksCharged + 1 });
+    return;
+  }
+  const result = await spendCredits({
+    userId,
+    amount: LIVE_BLOCK_COST,
+    type: "spend_live",
+    description: `Live conversation (block ${block} · 12 minutes)`,
+    reference: `live:${meter.id}:${block}`,
+    idempotent: true,
+  });
+  if (!result.ok) {
+    res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: LIVE_BLOCK_COST });
+    return;
+  }
+  if (block > meter.blocksCharged) req.session.live = { ...meter, blocksCharged: block };
+  res.json({ ok: true, balance: result.balance, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: Math.max(block, meter.blocksCharged) });
+});
+
+router.post("/credits/live/end", requireAuth, (req: Request, res: Response) => {
+  const meter = req.session.live;
+  const { liveId } = req.body as { liveId?: string };
+  if (meter && (!liveId || meter.id === liveId)) req.session.live = undefined;
+  res.json({ ok: true });
+});
 
 // Credits are topped up via UPI — see upi-payments route for checkout flow.
 
