@@ -909,6 +909,10 @@ function InterviewAceContent() {
   // submitCurrentAnswer; reset reactively below when the coach stops speaking — which
   // marks the true end of a turn (coachSpeaking stays true through the thinking pause).
   const turnInFlightRef = useRef(false);
+  // Monotonically invalidates late STT/AI work from a recovered or cancelled turn.
+  // This is stronger than a boolean because the candidate may answer the recovery
+  // question before the old stream resolves.
+  const turnGenerationRef = useRef(0);
   useEffect(() => { if (!coachSpeaking) turnInFlightRef.current = false; }, [coachSpeaking]);
   const turnRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnRecoveredRef = useRef(false);
@@ -1296,6 +1300,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // stage. The ref is synchronous, closing even a same-tick double submit.
     if (turnInFlightRef.current) return;
     turnInFlightRef.current = true;
+    const turnGeneration = ++turnGenerationRef.current;
     turnRecoveredRef.current = false;
     if (turnRecoveryTimerRef.current) clearTimeout(turnRecoveryTimerRef.current);
     // A model/network failure must never strand the candidate on the current
@@ -1303,13 +1308,21 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // not, advance with a deterministic unused question and ignore the late
     // model response.
     turnRecoveryTimerRef.current = setTimeout(() => {
-      if (!turnInFlightRef.current || phaseRef.current !== "interview") return;
+      if (
+        !turnInFlightRef.current
+        || turnGeneration !== turnGenerationRef.current
+        || phaseRef.current !== "interview"
+      ) return;
       turnRecoveredRef.current = true;
+      turnGenerationRef.current++;
       turnInFlightRef.current = false;
       turnRecoveryTimerRef.current = null;
+      clearAutoSubmitTimer();
       resetStream();
       setCoachThinking(false);
-      setCoachSpeaking(false);
+      setIsRecording(false);
+      speech.stop();
+      setCoachSpeaking(true);
       const asked = questionsRef.current.map(q => q.question);
       const recoveryArea = areaForBeat(beatIdxRef.current + 1, {
         durationMin: duration,
@@ -1329,13 +1342,14 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       setQuestions(prev => [...prev, { question: recoveryQuestion }]);
       setCurrentIdx(prev => prev + 1);
       setAnswer("");
+      answerRef.current = "";
       speech.blockFor(0);
       speakCoach(recoveryQuestion, {
         voiceGender: coach.gender,
         voiceStyle: coach.voiceStyle,
         pitch: coach.gender === "male" ? 0.88 : 1.08,
       });
-    }, 7_000);
+    }, 4_200);
     clearAutoSubmitTimer();
     setIsRecording(false);
     speech.stop();
@@ -1345,6 +1359,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     setCoachSpeaking(true);
     const recordedAnswer = userAnswer.trim();
     setAnswer("");
+    answerRef.current = "";
     resetStream();
 
     const elapsedMin = Math.floor(elapsedSeconds / 60);
@@ -1424,12 +1439,12 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
      const naturalPauseMs = (() => {
       const words = recordedAnswer.split(/\s+/).filter(Boolean).length;
        const hesitationMs = /\b(um|uh|well|let me think|actually)\b/i.test(recordedAnswer) ? 120 : 0;
-       const base = words < 15 ? 520 : words <= 50 ? 680 : 820;
-       return Math.min(950, Math.max(450, base + hesitationMs));
+        const base = words < 15 ? 300 : words <= 50 ? 410 : 520;
+        return Math.min(680, Math.max(260, base + hesitationMs));
     })();
     const turnStartedAt = performance.now();
-     const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 450));
-      const STREAM_DEADLINE_MS = 2_500;
+      const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 180));
+       const STREAM_DEADLINE_MS = 1_900;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1505,16 +1520,28 @@ Next: <the interview question only, may start with a short natural bridge>`,
      // Keep a tiny human pause without adding the old multi-second delay. The
      // hard stream deadline plus this pause lets the next question start quickly.
     await minWaitPromise;
-    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+    if (
+      endingRef.current
+      || phaseRef.current !== "interview"
+      || turnGeneration !== turnGenerationRef.current
+    ) { setCoachThinking(false); return; }
     const remainingPause = Math.min(
       Math.max(0, naturalPauseMs - (performance.now() - turnStartedAt)),
-      2200 - (performance.now() - turnStartedAt),
+       1200 - (performance.now() - turnStartedAt),
     );
     if (remainingPause > 0) await new Promise<void>((resolve) => setTimeout(resolve, remainingPause));
-    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+     if (
+       endingRef.current
+       || phaseRef.current !== "interview"
+       || turnGeneration !== turnGenerationRef.current
+     ) { setCoachThinking(false); return; }
 
     // If the interview ended while the stream or pause was in flight, stop here.
-    if (endingRef.current || phaseRef.current !== "interview") { setCoachThinking(false); return; }
+    if (
+      endingRef.current
+      || phaseRef.current !== "interview"
+      || turnGeneration !== turnGenerationRef.current
+    ) { setCoachThinking(false); return; }
 
     // Robust parsing — tolerates minor model format drift and missing labels.
     // The short acknowledgement was already spoken while the model streamed,
@@ -1557,7 +1584,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
     }
 
-    if (turnRecoveredRef.current) {
+    if (turnRecoveredRef.current || turnGeneration !== turnGenerationRef.current) {
       setCoachThinking(false);
       return;
     }
@@ -1582,6 +1609,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setQuestions(prev => [...prev, { question: nextQuestion! }]);
     setCurrentIdx(prev => prev + 1);
     setAnswer("");
+    answerRef.current = "";
     setIsRecording(false);
     // speech.stop() is intentionally used at the start of a turn to cancel
     // stale capture. Explicitly clear any speaker block before the next
