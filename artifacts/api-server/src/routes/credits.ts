@@ -180,7 +180,9 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
     id,
     blocksCharged: 1,
     startedAt: now,
-    expiresAt: now + LIVE_BLOCK_SECONDS * 1000 * 6 + 5 * 60_000,
+    // Keep the meter available for long conversations; the explicit /end call
+    // normally clears it, while this expiry only recovers abandoned sessions.
+    expiresAt: now + 24 * 60 * 60_000,
   };
   res.json({ ok: true, balance: result.balance, liveId: id, blockSeconds: LIVE_BLOCK_SECONDS, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: 1 });
 });
@@ -198,7 +200,7 @@ router.post("/credits/live/tick", requireAuth, async (req: Request, res: Respons
     return;
   }
   const block = Number(body.block);
-  if (!Number.isInteger(block) || block < 2 || block > 6) {
+  if (!Number.isInteger(block) || block < 2) {
     res.status(400).json({ error: "invalid_block" });
     return;
   }

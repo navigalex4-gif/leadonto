@@ -69,6 +69,8 @@ export type SpendResult = {
   required?: number;
   blockSeconds?: number;
   interviewId?: string;
+  liveId?: string;
+  blocksCharged?: number;
   error?: string;
 };
 
@@ -118,6 +120,8 @@ async function spendBody(path: string, body: unknown): Promise<SpendResult> {
     required: data["required"] as number | undefined,
     blockSeconds: data["blockSeconds"] as number | undefined,
     interviewId: data["interviewId"] as string | undefined,
+    liveId: data["liveId"] as string | undefined,
+    blocksCharged: data["blocksCharged"] as number | undefined,
     error: data["error"] as string | undefined,
   };
 }
@@ -127,10 +131,13 @@ export function chargeInterview(durationMinutes: number): Promise<SpendResult> {
 }
 
 export function startLiveBlock(): Promise<SpendResult> {
-  return spend("/api/credits/live/start");
+  return spendBody("/api/credits/live/start", undefined);
 }
-export function tickLiveBlock(): Promise<SpendResult> {
-  return spend("/api/credits/live/tick");
+export function tickLiveBlock(block: number, liveId: string): Promise<SpendResult> {
+  return spendBody("/api/credits/live/tick", { block, liveId });
+}
+export function endLiveBlock(liveId?: string): Promise<SpendResult> {
+  return spendBody("/api/credits/live/end", { liveId });
 }
 export function tickInterview(block: number, interviewId?: string): Promise<SpendResult> {
   return spendBody("/api/credits/interview/tick", { block, interviewId });

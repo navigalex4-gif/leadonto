@@ -152,8 +152,8 @@ export default function BuyCredits() {
   }, [utr, amount, toast]);
 
   const uses = useMemo(() => [
-    { icon: MessageCircle, title: "Live Conversation", cost: "5 credits / hour", note: "Real-time voice practice with your tutor" },
-    { icon: Mic, title: "Mock Interviews", cost: "5 credits each", note: "Flat rate — any length session" },
+    { icon: MessageCircle, title: "Live Conversation", cost: "1 credit / 12 min", note: "First block is charged when you start; 5 credits covers 60 minutes" },
+    { icon: Mic, title: "Mock Interviews", cost: "Up to 5 credits", note: "1 credit per fifth of your selected duration; ending early only charges blocks entered" },
     { icon: GraduationCap, title: "Everything else", cost: "Free", note: "Lessons, grammar, writing, vocab, jobs & news" },
   ], []);
 

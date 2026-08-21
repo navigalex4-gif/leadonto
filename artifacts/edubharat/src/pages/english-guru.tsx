@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { INDIAN_LANGUAGES } from "@/lib/constants";
 import { useAuth } from "@/lib/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { useCredits, startLiveBlock, tickLiveBlock, LIVE_BLOCK_SECONDS } from "@/lib/use-credits";
+import { useCredits, startLiveBlock, tickLiveBlock, endLiveBlock, LIVE_BLOCK_SECONDS } from "@/lib/use-credits";
 import { useGuestTrial, guestLiveSecondsLeft, addGuestLiveSeconds } from "@/lib/guest-trial";
 import { useProgress } from "@/lib/use-progress";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
@@ -165,6 +165,8 @@ function EnglishGuruContent() {
   useEffect(() => { speechRef.current = speech; }, [speech]);
   const convHistoryRef = useRef(convHistory);
   const liveChatRef = useRef(liveChat);
+  const liveIdRef = useRef<string | null>(null);
+  const liveBlocksChargedRef = useRef(1);
   const livePausedRef = useRef(false);
   useEffect(() => { liveChatRef.current = liveChat; }, [liveChat]);
   const handleConvPhraseRef = useRef<((p: string) => void) | null>(null);
@@ -851,6 +853,8 @@ Rules for spoken replies:
     unlockAudio();
     if (liveChat) {
       cancelActiveTurn();
+      void endLiveBlock(liveIdRef.current ?? undefined);
+      liveIdRef.current = null;
       setLiveChat(false);
       setLivePaused(false);
       livePausedRef.current = false;
@@ -897,6 +901,8 @@ Rules for spoken replies:
         }
         return;
       }
+      liveIdRef.current = charge.liveId ?? null;
+      liveBlocksChargedRef.current = charge.blocksCharged ?? 1;
     }
     liveChatRef.current = true;
     livePausedRef.current = false;
@@ -952,6 +958,8 @@ Rules for spoken replies:
       livePausedRef.current = false;
       setConvFlowState("idle");
       cancelActiveTurn();
+      void endLiveBlock(liveIdRef.current ?? undefined);
+      liveIdRef.current = null;
     };
   }, [cancelActiveTurn]);
 
@@ -961,7 +969,9 @@ Rules for spoken replies:
     if (!liveChat) return;
     if (user) {
       const id = setInterval(async () => {
-        const r = await tickLiveBlock();
+        const nextBlock = liveBlocksChargedRef.current + 1;
+        const r = await tickLiveBlock(nextBlock, liveIdRef.current ?? "");
+        if (r.ok) liveBlocksChargedRef.current = nextBlock;
         if (!r.ok && r.status === 402) {
           stopLiveRef.current();
           toast({ title: "Credits used up", description: "Your live conversation ended. Top up to keep chatting.", variant: "destructive" });
@@ -1212,7 +1222,7 @@ Rules for spoken replies:
               {!liveChat && (
                 <p className="text-xs text-muted-foreground">
                   {user ? (
-                    <>Uses <span className="font-semibold text-secondary">5 credits/hour</span> · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
+                    <>Uses <span className="font-semibold text-secondary">1 credit per 12 minutes</span> (5 credits/hour) · first block charged at start · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
                   ) : guestLiveLeft > 0 ? (
                     <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
                   ) : (
@@ -1366,7 +1376,7 @@ Rules for spoken replies:
                     <FileText className="w-3.5 h-3.5 mr-1.5" />Word
                   </Button>
                   <Button variant="ghost" size="sm" className="text-xs h-8 ml-auto"
-                    onClick={() => { setConvHistory([]); setLiveChat(false); speech.stop(); setConvFlowState("idle"); }}>
+                    onClick={() => { setConvHistory([]); void endLiveBlock(liveIdRef.current ?? undefined); liveIdRef.current = null; setLiveChat(false); speech.stop(); setConvFlowState("idle"); }}>
                     Clear & Start Over
                   </Button>
                 </div>
