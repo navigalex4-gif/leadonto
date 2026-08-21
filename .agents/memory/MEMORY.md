@@ -72,3 +72,4 @@
 - [Human-like content variation](human-like-content-variation.md) — live coaching and lessons use per-session variation, adaptive reactions, and shuffled fallbacks instead of fixed scripts.
 - [Mobile Speech Recognition earcon](mobile-speech-recognition-earcon.md) — Android Chrome/Web Speech start-stop chimes are outside page audio and cannot be muted without changing recognition behavior.
 - [Firecrawl job analysis](firecrawl-job-analysis.md) — use Firecrawl for pasted public job URLs and resume matching, not primary structured vacancy search.
+- [Rezi benchmark](rezi-benchmark.md) — benchmark Rezi’s ATS and job-tailoring workflows, but implement them natively instead of depending on Rezi.
