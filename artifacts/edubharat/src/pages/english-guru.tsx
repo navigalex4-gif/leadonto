@@ -81,6 +81,23 @@ function alignTutorGender(text: string, voiceGender: "male" | "female"): string 
     .replace(/बताऊँगी/g, "बताऊँगा");
 }
 
+/** Keep native-language voice replies natural and safe for speech synthesis. */
+function cleanSpokenReply(text: string, nativeMode: boolean, voiceGender: "male" | "female"): string {
+  let cleaned = alignTutorGender(stripMarkdownForSpeech(text), voiceGender)
+    .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
+    .trim();
+  if (nativeMode) {
+    // Quotes, dashes, brackets, emoji and markdown are visual notation, not
+    // words the tutor should read aloud. Keep only sentence punctuation.
+    cleaned = cleaned
+      .replace(/[^\p{L}\p{N}\s.,?!]/gu, " ")
+      .replace(/\s+([.,?!])/g, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+  return cleaned;
+}
+
 function LanguageHighlight() {
   return (
     <div
@@ -617,7 +634,7 @@ function EnglishGuruContent() {
         const isEnglishNative = uiLang === "English";
          const languageGuidance = isEnglishNative
            ? `Speak in clear, simple, natural English throughout. Start with the substance of your reply rather than a repeated acknowledgement or filler. Use one light, natural Gen-Z phrase such as "that's legit", "honestly", "nice", "totally", or "you've got this" only when it genuinely fits — never force slang or sound like a meme.`
-          : `The student's ONLY helper language is ${uiLang} — do NOT use any other Indian language (not Hindi, not Kannada, not Tamil, not any other — ONLY ${uiLang} when needed). English is the goal, so speak MOSTLY in simple, clear English and keep them practicing. But use ${uiLang} as a warm helping hand whenever they need it: if the student replies in ${uiLang}, tells you (in any language) that they didn't understand, or clearly seems confused, briefly explain the tricky word or idea in ${uiLang}, then continue in English. You may drop a short ${uiLang} gloss in brackets right after a hard English word. When the student explicitly asks what an English word or sentence MEANS in ${uiLang} (or asks you to translate or explain it in ${uiLang}), immediately give that meaning written MOSTLY in ${uiLang} — keep English down to just the word being explained — so it is spoken aloud in a natural ${uiLang} accent; keep that reply short and focused on the meaning, then switch straight back to English in your very next reply. Never leave them stuck or embarrassed — slow down, simplify, and lean on ${uiLang} to unblock them, then gently guide them back to English. When they're managing fine in English, keep your whole reply in English.`;
+           : `The student's ONLY helper language is ${uiLang} — do NOT use any other Indian language (not Hindi, not Kannada, not Tamil, not any other — ONLY ${uiLang} when needed). English is the goal, so speak MOSTLY in simple, clear English and keep them practicing. But use ${uiLang} as a warm helping hand whenever they need it: if the student replies in ${uiLang}, tells you (in any language) that they didn't understand, or clearly seems confused, briefly explain the tricky word or idea in ${uiLang}, then continue in English. You may give a short ${uiLang} explanation when it genuinely helps, but never put it in quotation marks or brackets. When the student explicitly asks what an English word or sentence MEANS in ${uiLang} (or asks you to translate or explain it in ${uiLang}), immediately give that meaning written MOSTLY in ${uiLang} — keep English down to just the word being explained — so it is spoken aloud in a natural ${uiLang} accent; keep that reply short and focused on the meaning, then switch straight back to English in your very next reply. Never guess, reinterpret, or expand an unclear or possibly misheard word or acronym. Never discuss transcription errors or invent meanings unless the student clearly said them. If you are unsure, ask one short clarification in ${uiLang} without quoting the unclear phrase. Never leave them stuck or embarrassed — slow down, simplify, and lean on ${uiLang} to unblock them, then gently guide them back to English. When they're managing fine in English, keep your whole reply in English.`;
 
         const webContextNote = webContext
           ? `\n\nLive web context (use naturally if relevant): "${webContext}"`
@@ -650,7 +667,7 @@ Rules for spoken replies:
           undefined,
           // Live Conversation uses Groq directly while Claude/Gemini credits
           // are unavailable; the server keeps Z.ai as the emergency fallback.
-          { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 4800 }
+           { endpoint: "/api/ai/stream?provider=groq", maxTokens: 100, timeoutMs: 2400 }
         );
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
@@ -712,9 +729,7 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
-          const cleanResponse = alignTutorGender(stripMarkdownForSpeech(response), tutor.voiceGender)
-            .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
-            .trim();
+           const cleanResponse = cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender);
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");
