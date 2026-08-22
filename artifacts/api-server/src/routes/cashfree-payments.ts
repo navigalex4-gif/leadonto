@@ -184,8 +184,14 @@ router.post("/credits/cashfree/order", requireAuth, async (req: Request, res: Re
     res.json({ ok: true, orderId: id, paymentSessionId: remote.payment_session_id, mode: config.environment, credits });
   } catch (err) {
     await db.update(cashfreePaymentsTable).set({ status: "failed", providerStatus: "CREATE_FAILED", updatedAt: new Date() }).where(eq(cashfreePaymentsTable.orderId, id));
-    logger.error({ err: (err as Error).message, userId }, "Cashfree order creation failed");
-    res.status(502).json({ error: "Could not start payment. Please try again." });
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({ err: message, userId }, "Cashfree order creation failed");
+    const domainRejected = /whitelist|enabled or approved|merchant\.cashfree\.com/i.test(message);
+    res.status(502).json({
+      error: domainRejected
+        ? "Cashfree has not approved leadonto.com yet. Add leadonto.com to the Cashfree checkout whitelist, then try again."
+        : "Could not start payment. Please try again.",
+    });
   }
 });
 
