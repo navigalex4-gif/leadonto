@@ -120,7 +120,11 @@ function isSupportedLanguage(value: string): value is SupportedLanguage {
 type VoiceSelection = { languageCode: string; name: string };
 const nativeVoiceCache = new Map<string, VoiceSelection>();
 
-async function chooseVoice(language: SupportedLanguage, voiceStyle?: string): Promise<VoiceSelection> {
+async function chooseVoice(
+  language: SupportedLanguage,
+  voiceStyle?: string,
+  gender?: "male" | "female",
+): Promise<VoiceSelection> {
   if (language === "English") {
     return {
       languageCode: LANGUAGE_CODES.English,
@@ -129,17 +133,23 @@ async function chooseVoice(language: SupportedLanguage, voiceStyle?: string): Pr
   }
 
   const requestedCode = LANGUAGE_CODES[language];
-  const cached = nativeVoiceCache.get(requestedCode);
+  const cacheKey = `${requestedCode}:${gender ?? "any"}:${voiceStyle ?? "default"}`;
+  const cached = nativeVoiceCache.get(cacheKey);
   if (cached) return cached;
 
   const client = getGoogleTtsClient();
   const [catalog] = await client.listVoices({ languageCode: requestedCode });
-  const available = (catalog.voices ?? [])
+  const catalogVoices = (catalog.voices ?? [])
     .filter((voice) => voice.name && voice.languageCodes?.includes(requestedCode))
     .sort((a, b) => {
       const quality = (name: string) => name.includes("Wavenet") ? 0 : name.includes("Neural2") ? 1 : 2;
       return quality(a.name ?? "") - quality(b.name ?? "") || (a.name ?? "").localeCompare(b.name ?? "");
     });
+  const requestedGender = gender === "female" ? "FEMALE" : gender === "male" ? "MALE" : undefined;
+  const genderMatched = requestedGender
+    ? catalogVoices.filter((voice) => String(voice.ssmlGender ?? "") === requestedGender)
+    : catalogVoices;
+  const available = genderMatched.length > 0 ? genderMatched : catalogVoices;
 
   // Odia and Assamese do not have a dedicated catalog entry in this
   // environment. A valid Hindi voice is preferable to a silent/500 response.
@@ -158,7 +168,7 @@ async function chooseVoice(language: SupportedLanguage, voiceStyle?: string): Pr
   );
   const selected = fallbackCatalog[Math.max(0, index) % fallbackCatalog.length]!;
   const selection = { languageCode: fallbackCode, name: selected.name! };
-  nativeVoiceCache.set(requestedCode, selection);
+  nativeVoiceCache.set(cacheKey, selection);
   return selection;
 }
 
@@ -198,10 +208,12 @@ router.post("/tts", async (req, res) => {
     text,
     language = "English",
     voiceStyle,
+    gender,
   } = req.body as {
     text?: string;
     language?: string;
     voiceStyle?: string;
+    gender?: "male" | "female";
   };
 
   if (!text?.trim()) {
@@ -220,7 +232,7 @@ router.post("/tts", async (req, res) => {
   }
 
   try {
-    const voice = await chooseVoice(targetLanguage, voiceStyle);
+    const voice = await chooseVoice(targetLanguage, voiceStyle, gender);
     await synthesize(res, cleaned, targetLanguage, voice.name, voice.languageCode);
   } catch (err) {
     req.log.error({ err, language: targetLanguage, voiceStyle }, "Google Cloud TTS failed");
