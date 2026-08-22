@@ -119,6 +119,9 @@ async function transcribeWithDeepgram(
     punctuate: "true",
     utterances: "true",
     filler_words: "true",
+    numerals: "true",
+    endpointing: "300",
+    paragraphs: "false",
   });
   // MediaRecorder commonly reports `audio/webm;codecs=opus`. Deepgram's
   // upload endpoint is stricter than browsers and can reject the codec
