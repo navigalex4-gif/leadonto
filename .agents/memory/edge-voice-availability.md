@@ -17,3 +17,6 @@ For Google Cloud native-language TTS, query and cache the provider's actual loca
 **Why:** a plausible Telugu Wavenet name returned `VOICE_DOES_NOT_EXIST` in this environment while other locale voices worked.
 
 **How to apply:** select a valid locale voice from `listVoices(languageCode)`, fall back to a valid Hindi voice for locales without a dedicated entry, and verify every supported language with a non-empty audio response.
+
+## Hindi recognition model
+Hindi audio needs Google's `latest_long` recognition model in this app. The faster `latest_short` model has been observed to drop Devanagari vowel signs, producing fragments such as “क स” instead of “कैसे”; keep English on `latest_short` for latency.

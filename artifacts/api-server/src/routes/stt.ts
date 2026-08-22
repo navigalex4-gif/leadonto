@@ -65,10 +65,11 @@ async function transcribeWithGoogleCloud(
       // Keep Indian English primary, but allow Google's recognizer to resolve
       // common US/UK pronunciations used inside Indian workplace speech.
       ...(language === "English" ? { alternativeLanguageCodes: ["en-US", "en-GB"] } : {}),
-      // Candidate turns are bounded by the client VAD and need to return
-      // quickly enough for a conversational reply. The short-form model avoids
-      // the long-form recognizer's multi-second tail on ordinary answers.
-      model: "latest_short",
+      // Candidate turns are bounded by the client VAD. Hindi needs the
+      // long-form recognizer: latest_short frequently drops Devanagari vowel
+      // signs and turns "कैसे" into "क स". English can stay on the quicker
+      // short-form model for conversational latency.
+      model: language === "English" ? "latest_short" : "latest_long",
       enableAutomaticPunctuation: true,
       speechContexts: [{ phrases: WORKPLACE_PHRASES, boost: 8 }],
       // Preserve word boundaries and improve clarity for names, tools, and
