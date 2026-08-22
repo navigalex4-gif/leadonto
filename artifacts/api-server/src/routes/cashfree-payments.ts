@@ -10,6 +10,7 @@ const router: IRouter = Router();
 const MIN_PURCHASE = 49;
 const MAX_PURCHASE = 100_000;
 const CASHFREE_API_VERSION = "2025-01-01";
+const CREDIT_RETURN_URL = "https://leadonto.com/credits";
 
 type CashfreeConfig = { appId: string; secretKey: string; baseUrl: string; environment: "sandbox" | "production" };
 type CashfreeOrder = { order_id?: string; payment_session_id?: string; order_status?: string };
@@ -169,7 +170,8 @@ router.post("/credits/cashfree/order", requireAuth, async (req: Request, res: Re
         },
         order_note: `Lead Onto credit top-up (${credits} credits)`,
         order_meta: {
-          return_url: `https://leadonto.com/credits?cashfreeOrder=${encodeURIComponent(id)}`,
+          // Always return to the same canonical credits page after checkout.
+          return_url: `${CREDIT_RETURN_URL}?cashfreeOrder=${encodeURIComponent(id)}`,
           notify_url: `https://leadonto.com/api/credits/cashfree/webhook`,
         },
       }),

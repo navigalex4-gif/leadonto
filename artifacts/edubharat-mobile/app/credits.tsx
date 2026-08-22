@@ -40,10 +40,8 @@ export default function CreditsScreen() {
         method: 'POST',
         body: JSON.stringify({ credits: amount }),
       });
-      const domain = process.env.EXPO_PUBLIC_DOMAIN || process.env.EXPO_PUBLIC_API_URL;
-      if (!domain) throw new Error('The Lead Onto web address is not configured for this build.');
-      const webBase = domain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-      const checkoutUrl = `https://${webBase}/credits?cashfreeOrder=${encodeURIComponent(order.orderId)}&cashfreeSession=${encodeURIComponent(order.paymentSessionId)}`;
+      // Cashfree returns to the same canonical page used by web checkout.
+      const checkoutUrl = `https://leadonto.com/credits?cashfreeOrder=${encodeURIComponent(order.orderId)}&cashfreeSession=${encodeURIComponent(order.paymentSessionId)}`;
       await WebBrowser.openBrowserAsync(checkoutUrl);
 
       // The webhook is authoritative. Reconcile for a short period after the
