@@ -35,3 +35,10 @@ id = "50V4OXkqgWvHHFeAydJ50"
 uri = "file://screenshots/interview-fixed.jpg"
 type = "image"
 title = "Interview Ace — no question counts"
+
+[[outputs]]
+id = "UOh9bOg8Ib_8ge2_gwQQI"
+uri = "file://exports/lead-onto-source.zip"
+type = "unspecified"
+title = "Lead Onto source project ZIP"
+description = "Clean 19 MB source archive, safely below the 500 MB target. Includes project source, configs, lockfiles, database files, runtime assets, and documentation; excludes dependencies, Git history, platform data, caches, generated builds, recordings, and old archives."
