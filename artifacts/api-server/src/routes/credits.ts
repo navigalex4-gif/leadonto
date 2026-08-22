@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { requireAuth } from "./profile.js";
+import { isAdminSession } from "../lib/guards.js";
 import {
   getBalance,
   getRecentTransactions,
@@ -12,12 +13,20 @@ import {
   LIVE_BLOCK_SECONDS,
 } from "../lib/credits.js";
 const router: IRouter = Router();
+// Admin smoke tests must be able to exercise metered products without mutating
+// the admin's real credit ledger. The server still returns a finite number so
+// existing client balance components remain compatible.
+const ADMIN_UNLIMITED_BALANCE = 999999;
 
 // GET /api/credits/balance — public; guests receive authenticated:false.
 router.get("/credits/balance", async (req: Request, res: Response) => {
   const userId = req.session.userId;
   if (!userId) {
     res.json({ authenticated: false, balance: null });
+    return;
+  }
+  if (isAdminSession(req)) {
+    res.json({ authenticated: true, balance: ADMIN_UNLIMITED_BALANCE, unlimited: true });
     return;
   }
   const balance = await getBalance(userId);
@@ -59,14 +68,16 @@ router.post("/credits/interview/charge", requireAuth, async (req: Request, res: 
   // for THIS interview's blocks; a fresh id per interview means old references
   // can't be replayed for free credits.
   const id = randomUUID();
-  const result = await spendCredits({
+  const result = isAdminSession(req)
+    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
+    : await spendCredits({
     userId,
     amount: INTERVIEW_BLOCK_COST,
     type: "spend_interview",
     description: `Interview (block 1 · ${durationMinutes} min session)`,
     reference: `interview:${id}:1`,
     idempotent: true,
-  });
+      });
   if (!result.ok) {
     req.session.interview = undefined;
     res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: INTERVIEW_BLOCK_COST });
@@ -121,14 +132,16 @@ router.post("/credits/interview/tick", requireAuth, async (req: Request, res: Re
     res.status(409).json({ error: "block_out_of_order", expected: meter.blocksCharged + 1 });
     return;
   }
-  const result = await spendCredits({
+  const result = isAdminSession(req)
+    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
+    : await spendCredits({
     userId,
     amount: INTERVIEW_BLOCK_COST,
     type: "spend_interview",
     description: `Interview (block ${block})`,
     reference: `interview:${meter.id}:${block}`,
     idempotent: true,
-  });
+      });
   if (!result.ok) {
     res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: INTERVIEW_BLOCK_COST });
     return;
@@ -160,18 +173,20 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
   const userId = req.session.userId!;
   const active = req.session.live;
   if (active && Date.now() < active.expiresAt) {
-    res.json({ ok: true, balance: await getBalance(userId), liveId: active.id, startedAt: active.startedAt, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
+    res.json({ ok: true, balance: isAdminSession(req) ? ADMIN_UNLIMITED_BALANCE : await getBalance(userId), liveId: active.id, startedAt: active.startedAt, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
     return;
   }
   const id = randomUUID();
-  const result = await spendCredits({
+  const result = isAdminSession(req)
+    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
+    : await spendCredits({
     userId,
     amount: LIVE_BLOCK_COST,
     type: "spend_live",
     description: "Live conversation (block 1 · 12 minutes)",
     reference: `live:${id}:1`,
     idempotent: true,
-  });
+      });
   if (!result.ok) {
     res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: LIVE_BLOCK_COST });
     return;
@@ -209,14 +224,16 @@ router.post("/credits/live/tick", requireAuth, async (req: Request, res: Respons
     res.status(409).json({ error: "block_out_of_order", expected: meter.blocksCharged + 1 });
     return;
   }
-  const result = await spendCredits({
+  const result = isAdminSession(req)
+    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
+    : await spendCredits({
     userId,
     amount: LIVE_BLOCK_COST,
     type: "spend_live",
     description: `Live conversation (block ${block} · 12 minutes)`,
     reference: `live:${meter.id}:${block}`,
     idempotent: true,
-  });
+      });
   if (!result.ok) {
     res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: LIVE_BLOCK_COST });
     return;

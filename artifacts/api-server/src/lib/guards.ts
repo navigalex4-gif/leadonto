@@ -14,3 +14,8 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   }
   next();
 }
+
+/** Server-side access flag used by the admin's product smoke-test account. */
+export function isAdminSession(req: Request): boolean {
+  return req.session.userId !== undefined && req.session.isAdmin === true;
+}
