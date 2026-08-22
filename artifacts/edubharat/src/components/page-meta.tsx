@@ -1,8 +1,8 @@
 import { Helmet } from "react-helmet-async";
 
 const DEFAULT = {
-  title: "Lead Onto — English for Real Situations & Real Roles",
-  description: "Learn what to say in real-life situations, discover the right modern words, get local-language support, and practise interviews tailored to your role.",
+  title: "Lead Onto — Speak with Confidence. Prepare for the Role You Want.",
+  description: "Speak with confidence, practise real conversations, and prepare for the role you want with Lead Onto's AI-powered English and interview coaching.",
   ogImage: "https://leadonto.com/opengraph.jpg",
 };
 
