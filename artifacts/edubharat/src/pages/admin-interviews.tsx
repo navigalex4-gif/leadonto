@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { useAuth } from "@/lib/use-auth";
 import { AdminNav } from "@/components/admin-nav";
-import { downloadCsv } from "@/lib/export-data";
+import { downloadCsv, downloadText } from "@/lib/export-data";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -29,6 +29,7 @@ type InterviewRow = {
   grammarScore: number | null;
   confidenceScore: number | null;
   technicalScore: number | null;
+  questionsData: string | null;
   feedbackJson: string | null;
   durationSeconds: number | null;
   completedAt: string | null;
@@ -108,6 +109,83 @@ function parseCompetencies(raw: string | null): Array<{ name: string; score: num
     }
     return result;
   } catch { return []; }
+}
+
+function prettyJson(raw: string | null): string {
+  if (!raw) return "Not available";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+function reportFilename(row: InterviewRow): string {
+  const candidate = (row.userName || row.userEmail || `candidate-${row.id}`)
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+  return `interview-report-${candidate || `session-${row.id}`}.txt`;
+}
+
+function downloadCompleteReport(row: InterviewRow) {
+  const verdict =
+    row.overallScore === null
+      ? "Pending"
+      : row.overallScore >= PASS_BAR
+      ? "Selected"
+      : "Not Selected";
+  const candidateName = row.userName || "Not recorded";
+  const questions = prettyJson(row.questionsData);
+  const feedback = prettyJson(row.feedbackJson);
+  const report = [
+    "LEAD ONTO — COMPLETE INTERVIEW REPORT",
+    "======================================",
+    "",
+    "CANDIDATE",
+    `Name: ${candidateName}`,
+    `Email: ${row.userEmail || "Not recorded"}`,
+    `User ID: ${row.userId ?? "Not recorded"}`,
+    `Education: ${row.education || "Not recorded"}`,
+    `Degree: ${row.degree || "Not recorded"}`,
+    `Branch: ${row.branch || "Not recorded"}`,
+    `University: ${row.university || "Not recorded"}`,
+    `Profile location: ${row.userLocation || "Not recorded"}`,
+    `Preferred city: ${row.preferredCity || "Not recorded"}`,
+    "",
+    "INTERVIEW",
+    `Session ID: ${row.id}`,
+    `Role applied: ${row.role}`,
+    `Experience level: ${row.experienceLevel}`,
+    `Interview type: ${row.interviewType || "Not recorded"}`,
+    `Started: ${fmt(row.createdAt)}`,
+    `Completed: ${fmt(row.completedAt)}`,
+    `Duration: ${durFmt(row.durationSeconds)}`,
+    `Verdict: ${verdict}`,
+    "",
+    "SCORE BREAKDOWN",
+    `Overall score: ${row.overallScore ?? "Not scored"}`,
+    `Communication: ${row.communicationScore ?? "Not scored"}`,
+    `Grammar: ${row.grammarScore ?? "Not scored"}`,
+    `Confidence: ${row.confidenceScore ?? "Not scored"}`,
+    `Technical: ${row.technicalScore ?? "Not scored"}`,
+    "",
+    "COMPLETE STRUCTURED FEEDBACK",
+    feedback,
+    "",
+    "QUESTION-BY-QUESTION TRANSCRIPT",
+    questions,
+    "",
+    "SIGN-IN ORIGIN",
+    `Signup location: ${row.signupLocation || "Not recorded"}`,
+    `Signup IP: ${row.signupIp || "Not recorded"}`,
+    `Last login location: ${row.lastLoginLocation || "Not recorded"}`,
+    `Last login IP: ${row.lastLoginIp || "Not recorded"}`,
+    "",
+    "Generated from the Lead Onto admin panel.",
+  ].join("\n");
+
+  downloadText(report, reportFilename(row));
 }
 
 /** Unique candidates list for the dropdown filter. */
@@ -455,7 +533,18 @@ export default function AdminInterviews() {
 
                     {/* Interview result */}
                     <section>
-                      <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-3">Interview result</h3>
+                      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Interview result</h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => downloadCompleteReport(row)}
+                        >
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          Download complete report
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                         <Field label="Role applied" value={row.role} />
                         <Field label="Experience level" value={row.experienceLevel} />

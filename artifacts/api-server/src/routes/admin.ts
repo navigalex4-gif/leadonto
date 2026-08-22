@@ -190,6 +190,7 @@ router.get("/admin/interviews", requireAdmin, async (_req: Request, res: Respons
         grammarScore: interviewSessionsTable.grammarScore,
         confidenceScore: interviewSessionsTable.confidenceScore,
         technicalScore: interviewSessionsTable.technicalScore,
+        questionsData: interviewSessionsTable.questionsData,
         feedbackJson: interviewSessionsTable.feedbackJson,
         durationSeconds: interviewSessionsTable.durationSeconds,
         completedAt: interviewSessionsTable.completedAt,
