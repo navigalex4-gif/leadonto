@@ -636,6 +636,21 @@ function EnglishGuruContent() {
         if (!isSilenceProbe) historySlice.push({ role: "user" as const, text: userMsg });
         const recentHistory = historySlice
           .map(m => `${m.role === "user" ? "Student" : teacherShort}: ${m.text}`).join("\n");
+        const previousTeacherMessage = [...convHistoryRef.current]
+          .reverse()
+          .find((item) => item.role === "ai")?.text ?? "";
+        // Treat "say what you asked in Hindi" as a real translation request.
+        // This common learner phrasing is easy for a small live-chat model to
+        // mistake for a request to continue coaching, especially when it is
+        // written in Devanagari. Give the model the exact source sentence.
+        const asksToRepeatPreviousQuestionInNative =
+          uiLang !== "English" && (
+            /(?:say|speak|repeat|tell).{0,35}(?:what|question).{0,35}(?:asked|said).{0,25}(?:in|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|urdu)/i.test(userMsg)
+            || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
+          );
+        const translationInstruction = asksToRepeatPreviousQuestionInNative && previousTeacherMessage
+          ? `\n[HIGH PRIORITY TRANSLATION REQUEST: The student is asking you to say in ${uiLang} what YOU just asked. Translate your immediately previous teacher message exactly into natural ${uiLang}. The source message was: "${previousTeacherMessage}". Reply with that translation first. Do not give a generic acknowledgement, ask a new question, or start an English practice exercise.]\n`
+          : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
           : "";
@@ -684,7 +699,7 @@ function EnglishGuruContent() {
           : "";
 
         let response = await stream(
-          `${recentHistory}${silenceInstruction}\n${teacherShort}:`,
+           `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
 This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
