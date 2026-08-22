@@ -13,6 +13,18 @@ const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 
+// Apply language-quality guidance at the shared AI boundary so Journey, Tools,
+// Rozgar, interviews, and Live Conversation all receive the same Hindi rules.
+// Client prompts remain free to choose the language; this only activates when
+// Hindi/Devanagari is actually requested.
+const HINDI_QUALITY_RULE = `Language quality rule: When producing Hindi, write natural conversational Hindi in standard Devanagari. Preserve every vowel sign (matra) and word boundary. Never drop matras, split words into isolated consonants, invent phonetic Devanagari, or mix Hindi grammar with another Indian language.`;
+
+function applyLanguageQuality(prompt: string, system?: string | null): string | null | undefined {
+  const requestedText = `${prompt}\n${system ?? ""}`;
+  if (!/(?:Hindi|हिंदी|हिन्दी|Devanagari|देवनागरी|matra|मात्रा)/iu.test(requestedText)) return system;
+  return `${system ? `${system}\n\n` : ""}${HINDI_QUALITY_RULE}`;
+}
+
 function getAnthropicModelChain(_maxTokens: number) {
   // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
   // Previously, ≤160-token calls only tried haiku with no fallback, so any haiku hiccup
@@ -320,7 +332,8 @@ router.post("/ai/stream", async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
-  const { prompt, system, maxTokens } = parseResult.data;
+  const { prompt, system: rawSystem, maxTokens } = parseResult.data;
+  const system = applyLanguageQuality(prompt, rawSystem);
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -404,7 +417,8 @@ router.post("/ai/gemini-stream", async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
-  const { prompt, system, maxTokens } = parseResult.data;
+  const { prompt, system: rawSystem, maxTokens } = parseResult.data;
+  const system = applyLanguageQuality(prompt, rawSystem);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -454,7 +468,8 @@ router.post("/ai/chat", async (req, res) => {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
-  const { prompt, maxTokens, system } = parseResult.data;
+  const { prompt, maxTokens, system: rawSystem } = parseResult.data;
+  const system = applyLanguageQuality(prompt, rawSystem);
 
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
 
@@ -571,7 +586,8 @@ export async function generateTextWithFallback(opts: {
   onDelta?: (text: string) => void;
   log?: { warn: (obj: unknown, msg?: string) => void };
 }): Promise<string> {
-  const { prompt, system, maxTokens = 4096, onDelta, log } = opts;
+  const { prompt, system: rawSystem, maxTokens = 4096, onDelta, log } = opts;
+  const system = applyLanguageQuality(prompt, rawSystem);
   let full = "";
 
   // ── Anthropic / Claude chain (reliable primary) ──
