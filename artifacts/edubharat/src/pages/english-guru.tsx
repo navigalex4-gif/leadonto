@@ -52,6 +52,12 @@ const LIVE_OPENINGS = [
 const ENERGETIC_TUTOR_DIRECTION =
   "Be energetic, engaging and encouraging without sounding fake. Keep the learner curious with warm reactions, clear momentum, varied short questions and practical examples. Make the conversation feel rewarding so they want to continue.";
 
+function formatLiveTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
 }
@@ -159,6 +165,7 @@ function EnglishGuruContent() {
   const [liveChat, setLiveChat] = useState(false);
   const [showCreditGate, setShowCreditGate] = useState(false);
   const [livePaused, setLivePaused] = useState(false);
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0);
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
@@ -874,6 +881,7 @@ Rules for spoken replies:
       void endLiveBlock(liveIdRef.current ?? undefined);
       liveIdRef.current = null;
       liveStartedAtRef.current = null;
+      setLiveElapsedSeconds(0);
       setLiveChat(false);
       setLivePaused(false);
       livePausedRef.current = false;
@@ -925,6 +933,7 @@ Rules for spoken replies:
       liveStartedAtRef.current = charge.startedAt ?? Date.now();
     }
     trackFunnel("first_session_started", { feature: "english_guru_live", authenticated: Boolean(user), guest: !user });
+    liveStartedAtRef.current ||= Date.now();
     liveChatRef.current = true;
     livePausedRef.current = false;
     setLiveChat(true);
@@ -982,11 +991,27 @@ Rules for spoken replies:
       void endLiveBlock(liveIdRef.current ?? undefined);
       liveIdRef.current = null;
       liveStartedAtRef.current = null;
+       setLiveElapsedSeconds(0);
     };
   }, [cancelActiveTurn]);
   useEffect(() => () => {
     if (liveIdRef.current) void endLiveBlock(liveIdRef.current);
   }, []);
+
+  // Keep elapsed time visible for both guests and signed-in users. Billing
+  // continues to use its own block timer below; this is only the user-facing
+  // session clock.
+  useEffect(() => {
+    if (!liveChat) return;
+    const updateElapsed = () => {
+      if (liveStartedAtRef.current) {
+        setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - liveStartedAtRef.current) / 1000)));
+      }
+    };
+    updateElapsed();
+    const id = setInterval(updateElapsed, 1000);
+    return () => clearInterval(id);
+  }, [liveChat]);
 
   // Meter live conversation: signed-in users spend 1 credit per 12-min block;
   // guests burn down a free 15-minute trial. Both end gracefully when exhausted.
@@ -1243,6 +1268,15 @@ Rules for spoken replies:
                     <h2 className="text-sm font-bold text-secondary">Live Conversation</h2>
                     <p className="text-xs text-muted-foreground">{uiLang === "English" ? "Speak in English — I reply naturally" : `Speak in English or ${uiLang} — I'll help in ${uiLang} when you're stuck`}</p>
                   </div>
+                  {liveChat && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 font-mono text-[11px] font-bold text-green-700"
+                      aria-label={`Live conversation time ${formatLiveTime(liveElapsedSeconds)}`}
+                    >
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+                      {formatLiveTime(liveElapsedSeconds)}
+                    </span>
+                  )}
                 </div>
                 <Button
                   onClick={toggleLiveChat}

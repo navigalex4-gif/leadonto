@@ -733,7 +733,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
   }
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-12">
+    <div className={`container mx-auto max-w-4xl px-4 ${phase === "interview" ? "h-[calc(100dvh-4.5rem)] overflow-hidden py-2 sm:h-auto sm:overflow-visible sm:py-12" : "py-8 sm:py-12"}`}>
       <PageMeta title="Communication Check" description="Get a free 90-second check of your communication, confidence, and interview readiness." ogUrl="https://leadonto.com/communication-check" canonicalUrl="https://leadonto.com/communication-check" />
       {phase === "details" ? (
         <Card className="overflow-hidden border-primary/20 shadow-xl">
@@ -786,13 +786,13 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden border-primary/20 shadow-xl">
+        <Card className="flex h-full flex-col overflow-hidden border-primary/20 shadow-xl sm:h-auto">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-5 py-4 sm:px-7">
              <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Live communication check</p><p className="mt-1 text-sm text-muted-foreground">Speak naturally. Your communication coach responds quickly.</p></div>
             <div className={`rounded-full px-4 py-2 font-mono text-lg font-bold ${remaining <= 10 ? "bg-red-100 text-red-700" : "bg-background text-secondary"}`}><Clock3 className="mr-1.5 inline h-4 w-4" />{formatTime(remaining)}</div>
           </div>
-          <CardContent className="space-y-6 p-6 sm:p-9">
-            <div className="flex items-start gap-4 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-5">
+          <CardContent className="flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden p-3 sm:space-y-6 sm:p-9">
+             <div className="flex min-h-0 shrink-0 items-start gap-3 rounded-2xl bg-gradient-to-r from-orange-50 to-violet-50 p-3 sm:gap-4 sm:p-5">
                <AnimatedAvatar
                  name={INTERVIEWER.name}
                   subtitle="Communication coach"
@@ -804,11 +804,11 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                />
                 <div className="min-w-0 flex-1 pt-1"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Communication coach</p><p className="mt-1 text-lg font-semibold leading-relaxed text-secondary">{currentQuestion}</p></div>
             </div>
-              <div className="min-h-20 rounded-xl border bg-background p-4 text-sm text-secondary">
+               <div className="min-h-16 min-w-0 flex-1 overflow-y-auto rounded-xl border bg-background p-3 text-sm text-secondary sm:min-h-20 sm:p-4">
                  {currentAnswer || speech.interimTranscript || <span className="text-muted-foreground">{isThinking ? "Your interviewer is preparing the next question…" : speech.status === "warming" ? "Preparing microphone…" : speech.status === "processing" ? "Your answer is being transcribed…" : speech.status === "listening" ? "Speak naturally…" : isListening ? "Preparing to listen…" : "Get ready to speak…"}</span>}
                  {!currentAnswer && speech.interimTranscript && <span className="ml-1 inline-block w-0.5 h-4 align-middle bg-primary animate-pulse" />}
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+             <div className="shrink-0 space-y-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:space-y-0">
                <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
                  speech.status === "listening" ? "border-emerald-300 bg-emerald-50 text-emerald-700" :
                  speech.status === "processing" ? "border-blue-300 bg-blue-50 text-blue-700" :

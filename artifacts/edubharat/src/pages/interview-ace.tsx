@@ -925,6 +925,10 @@ function InterviewAceContent() {
   // Retries on the current beat, for the 2-attempt rule: a weak answer earns ONE
   // gentle re-ask; after that we move on to a fresh area rather than dwelling.
   const retryRef = useRef(0);
+  // Fresh entropy for every interview. It is included in the prompt and
+  // fallback ordering so two candidates with the same role and answer path do
+  // not receive the same short script.
+  const questionVariationRef = useRef("");
   // Interview credits are metered per block (1 credit each). The first block is
   // charged at start; this counts blocks charged so the meter stops at the max
   // (a full session costs at most INTERVIEW_MAX_BLOCKS credits).
@@ -1268,6 +1272,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     windDownRef.current = false;
     beatIdxRef.current = 0;
     retryRef.current = 0;
+    questionVariationRef.current = crypto.randomUUID();
     setPhase("interview");
     // Camera does NOT start automatically — user must enable it via the button.
     // Set coachSpeaking BEFORE the delay so the auto-listen effect cannot fire
@@ -1485,10 +1490,11 @@ STYLE — important:
  - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
   - Make the turn feel responsive: briefly pick up one meaningful detail from the answer, then ask a useful follow-up or a naturally connected new-area question. Do not praise every answer and do not announce a competency transition.
   - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
- - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
+  - SESSION VARIATION TOKEN: ${questionVariationRef.current}. Use it to choose a different scenario, verb, perspective or constraint from other sessions while staying relevant to the role.
+  - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
  - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. Use one short sentence of about 8–18 simple words, with one clear idea only. Never join questions with "and", "or", or multiple question marks.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
-- The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas.
+ - The interview must feel DIVERSIFIED across the whole scorecard — functional/role knowledge, problem-solving, adaptability, ownership & work ethic, collaboration and IT skills, plus their background — not a chain of similar questions. Do NOT keep asking only about functional/domain knowledge; keep moving across the different areas. Across sessions, vary the scenario, stakeholder, constraint, time horizon and requested outcome while keeping the same scorecard area.
 - LANGUAGE LEVEL: By default ask in SIMPLE, clear, everyday English — short sentences, common words — because many candidates are from average English-medium colleges. Judge ${firstName}'s own English from their answers so far: if they are clearly fluent and comfortable, you may use richer vocabulary and slightly more complex questions to match them; if they struggle, make your wording even simpler. Never make a question harder to follow than the candidate can handle.
 - Use ${firstName}'s name sparingly.
 - Plain spoken words ONLY: no markdown, no asterisks, no *actions*, no stage directions, no quotes around your reply.
