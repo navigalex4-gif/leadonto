@@ -140,10 +140,10 @@ export function Navbar() {
   return (
     <>
        <nav className="leadonto-navbar w-full max-w-full border-b sticky top-0 z-50 overflow-visible">
-         <div className="container mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:flex-wrap max-[480px]:gap-1 max-[480px]:py-1 overflow-visible">
+          <div className="container relative mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:flex-wrap max-[480px]:gap-1 max-[480px]:py-1 overflow-visible">
 
           {/* Logo */}
-          <Link href="/" className="order-1 font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1 max-[360px]:text-base max-[360px]:mr-0">
+           <Link href="/" className="order-1 basis-full font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1 max-[480px]:basis-full max-[360px]:text-base max-[360px]:mr-0">
             Lead Onto
           </Link>
 
@@ -226,7 +226,7 @@ export function Navbar() {
             {authenticated && (
               <Link
                 href="/credits"
-                className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 text-xs font-bold hover:bg-amber-100 transition-colors"
+                className="leadonto-credit flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 text-xs font-bold hover:bg-amber-100 transition-colors"
                 title="Your credits"
               >
                 <Coins className="w-3.5 h-3.5" />
@@ -253,7 +253,7 @@ export function Navbar() {
               </div>
             ) : (
               <Link href={`/login?returnTo=${encodeURIComponent(location)}`}>
-                <Button variant="outline" size="sm" className="h-7 px-3 text-xs font-semibold">
+                <Button variant="outline" size="sm" className="leadonto-sign-in h-7 px-3 text-xs font-semibold">
                   <LogIn className="w-3.5 h-3.5 mr-1" />Sign In
                 </Button>
               </Link>
@@ -261,9 +261,9 @@ export function Navbar() {
           </div>}
 
           {/* ── Mobile right side ── */}
-          <div className="order-1 flex min-w-0 shrink-0 md:hidden items-center gap-0.5 ml-auto">
+          <div className="leadonto-mobile-actions order-1 flex min-w-0 shrink-0 md:hidden items-center gap-0.5 ml-auto">
             {!isB2BRoute && authenticated && (
-              <Link href="/credits" className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-xs font-bold" title="Your credits">
+              <Link href="/credits" className="leadonto-credit flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-xs font-bold" title="Your credits">
                 <Coins className="w-3 h-3" />
                 {balance ?? "…"}
               </Link>
@@ -286,7 +286,7 @@ export function Navbar() {
             {!isB2BRoute && !user && (
               <Link
                 href={`/login?returnTo=${encodeURIComponent(location)}`}
-                className="p-2 min-h-11 min-w-10 rounded-lg hover:bg-muted transition-colors flex items-center justify-center"
+                className="leadonto-sign-in p-2 min-h-11 min-w-10 rounded-lg hover:bg-muted transition-colors flex items-center justify-center"
                 aria-label="Sign in"
                 title="Sign in"
               >

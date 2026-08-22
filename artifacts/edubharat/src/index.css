@@ -164,6 +164,43 @@
 .leadonto-navbar .text-muted-foreground {
   color: rgb(224 231 255 / 0.76);
 }
+.leadonto-navbar .leadonto-credit {
+  color: #a16207 !important;
+}
+.leadonto-navbar .leadonto-credit:hover {
+  color: #854d0e !important;
+}
+.leadonto-navbar .leadonto-sign-in {
+  color: #fff !important;
+  border-color: rgb(255 255 255 / 0.5);
+}
+.leadonto-navbar .leadonto-sign-in:hover {
+  color: #fff !important;
+  background-color: rgb(255 255 255 / 0.14);
+}
+@media (max-width: 480px) {
+  .leadonto-navbar .leadonto-mobile-actions {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.5rem;
+    z-index: 2;
+    margin-left: 0;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .leadonto-navbar .leadonto-mobile-actions .leadonto-sign-in,
+  .leadonto-navbar .leadonto-mobile-actions > button {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  .leadonto-navbar .leadonto-mobile-actions .leadonto-sign-in:hover,
+  .leadonto-navbar .leadonto-mobile-actions > button:hover {
+    background-color: rgb(255 255 255 / 0.2);
+  }
+}
 .leadonto-navbar .hover\:bg-muted\/60:hover,
 .leadonto-navbar .hover\:bg-muted:hover {
   background-color: rgb(255 255 255 / 0.1);
