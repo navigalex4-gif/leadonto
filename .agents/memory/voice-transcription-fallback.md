@@ -1,3 +1,5 @@
+Native-language STT must not use English workplace phrase boosts. Shared recognition should reject obvious Indic single-letter fragmentation instead of passing corrupted text into the tutor.
+
 ---
 name: Voice transcription provider fallback
 description: Shared silent MediaRecorder/VAD STT path, provider ordering, recovery behavior, and WebM upload compatibility.

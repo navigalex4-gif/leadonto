@@ -33,6 +33,16 @@ const WORKPLACE_PHRASES = [
   "customer service", "business analyst", "software developer",
 ];
 
+function isLikelyCorruptedIndicTranscript(text: string, language: string): boolean {
+  if (language === "English") return false;
+  const words = text.trim().split(/\s+/u).filter(Boolean);
+  if (words.length < 4) return false;
+  const singleIndicLetters = words.filter((word) =>
+    /^[\u0900-\u0D7F\u0600-\u06FF]$/u.test(word.replace(/[,.!?।॥]/gu, "")),
+  ).length;
+  return singleIndicLetters >= 3 && singleIndicLetters / words.length >= 0.45;
+}
+
 function getGoogleSpeechClient(): SpeechClient {
   if (googleSpeechClient) return googleSpeechClient;
   const rawCredentials = process.env.GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON;
@@ -71,17 +81,26 @@ async function transcribeWithGoogleCloud(
       // short-form model for conversational latency.
       model: language === "English" ? "latest_short" : "latest_long",
       enableAutomaticPunctuation: true,
-      speechContexts: [{ phrases: WORKPLACE_PHRASES, boost: 8 }],
+      // These phrases are English workplace vocabulary. Applying them to
+      // Hindi/Marathi or another native-language turn biases recognition into
+      // unrelated fragments and malformed single-letter output.
+      ...(language === "English"
+        ? { speechContexts: [{ phrases: WORKPLACE_PHRASES, boost: 8 }] }
+        : {}),
       // Preserve word boundaries and improve clarity for names, tools, and
       // interview terminology without changing the authoritative server STT
       // path or reintroducing browser SpeechRecognition.
       useEnhanced: true,
     },
   }, {});
-  return (response.results ?? [])
+  const transcript = (response.results ?? [])
     .map((result) => result.alternatives?.[0]?.transcript ?? "")
     .join(" ")
     .trim();
+  if (isLikelyCorruptedIndicTranscript(transcript, language)) {
+    throw new Error("Google Cloud returned a low-quality native-language transcript");
+  }
+  return transcript;
 }
 
 function getDeepgramLanguage(language: string): string {
@@ -152,7 +171,11 @@ async function transcribeWithDeepgram(
       }>;
     };
   };
-  return data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? "";
+  const transcript = data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? "";
+  if (isLikelyCorruptedIndicTranscript(transcript, language)) {
+    throw new Error("Deepgram returned a low-quality native-language transcript");
+  }
+  return transcript;
 }
 
 router.post("/stt", upload.single("audio"), async (req: Request, res: Response) => {
