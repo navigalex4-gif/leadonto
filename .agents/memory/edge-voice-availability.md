@@ -20,3 +20,6 @@ For Google Cloud native-language TTS, query and cache the provider's actual loca
 
 ## Hindi recognition model
 Hindi audio needs Google's `latest_long` recognition model in this app. The faster `latest_short` model has been observed to drop Devanagari vowel signs, producing fragments such as “क स” instead of “कैसे”; keep English on `latest_short` for latency.
+
+## Shared Devanagari routing
+Hindi and Marathi both use Devanagari, so script detection alone cannot choose the TTS language. When the selected native language is either Hindi or Marathi, Devanagari runs must retain that selected language rather than defaulting to Hindi or English.
