@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "crypto";
-import { db, usersTable, upiPaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable, resumeVersionsTable, communicationChecksTable } from "@workspace/db";
+import { db, usersTable, upiPaymentsTable, cashfreePaymentsTable, creditTransactionsTable, interviewSessionsTable, otpsTable, resumeVersionsTable, communicationChecksTable } from "@workspace/db";
 import { desc, eq, and } from "drizzle-orm";
 import { requireAdmin } from "../lib/guards.js";
 import { logger } from "../lib/logger.js";
@@ -100,6 +100,37 @@ router.get("/admin/users/:id", requireAdmin, async (req: Request, res: Response)
   } catch (err) {
     logger.error({ err: (err as Error).message }, "admin user detail failed");
     res.status(500).json({ error: "Could not load user" });
+  }
+});
+
+// GET /api/admin/cashfree-payments — Cashfree payment audit list.
+router.get("/admin/cashfree-payments", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    const payments = await db
+      .select({
+        id: cashfreePaymentsTable.id,
+        userId: cashfreePaymentsTable.userId,
+        orderId: cashfreePaymentsTable.orderId,
+        cfPaymentId: cashfreePaymentsTable.cfPaymentId,
+        credits: cashfreePaymentsTable.credits,
+        amountInr: cashfreePaymentsTable.amountInr,
+        status: cashfreePaymentsTable.status,
+        paymentMethod: cashfreePaymentsTable.paymentMethod,
+        providerStatus: cashfreePaymentsTable.providerStatus,
+        createdAt: cashfreePaymentsTable.createdAt,
+        paidAt: cashfreePaymentsTable.paidAt,
+        userName: usersTable.name,
+        userEmail: usersTable.email,
+      })
+      .from(cashfreePaymentsTable)
+      .leftJoin(usersTable, eq(cashfreePaymentsTable.userId, usersTable.id))
+      .orderBy(desc(cashfreePaymentsTable.createdAt))
+      .limit(2000);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ payments });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "admin Cashfree payments list failed");
+    res.status(500).json({ error: "Could not load Cashfree payments" });
   }
 });
 

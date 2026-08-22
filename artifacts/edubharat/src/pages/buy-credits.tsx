@@ -1,493 +1,178 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
-  LogIn, ShieldCheck, Infinity as InfinityIcon, QrCode, Clock, CheckCircle2,
-  XCircle, ArrowLeft, Copy, Smartphone,
+  LogIn, ShieldCheck, Infinity as InfinityIcon, Clock, CheckCircle2,
+  XCircle, ArrowLeft, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { track, trackFunnel } from "@/lib/analytics";
 import { PageMeta } from "@/components/page-meta";
 import {
-  useCredits, submitUpiPayment, pollUpiPaymentStatus, fetchTransactions,
-  CREDIT_MIN_PURCHASE, CREDIT_QUICK_PICKS, type CreditTx,
+  useCredits, createCashfreeOrder, getCashfreeStatus, fetchTransactions,
+  refreshCredits, CREDIT_MIN_PURCHASE, CREDIT_QUICK_PICKS, type CreditTx,
 } from "@/lib/use-credits";
 import { useContent } from "@/lib/use-content";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const UPI_ID = "abcfghijk@ybl";
-const UPI_DISPLAY_NAME = "Edu Bharat";
-const CREDIT_QR_SRC = `${import.meta.env.BASE_URL ?? "/"}images/credit-qr.jpg`;
+type Stage = "pick" | "pending" | "paid" | "failed";
 
 const TX_LABEL: Record<string, string> = {
-  signup_grant: "Welcome bonus",
-  purchase: "Top-up",
-  spend_interview: "Interview",
-  spend_live: "Live conversation",
-  refund: "Refund",
-  adjustment: "Adjustment",
+  signup_grant: "Welcome bonus", purchase: "Top-up", spend_interview: "Interview",
+  spend_live: "Live conversation", refund: "Refund", adjustment: "Adjustment",
 };
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-  } catch { return ""; }
+  try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); }
+  catch { return ""; }
 }
 
-function buildUpiUri(amount: number): string {
-  const params = new URLSearchParams({
-    pa: UPI_ID,
-    pn: UPI_DISPLAY_NAME,
-    am: amount.toFixed(2),
-    cu: "INR",
-    tn: `Lead Onto Credits Top-up`,
+function loadCashfree(mode: "sandbox" | "production" = "sandbox"): Promise<(args: { paymentSessionId: string; redirectTarget: "_self" | "_modal" }) => Promise<unknown>> {
+  const existing = (window as Window & { Cashfree?: (options: { mode: "sandbox" | "production" }) => { checkout: (args: { paymentSessionId: string; redirectTarget: "_self" | "_modal" }) => Promise<unknown> } }).Cashfree;
+  if (existing) return Promise.resolve((args) => existing({ mode }).checkout(args));
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+    script.async = true;
+    script.onload = () => {
+      const cashfree = (window as Window & { Cashfree?: (options: { mode: "sandbox" | "production" }) => { checkout: (args: { paymentSessionId: string; redirectTarget: "_self" | "_modal" }) => Promise<unknown> } }).Cashfree;
+      if (!cashfree) reject(new Error("Cashfree checkout could not load"));
+      else resolve((args) => cashfree({ mode }).checkout(args));
+    };
+    script.onerror = () => reject(new Error("Cashfree checkout could not load"));
+    document.head.appendChild(script);
   });
-  return `upi://pay?${params.toString()}`;
 }
-
-// ── Stages ────────────────────────────────────────────────────────────────────
-type Stage = "pick" | "qr" | "pending" | "approved" | "rejected";
 
 export default function BuyCredits() {
   const { balance, authenticated, loaded } = useCredits();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const search = useSearch();
+  const params = useMemo(() => new URLSearchParams(search), [search]);
+  const returnTo = useMemo(() => {
+    const value = params.get("returnTo");
+    return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+  }, [params]);
+  const returnedOrder = params.get("cashfreeOrder");
+  const returnedSession = params.get("cashfreeSession");
   const heroTitle = useContent("credits.hero.title", "Lead Onto Credits");
-  const heroSubtitle = useContent(
-    "credits.hero.subtitle",
-    "1 credit = ₹1. Pay via UPI — GPay, PhonePe, Paytm, or any UPI app. Credits never expire.",
-  );
-
+  const heroSubtitle = useContent("credits.hero.subtitle", "1 credit = ₹1. Pay securely with UPI, cards, or net banking. Credits never expire.");
   const [stage, setStage] = useState<Stage>("pick");
   const [amount, setAmount] = useState(99);
-  const [utr, setUtr] = useState("");
+  const [orderId, setOrderId] = useState<string | null>(returnedOrder);
+  const [orderCredits, setOrderCredits] = useState(amount);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentId, setPaymentId] = useState<number | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const [txns, setTxns] = useState<CreditTx[]>([]);
-  const [copied, setCopied] = useState(false);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const returnTo = useMemo(() => {
-    const value = new URLSearchParams(search).get("returnTo");
-    return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
-  }, [search]);
 
-  // Keep the original feature page through the sign-in step. Previously this
-  // link always returned users to /credits, losing the Interview Ace or
-  // English Guru page that opened the credit gate.
+  const valid = Number.isFinite(amount) && amount >= CREDIT_MIN_PURCHASE && amount <= 100_000;
   const loginReturnTo = returnTo ?? "/credits";
 
-  const valid = Number.isFinite(amount) && amount >= CREDIT_MIN_PURCHASE;
+  useEffect(() => { if (authenticated) void fetchTransactions().then(setTxns); }, [authenticated, balance]);
+  useEffect(() => { trackFunnel("payment_page_viewed", { returnTo: returnTo ?? undefined }); }, [returnTo]);
 
-  // Fetch transactions for history
-  useEffect(() => {
-    if (authenticated) void fetchTransactions().then(setTxns);
-  }, [authenticated, balance]);
-
-  // Poll for payment status when in pending stage
-  useEffect(() => {
-    trackFunnel("payment_page_viewed", { returnTo: returnTo ?? undefined });
-  }, [returnTo]);
-
-  useEffect(() => {
-    if (stage === "qr") {
-      trackFunnel("payment_started", { amount, method: "upi" });
-    } else if (stage === "pending") {
-      trackFunnel("payment_submitted", { amount, method: "upi" });
-    } else if (stage === "approved") {
-      trackFunnel("payment_approved", { amount, method: "upi" });
-    } else if (stage === "rejected") {
-      trackFunnel("payment_rejected", { amount, method: "upi" });
-    }
-  }, [stage, amount]);
-
-  useEffect(() => {
-    if (stage !== "pending" || paymentId === null) return;
-
-    const doPoll = async () => {
-      const result = await pollUpiPaymentStatus(paymentId);
-      if (!result) { scheduleNextPoll(); return; }
-      if (result.status === "approved") {
-        setStage("approved");
-        toast({ title: `✅ ${result.credits ?? amount} credits added!`, description: "Your balance has been updated." });
-      } else if (result.status === "rejected") {
-        setStage("rejected");
-      } else {
-        scheduleNextPoll();
-        setPollCount((c) => c + 1);
-      }
-    };
-
-    const scheduleNextPoll = () => {
-      pollTimerRef.current = setTimeout(() => void doPoll(), 6_000);
-    };
-
-    void doPoll();
-    return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, paymentId]);
-
-  // A successful top-up is the completion of the gate flow. Return users to
-  // the feature that asked for credits after briefly showing the new balance;
-  // the button below remains available for users who prefer to continue
-  // manually.
-  useEffect(() => {
-    if (stage !== "approved" || !returnTo) return;
-    const timer = window.setTimeout(() => navigate(returnTo), 1200);
-    return () => window.clearTimeout(timer);
-  }, [stage, returnTo, navigate]);
-
-  const handleCopyUpiId = useCallback(() => {
-    void navigator.clipboard.writeText(UPI_ID).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  const reconcile = useCallback(async (id: string) => {
+    const result = await getCashfreeStatus(id);
+    if (!result) return false;
+    if (result.status === "paid") { setStage("paid"); void refreshCredits(); return true; }
+    if (["failed", "cancelled", "expired"].includes(result.status)) { setStage("failed"); return true; }
+    return false;
   }, []);
 
-  const handleSubmitUtr = useCallback(async () => {
-    const trimmed = utr.trim();
-    if (trimmed.length < 6) {
-      toast({ title: "Enter a valid UTR number", description: "Your UTR is shown in the payment receipt in your UPI app.", variant: "destructive" });
+  useEffect(() => {
+    if (!returnedOrder || returnedSession) return;
+    setStage("pending");
+    void reconcile(returnedOrder);
+  }, [returnedOrder, returnedSession, reconcile]);
+
+  useEffect(() => {
+    if (!returnedOrder || !returnedSession) return;
+    setOrderId(returnedOrder);
+    setStage("pending");
+    let cancelled = false;
+    void (async () => {
+      try {
+        const checkout = await loadCashfree("sandbox");
+        if (!cancelled) await checkout({ paymentSessionId: returnedSession, redirectTarget: "_self" });
+      } catch {
+        if (!cancelled) toast({ title: "Checkout could not open", description: "Please return to the app and try again.", variant: "destructive" });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [returnedOrder, returnedSession, toast]);
+
+  useEffect(() => {
+    if (stage !== "pending" || !orderId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      const done = await reconcile(orderId);
+      if (!done && !cancelled) { setPollCount((n) => n + 1); timer = setTimeout(() => void poll(), 4000); }
+    };
+    void poll();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [stage, orderId, reconcile]);
+
+  const startCheckout = useCallback(async () => {
+    if (!valid) return;
+    setSubmitting(true);
+    track("payment_started", { amount, method: "cashfree" });
+    const result = await createCashfreeOrder(amount);
+    if (!result.ok || !result.orderId || !result.paymentSessionId) {
+      setSubmitting(false);
+      toast({ title: "Could not start payment", description: result.error ?? "Please try again.", variant: "destructive" });
       return;
     }
-    setSubmitting(true);
-    const result = await submitUpiPayment(amount, trimmed);
+    setOrderId(result.orderId);
+    setOrderCredits(result.credits ?? amount);
+    setStage("pending");
     setSubmitting(false);
-    if (result.ok && result.paymentId) {
-      setPaymentId(result.paymentId);
-      setStage(result.status === "approved" ? "approved" : "pending");
-      if (result.status === "approved") {
-        toast({ title: `✅ ${result.credits ?? amount} credits added!`, description: "Your balance is updated instantly." });
-      }
-    } else {
-      toast({ title: "Submission failed", description: result.error ?? "Please try again.", variant: "destructive" });
+    try {
+      const checkout = await loadCashfree(result.mode ?? "sandbox");
+      await checkout({ paymentSessionId: result.paymentSessionId, redirectTarget: "_self" });
+    } catch {
+      toast({ title: "Checkout could not open", description: "Your order is saved. You can retry from this page.", variant: "destructive" });
+      setStage("pending");
     }
-  }, [utr, amount, toast]);
+  }, [amount, toast, valid]);
 
+  const reset = () => { setStage("pick"); setOrderId(null); setPollCount(0); };
   const uses = useMemo(() => [
-    { icon: MessageCircle, title: "Live Conversation", cost: "1 credit / 12 min", note: "First block is charged when you start; 5 credits covers 60 minutes" },
-    { icon: Mic, title: "Mock Interviews", cost: "Up to 5 credits", note: "1 credit per fifth of your selected duration; ending early only charges blocks entered" },
-    { icon: GraduationCap, title: "Everything else", cost: "Free", note: "Lessons, grammar, writing, vocab, jobs & news" },
+    { icon: MessageCircle, title: "Live Conversation", cost: "1 credit / 12 min", note: "5 credits covers 60 minutes" },
+    { icon: Mic, title: "Mock Interviews", cost: "Up to 5 credits", note: "Pay only for blocks you enter" },
+    { icon: GraduationCap, title: "Everything else", cost: "Free", note: "Lessons, grammar, writing, jobs & news" },
   ], []);
-
-  // ── Step 1: Pick amount ──────────────────────────────────────────────────────
-  const renderPick = () => (
-    <Card className="mb-6 border shadow-sm">
-      <CardContent className="py-6">
-        <h2 className="font-bold text-secondary mb-4">Choose an amount</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
-           {CREDIT_QUICK_PICKS.map((c) => (
-            <button
-              key={c}
-               onClick={() => { setAmount(c); track("payment_amount_selected", { amount: c, source: "quick_pick" }); }}
-              className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all hover:shadow-sm ${
-                amount === c ? "border-amber-400 bg-amber-50" : "border-border bg-card hover:border-amber-200"
-              }`}
-            >
-              {c === 99 && (
-                <span className="absolute -top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  Popular
-                </span>
-              )}
-              <span className="block text-lg font-extrabold text-secondary flex items-center gap-1">
-                <Coins className="w-4 h-4 text-amber-500" />{c}
-              </span>
-              <span className="block text-xs text-muted-foreground">₹{c}</span>
-            </button>
-          ))}
-          <div className={`rounded-xl border-2 px-3 py-2 flex flex-col justify-center transition-all ${
-            !CREDIT_QUICK_PICKS.includes(amount) ? "border-amber-400 bg-amber-50" : "border-border"
-          }`}>
-            <label className="text-[11px] font-semibold text-muted-foreground mb-1">Custom</label>
-            <input
-              type="number"
-              min={CREDIT_MIN_PURCHASE}
-              value={amount}
-              onChange={(e) => setAmount(Math.floor(Number(e.target.value)))}
-              className="w-full bg-transparent text-lg font-extrabold text-secondary outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3 mb-5">
-          <span className="text-sm text-muted-foreground">You'll get</span>
-          <span className="font-bold text-secondary">
-            {valid ? amount : "—"} credits{" "}
-            <span className="text-muted-foreground font-normal">for ₹{valid ? amount : "—"}</span>
-          </span>
-        </div>
-
-        <Button
-          className="w-full h-12 font-bold text-base bg-amber-500 hover:bg-amber-600 text-white"
-           onClick={() => { if (valid) { track("payment_amount_selected", { amount, source: "custom_or_current" }); setStage("qr"); } }}
-          disabled={!valid}
-        >
-          <QrCode className="w-5 h-5 mr-2" />
-          Pay ₹{valid ? amount : "—"} via UPI
-        </Button>
-        {!valid && <p className="text-xs text-center text-destructive mt-2">Minimum top-up is {CREDIT_MIN_PURCHASE} credits.</p>}
-      </CardContent>
-    </Card>
-  );
-
-  // ── Step 2: Show QR + UTR form ───────────────────────────────────────────────
-  const renderQr = () => (
-    <Card className="mb-6 border shadow-sm">
-      <CardContent className="py-6">
-        <button onClick={() => setStage("pick")} className="flex items-center gap-1.5 text-sm text-muted-foreground mb-5 hover:text-secondary transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
-
-        <div className="text-center mb-5">
-          <p className="font-bold text-secondary text-lg mb-1">Scan to pay ₹{amount}</p>
-           <p className="text-sm text-muted-foreground">Use a second device to scan, or pay directly on this phone</p>
-        </div>
-
-        {/* Same-phone payment is the primary mobile path. The QR remains useful
-            when the user is viewing this page on a laptop or second device. */}
-        <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-center sm:hidden">
-          <Smartphone className="mx-auto mb-2 h-6 w-6 text-green-700" />
-          <p className="text-sm font-bold text-secondary">Pay on this phone</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Open your UPI app, confirm the amount, then return here to submit your UTR.</p>
-          <a
-            href={buildUpiUri(amount)}
-            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white transition-colors hover:bg-green-700"
-          >
-            Open UPI app <ArrowLeft className="h-4 w-4 rotate-180" />
-          </a>
-        </div>
-
-        <div className="mb-4 hidden justify-center sm:flex">
-          <div className="rounded-2xl border-4 border-amber-400 p-2 bg-white shadow-lg">
-             <img src={CREDIT_QR_SRC} alt="UPI QR code" className="w-[200px] h-[200px] rounded-lg object-cover object-center" />
-          </div>
-        </div>
-        <p className="mb-4 hidden text-center text-xs text-muted-foreground sm:block">On a laptop? Scan this QR with your phone.</p>
-
-        {/* UPI ID + copy */}
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <span className="text-sm font-mono font-semibold text-secondary">{UPI_ID}</span>
-          <button
-            onClick={handleCopyUpiId}
-            className="p-1 rounded hover:bg-muted transition-colors"
-            title="Copy UPI ID"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
-          </button>
-        </div>
-        <p className="text-center text-xs text-muted-foreground mb-6">{UPI_DISPLAY_NAME}</p>
-
-        {/* Steps */}
-        <ol className="text-sm text-muted-foreground space-y-1.5 mb-6 pl-4 list-decimal">
-           <li>Pay <strong className="text-secondary">₹{amount}</strong> using the button above on mobile, or scan the QR on a second device</li>
-          <li>Note the <strong className="text-secondary">UTR / Reference number</strong> from your payment receipt</li>
-           <li>Enter it below and submit — credits are added instantly after confirmation</li>
-        </ol>
-
-        {/* UTR input */}
-        <div className="space-y-3">
-          <Input
-            placeholder="Enter UTR / Reference number (e.g. 429012345678)"
-            value={utr}
-            onChange={(e) => setUtr(e.target.value.toUpperCase())}
-            className="font-mono text-sm"
-            maxLength={30}
-          />
-          <Button
-            className="w-full h-11 font-bold bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => void handleSubmitUtr()}
-            disabled={submitting || utr.trim().length < 6}
-          >
-            {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting…</> : "I've paid — submit UTR"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  // ── Step 3: Pending ──────────────────────────────────────────────────────────
-  const renderPending = () => (
-    <Card className="mb-6 border-amber-200 bg-amber-50/60 shadow-sm">
-      <CardContent className="py-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
-          <Clock className="w-8 h-8 text-amber-600 animate-pulse" />
-        </div>
-        <h2 className="font-bold text-secondary text-xl mb-2">Waiting for approval</h2>
-        <p className="text-sm text-muted-foreground mb-1">
-           Your payment of <strong className="text-secondary">₹{amount}</strong> is being checked.
-        </p>
-        <p className="text-xs text-muted-foreground">
-           Credits are added after successful confirmation. If verification later fails, incorrectly credited credits are reversed automatically.
-          {pollCount > 0 ? ` (checked ${pollCount} time${pollCount > 1 ? "s" : ""})` : ""}.
-        </p>
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking payment status…
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  // ── Step 4: Approved ─────────────────────────────────────────────────────────
-  const renderApproved = () => (
-    <Card className="mb-6 border-green-200 bg-green-50/60 shadow-sm">
-      <CardContent className="py-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="w-8 h-8 text-green-600" />
-        </div>
-        <h2 className="font-bold text-secondary text-xl mb-2">Payment approved! 🎉</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          <strong className="text-secondary">{amount} credits</strong> have been added to your account.
-          Your new balance is <strong className="text-secondary">{balance ?? "…"} credits</strong>.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-           <Button className="bg-primary hover:bg-primary/90 font-bold" onClick={() => navigate(returnTo ?? "/")}>
-             {returnTo ? "Continue practising" : "Go to dashboard"}
-          </Button>
-          <Button variant="outline" onClick={() => { setStage("pick"); setUtr(""); setPaymentId(null); }}>
-            Buy more credits
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  // ── Step 5: Rejected ─────────────────────────────────────────────────────────
-  const renderRejected = () => (
-    <Card className="mb-6 border-destructive/30 bg-destructive/5 shadow-sm">
-      <CardContent className="py-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-          <XCircle className="w-8 h-8 text-red-500" />
-        </div>
-        <h2 className="font-bold text-secondary text-xl mb-2">Payment not approved</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          The UTR you submitted could not be verified. Please double-check the UTR number from your UPI app and try again, or contact us.
-        </p>
-        <Button variant="outline" onClick={() => { setStage("qr"); setUtr(""); setPaymentId(null); }}>
-          Try again
-        </Button>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-8">
-      <PageMeta title="Buy Credits · Lead Onto" description="Top up Lead Onto credits via UPI. 1 credit = ₹1. Credits never expire." />
-
-      {/* Hero */}
+      <PageMeta title="Buy Credits · Lead Onto" description="Top up Lead Onto credits securely with Cashfree. 1 credit = ₹1. Credits never expire." />
       <div className="text-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-sm">
-          <Coins className="w-8 h-8" />
-        </div>
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-sm"><Coins className="w-8 h-8" /></div>
         <h1 className="text-3xl sm:text-4xl font-display font-bold text-secondary mb-2">{heroTitle}</h1>
         <p className="text-muted-foreground max-w-xl mx-auto">{heroSubtitle}</p>
       </div>
-
-      {/* Balance / sign-in */}
       {loaded && authenticated ? (
-        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-amber-50 to-white">
-          <CardContent className="py-6 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-600/80 mb-1">Your balance</p>
-              <p className="text-4xl font-display font-extrabold text-secondary flex items-center gap-2">
-                <Coins className="w-7 h-7 text-amber-500" />
-                {balance ?? "…"}
-                <span className="text-lg font-semibold text-muted-foreground">credits</span>
-              </p>
-            </div>
-            <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Never expire</span>
-              <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> UPI secured</span>
-            </div>
-          </CardContent>
-        </Card>
-      ) : loaded && !authenticated ? (
-        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-primary/5 to-white">
-          <CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-secondary">Get 20 free credits</p>
-             <p className="text-sm text-muted-foreground">Create your free account to claim 20 credits, save your progress, and start practising right away.</p>
-              </div>
-            </div>
-            <Link href={`/login?returnTo=${encodeURIComponent(loginReturnTo)}`}>
-              <Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Create free account</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="mb-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading…
-        </div>
-      )}
-
-      {/* Purchase flow — authenticated only */}
-      {loaded && authenticated && (
-        <>
-          {stage === "pick" && renderPick()}
-          {stage === "qr" && renderQr()}
-          {stage === "pending" && renderPending()}
-          {stage === "approved" && renderApproved()}
-          {stage === "rejected" && renderRejected()}
-        </>
-      )}
-
-      {/* How credits work */}
-      {(stage === "pick" || stage === "approved") && (
-        <Card className="mb-6 border shadow-sm">
-          <CardContent className="py-6">
-            <h2 className="font-bold text-secondary mb-4">How credits work</h2>
-            <div className="space-y-3">
-              {uses.map(({ icon: Icon, title, cost, note }) => (
-                <div key={title} className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Icon className="w-5 h-5 text-secondary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-secondary text-sm">{title}</p>
-                    <p className="text-xs text-muted-foreground">{note}</p>
-                  </div>
-                  <span className={`text-sm font-bold shrink-0 ${cost === "Free" ? "text-green-600" : "text-secondary"}`}>{cost}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Credits never expire</span>
-              <span className="inline-flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" /> No subscription</span>
-              <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Instant UPI payment</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Transaction history */}
-      {authenticated && txns.length > 0 && (stage === "pick" || stage === "approved") && (
-        <Card className="border shadow-sm">
-          <CardContent className="py-6">
-            <h2 className="font-bold text-secondary mb-4">Recent activity</h2>
-            <div className="divide-y">
-              {txns.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-secondary truncate">{tx.description || TX_LABEL[tx.type] || tx.type}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</p>
-                  </div>
-                  <div className="text-right shrink-0 ml-3">
-                    <span className={`text-sm font-bold ${tx.amount >= 0 ? "text-green-600" : "text-secondary"}`}>
-                      {tx.amount >= 0 ? "+" : ""}{tx.amount}
-                    </span>
-                    <p className="text-[11px] text-muted-foreground">bal {tx.balanceAfter}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-amber-50 to-white"><CardContent className="py-6 flex items-center justify-between">
+          <div><p className="text-xs font-bold uppercase tracking-widest text-amber-600/80 mb-1">Your balance</p><p className="text-4xl font-display font-extrabold text-secondary flex items-center gap-2"><Coins className="w-7 h-7 text-amber-500" />{balance ?? "…"}<span className="text-lg font-semibold text-muted-foreground">credits</span></p></div>
+          <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Never expire</span><span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Cashfree secured</span></div>
+        </CardContent></Card>
+      ) : loaded ? (
+        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-primary/5 to-white"><CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div className="flex items-start gap-3"><Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" /><div><p className="font-bold text-secondary">Get 20 free credits</p><p className="text-sm text-muted-foreground">Create your free account to claim 20 credits and start practising.</p></div></div><Link href={`/login?returnTo=${encodeURIComponent(loginReturnTo)}`}><Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Create free account</Button></Link></CardContent></Card>
+      ) : <div className="mb-6 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>}
+      {loaded && authenticated && stage === "pick" && <Card className="mb-6 border shadow-sm"><CardContent className="py-6">
+        <h2 className="font-bold text-secondary mb-4">Choose an amount</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">{CREDIT_QUICK_PICKS.map((c) => <button key={c} onClick={() => setAmount(c)} className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all hover:shadow-sm ${amount === c ? "border-amber-400 bg-amber-50" : "border-border bg-card hover:border-amber-200"}`}><span className="block text-lg font-extrabold text-secondary flex items-center gap-1"><Coins className="w-4 h-4 text-amber-500" />{c}</span><span className="block text-xs text-muted-foreground">₹{c}</span>{c === 99 && <span className="absolute -top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Popular</span>}</button>)}<div className={`rounded-xl border-2 px-3 py-2 flex flex-col justify-center ${!CREDIT_QUICK_PICKS.includes(amount) ? "border-amber-400 bg-amber-50" : "border-border"}`}><label className="text-[11px] font-semibold text-muted-foreground mb-1">Custom</label><input type="number" min={CREDIT_MIN_PURCHASE} max={100000} value={amount} onChange={(e) => setAmount(Math.floor(Number(e.target.value)))} className="w-full bg-transparent text-lg font-extrabold text-secondary outline-none" /></div></div>
+        <div className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3 mb-5"><span className="text-sm text-muted-foreground">You'll get</span><span className="font-bold text-secondary">{valid ? amount : "—"} credits <span className="text-muted-foreground font-normal">for ₹{valid ? amount : "—"}</span></span></div>
+        <Button className="w-full h-12 font-bold text-base bg-amber-500 hover:bg-amber-600 text-white" onClick={() => void startCheckout()} disabled={!valid || submitting}><CreditCard className="w-5 h-5 mr-2" />{submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Opening secure checkout…</> : `Pay ₹${valid ? amount : "—"} securely`}</Button>
+        {!valid && <p className="text-xs text-center text-destructive mt-2">Choose between {CREDIT_MIN_PURCHASE} and 100,000 credits.</p>}
+      </CardContent></Card>}
+      {stage === "pending" && <Card className="mb-6 border-amber-200 bg-amber-50/60 shadow-sm"><CardContent className="py-8 text-center"><Clock className="w-10 h-10 text-amber-600 animate-pulse mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Confirming your payment</h2><p className="text-sm text-muted-foreground">Cashfree is confirming ₹{orderCredits}. Credits appear automatically after successful confirmation.</p><p className="text-xs text-muted-foreground mt-2">{pollCount ? `Checked ${pollCount} time${pollCount > 1 ? "s" : ""}.` : "Please keep this page open."}</p></CardContent></Card>}
+      {stage === "paid" && <Card className="mb-6 border-green-200 bg-green-50/60 shadow-sm"><CardContent className="py-8 text-center"><CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Payment successful</h2><p className="text-sm text-muted-foreground mb-6"><strong className="text-secondary">{orderCredits} credits</strong> have been added to your account.</p><div className="flex flex-col sm:flex-row gap-3 justify-center"><Button className="bg-primary hover:bg-primary/90 font-bold" onClick={() => navigate(returnTo ?? "/")}>{returnTo ? "Continue practising" : "Go to dashboard"}</Button><Button variant="outline" onClick={reset}>Buy more credits</Button></div></CardContent></Card>}
+      {stage === "failed" && <Card className="mb-6 border-destructive/30 bg-destructive/5 shadow-sm"><CardContent className="py-8 text-center"><XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Payment not completed</h2><p className="text-sm text-muted-foreground mb-6">No credits were added. You can safely try again.</p><Button variant="outline" onClick={reset}><ArrowLeft className="w-4 h-4 mr-1.5" />Try again</Button></CardContent></Card>}
+      {(stage === "pick" || stage === "paid") && <Card className="mb-6 border shadow-sm"><CardContent className="py-6"><h2 className="font-bold text-secondary mb-4">How credits work</h2><div className="space-y-3">{uses.map(({ icon: Icon, title, cost, note }) => <div key={title} className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-secondary" /></div><div className="min-w-0 flex-1"><p className="font-semibold text-secondary text-sm">{title}</p><p className="text-xs text-muted-foreground">{note}</p></div><span className="text-sm font-bold shrink-0 text-secondary">{cost}</span></div>)}</div><div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Credits never expire</span><span className="inline-flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" /> No subscription</span><span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-green-600" /> Secure Cashfree checkout</span></div></CardContent></Card>}
+      {authenticated && txns.length > 0 && (stage === "pick" || stage === "paid") && <Card className="border shadow-sm"><CardContent className="py-6"><h2 className="font-bold text-secondary mb-4">Recent activity</h2><div className="divide-y">{txns.map((tx) => <div key={tx.id} className="flex items-center justify-between py-2.5"><div className="min-w-0"><p className="text-sm font-semibold text-secondary truncate">{tx.description || TX_LABEL[tx.type] || tx.type}</p><p className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</p></div><div className="text-right shrink-0 ml-3"><span className={`text-sm font-bold ${tx.amount >= 0 ? "text-green-600" : "text-secondary"}`}>{tx.amount >= 0 ? "+" : ""}{tx.amount}</span><p className="text-[11px] text-muted-foreground">bal {tx.balanceAfter}</p></div></div>)}</div></CardContent></Card>}
     </div>
   );
 }

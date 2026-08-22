@@ -52,15 +52,15 @@ export default function Terms() {
        <P>Lead Onto uses a credit-based system for premium features. Key terms:</P>
       <UL>
         <li>1 credit = ₹1 (Indian Rupees)</li>
-        <li>Credits are purchased via UPI (GPay, PhonePe, Paytm, or any UPI app)</li>
+        <li>Credits are purchased securely through Cashfree using UPI, cards, net banking, or other supported payment methods</li>
         <li>Credits do not expire and are non-transferable between accounts</li>
         <li>New users receive a signup credit bonus as a free trial</li>
         <li>Credits are consumed when using premium AI features such as Interview Ace and English Guru</li>
         <li>Paid credits may be refunded as per our Refund Policy; signup bonus credits are non-refundable</li>
       </UL>
       <P>
-         Payment transactions are verified manually by Lead Onto's team using your UPI Transaction Reference (UTR) number. Submitting
-        fraudulent or incorrect UTR numbers may result in account suspension.
+         Payment transactions are verified by Cashfree and confirmed by Lead Onto's server before credits are added. Do not attempt
+         fraudulent payments or payment manipulation; this may result in account suspension.
       </P>
 
       <H2>5. User Accounts</H2>

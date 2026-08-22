@@ -223,6 +223,28 @@ export const upiPaymentsTable = pgTable("upi_payments", {
 ]);
 export type UpiPayment = typeof upiPaymentsTable.$inferSelect;
 
+// ── Cashfree Payments ────────────────────────────────────────────────────────
+// Server-created payment orders for automatic credit purchases. Cashfree's
+// order ID is the idempotency key for the credit grant.
+export const cashfreePaymentsTable = pgTable("cashfree_payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+  orderId: text("order_id").notNull(),
+  cfPaymentId: text("cf_payment_id"),
+  credits: integer("credits").notNull(),
+  amountInr: integer("amount_inr").notNull(),
+  status: text("status").notNull().default("pending"),
+  paymentMethod: text("payment_method"),
+  providerStatus: text("provider_status"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  paidAt: timestamp("paid_at"),
+}, (table) => [
+  uniqueIndex("cashfree_payments_order_id_idx").on(table.orderId),
+  uniqueIndex("cashfree_payments_cf_payment_id_idx").on(table.cfPaymentId),
+]);
+export type CashfreePayment = typeof cashfreePaymentsTable.$inferSelect;
+
 // ── Site Content (CMS) ───────────────────────────────────────────────────────
 // Editable text overrides for the web app. Defaults live in code (the content
 // registry on the client); a row here overrides the default for a given key.

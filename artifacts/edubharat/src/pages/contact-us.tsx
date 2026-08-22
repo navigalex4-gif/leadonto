@@ -19,7 +19,7 @@ export default function ContactUs() {
       icon: CreditCard,
       title: "Billing & Payments",
       email: billingEmail,
-      desc: "For credit purchase disputes, payment verification issues, or refund requests. Please include your UPI UTR reference number.",
+      desc: "For credit purchase disputes, payment verification issues, or refund requests. Please include your Cashfree order or payment reference.",
     },
     {
       icon: Shield,
@@ -78,8 +78,8 @@ export default function ContactUs() {
             sign-in as an alternative. OTP emails may take a few minutes.
           </li>
           <li>
-            <span className="font-medium text-secondary">Payment disputes:</span> Always include the UPI UTR reference number — we cannot
-            verify your payment without it.
+            <span className="font-medium text-secondary">Payment disputes:</span> Always include your Cashfree order or payment reference so we can
+            verify the transaction.
           </li>
           <li>
             <span className="font-medium text-secondary">AI quality feedback:</span> Mention the specific tool (e.g. Interview Ace), the
@@ -93,8 +93,8 @@ export default function ContactUs() {
             from the email address registered on your account.
           </li>
           <li>
-            <span className="font-medium text-secondary">Credits not added:</span> Wait at least 4 business hours after payment before
-            contacting us — verification takes time.
+            <span className="font-medium text-secondary">Credits not added:</span> Wait a few minutes after payment confirmation before
+            contacting us — the webhook may still be processing.
           </li>
         </ul>
       </section>

@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
@@ -31,7 +31,13 @@ app.use(
 
 app.use(cors({ origin: true, credentials: true }));
 
-app.use(express.json());
+// Cashfree signs the exact request bytes. Keep a copy before JSON parsing so
+// the webhook can verify the signature without re-serialising the payload.
+app.use(express.json({
+  verify: (req, _res, buffer) => {
+    (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 const sessionStore = process.env["DATABASE_URL"]

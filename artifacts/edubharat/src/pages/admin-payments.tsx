@@ -26,6 +26,22 @@ type Payment = {
   reversedAt: string | null;
 };
 
+type CashfreePayment = {
+  id: number;
+  userId: number;
+  userName: string | null;
+  userEmail: string | null;
+  orderId: string;
+  cfPaymentId: string | null;
+  credits: number;
+  amountInr: number;
+  status: string;
+  paymentMethod: string | null;
+  providerStatus: string | null;
+  createdAt: string;
+  paidAt: string | null;
+};
+
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -45,6 +61,7 @@ export default function AdminPayments() {
   const { toast } = useToast();
 
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [cashfreePayments, setCashfreePayments] = useState<CashfreePayment[]>([]);
   const [fetching, setFetching] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [acting, setActing] = useState<Record<number, boolean>>({});
@@ -62,6 +79,11 @@ export default function AdminPayments() {
       if (!res.ok) { toast({ title: "Failed to load payments", variant: "destructive" }); return; }
       const data = await res.json() as { payments: Payment[] };
       setPayments(data.payments);
+      const cashfreeRes = await fetch(`${BASE}/api/admin/cashfree-payments`, { credentials: "include" });
+      if (cashfreeRes.ok) {
+        const cashfreeData = await cashfreeRes.json() as { payments: CashfreePayment[] };
+        setCashfreePayments(cashfreeData.payments);
+      }
     } catch {
       toast({ title: "Network error", variant: "destructive" });
     } finally {
@@ -164,14 +186,14 @@ export default function AdminPayments() {
 
   return (
     <div className="container mx-auto px-4 max-w-4xl py-8 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start lg:gap-6">
-      <PageMeta title="Payments · Admin · Lead Onto" description="Manage UPI payment approvals" />
+      <PageMeta title="Payments · Admin · Lead Onto" description="Manage UPI and Cashfree credit payments" />
       <AdminNav />
 
       <main className="min-w-0">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ShieldAlert className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-display font-bold text-secondary">UPI Payments</h1>
+           <h1 className="text-2xl font-display font-bold text-secondary">Credit Payments</h1>
           {pending.length > 0 && (
             <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
               {pending.length} pending
@@ -353,6 +375,34 @@ export default function AdminPayments() {
             ))}
           </div>
         </>
+      )}
+      <h2 className="font-bold text-secondary mt-8 mb-3">Cashfree payments</h2>
+      {cashfreePayments.length === 0 ? (
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No Cashfree payments yet.</CardContent></Card>
+      ) : (
+        <div className="space-y-2">
+          {cashfreePayments.slice(0, 30).map((p) => (
+            <Card key={p.id} className="border-border">
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-sm font-semibold text-secondary">{p.userName || "Unknown"}</span>
+                    <span className="text-xs text-muted-foreground">{p.userEmail}</span>
+                    <span className="font-mono text-xs text-muted-foreground">Order: {p.orderId}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(p.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-secondary">₹{p.amountInr} → {p.credits} credits</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status] ?? "bg-muted text-muted-foreground"}`}>{p.status}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {p.paymentMethod || "Payment method pending"}{p.cfPaymentId ? ` · Cashfree payment ${p.cfPaymentId}` : ""}{p.providerStatus ? ` · Provider: ${p.providerStatus}` : ""}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
       </main>
     </div>

@@ -172,6 +172,43 @@ export async function submitUpiPayment(credits: number, utr: string): Promise<{ 
   }
 }
 
+export type CashfreeOrder = {
+  ok: boolean;
+  orderId?: string;
+  paymentSessionId?: string;
+  mode?: "sandbox" | "production";
+  credits?: number;
+  error?: string;
+};
+
+export async function createCashfreeOrder(credits: number): Promise<CashfreeOrder> {
+  try {
+    const { res, data } = await post("/api/credits/cashfree/order", { credits });
+    return {
+      ok: res.ok,
+      orderId: data["orderId"] as string | undefined,
+      paymentSessionId: data["paymentSessionId"] as string | undefined,
+      mode: data["mode"] as "sandbox" | "production" | undefined,
+      credits: data["credits"] as number | undefined,
+      error: data["error"] as string | undefined,
+    };
+  } catch {
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function getCashfreeStatus(orderId: string): Promise<{ status: string; credits?: number } | null> {
+  try {
+    const res = await fetch(`${BASE}/api/credits/cashfree/status/${encodeURIComponent(orderId)}`, { credentials: "include" });
+    if (!res.ok) return null;
+    const data = await res.json() as { status: string; credits?: number };
+    if (data.status === "paid") void refreshCredits();
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function pollUpiPaymentStatus(paymentId: number): Promise<{ status: string; credits?: number; rejectionReason?: string | null } | null> {
   try {
     const res = await fetch(`${BASE}/api/credits/upi/status/${paymentId}`, { credentials: "include" });
