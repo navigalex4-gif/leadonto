@@ -17,10 +17,10 @@ function fileStamp(): string {
  * Download the conversation as a real PDF using jsPDF.
  * Wraps long lines and paginates automatically.
  */
-export function exportConversationPdf(
+export async function exportConversationPdf(
   history: ChatTurn[],
   opts: { title?: string; aiName?: string; userName?: string } = {},
-): void {
+): Promise<void> {
   const title = opts.title ?? "Lead Onto — Conversation";
   const aiName = opts.aiName ?? "Tutor";
   const userName = opts.userName ?? "You";
@@ -45,6 +45,42 @@ export function exportConversationPdf(
   y += 24;
 
   const lineH = 15;
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  const unicodeFont = '16px "Noto Sans Devanagari", "Nirmala UI", "Noto Sans Tamil", "Noto Sans Telugu", sans-serif';
+  const wrapUnicode = (value: string): string[] => {
+    if (!context) return doc.splitTextToSize(value, maxW) as string[];
+    context.font = unicodeFont;
+    const lines: string[] = [];
+    let line = "";
+    for (const word of value.split(/\s+/u)) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && context.measureText(candidate).width > maxW) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : [""];
+  };
+  const addUnicodeLine = async (line: string, x: number, baseline: number): Promise<void> => {
+    if (!context || !line) {
+      doc.text(line, x, baseline);
+      return;
+    }
+    context.font = unicodeFont;
+    const width = Math.max(1, Math.ceil(context.measureText(line).width + 8));
+    canvas.width = width;
+    canvas.height = 24;
+    context.font = unicodeFont;
+    context.fillStyle = "#282828";
+    context.textBaseline = "alphabetic";
+    context.clearRect(0, 0, width, canvas.height);
+    context.fillText(line, 2, 18);
+    doc.addImage(canvas.toDataURL("image/png"), "PNG", x, baseline - 13, Math.min(width, maxW), 18);
+  };
   for (const turn of history) {
     const speaker = turn.role === "user" ? userName : aiName;
     const isUser = turn.role === "user";
@@ -59,10 +95,10 @@ export function exportConversationPdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(40, 40, 40);
-    const lines = doc.splitTextToSize(turn.text, maxW) as string[];
+    const lines = wrapUnicode(turn.text);
     for (const line of lines) {
       if (y + lineH > pageH - margin) { doc.addPage(); y = margin; }
-      doc.text(line, margin, y);
+      await addUnicodeLine(line, margin, y);
       y += lineH;
     }
     y += 8;
