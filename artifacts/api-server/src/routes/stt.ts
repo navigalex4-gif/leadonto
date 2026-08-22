@@ -120,7 +120,6 @@ async function transcribeWithDeepgram(
     utterances: "true",
     filler_words: "true",
     numerals: "true",
-    endpointing: "300",
     paragraphs: "false",
   });
   // MediaRecorder commonly reports `audio/webm;codecs=opus`. Deepgram's
