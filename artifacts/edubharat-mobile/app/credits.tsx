@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Header } from '@/components/Header';
 import { Screen, Card } from '@/components/Screen';
@@ -8,6 +8,7 @@ import { useColors } from '@/hooks/useColors';
 import { apiRequest } from '@/lib/api';
 
 const MIN_CREDITS = 10;
+const QUICK_AMOUNTS = [10, 49, 99, 199];
 
 type OrderResponse = {
   orderId: string;
@@ -79,6 +80,22 @@ export default function CreditsScreen() {
         <Text style={[styles.note, { color: colors.mutedForeground }]}>
           Pay with UPI, cards, or net banking through Cashfree. Credits are added only after payment confirmation.
         </Text>
+        <View style={styles.quickRow}>
+          {QUICK_AMOUNTS.map((amount) => (
+            <Pressable
+              key={amount}
+              onPress={() => setCredits(String(amount))}
+              style={[
+                styles.quickAmount,
+                { borderColor: Number(credits) === amount ? colors.primary : colors.border, backgroundColor: Number(credits) === amount ? colors.accent : colors.background },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Buy ${amount} credits for ${amount} rupees`}
+            >
+              <Text style={[styles.quickAmountText, { color: colors.foreground }]}>₹{amount}</Text>
+            </Pressable>
+          ))}
+        </View>
         <TextInput
           value={credits}
           onChangeText={setCredits}
@@ -100,4 +117,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: 'Inter_700Bold', fontSize: 18 },
   note: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19 },
   input: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 13, fontSize: 15 },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  quickAmount: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  quickAmountText: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 });
