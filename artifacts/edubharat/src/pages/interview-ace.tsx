@@ -2109,7 +2109,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
   if (phase === "setup") {
     return (
       <>
-      <div className="container mx-auto w-full min-w-0 max-w-full px-4 max-w-4xl pt-3 pb-4 overflow-x-hidden">
+      <div className="interview-workspace container mx-auto w-full min-w-0 max-w-full px-4 max-w-4xl pt-3 pb-4 overflow-x-hidden">
         {/* Compact header */}
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -2282,7 +2282,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     const g = grade(avgScore); // fallback styling used only when there is no AI report
 
     return (
-      <div className="min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
+      <div className="interview-workspace min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
         <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
           <Button
             onClick={() => { endingRef.current = true; setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}

@@ -193,6 +193,26 @@
   background-size: 42px 42px;
   mask-image: linear-gradient(to bottom, black, transparent 75%);
 }
+.interview-workspace,
+.english-workspace {
+  position: relative;
+  isolation: isolate;
+}
+.interview-workspace::before,
+.english-workspace::before {
+  content: "";
+  position: fixed;
+  inset: 56px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 88% 8%, rgb(42 70 210 / .09), transparent 30%),
+    linear-gradient(180deg, #f8faff 0%, #fffdf9 42%, #fffaf3 100%);
+}
+.interview-workspace > .sticky,
+.english-workspace > .sticky {
+  border-radius: 1rem;
+}
 
 .home-grid-paper {
   background-image:
