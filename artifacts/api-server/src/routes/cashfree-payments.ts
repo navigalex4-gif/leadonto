@@ -16,10 +16,14 @@ type CashfreeConfig = { appId: string; secretKey: string; baseUrl: string; envir
 type CashfreeOrder = { order_id?: string; payment_session_id?: string; order_status?: string };
 
 function getConfig(): CashfreeConfig | null {
-  const appId = process.env["CASHFREE_APP_ID"];
-  const secretKey = process.env["CASHFREE_SECRET_KEY"];
+  // Replit accepts secret names with either underscores or spaces. Support
+  // both so a correctly stored credential is never silently ignored.
+  const appId = process.env["CASHFREE_APP_ID"] ?? process.env["CASHFREE APP ID"];
+  const secretKey = process.env["CASHFREE_SECRET_KEY"] ?? process.env["CASHFREE SECRET KEY"];
   if (!appId || !secretKey) return null;
-  const environment = process.env["CASHFREE_ENVIRONMENT"] === "production" ? "production" : "sandbox";
+  // This is the live Lead Onto site. Sandbox remains available by setting
+  // CASHFREE_ENVIRONMENT=sandbox explicitly during provider testing.
+  const environment = process.env["CASHFREE_ENVIRONMENT"] === "sandbox" ? "sandbox" : "production";
   return {
     appId,
     secretKey,
