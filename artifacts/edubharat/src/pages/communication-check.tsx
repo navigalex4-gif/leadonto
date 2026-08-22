@@ -27,13 +27,8 @@ const QUICK_ACKNOWLEDGEMENTS = [
   "That is worth unpacking",
   "You have given me something specific to work with",
 ];
-const OPENING_QUESTIONS = [
-  "Tell me about something you are working towards right now.",
-  "What is one recent experience you would enjoy telling a colleague about?",
-  "What is something you learned recently, and why did it matter to you?",
-  "Tell me about a small win you had recently.",
-];
-const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
+const SIGNALS = ["structure", "clarity", "explanation", "collaboration", "adaptability", "confidence", "self-awareness", "listening"] as const;
+type Signal = typeof SIGNALS[number];
 const QUESTION_BANK = [
   // The bank is intentionally balanced across the strongest observable
   // communication signals: structure, clarity, listening/empathy, explanation,
@@ -154,10 +149,66 @@ function questionIsRepeated(question: string, askedQuestions: string[]): boolean
   });
 }
 
-function nextUnusedQuestion(askedQuestions: string[]): string {
-  const shuffled = [...QUESTION_BANK].sort(() => Math.random() - 0.5);
-  return shuffled.find((question) => !questionIsRepeated(question, askedQuestions))
-    ?? "What is one thing you would like to practise saying more confidently?";
+function extractQuestion(text: string): string {
+  const sentences = cleanSpeech(text).split(/(?<=[?!.])\s+/).filter(Boolean);
+  return sentences.find((sentence) => sentence.includes("?")) ?? "";
+}
+
+function hashSeed(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededIndex(seed: number, length: number, offset = 0): number {
+  const value = Math.imul(seed ^ Math.imul(offset + 1, 374761393), 668265263) >>> 0;
+  return value % length;
+}
+
+function roleContext(candidate: Candidate): string {
+  const role = candidate.targetRole.trim();
+  if (!role) return "the kind of work you want next";
+  return role.length > 70 ? role.slice(0, 70) : role;
+}
+
+function openingFor(candidate: Candidate, seed: number): string {
+  const role = roleContext(candidate);
+  const location = candidate.location.trim();
+  const experience = candidate.experienceLevel === "Fresher"
+    ? "as someone starting out"
+    : `with ${candidate.experienceLevel || "your current experience"}`;
+  const options = [
+    `What are you working towards in ${role}, and what has prepared you for it?`,
+    `Tell me about something you have done recently that connects to ${role}.`,
+    `Imagine you are introducing yourself for ${role} ${experience}. What would you want them to know?`,
+    location
+      ? `What would make a good opportunity in ${role} feel right for you in or around ${location}?`
+      : `What interests you most about moving towards ${role}?`,
+  ];
+  return options[seededIndex(seed, options.length)]!;
+}
+
+function nextUnusedQuestion(askedQuestions: string[], seed: number, candidate: Candidate, signal: Signal): string {
+  const role = roleContext(candidate);
+  const experience = candidate.experienceLevel === "Fresher" ? "as someone starting out" : `with ${candidate.experienceLevel || "your experience"}`;
+  const contextual = [
+    `Explain one skill you would use in ${role} to someone who is new to it.`,
+    `Tell me about a time you had to work with someone different from you while preparing for ${role}.`,
+    `What is one challenge you expect in ${role}, and how would you handle it?`,
+    `How would you explain your strongest reason for choosing ${role} to a customer or colleague?`,
+    `Tell me about a piece of feedback that could help you grow ${experience}.`,
+    `If a teammate misunderstood your message about ${role}, how would you make it clearer?`,
+  ];
+  const pool = [...QUESTION_BANK, contextual[seededIndex(seed, contextual.length, askedQuestions.length + SIGNALS.indexOf(signal))]!];
+  const ordered = pool
+    .map((question, index) => ({ question, index: (index + seededIndex(seed, pool.length, askedQuestions.length)) % pool.length }))
+    .sort((a, b) => a.index - b.index)
+    .map(({ question }) => question);
+  return ordered.find((question) => !questionIsRepeated(question, askedQuestions))
+    ?? `What is one thing about ${role} you would like to practise saying more confidently?`;
 }
 
 function getAnonymousId(): string {
@@ -207,7 +258,9 @@ function scoreTone(score: number): { card: string; bar: string; text: string } {
 export default function CommunicationCheck() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const speech = useSpeechRecognition("English");
+  // A shorter end-of-speech window is appropriate for this bounded check;
+  // the final server transcript remains authoritative.
+  const speech = useSpeechRecognition("English", { silenceMs: 850 });
   const synth = useGoogleTTS();
   const { stream, reset: resetStream } = useGeminiStream();
   const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");
@@ -220,10 +273,10 @@ export default function CommunicationCheck() {
     experienceLevel: "Fresher",
   });
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState(FIRST_QUESTION);
+  const [currentQuestion, setCurrentQuestion] = useState("Tell me about something you are working towards right now.");
   const [currentAnswer, setCurrentAnswer] = useState("");
   const answerRef = useRef("");
-  const questionRef = useRef(FIRST_QUESTION);
+  const questionRef = useRef("Tell me about something you are working towards right now.");
   const answersRef = useRef<Answer[]>([]);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -243,6 +296,8 @@ export default function CommunicationCheck() {
   const [emailSending, setEmailSending] = useState(false);
   const [leadSubmitted, setLeadSubmitted] = useState(false);
   const interviewStartedAtRef = useRef<number | null>(null);
+  const sessionSeedRef = useRef(0);
+  const signalIndexRef = useRef(0);
 
   useEffect(() => {
     trackFunnel("communication_check_opened", { authenticated: Boolean(user) });
@@ -447,17 +502,20 @@ export default function CommunicationCheck() {
        deadlineRef.current = setTimeout(() => resolve(""), 1000);
     });
     const askedQuestions = nextAnswers.map((item) => item.question);
+    const signal = SIGNALS[signalIndexRef.current % SIGNALS.length]!;
+    const answerDetail = answer.length > 220 ? `${answer.slice(0, 220)}…` : answer;
     let response = "";
     try {
       response = await Promise.race([
         stream(
-          `Respond as a fast, energetic but natural human interviewer after this answer: "${answer}".
-This is a 90-second spoken communication check. Choose the next question because it gives the strongest new evidence about communication — structure, clarity, listening, empathy, explanation, collaboration, persuasion, adaptability, confidence or self-awareness. Notice a real detail in the answer and explore a fresh direction.
+          `Respond as a fast, energetic but natural human interviewer after this answer: "${answerDetail}".
+Candidate profile: target role "${roleContext(candidate)}"; experience "${candidate.experienceLevel || "not specified"}"; location "${candidate.location || "not specified"}".
+This is a 90-second spoken communication check. Explore the signal "${signal}" next, but connect the question to one concrete detail from the answer. Choose a fresh direction, not a generic career question.
 Questions already asked: ${askedQuestions.join(" | ")}
-Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction, then one fresh question. Do not use a stock acknowledgement such as “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Keep momentum high. Maximum 32 words.`,
+Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction grounded in the answer, then one fresh question. Do not guess what an unclear phrase means. Do not use “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Maximum 32 words.`,
           "You are a warm, lively Indian interviewer. Sound alert, encouraging and genuinely interested, not like a form. Speak at a brisk conversational pace with clear energy, short sentences and varied reactions. Show empathy when the answer is difficult, celebrate a specific small win, and make brief answers easier. Never sound fake, breathless or scripted. No markdown or preamble.",
           undefined,
-            { maxTokens: 40, timeoutMs: 4800 },
+            { maxTokens: 40, timeoutMs: 2600 },
         ),
         fallbackTimer,
       ]);
@@ -466,24 +524,31 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     }
     if (!response.trim()) {
       resetStream();
-      response = nextUnusedQuestion(askedQuestions);
+      response = nextUnusedQuestion(askedQuestions, sessionSeedRef.current, candidate, signal);
     }
     if (endingRef.current) {
       turnRef.current = false;
       return;
     }
-    const generatedQuestion = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim();
+    const cleanedResponse = cleanSpeech(response).replace(/^(?:Question|Next):\s*/i, "").trim();
+    const generatedQuestion = extractQuestion(cleanedResponse);
     const question = generatedQuestion && !questionIsRepeated(generatedQuestion, askedQuestions)
       ? generatedQuestion
-      : nextUnusedQuestion(askedQuestions);
+      : nextUnusedQuestion(askedQuestions, sessionSeedRef.current, candidate, signal);
+    const spokenResponse = generatedQuestion && !questionIsRepeated(generatedQuestion, askedQuestions)
+      ? cleanedResponse
+      : question;
     questionRef.current = question;
     setCurrentQuestion(question);
+    signalIndexRef.current += 1;
     setIsThinking(false);
     turnRef.current = false;
     if (endingRef.current) return;
-    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[Math.floor(Math.random() * QUICK_ACKNOWLEDGEMENTS.length)]!;
-    speak(`${acknowledgement}, ${question}`, startListening);
-  }, [clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
+    const acknowledgement = QUICK_ACKNOWLEDGEMENTS[seededIndex(sessionSeedRef.current, QUICK_ACKNOWLEDGEMENTS.length, nextAnswers.length)]!;
+    // Keep the AI's concrete reaction when available; otherwise use a seeded
+    // short fallback. One TTS call avoids a gap (or overlapping playback).
+    speak(spokenResponse || `${acknowledgement}, ${question}`, startListening);
+  }, [candidate, clearTimers, finishWithFeedback, resetStream, speak, speech, stream, startListening]);
 
   const submitAnswerRef = useRef<typeof submitAnswer>(submitAnswer);
   useEffect(() => { submitAnswerRef.current = submitAnswer; }, [submitAnswer]);
@@ -544,7 +609,16 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     setRemaining(TOTAL_SECONDS);
     setCurrentAnswer("");
     answerRef.current = "";
-    const opening = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
+    sessionSeedRef.current = hashSeed([
+      candidate.name,
+      candidate.email,
+      candidate.location,
+      candidate.targetRole,
+      candidate.experienceLevel,
+      crypto.randomUUID(),
+    ].join("|"));
+    signalIndexRef.current = seededIndex(sessionSeedRef.current, SIGNALS.length);
+    const opening = openingFor(candidate, sessionSeedRef.current);
     questionRef.current = opening;
     setCurrentQuestion(opening);
     setPhase("interview");
@@ -673,6 +747,36 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-5">
                <p className="font-bold text-secondary">No sign-up before you start</p>
                <p className="mt-1 text-sm text-muted-foreground">Take the free 90-second speaking check first. You’ll see a short action-focused result before we ask whether you want the expanded feedback by email.</p>
+             </div>
+             <div className="space-y-3">
+               <div>
+                 <p className="text-sm font-bold text-secondary">Make it relevant to you <span className="font-normal text-muted-foreground">(optional)</span></p>
+                 <p className="mt-1 text-xs text-muted-foreground">Your coach will use these details to make the conversation feel closer to your real goals.</p>
+               </div>
+               <div className="grid gap-3 sm:grid-cols-3">
+                 <Input
+                   value={candidate.targetRole}
+                   onChange={(e) => setCandidate({ ...candidate, targetRole: e.target.value })}
+                   placeholder="Target role"
+                   autoComplete="organization-title"
+                 />
+                 <Input
+                   value={candidate.location}
+                   onChange={(e) => setCandidate({ ...candidate, location: e.target.value })}
+                   placeholder="City / location"
+                   autoComplete="address-level2"
+                 />
+                 <select
+                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                   value={candidate.experienceLevel}
+                   onChange={(e) => setCandidate({ ...candidate, experienceLevel: e.target.value })}
+                 >
+                   <option>Fresher</option>
+                   <option>1-2 years</option>
+                   <option>3-5 years</option>
+                   <option>5+ years</option>
+                 </select>
+               </div>
              </div>
              <div className="hidden flex-wrap items-center gap-3 pt-2 md:flex">
               <Button size="lg" onClick={() => void startCheck()} className="h-12 px-7 text-base font-extrabold shadow-lg shadow-primary/25"><Mic className="mr-2 h-5 w-5" />Start my free check</Button>

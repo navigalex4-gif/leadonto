@@ -29,7 +29,7 @@ const RECORDER_TIMESLICE_MS = 160;
 // That competes with final answer transcription and can exhaust or delay the
 // providers without ever advancing the interview. Final transcription is the
 // authoritative result, so keep preview off until it can be local/on-device.
-const ENABLE_SERVER_PREVIEW = false;
+const ENABLE_SERVER_PREVIEW = true;
 
 function getMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
@@ -45,7 +45,8 @@ function getMimeType(): string {
  * graph. MediaRecorder is silent at the browser level; only the resulting
  * utterance is sent to the server for transcription.
  */
-export function useSpeechRecognition(language = "English") {
+export function useSpeechRecognition(language = "English", options?: { silenceMs?: number }) {
+  const silenceMs = options?.silenceMs ?? SILENCE_MS;
   const [status, setStatus] = useState<SpeechRecognitionStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -383,7 +384,7 @@ export function useSpeechRecognition(language = "English") {
               utteranceIdRef.current,
             );
           }
-          const quietLongEnough = now - lastVoiceRef.current >= SILENCE_MS;
+           const quietLongEnough = now - lastVoiceRef.current >= silenceMs;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
           if ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength) {
             utteranceActiveRef.current = false;
@@ -419,7 +420,7 @@ export function useSpeechRecognition(language = "English") {
     } finally {
       captureStartingRef.current = false;
     }
-  }, [isSupported, requestPreview, transcribe]);
+  }, [isSupported, requestPreview, silenceMs, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;
