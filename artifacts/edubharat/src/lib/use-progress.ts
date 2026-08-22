@@ -148,6 +148,27 @@ export function useProgress() {
         credentials: "include",
         body: JSON.stringify(body),
       }).catch(() => { /* local already saved */ });
+
+      // Normalize every scored learning/interview session into speaking evidence.
+      // Existing product-specific records remain the source of truth for their
+      // screens; this parallel record powers retention and weakness memory.
+      if (typeof score === "number") {
+        const dimensions = isInterview
+          ? {
+              pronunciation: score,
+              grammar: extras?.grammarScore ?? score,
+              vocabulary: score,
+              fluency: extras?.communicationScore ?? score,
+              sentenceFormation: extras?.grammarScore ?? score,
+            }
+          : { pronunciation: score, grammar: score, vocabulary: score, fluency: score, sentenceFormation: score };
+        fetch(`${BASE}/api/retention/assessments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ source: isInterview ? "interview_ace" : "english_guru", score, dimensions }),
+        }).catch(() => { /* retention is additive; preserve the original session */ });
+      }
     }
 
     return entry;

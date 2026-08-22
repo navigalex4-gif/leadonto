@@ -22,6 +22,7 @@ import b2bAuthRouter from "./b2b-auth.js";
 import b2bRouter from "./b2b.js";
 import communicationCheckRouter from "./communication-check.js";
 import sttRouter from "./stt.js";
+import retentionRouter from "./retention.js";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(b2bAuthRouter);
 router.use(b2bRouter);
 router.use(communicationCheckRouter);
 router.use(sttRouter);
+router.use(retentionRouter);
 
 export default router;

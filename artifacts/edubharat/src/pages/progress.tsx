@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/use-auth";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useLocation } from "wouter";
 import { OverviewTab } from "@/components/progress/overview-tab";
+import { RetentionCard } from "@/components/progress/retention-card";
 import { LearningTab } from "@/components/progress/learning-tab";
 import { InterviewsTab } from "@/components/progress/interviews-tab";
 import { CareerTab } from "@/components/progress/career-tab";
@@ -138,6 +139,7 @@ export default function ProgressPage() {
           </div>
         </CardContent>
       </Card>
+      <RetentionCard />
 
       {/* ── Tab navigation ── */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 -mx-4 px-4 sm:mx-0 sm:px-0">

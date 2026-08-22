@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod/v4";
-import { db, communicationChecksTable } from "@workspace/db";
+import { db, communicationChecksTable, speakingAssessmentsTable } from "@workspace/db";
 import { generateTextWithFallback } from "./ai.js";
 import { sendEmail } from "../lib/mailer.js";
 
@@ -239,6 +239,25 @@ Be encouraging but accurate. Judge only what is present in the answers; do not i
       clarityScore: feedback.clarityScore,
       durationSeconds: input.durationSeconds,
     }).returning({ id: communicationChecksTable.id });
+
+    // Feed opted-in authenticated checks into the same evidence stream used
+    // by English Guru and Interview Ace. Anonymous lead checks stay private to
+    // lead analytics and do not create a learner profile.
+    if (req.session.userId) {
+      await db.insert(speakingAssessmentsTable).values({
+        userId: req.session.userId,
+        source: "communication_check",
+        score: feedback.overallScore,
+        dimensions: JSON.stringify({
+          pronunciation: feedback.clarityScore,
+          grammar: feedback.communicationScore,
+          vocabulary: feedback.communicationScore,
+          fluency: feedback.confidenceScore,
+          sentenceFormation: feedback.clarityScore,
+        }),
+        transcript: input.answers.map(a => a.answer).join("\n").slice(0, 5000),
+      });
+    }
 
     let emailSent = false;
     try {
