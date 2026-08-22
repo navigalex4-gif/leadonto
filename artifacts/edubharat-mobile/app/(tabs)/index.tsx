@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProgress, getProfile, type Progress, type Profile } from '@/lib/storage';
 import type { ToolInfo } from '@/components/ToolCard';
+import { apiRequest, getSession } from '@/lib/api';
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -20,12 +21,24 @@ export default function HomeScreen() {
   const router = useRouter();
   const [progress, setProgress] = useState<Progress | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [credits, setCredits] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
-      Promise.all([getProgress(), getProfile()]).then(([p, pr]) => {
-        if (mounted) { setProgress(p); setProfile(pr); }
+      Promise.all([getProgress(), getProfile(), getSession().catch(() => null), apiRequest<{ balance: number | null }>('/credits/balance').catch(() => ({ balance: null }))]).then(([p, pr, session, creditData]) => {
+        if (!mounted) return;
+        const mergedProfile = session ? {
+          ...pr,
+          name: session.name || pr.name,
+          language: session.preferredLanguage || pr.language,
+          location: session.location || pr.location,
+          careerGoal: session.careerGoal || pr.careerGoal,
+          skills: Array.isArray(session.skills) ? session.skills.join(', ') : pr.skills,
+        } : pr;
+        setProgress(p);
+        setProfile(mergedProfile);
+        setCredits(typeof creditData.balance === 'number' ? creditData.balance : null);
       });
       return () => { mounted = false; };
     }, []),
@@ -76,7 +89,7 @@ export default function HomeScreen() {
         <View style={styles.headerActions}>
           <Pressable style={[styles.creditPill, { borderColor: colors.primary + '55', backgroundColor: colors.primary + '12' }]} onPress={() => router.push('/credits' as never)} accessibilityRole="button" accessibilityLabel="Credits">
             <Feather name="link-2" size={12} color={colors.primary} />
-            <Text style={[styles.creditText, { color: colors.primary }]}>0</Text>
+            <Text style={[styles.creditText, { color: colors.primary }]}>{credits ?? '—'}</Text>
           </Pressable>
           <Pressable style={[styles.avatar, { backgroundColor: colors.secondary }]} onPress={() => router.push('/(tabs)/profile' as never)} accessibilityRole="button" accessibilityLabel="Open profile">
             <Text style={[styles.avatarText, { color: colors.secondaryForeground }]}>{(profile.name || 'L').slice(0, 1).toUpperCase()}</Text>
@@ -110,7 +123,7 @@ export default function HomeScreen() {
         <Text style={[styles.heroSubtitle, { color: colors.mutedForeground }]}>
           Lead Onto catalysing your aspirations
         </Text>
-        <Pressable style={[styles.primaryCta, { backgroundColor: colors.primary, borderRadius: colors.radius }]} onPress={() => router.push('/english-guru' as never)} accessibilityRole="button">
+        <Pressable style={[styles.primaryCta, { backgroundColor: colors.primary, borderRadius: colors.radius }]} onPress={() => router.push('/communication-check' as never)} accessibilityRole="button">
           <Text style={[styles.primaryCtaText, { color: colors.primaryForeground }]}>Try Free 90-Second Check</Text>
           <Feather name="arrow-right" size={18} color={colors.primaryForeground} />
         </Pressable>

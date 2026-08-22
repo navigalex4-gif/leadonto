@@ -18,6 +18,7 @@ import { useSafeBottomPadding } from '@/hooks/useSafeBottomPadding';
 import { Header } from '@/components/Header';
 import { EmptyState } from '@/components/EmptyState';
 import { getProfile, getSavedJobs, toggleSavedJob, type SavedJob } from '@/lib/storage';
+import { apiRequest } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,28 +38,19 @@ type JobItem = {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env['EXPO_PUBLIC_DOMAIN']
-  ? `https://${process.env['EXPO_PUBLIC_DOMAIN']}/api`
-  : '';
-
 async function searchJobs(params: {
   q: string;
   city: string;
   skills: string;
   experience: string;
 }): Promise<JobItem[]> {
-  if (!API_BASE) return [];
   const query = new URLSearchParams({
     q: params.q,
     city: params.city,
     skills: params.skills,
     experience: params.experience || 'all',
   });
-  const res = await fetch(`${API_BASE}/jobs/search?${query.toString()}`, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = (await res.json()) as { items: JobItem[] };
+  const data = await apiRequest<{ items: JobItem[] }>(`/jobs/search?${query.toString()}`);
   return data.items ?? [];
 }
 

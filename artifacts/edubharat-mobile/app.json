@@ -14,7 +14,8 @@
       "backgroundColor": "#fcfbf9"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": true,
+      "bundleIdentifier": "in.edubharat.mobile"
     },
     "android": {
       "package": "in.edubharat.mobile",

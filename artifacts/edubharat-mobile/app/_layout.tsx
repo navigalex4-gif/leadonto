@@ -25,6 +25,7 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="interviews" options={{ headerShown: false }} />
       <Stack.Screen name="english-guru" options={{ headerShown: false }} />
+      <Stack.Screen name="communication-check" options={{ headerShown: false }} />
       <Stack.Screen name="tools-pro" options={{ headerShown: false }} />
       <Stack.Screen name="interview-ace" options={{ headerShown: false }} />
       <Stack.Screen name="rozgar-samachar" options={{ headerShown: false }} />

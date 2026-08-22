@@ -46,6 +46,25 @@ export function openApiUrl(path: string): string {
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+export type MobileSession = {
+  user: {
+    id: number;
+    email: string;
+    name: string | null;
+    credits?: number;
+    preferredLanguage?: string | null;
+    location?: string | null;
+    careerGoal?: string | null;
+    skills?: string[];
+    isAdmin?: boolean;
+  } | null;
+};
+
+export async function getSession(): Promise<MobileSession['user']> {
+  const data = await apiRequest<MobileSession>('/auth/me');
+  return data.user;
+}
+
 export async function saveHistory(tool: string, title: string, content: string): Promise<void> {
   await apiRequest('/history/items', {
     method: 'POST',
