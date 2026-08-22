@@ -143,7 +143,7 @@ export default function Home() {
           <div className="container mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
             <div className="home-reveal max-w-2xl">
               <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-orange-200 sm:text-sm">{heroEyebrow}</p>
-              <h1 id="hero-title" className="max-w-2xl text-[clamp(2.3rem,5vw,4.9rem)] font-extrabold leading-[0.98] tracking-[-0.055em] text-white">
+              <h1 id="hero-title" className="max-w-2xl text-[clamp(1.45rem,2.5vw,2.5rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-white">
                 Speak with confidence.
                 <br />
                 <span className="text-orange-300">Prepare for the role you want.</span>

@@ -176,6 +176,17 @@
 .leadonto-navbar .bg-white {
   color: #17204d;
 }
+.leadonto-navbar .leadonto-suite-menu,
+.leadonto-navbar .leadonto-suite-menu button,
+.leadonto-navbar .leadonto-suite-menu a {
+  color: #17204d;
+}
+.leadonto-navbar .leadonto-suite-menu a:hover {
+  color: #17204d;
+}
+.leadonto-navbar .leadonto-suite-menu .text-muted-foreground {
+  color: #64748b;
+}
 .home-hero {
   color: #fff;
   background:
@@ -192,6 +203,16 @@
   background-image: linear-gradient(rgb(255 255 255 / .12) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .12) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: linear-gradient(to bottom, black, transparent 75%);
+}
+.home-shell h1 {
+  font-size: clamp(1.45rem, 2.5vw, 2.5rem) !important;
+  line-height: 1.04;
+}
+.home-shell h2 {
+  font-size: clamp(1rem, 1.55vw, 1.35rem) !important;
+}
+.home-shell h3 {
+  font-size: clamp(.9rem, 1.15vw, 1.1rem) !important;
 }
 .interview-workspace,
 .english-workspace {
@@ -212,6 +233,33 @@
 .interview-workspace > .sticky,
 .english-workspace > .sticky {
   border-radius: 1rem;
+}
+.english-workspace > div[id="english-guru-live"],
+.interview-workspace .bg-card {
+  box-shadow: 0 18px 45px rgb(21 37 181 / .08);
+}
+.english-workspace #english-guru-live {
+  background:
+    radial-gradient(circle at 92% 0%, rgb(34 197 94 / .07), transparent 28%),
+    linear-gradient(145deg, rgb(255 255 255 / .98), rgb(247 250 255 / .96));
+  border-color: rgb(34 197 94 / .22);
+}
+.english-workspace #english-guru-live textarea,
+.english-workspace #english-guru-live input {
+  background: rgb(255 255 255 / .88);
+  transition: box-shadow .2s ease, border-color .2s ease;
+}
+.english-workspace #english-guru-live textarea:focus,
+.english-workspace #english-guru-live input:focus {
+  border-color: rgb(37 99 235 / .55);
+  box-shadow: 0 0 0 4px rgb(37 99 235 / .1);
+}
+.interview-workspace .rounded-2xl.border {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.interview-workspace .rounded-2xl.border:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgb(21 37 181 / .1);
 }
 
 .home-grid-paper {

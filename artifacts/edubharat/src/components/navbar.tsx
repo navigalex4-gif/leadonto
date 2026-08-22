@@ -81,7 +81,7 @@ function SuiteDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-border/60 py-2 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
+        <div className="leadonto-suite-menu absolute top-full left-0 mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-border/60 py-2 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
           <p className={`text-[10px] font-bold uppercase tracking-widest px-3 pb-1.5 pt-0.5 ${color === "orange" ? "text-orange-500" : "text-blue-600"}`}>
             {label}
           </p>

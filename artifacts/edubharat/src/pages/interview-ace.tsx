@@ -2198,7 +2198,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                   subtitle={c.role}
                   isSpeaking={false}
                   gender={c.gender}
-                  size="sm"
+                  size="md"
                   imageSrc={c.imageSrc}
                 />
                 {coach.id === c.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto shrink-0" />}
