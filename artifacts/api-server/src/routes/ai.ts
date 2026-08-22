@@ -17,7 +17,7 @@ const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 // Rozgar, interviews, and Live Conversation all receive the same native-
 // language rules. Client prompts remain free to choose the language; this only
 // activates when an Indian language is actually requested.
-const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words.`;
+const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words. If you cannot form a correct native-script sentence, answer in clear English rather than emitting broken script.`;
 
 function applyLanguageQuality(prompt: string, system?: string | null): string | null | undefined {
   const requestedText = `${prompt}\n${system ?? ""}`;

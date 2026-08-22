@@ -100,6 +100,19 @@ function cleanSpokenReply(text: string, nativeMode: boolean, voiceGender: "male"
       .replace(/\s+([.,?!])/g, "$1")
       .replace(/\s{2,}/g, " ")
       .trim();
+    // A provider can still occasionally emit a broken Devanagari fragment
+    // despite the shared prompt. Never display or speak that fragment. A
+    // short, complete fallback is safer than teaching the learner malformed
+    // native language.
+    const words = cleaned.split(/\s+/u).filter(Boolean);
+    const isolatedIndicLetters = words.filter((word) =>
+      /^[\u0900-\u0D7F\u0600-\u06FF]$/u.test(word.replace(/[,.!?।॥]/gu, "")),
+    ).length;
+    if (words.length >= 4 && isolatedIndicLetters >= 3 && isolatedIndicLetters / words.length >= 0.45) {
+      return voiceGender === "female"
+        ? "समझ गई। चलिए धीरे-धीरे अभ्यास करते हैं।"
+        : "समझ गया। चलिए धीरे-धीरे अभ्यास करते हैं।";
+    }
   }
   return cleaned;
 }
