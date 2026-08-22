@@ -3,8 +3,8 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 /** Minimum top-up and suggested quick-pick amounts (1 credit = ₹1). */
-export const CREDIT_MIN_PURCHASE = 49;
-export const CREDIT_QUICK_PICKS = [49, 99, 199, 499, 999];
+export const CREDIT_MIN_PURCHASE = 10;
+export const CREDIT_QUICK_PICKS = [10, 49, 99, 199, 499, 999];
 
 /** Live conversation: 1 credit per 12-minute block = 5 credits/hour. */
 export const LIVE_BLOCK_SECONDS = 12 * 60;

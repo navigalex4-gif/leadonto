@@ -60,7 +60,7 @@ export default function BuyCredits() {
   const heroTitle = useContent("credits.hero.title", "Lead Onto Credits");
   const heroSubtitle = useContent("credits.hero.subtitle", "1 credit = ₹1. Pay securely with UPI, cards, or net banking. Credits never expire.");
   const [stage, setStage] = useState<Stage>("pick");
-  const [amount, setAmount] = useState(99);
+  const [amount, setAmount] = useState(10);
   const [orderId, setOrderId] = useState<string | null>(returnedOrder);
   const [orderCredits, setOrderCredits] = useState(amount);
   const [submitting, setSubmitting] = useState(false);

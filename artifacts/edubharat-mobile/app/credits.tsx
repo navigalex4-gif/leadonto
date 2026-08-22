@@ -7,7 +7,7 @@ import { ActionButton } from '@/components/ActionButton';
 import { useColors } from '@/hooks/useColors';
 import { apiRequest } from '@/lib/api';
 
-const MIN_CREDITS = 49;
+const MIN_CREDITS = 10;
 
 type OrderResponse = {
   orderId: string;
@@ -18,7 +18,7 @@ type OrderResponse = {
 export default function CreditsScreen() {
   const colors = useColors();
   const [balance, setBalance] = useState<number | null>(null);
-  const [credits, setCredits] = useState('49');
+  const [credits, setCredits] = useState('10');
   const [loading, setLoading] = useState(false);
 
   const refresh = async () => {

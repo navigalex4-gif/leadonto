@@ -7,7 +7,7 @@ import { grantCreditsTx } from "../lib/credits.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
-const MIN_PURCHASE = 49;
+const MIN_PURCHASE = 10;
 const MAX_PURCHASE = 100_000;
 const CASHFREE_API_VERSION = "2025-01-01";
 const CREDIT_RETURN_URL = "https://leadonto.com/credits";
