@@ -139,7 +139,7 @@ export function Navbar() {
 
   return (
     <>
-       <nav className="w-full max-w-full border-b bg-white/90 backdrop-blur-md sticky top-0 z-50 overflow-visible">
+       <nav className="leadonto-navbar w-full max-w-full border-b sticky top-0 z-50 overflow-visible">
          <div className="container mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:flex-wrap max-[480px]:gap-1 max-[480px]:py-1 overflow-visible">
 
           {/* Logo */}

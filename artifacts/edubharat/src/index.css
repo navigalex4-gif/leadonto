@@ -142,6 +142,58 @@
     hsl(var(--background));
 }
 
+/* Shared product chrome and hero treatment inspired by the supplied
+   Spacehip reference: dark navigation, electric blue atmosphere, and one
+   warm action colour. Content cards intentionally stay light for readability. */
+.leadonto-navbar {
+  background: linear-gradient(100deg, #070b27 0%, #101654 58%, #141044 100%);
+  border-color: rgb(255 255 255 / 0.12);
+  box-shadow: 0 10px 30px rgb(4 7 35 / 0.14);
+}
+.leadonto-navbar a,
+.leadonto-navbar button {
+  color: rgb(255 255 255 / 0.78);
+}
+.leadonto-navbar a:hover,
+.leadonto-navbar button:hover {
+  color: #fff;
+}
+.leadonto-navbar a:first-child {
+  color: #fff;
+}
+.leadonto-navbar .text-muted-foreground {
+  color: rgb(224 231 255 / 0.76);
+}
+.leadonto-navbar .hover\:bg-muted\/60:hover,
+.leadonto-navbar .hover\:bg-muted:hover {
+  background-color: rgb(255 255 255 / 0.1);
+}
+.leadonto-navbar .border-border,
+.leadonto-navbar .bg-border {
+  border-color: rgb(255 255 255 / 0.18);
+  background-color: rgb(255 255 255 / 0.18);
+}
+.leadonto-navbar .bg-white {
+  color: #17204d;
+}
+.home-hero {
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 76% 35%, rgb(52 83 255 / 0.95) 0%, rgb(31 50 196 / 0.8) 28%, transparent 58%),
+    radial-gradient(ellipse at 40% 100%, rgb(13 27 113 / 0.88) 0%, transparent 55%),
+    linear-gradient(118deg, #090d32 0%, #111b75 48%, #1525b5 100%);
+}
+.home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .22;
+  background-image: linear-gradient(rgb(255 255 255 / .12) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .12) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
+}
+
 .home-grid-paper {
   background-image:
     linear-gradient(hsl(222 47% 11% / .045) 1px, transparent 1px),

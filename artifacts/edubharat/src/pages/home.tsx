@@ -137,18 +137,18 @@ export default function Home() {
     <>
       <HomeMeta />
       <div className="home-shell min-w-0 overflow-hidden">
-        <section className="relative isolate overflow-hidden bg-[#FFFDF9] pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14" aria-labelledby="hero-title">
+        <section className="home-hero relative isolate overflow-hidden pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14" aria-labelledby="hero-title">
           <div className="home-grid-paper pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-50" />
           <div className="pointer-events-none absolute -right-40 top-10 -z-10 h-72 w-72 rounded-full bg-orange-100 blur-3xl" />
           <div className="container mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
             <div className="home-reveal max-w-2xl">
-              <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-[#C2410C] sm:text-sm">{heroEyebrow}</p>
-              <h1 id="hero-title" className="max-w-2xl text-[clamp(1.25rem,2.2vw,1.6rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#111827]">
+              <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-orange-200 sm:text-sm">{heroEyebrow}</p>
+              <h1 id="hero-title" className="max-w-2xl text-[clamp(2.3rem,5vw,4.9rem)] font-extrabold leading-[0.98] tracking-[-0.055em] text-white">
                 Speak with confidence.
                 <br />
-                <span className="text-[#F97316]">Prepare for the role you want.</span>
+                <span className="text-orange-300">Prepare for the role you want.</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-[#596273] sm:text-lg">{heroSubtitle}</p>
+              <p className="mt-5 max-w-xl text-base leading-7 text-blue-100/80 sm:text-lg">{heroSubtitle}</p>
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
                 <PrimaryLink href="/communication-check" onClick={() => {
                   track("home_cta_clicked", { cta: "communication_check", placement: "hero_primary" });
@@ -162,7 +162,7 @@ export default function Home() {
                   {ctaSecondary}
                 </QuietLink>
               </div>
-              <p className="mt-3 text-xs font-semibold text-[#596273]">90 seconds. No sign-up before you start. Get your next step.</p>
+              <p className="mt-3 text-xs font-semibold text-blue-100/70">90 seconds. No sign-up before you start. Get your next step.</p>
             </div>
 
             <Link
