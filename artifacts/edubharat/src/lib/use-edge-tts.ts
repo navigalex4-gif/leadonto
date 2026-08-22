@@ -317,6 +317,12 @@ const SCRIPT_LANGUAGE_RANGES: Array<{ language: string; re: RegExp }> = [
 function languageForCharacter(char: string, nativeLanguage?: string, baseLanguage = "English"): string {
   if (!nativeLanguage || nativeLanguage === baseLanguage) return baseLanguage;
   const match = SCRIPT_LANGUAGE_RANGES.find(({ re }) => re.test(char));
+  // Hindi and Marathi share Devanagari. The script alone cannot distinguish
+  // them, so preserve the user's selected native language for this script
+  // group instead of routing Marathi text to the Hindi/English voice.
+  if (match?.language === "Hindi" && (nativeLanguage === "Hindi" || nativeLanguage === "Marathi")) {
+    return nativeLanguage;
+  }
   return match?.language === nativeLanguage ? nativeLanguage : baseLanguage;
 }
 

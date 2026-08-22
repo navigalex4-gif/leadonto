@@ -14,15 +14,15 @@ const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 
 // Apply language-quality guidance at the shared AI boundary so Journey, Tools,
-// Rozgar, interviews, and Live Conversation all receive the same Hindi rules.
-// Client prompts remain free to choose the language; this only activates when
-// Hindi/Devanagari is actually requested.
-const HINDI_QUALITY_RULE = `Language quality rule: When producing Hindi, write natural conversational Hindi in standard Devanagari. Preserve every vowel sign (matra) and word boundary. Never drop matras, split words into isolated consonants, invent phonetic Devanagari, or mix Hindi grammar with another Indian language.`;
+// Rozgar, interviews, and Live Conversation all receive the same native-
+// language rules. Client prompts remain free to choose the language; this only
+// activates when an Indian language is actually requested.
+const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words.`;
 
 function applyLanguageQuality(prompt: string, system?: string | null): string | null | undefined {
   const requestedText = `${prompt}\n${system ?? ""}`;
-  if (!/(?:Hindi|हिंदी|हिन्दी|Devanagari|देवनागरी|matra|मात्रा)/iu.test(requestedText)) return system;
-  return `${system ? `${system}\n\n` : ""}${HINDI_QUALITY_RULE}`;
+  if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|हिंदी|हिन्दी|मराठी|देवनागरी|matra|मात्रा)/iu.test(requestedText)) return system;
+  return `${system ? `${system}\n\n` : ""}${INDIAN_LANGUAGE_QUALITY_RULE}`;
 }
 
 function getAnthropicModelChain(_maxTokens: number) {
