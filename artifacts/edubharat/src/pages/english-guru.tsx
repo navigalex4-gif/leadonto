@@ -87,8 +87,28 @@ function alignTutorGender(text: string, voiceGender: "male" | "female"): string 
     .replace(/बताऊँगी/g, "बताऊँगा");
 }
 
+const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> = {
+  Hindi: { male: "समझ गया। चलिए धीरे-धीरे अभ्यास करते हैं।", female: "समझ गई। चलिए धीरे-धीरे अभ्यास करते हैं।" },
+  Marathi: { male: "समजलं. चला, हळूहळू सराव करूया.", female: "समजलं. चला, हळूहळू सराव करूया." },
+  Tamil: { male: "புரிந்தது. மெதுவாகப் பயிற்சி செய்வோம்.", female: "புரிந்தது. மெதுவாகப் பயிற்சி செய்வோம்." },
+  Telugu: { male: "అర్థమైంది. నెమ్మదిగా సాధన చేద్దాం.", female: "అర్థమైంది. నెమ్మదిగా సాధన చేద్దాం." },
+  Bengali: { male: "বুঝতে পেরেছি। চলুন ধীরে ধীরে অনুশীলন করি।", female: "বুঝতে পেরেছি। চলুন ধীরে ধীরে অনুশীলন করি।" },
+  Gujarati: { male: "સમજાયું. ચાલો ધીમે ધીમે અભ્યાસ કરીએ.", female: "સમજાયું. ચાલો ધીમે ધીમે અભ્યાસ કરીએ." },
+  Kannada: { male: "ಅರ್ಥವಾಯಿತು. ನಿಧಾನವಾಗಿ ಅಭ್ಯಾಸ ಮಾಡೋಣ.", female: "ಅರ್ಥವಾಯಿತು. ನಿಧಾನವಾಗಿ ಅಭ್ಯಾಸ ಮಾಡೋಣ." },
+  Malayalam: { male: "മനസ്സിലായി. നമുക്ക് പതുക്കെ പരിശീലിക്കാം.", female: "മനസ്സിലായി. നമുക്ക് പതുക്കെ പരിശീലിക്കാം." },
+  Punjabi: { male: "ਸਮਝ ਗਿਆ। ਆਓ ਹੌਲੀ-ਹੌਲੀ ਅਭਿਆਸ ਕਰੀਏ.", female: "ਸਮਝ ਗਈ। ਆਓ ਹੌਲੀ-ਹੌਲੀ ਅਭਿਆਸ ਕਰੀਏ." },
+  Odia: { male: "ବୁଝିଲି। ଚାଲନ୍ତୁ ଧୀରେ ଧୀରେ ଅଭ୍ୟାସ କରିବା।", female: "ବୁଝିଲି। ଚାଲନ୍ତୁ ଧୀରେ ଧୀରେ ଅଭ୍ୟାସ କରିବା।" },
+  Assamese: { male: "বুজিলোঁ। আহক লাহে লাহে অনুশীলন কৰোঁ।", female: "বুজিলোঁ। আহক লাহে লাহে অনুশীলন কৰোঁ।" },
+  Urdu: { male: "سمجھ گیا۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔", female: "سمجھ گئی۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔" },
+};
+
 /** Keep native-language voice replies natural and safe for speech synthesis. */
-function cleanSpokenReply(text: string, nativeMode: boolean, voiceGender: "male" | "female"): string {
+function cleanSpokenReply(
+  text: string,
+  nativeMode: boolean,
+  voiceGender: "male" | "female",
+  nativeLanguage = "Hindi",
+): string {
   let cleaned = alignTutorGender(stripMarkdownForSpeech(text), voiceGender)
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
     .trim();
@@ -109,9 +129,8 @@ function cleanSpokenReply(text: string, nativeMode: boolean, voiceGender: "male"
       /^[\u0900-\u0D7F\u0600-\u06FF]$/u.test(word.replace(/[,.!?।॥]/gu, "")),
     ).length;
     if (words.length >= 4 && isolatedIndicLetters >= 3 && isolatedIndicLetters / words.length >= 0.45) {
-      return voiceGender === "female"
-        ? "समझ गई। चलिए धीरे-धीरे अभ्यास करते हैं।"
-        : "समझ गया। चलिए धीरे-धीरे अभ्यास करते हैं।";
+      return NATIVE_RETRY_FALLBACKS[nativeLanguage]?.[voiceGender]
+        ?? "I want to help you practise clearly. Let us try that again slowly.";
     }
   }
   return cleaned;
@@ -753,7 +772,7 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
-           const cleanResponse = cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender);
+           const cleanResponse = cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender, uiLang);
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");
