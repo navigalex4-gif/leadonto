@@ -643,13 +643,18 @@ function EnglishGuruContent() {
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
         // written in Devanagari. Give the model the exact source sentence.
-        const asksToRepeatPreviousQuestionInNative =
+        const asksForNativeTranslation =
           uiLang !== "English" && (
             /(?:say|speak|repeat|tell).{0,35}(?:what|question).{0,35}(?:asked|said).{0,25}(?:in|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|urdu)/i.test(userMsg)
             || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
           );
-        const translationInstruction = asksToRepeatPreviousQuestionInNative && previousTeacherMessage
-          ? `\n[HIGH PRIORITY TRANSLATION REQUEST: The student is asking you to say in ${uiLang} what YOU just asked. Translate your immediately previous teacher message exactly into natural ${uiLang}. The source message was: "${previousTeacherMessage}". Reply with that translation first. Do not give a generic acknowledgement, ask a new question, or start an English practice exercise.]\n`
+        const asksForDirectNativeTranslation =
+          uiLang !== "English" && /(?:translate|say|speak|repeat|tell).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
+        const translationRequested = asksForNativeTranslation || asksForDirectNativeTranslation;
+        const translationInstruction = translationRequested
+          ? previousTeacherMessage
+            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: The student wants the complete English sentence translated and spoken in ${uiLang}. If they refer to what you asked, translate your immediately previous teacher message exactly. The source sentence is: "${previousTeacherMessage}". Output the FULL natural ${uiLang} translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+            : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the complete English sentence the student supplied into natural ${uiLang}. Output the FULL translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
           : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
