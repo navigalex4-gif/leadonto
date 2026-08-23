@@ -63,3 +63,10 @@ uri = "file://exports/lead-onto-source.tar.gz"
 type = "unspecified"
 title = "Lead Onto project source archive"
 description = "Compatible compressed source archive. Use the download button on the attached file card."
+
+[[outputs]]
+id = "vO6tkKDrmMp2ctlIyhky5"
+uri = "file://exports/lead-onto-complete-under-50mb.zip"
+type = "unspecified"
+title = "Lead Onto complete project ZIP"
+description = "Verified complete source project archive, 19.5 MB. Includes app code, configuration, scripts, public assets, and documentation; excludes dependencies, generated output, caches, Git metadata, and temporary attachments."
