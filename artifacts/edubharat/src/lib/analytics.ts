@@ -3,6 +3,13 @@ const CONSENT_KEY = "edubharat_analytics_consent";
 const ANON_ID_KEY = "edubharat_anon_id";
 const ACQUISITION_KEY = "edubharat_acquisition";
 const ACQUISITION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "gad_source", "gad_campaignid"] as const;
+const GOOGLE_ADS_PURCHASE_SEND_TO = "AW-18381164231/a-wwCM-S0-YcEMd6bxE";
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 export type Consent = "granted" | "denied" | "pending";
 
@@ -91,6 +98,18 @@ export function canTrack(): boolean {
 
 export function track(event: string, properties?: Record<string, unknown>) {
   sendEvent(event, properties);
+}
+
+/** Report a confirmed Cashfree purchase to the Google Ads conversion action. */
+export function trackGoogleAdsPurchase(transactionId: string, value: number): boolean {
+  if (typeof window.gtag !== "function") return false;
+  window.gtag("event", "conversion", {
+    send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
+    value,
+    currency: "INR",
+    transaction_id: transactionId,
+  });
+  return true;
 }
 
 export function trackFunnel(event: FunnelEvent, properties?: Record<string, unknown>) {

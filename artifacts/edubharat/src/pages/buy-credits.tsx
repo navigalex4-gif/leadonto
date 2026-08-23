@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { track, trackFunnel } from "@/lib/analytics";
+import { track, trackFunnel, trackGoogleAdsPurchase } from "@/lib/analytics";
 import { PageMeta } from "@/components/page-meta";
 import {
   useCredits, createCashfreeOrder, getCashfreeStatus, fetchTransactions,
@@ -66,12 +66,19 @@ export default function BuyCredits() {
   const [submitting, setSubmitting] = useState(false);
   const [pollCount, setPollCount] = useState(0);
   const [txns, setTxns] = useState<CreditTx[]>([]);
+  const trackedPurchaseRef = useRef<string | null>(null);
 
   const valid = Number.isFinite(amount) && amount >= CREDIT_MIN_PURCHASE && amount <= 100_000;
   const loginReturnTo = returnTo ?? "/credits";
 
   useEffect(() => { if (authenticated) void fetchTransactions().then(setTxns); }, [authenticated, balance]);
   useEffect(() => { trackFunnel("payment_page_viewed", { returnTo: returnTo ?? undefined }); }, [returnTo]);
+  useEffect(() => {
+    // Payment status is polled and the component can rerender several times.
+    // Report one Google Ads conversion per server-confirmed order only.
+    if (stage !== "paid" || !orderId || trackedPurchaseRef.current === orderId) return;
+    if (trackGoogleAdsPurchase(orderId, orderCredits)) trackedPurchaseRef.current = orderId;
+  }, [orderCredits, orderId, stage]);
 
   const reconcile = useCallback(async (id: string) => {
     const result = await getCashfreeStatus(id);
