@@ -49,3 +49,10 @@ uri = "file://exports/lead-onto-project.zip"
 type = "unspecified"
 title = "Lead Onto project ZIP"
 description = "Downloadable source archive excluding node_modules, generated build output, caches, and Git metadata."
+
+[[outputs]]
+id = "isfpSvxExBEOUGkuN3e6-"
+uri = "file://exports/lead-onto-source-download.zip"
+type = "unspecified"
+title = "Lead Onto source ZIP"
+description = "Smaller verified source archive for download; excludes dependencies, caches, generated output, Git metadata, and attached temporary files."
