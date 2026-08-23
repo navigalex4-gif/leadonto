@@ -38,6 +38,32 @@ function getExternalBrowserUrl(url: string, userAgent: string): string {
   return url;
 }
 
+function getContextualCopy(returnTo: string | null): { title: string; description: string } {
+  const path = returnTo ?? "";
+  if (path.startsWith("/interview-ace")) {
+    return {
+      title: "Keep your interview practice going",
+      description: "Create your free account to unlock more mock interviews, save your history, and get 20 free credits.",
+    };
+  }
+  if (path.startsWith("/english-guru")) {
+    return {
+      title: "Don't lose your speaking streak",
+      description: "Create your free account to keep practising with your coach and get 20 free credits.",
+    };
+  }
+  if (path.startsWith("/resume-intelligence")) {
+    return {
+      title: "Save your resume feedback",
+      description: "Create your free account to keep your ATS scan results and get 20 free credits.",
+    };
+  }
+  return {
+    title: "Create your free account",
+    description: "Save your progress and get 20 free credits to keep practising",
+  };
+}
+
 export default function Login() {
   return (
     <>
@@ -64,6 +90,7 @@ function LoginContent() {
     return "";
   });
   const [devCode, setDevCode] = useState<string | undefined>();
+  const [otpSentAt, setOtpSentAt] = useState<number | null>(null);
   // Fail open: assume Google is configured until we hear otherwise.
   // This prevents the button from being disabled on transient config-fetch errors.
   const [config, setConfig] = useState<AuthConfig | null>(null);
@@ -123,6 +150,7 @@ function LoginContent() {
     } else {
       setStep("otp");
       setDevCode(result.dev);
+      setOtpSentAt(Date.now());
       track("otp_requested", {
         success: true,
         email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
@@ -142,9 +170,12 @@ function LoginContent() {
     const result = await verifyOtp(email, otp, guestId);
     setLoading(false);
     if (result.error) {
-      const expired = /expired/i.test(result.error);
+      const genericExpiredMessage = /expired/i.test(result.error);
+      const secondsSinceSent = otpSentAt ? (Date.now() - otpSentAt) / 1000 : Infinity;
+      const likelyTypo = genericExpiredMessage && secondsSinceSent < 120;
+      const expired = genericExpiredMessage && !likelyTypo;
       trackFunnel(expired ? "otp_expired" : "otp_failed", { stage: "verify", reason: result.error.slice(0, 120) });
-      setError(result.error);
+      setError(likelyTypo ? "That code doesn't match. Double-check the 6 digits from your email and try again." : result.error);
       track("otp_verify_attempted", { success: false, error_reason: result.error.slice(0, 120) });
       track("otp_verify_failed", { error_reason: result.error.slice(0, 120) });
     } else {
@@ -170,6 +201,8 @@ function LoginContent() {
   // This prevents a transient /api/auth/config failure from disabling the button.
   const googleReady = configLoaded ? (config?.googleConfigured ?? true) : true;
   const externalBrowserUrl = getExternalBrowserUrl(window.location.href, navigator.userAgent);
+  const returnToParam = new URLSearchParams(search).get("returnTo");
+  const contextualCopy = getContextualCopy(returnToParam);
   const openExternalBrowser = () => {
     track("oauth_external_browser_clicked", {
       platform: /Android/i.test(navigator.userAgent) ? "android" : /(iPhone|iPad|iPod)/i.test(navigator.userAgent) ? "ios" : "other",
@@ -263,8 +296,8 @@ function LoginContent() {
 
         <Card className="shadow-xl border-none">
           <CardHeader className="text-center pb-2">
-             <CardTitle className="text-2xl">Create your free account</CardTitle>
-             <CardDescription>Save your progress and get 20 free credits to keep practising</CardDescription>
+             <CardTitle className="text-2xl">{contextualCopy.title}</CardTitle>
+             <CardDescription>{contextualCopy.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-4">
             {!isEmbeddedWebView && (
