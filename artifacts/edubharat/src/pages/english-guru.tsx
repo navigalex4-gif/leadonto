@@ -120,6 +120,33 @@ function looksLikeGenericNativeAcknowledgement(text: string): boolean {
     );
 }
 
+const INDIC_SCRIPT_CHARACTER = /[\u0900-\u0D7F\u0600-\u06FF]/u;
+
+/**
+ * Some live-model responses place a space after every Indic grapheme. That is
+ * not readable language and makes TTS spell each character aloud.
+ */
+function hasFragmentedNativeScript(text: string): boolean {
+  const tokens = text.trim().split(/\s+/u).filter(Boolean);
+  if (tokens.length < 5) return false;
+  const scriptTokens = tokens.filter((token) =>
+    [...token].some((character) => INDIC_SCRIPT_CHARACTER.test(character)),
+  );
+  if (scriptTokens.length < 5) return false;
+  const shortScriptTokens = scriptTokens.filter((token) =>
+    [...token.replace(/[.,!?।॥]/gu, "")].length <= 2,
+  );
+  return shortScriptTokens.length / scriptTokens.length >= 0.8;
+}
+
+function collapseFragmentedNativeScript(text: string): string {
+  if (!hasFragmentedNativeScript(text)) return text;
+  return text.replace(
+    /([\u0900-\u0D7F\u0600-\u06FF])\s+(?=[\u0900-\u0D7F\u0600-\u06FF])/gu,
+    "$1",
+  );
+}
+
 /** Keep native-language voice replies natural and safe for speech synthesis. */
 function cleanSpokenReply(
   text: string,
@@ -792,14 +819,24 @@ Rules for spoken replies:
         if (
           translationRequested
           && previousTeacherMessage
-          && (!response.trim() || looksLikeGenericNativeAcknowledgement(response))
+          && (
+            !response.trim()
+            || looksLikeGenericNativeAcknowledgement(response)
+            || hasFragmentedNativeScript(response)
+          )
         ) {
           response = await stream(
             `STRICT TRANSLATION. Translate the complete sentence below into ${uiLang}. Return only its complete natural translation in native ${uiLang} script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
-            `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
+            `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 6000 },
           );
+        }
+        // A second malformed response must never be handed to TTS character by
+        // character. The retry above normally returns normal words; this final
+        // repair protects speech while keeping the translated content visible.
+        if (translationRequested) {
+          response = collapseFragmentedNativeScript(response);
         }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
