@@ -42,3 +42,10 @@ uri = "file://exports/lead-onto-source.zip"
 type = "unspecified"
 title = "Lead Onto optimized project ZIP"
 description = "19 MB source-only project archive, safely below 500 MB. Excludes dependencies, Git history, platform folders, caches, generated builds, recordings, screenshots, and duplicate archives."
+
+[[outputs]]
+id = "RWuNJy_51nvguIaSBJSFc"
+uri = "file://exports/lead-onto-project.zip"
+type = "unspecified"
+title = "Lead Onto project ZIP"
+description = "Downloadable source archive excluding node_modules, generated build output, caches, and Git metadata."
