@@ -113,7 +113,11 @@ function looksLikeGenericNativeAcknowledgement(text: string): boolean {
     "i understand lets practise slowly",
     "i understand let us practise slowly",
   ].some((phrase) => normalized.includes(phrase))
-    || (normalized.includes("నెమ్మదిగా") && normalized.includes("సాధన"));
+    || (
+      normalized.includes("అర్థమైంది")
+      && /నెమ్మదిగా|నమ్మదిగా/u.test(normalized)
+      && /సాధన|ప్రాక్టీస్/u.test(normalized)
+    );
 }
 
 /** Keep native-language voice replies natural and safe for speech synthesis. */
@@ -857,7 +861,13 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
-           const cleanResponse = cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender, uiLang);
+           const cleanResponse = cleanSpokenReply(
+             response,
+             uiLang !== "English",
+             tutor.voiceGender,
+             uiLang,
+             !translationRequested,
+           );
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");
