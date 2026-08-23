@@ -663,7 +663,7 @@ function EnglishGuruContent() {
             || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
           );
         const asksForDirectNativeTranslation =
-          uiLang !== "English" && /(?:translate|say|speak|repeat|tell).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
+          uiLang !== "English" && /(?:translate|say|speak|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
         const translationRequested = asksForNativeTranslation || asksForDirectNativeTranslation;
         const translationInstruction = translationRequested
           ? previousTeacherMessage
@@ -836,22 +836,14 @@ Rules for spoken replies:
           // heavier "help" moment), so that gloss is still pronounced correctly.
           // Use speakRef so we always call the latest speak closure even though
           // handleConvPhrase no longer has `speak` in its deps.
-          const speechLang = uiLang === "English"
-            ? "English"
-            : ((cleanResponse.match(/[\u0900-\u0D7F\u0600-\u06FF]/g)?.length ?? 0)
-                > (cleanResponse.match(/[A-Za-z]/g)?.length ?? 0) ? uiLang : "English");
-          // Listen for the student's NEXT turn in whatever language the AI just
-          // spoke: English stays English (so the echo of the AI's own English
-          // voice is same-script and the echo-guard can drop it), and a native
-          // explanation flips the mic to the native language for the student's
-          // likely native reply — then the next English reply flips it back.
-          setRecognitionLang(speechLang);
+           // Keep the learner transcript in English. The selected native
+           // language is used for explanations and TTS, not as the STT locale.
+           setRecognitionLang("English");
           lastAiSpeechRef.current = cleanResponse;
           // Voice the reply with per-script accents: English words in the tutor's
           // English voice, native words in a true native accent. The server splits
-          // the reply when we pass the helper language; `language: "English"` keeps
-          // the English runs on the tutor voice. (speechLang above still drives
-          // only which language we LISTEN in next, not the voice.)
+           // the reply when we pass the helper language; `language: "English"` keeps
+           // the English runs on the tutor voice.
           speakRef.current(cleanResponse, "English", releaseTurn, {
             rate: 1.0,
             nativeLanguage: uiLang !== "English" ? uiLang : undefined,

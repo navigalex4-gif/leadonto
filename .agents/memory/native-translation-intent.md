@@ -8,3 +8,5 @@ When a learner asks to say, repeat, explain, or translate an English sentence in
 **Why:** Short live-chat model responses repeatedly chose familiar encouragement phrases even when the broader system prompt explicitly requested a translation.
 
 **How to apply:** Keep translation detection broad across English and native-script phrasing, pass the exact source sentence, require the full native-script translation, and guard against known generic acknowledgements.
+
+English Guru should keep the learner's speech-recognition locale set to English even when a native helper language is selected; the helper language is for tutor explanations and TTS, not English transcript display.
