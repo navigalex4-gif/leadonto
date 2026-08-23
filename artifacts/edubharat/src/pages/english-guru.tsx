@@ -102,6 +102,20 @@ const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> =
   Urdu: { male: "سمجھ گیا۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔", female: "سمجھ گئی۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔" },
 };
 
+function looksLikeGenericNativeAcknowledgement(text: string): boolean {
+  const normalized = text.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  return [
+    "समझ गया चलिए धीरे धीरे अभ्यास करते हैं",
+    "समझ गई चलिए धीरे धीरे अभ्यास करते हैं",
+    "अर्थमైంది నెమ్మదిగా సాధన చేద్దాం",
+    "புரிந்தது மெதுவாக பயிற்சி செய்வோம்",
+    "समजलं चला हळूहळू सराव करूया",
+    "i understand lets practise slowly",
+    "i understand let us practise slowly",
+  ].some((phrase) => normalized.includes(phrase))
+    || (normalized.includes("నెమ్మదిగా") && normalized.includes("సాధన"));
+}
+
 /** Keep native-language voice replies natural and safe for speech synthesis. */
 function cleanSpokenReply(
   text: string,
@@ -732,6 +746,17 @@ Rules for spoken replies:
           // are unavailable; the server keeps Z.ai as the emergency fallback.
            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 100, timeoutMs: 2400 }
         );
+        // A short live model can still choose the familiar acknowledgement
+        // instead of translating. Retry once with no conversational ambiguity:
+        // the previous English sentence is the only source it should translate.
+        if (translationRequested && previousTeacherMessage && looksLikeGenericNativeAcknowledgement(response)) {
+          response = await stream(
+            `Translate this exact English sentence into ${uiLang}. Return only the complete natural translation in ${uiLang}'s native script. Do not acknowledge, explain, ask a question, or coach the student.\nEnglish sentence: "${previousTeacherMessage}"`,
+            `You are a precise ${uiLang} translator. Translate the entire sentence faithfully. Preserve its meaning and question form. Use only ${uiLang}; never return a generic practice or acknowledgement sentence.`,
+            undefined,
+            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 120, timeoutMs: 5000 },
+          );
+        }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
         if (!response.trim()) {

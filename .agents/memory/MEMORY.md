@@ -74,3 +74,4 @@
 - [Firecrawl job analysis](firecrawl-job-analysis.md) — use Firecrawl for pasted public job URLs and resume matching, not primary structured vacancy search.
 - [Rezi benchmark](rezi-benchmark.md) — benchmark Rezi’s ATS and job-tailoring workflows, but implement them natively instead of depending on Rezi.
 - [Dark navbar contrast](dark-navbar-contrast.md) — when shared nav text is light, explicitly scope white dropdown and mobile panels back to dark text.
+- [Native translation intent](native-translation-intent.md) — translation turns need exact source context and a guarded retry, not only general coaching instructions.
