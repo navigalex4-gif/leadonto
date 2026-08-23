@@ -227,6 +227,12 @@ function EnglishGuruContent() {
   // replies to its own voice" bug (worst in Malayalam and other native modes).
   const [recognitionLang, setRecognitionLang] = useState("English");
   const speech = useSpeechRecognition(recognitionLang);
+  // Keep the native recognizer active only briefly after a native-language
+  // explanation. Learners commonly continue speaking English on the next turn.
+  const recognitionLangRevertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (recognitionLangRevertTimerRef.current) clearTimeout(recognitionLangRevertTimerRef.current);
+  }, []);
   /**
    * speechRef — always-current speech handle so handleConvPhrase doesn't need
    * `speech` in its deps (speech changes every render because it's an object
