@@ -705,11 +705,11 @@ function EnglishGuruContent() {
         // written in Devanagari. Give the model the exact source sentence.
         const asksForNativeTranslation =
           uiLang !== "English" && (
-            /(?:say|speak|repeat|tell).{0,35}(?:what|question).{0,35}(?:asked|said).{0,25}(?:in|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|urdu)/i.test(userMsg)
+             /(?:say|speak|read|repeat|tell).{0,35}(?:what|question).{0,35}(?:asked|said).{0,25}(?:in|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|urdu)/i.test(userMsg)
             || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
           );
         const asksForDirectNativeTranslation =
-          uiLang !== "English" && /(?:translate|say|speak|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
+          uiLang !== "English" && /(?:translate|say|speak|read|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
         const translationRequested = asksForNativeTranslation || asksForDirectNativeTranslation;
         const translationInstruction = translationRequested
           ? previousTeacherMessage
@@ -718,7 +718,7 @@ function EnglishGuruContent() {
           : "";
         const escapedUiLang = uiLang.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const archiveTranslationRequest = new RegExp(
-          `\\b(say|speak|repeat|tell|explain|translate)\\b[^.?!]{0,25}\\b(in|into)\\b\\s*${escapedUiLang}\\b`
+          `\\b(say|speak|read|repeat|tell|explain|translate)\\b[^.?!]{0,25}\\b(in|into)\\b\\s*${escapedUiLang}\\b`
             + `|\\bwhat\\s+(does|do|did)\\b[^.?!]{0,30}\\bmean\\b`
             + `|\\bmeaning\\s+of\\b|\\btranslate\\b`,
           "i",
