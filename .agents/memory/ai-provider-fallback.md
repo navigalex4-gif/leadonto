@@ -1,9 +1,9 @@
 ---
-name: AI provider fallback (Claude primary → Gemini fallback)
-description: Why Claude is the primary AI provider and Gemini only a fallback, and how routes must call AI.
+name: AI quality provider routing
+description: Provider order and health-aware routing for standard, quality, and live AI generation.
 ---
 
-# AI provider fallback (Claude/Gemini → Groq → Mistral)
+# AI quality provider routing
 
 Every general AI feature route in `api-server` MUST go through the shared
 `generateTextWithFallback` helper (streaming) or the shared chat helpers in
@@ -11,10 +11,14 @@ Every general AI feature route in `api-server` MUST go through the shared
 intentional exception: its dedicated feed endpoint is Gemini-first, with
 Claude fallback, because the product explicitly requests Gemini enrichment.
 
-**General order: Claude is PRIMARY, Gemini is the FALLBACK, then Groq and
-Mistral.** `/ai/stream` keeps Claude/Gemini first for general routes, while web
-Live Conversation explicitly selects Groq for low latency and falls back to
-Mistral. `generateTextWithFallback` uses Claude → Gemini → Groq → Mistral.
+**Standard order:** Claude is PRIMARY, Gemini is the FALLBACK, then Groq and
+Mistral. `/ai/stream` keeps this order for general routes.
+
+**Quality order:** `/ai/stream?provider=quality` and
+`generateTextWithFallback({ qualityFirst: true })` use Claude Sonnet → Claude
+Haiku while Claude is healthy, then Mistral → Groq. English Guru, Interview
+Ace, and Learning Journey use this quality path. Gemini is intentionally skipped
+there because its exhausted quota causes dead air in live voice experiences.
 
 **Why:** There is no working `GEMINI_API_KEY` in this project. Every Gemini call
 returns `429 RESOURCE_EXHAUSTED` (free-tier quota effectively 0) or `404 NOT_FOUND`
@@ -24,20 +28,21 @@ of the "AI not responding / stops mid-reply / robotic / empty stream" symptoms
 across English Guru, Interview Ace, and the 30-day plan. Flipping to Claude-first
 dropped `/ai/stream` from 5+s to ~1.7s and made responses reliable.
 `ANTHROPIC_API_KEY` may be present while the provider account is still unable to serve
-requests (for example, an account-credit rejection). Treat any non-successful request
-or empty completion as a fallback trigger rather than assuming the key is healthy.
+requests (for example, an account-credit rejection). Groq can also exhaust its daily
+allowance. Quality routes temporarily cool down providers after billing, quota, auth,
+or empty-response failures, so the next spoken turn reaches the healthy provider
+instead of repeating a known failure.
 
 **Model chain:** keep `ANTHROPIC_MODEL_CHAIN` to REAL models only
 (`claude-haiku-4-5`, `claude-sonnet-4-5`). Do NOT invent names like
 "claude-sonnet-4-6" — a non-existent model 404s and burns a retry.
 
-**How to apply:** `generateTextWithFallback({ prompt, system, maxTokens, onDelta, log })`
-tries Claude, Gemini, Groq, then Mistral, calling `onDelta` per fragment so SSE
-`content` events still stream. Only use the Gemini-first route for Rozgar content
-that is grounded in fetched live listings/feed items; keep tutoring, interviews,
-and other general AI calls on Claude-first fallback. Mistral is optional and is
-read from `MISTRAL_API_KEY`; if it is unavailable, callers retain their local
-recovery behavior.
+**How to apply:** General routes call
+`generateTextWithFallback({ prompt, system, maxTokens, onDelta, log })`; quality
+content adds `qualityFirst: true`. Streaming quality calls use
+`/ai/stream?provider=quality`. Keep client-side turn deadlines and local recovery:
+a provider is never allowed to strand a live learner or candidate. Only use the
+Gemini-first route for Rozgar content grounded in fetched live listings/feed items.
 
 **Related parsing rule:** never set `responseMimeType: "application/json"` with
 gemini-2.5-flash — it suppresses streamed text entirely. Isolate the JSON object

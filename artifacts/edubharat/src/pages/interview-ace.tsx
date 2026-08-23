@@ -1448,7 +1448,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     })();
     const turnStartedAt = performance.now();
       const minWaitPromise = new Promise<void>((resolve) => setTimeout(resolve, 180));
-       const STREAM_DEADLINE_MS = 1_900;
+        const STREAM_DEADLINE_MS = 4_500;
     let streamTimedOut = false;
     const streamDeadlinePromise = new Promise<string>(resolve =>
       setTimeout(() => { streamTimedOut = true; resolve(""); }, STREAM_DEADLINE_MS)
@@ -1504,7 +1504,7 @@ Output format — exactly one line, nothing else:
 Next: <the interview question only, may start with a short natural bridge>`,
            `You are ${displayCoachName}, ${coach.role}. ${coach.style} ${coach.promptStyle} You are the domain-specialist interviewer for ${interviewRoleLabel}. Treat ${interviewRoleLabel} as the authoritative target role and ask questions grounded in its real work, tools, decisions, risks and success measures. You conduct a professional but warm, personable interview that covers a BROAD range of areas and never fixates on one topic. Speak like a real person in a live interview: use contractions, natural rhythm, short spoken phrases, and simple everyday English. React briefly to a concrete detail from the candidate's answer before the next question when it feels natural. Use full spoken forms for acronyms and business terms where possible (say "R B I", "H R", or "A I", not compressed letter strings). Introduce yourself by name only; never call yourself Sir, Ma'am, or Madam. Keep the tone focused on the interview rather than casual conversation. Avoid scripted corporate phrases, repeated praise, and report-like wording. Use light humour only when it fits; never sarcasm, never at the candidate's expense. Never use markdown or action words.`,
           undefined,
-           { maxTokens: 140 }
+            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 4_500 }
         ),
         streamDeadlinePromise,
       ]);
@@ -1886,7 +1886,7 @@ TRANSCRIPT QUALITY AND FAIRNESS: Speech-to-text can omit words, merge phrases, o
 HIRING DECISION CALIBRATION: A ten-minute practice interview cannot establish that someone is "not fit at any experience level." Make the recommendation conditional on this interview and the selected role/experience benchmark. A No Hire recommendation must cite role-critical evidence and proposed verification steps, not a profile mismatch alone. Best-fit roles must be supported by stated experience or interests; if evidence is insufficient, say "not enough evidence to recommend an alternative role" instead of inventing one.`,
           `You are a senior hiring manager and ${interviewRoleLabel} domain panellist evaluating an Indian candidate against a weighted scorecard. Give human, realistic, honest feedback and rate strictly on the 1-5 scale. Judge role fit against ${interviewRoleLabel}, not against a generic job. Do not penalise Indian accents, non-native English, or minor grammar errors unless meaning is genuinely unclear. Use evidence-based hiring language suitable for India and overseas employers, and clearly separate demonstrated evidence from assumptions and follow-up checks.`,
         undefined,
-        { maxTokens: 2000 }
+        { endpoint: "/api/ai/stream?provider=quality", maxTokens: 2000, timeoutMs: 20_000 }
       );
 
       const parsed = parseReportJson(reportText, duration) ?? neutralReport(duration);
@@ -1909,7 +1909,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 [{"score":1-10,"communication":1-10,"grammar":1-10,"confidence":1-10,"technical":1-10 or null,"relevance":"Relevant | Partly relevant | Not demonstrated","alignment":"Aligned | Partly aligned | Not demonstrated","authenticityObservation":"observable evidence only","feedback":"2-3 sentences"}]`,
           `You are a concise interview evaluator. Be honest, specific, and encouraging.`,
           undefined,
-          { maxTokens: 2000 }
+          { endpoint: "/api/ai/stream?provider=quality", maxTokens: 2000, timeoutMs: 20_000 }
         );
         let cleaned = fbText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
         const firstBracket = cleaned.indexOf("[");

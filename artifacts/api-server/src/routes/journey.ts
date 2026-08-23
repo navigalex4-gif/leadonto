@@ -607,6 +607,7 @@ Create a fresh lesson experience tailored to this student. Do not reuse a predic
 }`,
       maxTokens: 450,
       log: req.log,
+      qualityFirst: true,
     });
 
     // Strip accidental markdown fences

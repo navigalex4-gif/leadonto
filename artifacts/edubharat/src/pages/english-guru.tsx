@@ -780,7 +780,7 @@ function EnglishGuruContent() {
             `Translate the English sentence below into ${uiLang}. Return only its complete, natural ${uiLang} translation in native script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
             `You are a strict ${uiLang} translator, not a tutor. Translate every part of the supplied English sentence faithfully, including its question form. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
             undefined,
-            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 6000 },
+            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
         } else {
           response = await stream(
@@ -810,7 +810,7 @@ Rules for spoken replies:
           undefined,
           // Live Conversation uses Groq directly while Claude/Gemini credits
           // are unavailable; the server keeps Z.ai as the emergency fallback.
-            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 100, timeoutMs: 2400 },
+            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 100, timeoutMs: 4500 },
           );
         }
         // A short live model can still choose the familiar acknowledgement
@@ -829,7 +829,7 @@ Rules for spoken replies:
             `STRICT TRANSLATION. Translate the complete sentence below into ${uiLang}. Return only its complete natural translation in native ${uiLang} script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
             `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
-            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 6000 },
+            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
         }
         // A second malformed response must never be handed to TTS character by

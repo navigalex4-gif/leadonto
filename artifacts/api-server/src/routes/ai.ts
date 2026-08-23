@@ -25,11 +25,13 @@ function applyLanguageQuality(prompt: string, system?: string | null): string | 
   return `${system ? `${system}\n\n` : ""}${INDIAN_LANGUAGE_QUALITY_RULE}`;
 }
 
-function getAnthropicModelChain(_maxTokens: number) {
-  // Always try haiku first; fall back to sonnet on rate-limit regardless of token count.
-  // Previously, ≤160-token calls only tried haiku with no fallback, so any haiku hiccup
-  // silently returned empty text in live chat and interview ace.
-  return ANTHROPIC_MODEL_CHAIN;
+function getAnthropicModelChain(_maxTokens: number, qualityFirst = false) {
+  // Live coaching, interview evaluation, and generated lessons can opt into
+  // Sonnet first for stronger reasoning and more natural language. The default
+  // remains Haiku first for lower-cost general requests.
+  return qualityFirst
+    ? [ANTHROPIC_MODEL_CHAIN[1], ANTHROPIC_MODEL_CHAIN[0]]
+    : ANTHROPIC_MODEL_CHAIN;
 }
 
 export function getAI() {
@@ -72,6 +74,26 @@ function retryDelayMs(err: unknown): number {
     if (match) return Math.min(parseInt(match[1]) * 1000, 8000);
   } catch { /* ignore */ }
   return 3000;
+}
+
+type QualityProvider = "claude" | "groq" | "mistral";
+const qualityProviderBackoffUntil = new Map<QualityProvider, number>();
+
+function isQualityProviderReady(provider: QualityProvider): boolean {
+  return (qualityProviderBackoffUntil.get(provider) ?? 0) <= Date.now();
+}
+
+function pauseQualityProvider(provider: QualityProvider, err: unknown) {
+  const message = ((err as { message?: string }).message ?? "").toLowerCase();
+  const unavailable = isRateLimit(err)
+    || isAuthError(err)
+    || /credit balance|insufficient credit|empty response/.test(message);
+  if (!unavailable) return;
+
+  const cooldownMs = isRateLimit(err)
+    ? Math.max(retryDelayMs(err), 120_000)
+    : provider === "claude" ? 15 * 60_000 : 2 * 60_000;
+  qualityProviderBackoffUntil.set(provider, Date.now() + cooldownMs);
 }
 
 function userFriendlyError(err: unknown): string {
@@ -132,6 +154,7 @@ async function streamAnthropic(
   system: string | null | undefined,
   maxTokens: number,
   state: { wrote: boolean },
+  qualityFirst = false,
 ) {
   const anthropic = getAnthropic();
   if (!anthropic) {
@@ -140,7 +163,7 @@ async function streamAnthropic(
 
   const messages: Array<{ role: "user"; content: string }> = [{ role: "user", content: prompt }];
   const systemPrompt = system ?? undefined;
-  const modelChain = getAnthropicModelChain(maxTokens);
+  const modelChain = getAnthropicModelChain(maxTokens, qualityFirst);
 
   for (let i = 0; i < modelChain.length; i++) {
     const model = modelChain[i]!;
@@ -343,8 +366,39 @@ router.post("/ai/stream", async (req, res) => {
   const tokens = maxTokens ?? 8192;
   const state = { wrote: false };
   const preferGroq = req.query.provider === "groq";
+  const preferQuality = req.query.provider === "quality";
 
   try {
+    // Quality live turns prioritise Claude Sonnet, then Claude Haiku. Gemini is
+    // intentionally skipped here: this project has repeatedly seen its quota
+    // fail before any bytes stream, which adds dead air to voice interactions.
+    // Mistral is tried before Groq because it remains available when Groq's
+    // daily allowance is exhausted. Short provider cooldowns avoid retrying a
+    // known unavailable service on every spoken turn.
+    if (preferQuality) {
+      if (hasClaudeKey && isQualityProviderReady("claude")) {
+        try {
+          await streamAnthropic(req, res, prompt, system, tokens, state, true);
+          return;
+        } catch (claudeErr) {
+          if (state.wrote) throw claudeErr;
+          pauseQualityProvider("claude", claudeErr);
+          req.log.warn({ err: claudeErr }, "Claude quality stream failed — falling back to Mistral");
+        }
+      }
+      if (isQualityProviderReady("mistral")) {
+        try {
+          await streamMistral(req, res, prompt, system, tokens, state);
+          return;
+        } catch (mistralErr) {
+          if (state.wrote) throw mistralErr;
+          pauseQualityProvider("mistral", mistralErr);
+          req.log.warn({ err: mistralErr }, "Mistral quality fallback failed — falling back to Groq");
+        }
+      }
+      await streamGroq(req, res, prompt, system, tokens, state);
+      return;
+    }
     // Live Conversation opts into Groq directly so unavailable Claude/Gemini
     // providers cannot consume the browser's short live-turn timeout first.
     if (preferGroq) {
@@ -585,16 +639,18 @@ export async function generateTextWithFallback(opts: {
   maxTokens?: number;
   onDelta?: (text: string) => void;
   log?: { warn: (obj: unknown, msg?: string) => void };
+  qualityFirst?: boolean;
 }): Promise<string> {
-  const { prompt, system: rawSystem, maxTokens = 4096, onDelta, log } = opts;
+  const { prompt, system: rawSystem, maxTokens = 4096, onDelta, log, qualityFirst = false } = opts;
   const system = applyLanguageQuality(prompt, rawSystem);
   let full = "";
 
   // ── Anthropic / Claude chain (reliable primary) ──
   const anthropic = getAnthropic();
-  if (anthropic) {
-    const modelChain = getAnthropicModelChain(maxTokens);
+  if (anthropic && (!qualityFirst || isQualityProviderReady("claude"))) {
+    const modelChain = getAnthropicModelChain(maxTokens, qualityFirst);
     for (let i = 0; i < modelChain.length; i++) {
+      if (qualityFirst && !isQualityProviderReady("claude")) break;
       const model = modelChain[i]!;
       try {
         const stream = anthropic.messages.stream({
@@ -611,12 +667,46 @@ export async function generateTextWithFallback(opts: {
         }
         if (full.trim()) return full;
       } catch (err) {
+        if (qualityFirst) pauseQualityProvider("claude", err);
         log?.warn({ model, err }, "Claude model failed in generateTextWithFallback");
         continue;
       }
     }
   }
   if (full.trim()) return full;
+
+  // Quality-first generation mirrors the low-latency live policy. It bypasses
+  // Gemini's depleted quota and prefers the currently healthy Mistral service
+  // before attempting Groq.
+  if (qualityFirst) {
+    if (isQualityProviderReady("mistral")) {
+      try {
+        full = "";
+        const mistralText = await requestMistralStream(prompt, system, maxTokens, (text) => {
+          full += text;
+          onDelta?.(text);
+        });
+        if (mistralText.trim()) return mistralText;
+      } catch (err) {
+        pauseQualityProvider("mistral", err);
+        log?.warn({ err }, "Mistral quality provider unavailable");
+      }
+    }
+    if (isQualityProviderReady("groq")) {
+      try {
+        full = "";
+        const groqText = await requestGroqStream(prompt, system, maxTokens, (text) => {
+          full += text;
+          onDelta?.(text);
+        });
+        if (groqText.trim()) return groqText;
+      } catch (err) {
+        pauseQualityProvider("groq", err);
+        log?.warn({ err }, "Groq quality provider unavailable");
+      }
+    }
+    return full;
+  }
 
   // ── Gemini fallback (free tier often 429/404) ──
   try {
