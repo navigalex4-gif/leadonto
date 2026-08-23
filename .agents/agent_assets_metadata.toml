@@ -56,3 +56,10 @@ uri = "file://exports/lead-onto-source-download.zip"
 type = "unspecified"
 title = "Lead Onto source ZIP"
 description = "Smaller verified source archive for download; excludes dependencies, caches, generated output, Git metadata, and attached temporary files."
+
+[[outputs]]
+id = "caMoU4Tc10jaUnsBIRr78"
+uri = "file://exports/lead-onto-source.tar.gz"
+type = "unspecified"
+title = "Lead Onto project source archive"
+description = "Compatible compressed source archive. Use the download button on the attached file card."
