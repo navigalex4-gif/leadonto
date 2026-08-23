@@ -223,26 +223,24 @@ function LoginContent() {
         </div>
 
         {isEmbeddedWebView && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-            <p className="font-semibold">For secure sign-in, open this in your external browser.</p>
-            <p className="mt-1 text-xs text-blue-700">Social-app browsers can limit sign-in providers. Email OTP works here too.</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <a
-                href={externalBrowserUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-8 items-center rounded-md border border-blue-300 bg-white px-3 text-sm font-medium text-blue-800 shadow-sm transition-colors hover:bg-blue-50"
-                onClick={openExternalBrowser}
-              >
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />Open external browser
-              </a>
-              <Button type="button" size="sm" variant="ghost" className="h-8 text-blue-800" onClick={copyCurrentUrl}>
-                {copied ? <CheckCheck className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
-                {copied ? "Link copied" : "Copy link"}
-              </Button>
-            </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <p className="font-semibold">One tap to continue — open this page in your browser.</p>
+            <p className="mt-1 text-xs text-blue-700">This app's built-in browser blocks secure sign-in. It only takes a second.</p>
+            <a
+              href={externalBrowserUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
+              onClick={openExternalBrowser}
+            >
+              <ExternalLink className="h-4 w-4" />Open in browser
+            </a>
+            <button type="button" className="mt-2 flex w-full items-center justify-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-900" onClick={copyCurrentUrl}>
+              {copied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Link copied — paste it in your browser" : "Or copy this link"}
+            </button>
             <p className="mt-2 text-[11px] leading-relaxed text-blue-700">
-              If it stays in this window, use the app menu and choose <span className="font-medium">Open in browser</span>.
+              Didn't work? Use the <span className="font-medium">••• menu</span> in the top corner and choose <span className="font-medium">Open in browser</span>. You can still continue below with email — no browser switch needed.
             </p>
           </div>
         )}

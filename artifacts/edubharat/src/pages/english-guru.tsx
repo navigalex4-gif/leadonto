@@ -676,6 +676,17 @@ function EnglishGuruContent() {
             ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: The student wants the complete English sentence translated and spoken in ${uiLang}. If they refer to what you asked, translate your immediately previous teacher message exactly. The source sentence is: "${previousTeacherMessage}". Output the FULL natural ${uiLang} translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
             : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the complete English sentence the student supplied into natural ${uiLang}. Output the FULL translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
           : "";
+        const escapedUiLang = uiLang.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const archiveTranslationRequest = new RegExp(
+          `\\b(say|speak|repeat|tell|explain|translate)\\b[^.?!]{0,25}\\b(in|into)\\b\\s*${escapedUiLang}\\b`
+            + `|\\bwhat\\s+(does|do|did)\\b[^.?!]{0,30}\\bmean\\b`
+            + `|\\bmeaning\\s+of\\b|\\btranslate\\b`,
+          "i",
+        );
+        const explicitTranslationDirective =
+          uiLang !== "English" && !isSilenceProbe && archiveTranslationRequest.test(userMsg)
+            ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the complete English sentence the student is referring to into natural ${uiLang} in ${uiLang}'s native script. Use the immediately previous teacher message as the source: "${previousTeacherMessage}". Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
+            : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
           : "";
@@ -746,7 +757,7 @@ Rules for spoken replies:
 - NEVER start your reply with your name or any label like "Teacher:".
 - Prefer pronounceable spoken forms for acronyms and workplace terms. Say "A I", "H R", "R B I", or "business to business" rather than rushing compressed letter strings.
 - Always finish your thought — never cut off mid-sentence.
-- If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}`,
+- If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}${translationInstruction}${explicitTranslationDirective}`,
           undefined,
           // Live Conversation uses Groq directly while Claude/Gemini credits
           // are unavailable; the server keeps Z.ai as the emergency fallback.
