@@ -27,6 +27,13 @@ const QUICK_ACKNOWLEDGEMENTS = [
   "That is worth unpacking",
   "You have given me something specific to work with",
 ];
+const OPENING_QUESTIONS = [
+  "Tell me about something you are working towards right now.",
+  "What is one recent experience you would enjoy telling a colleague about?",
+  "What is something you learned recently, and why did it matter to you?",
+  "Tell me about a small win you had recently.",
+];
+const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
 const SIGNALS = ["structure", "clarity", "explanation", "collaboration", "adaptability", "confidence", "self-awareness", "listening"] as const;
 type Signal = typeof SIGNALS[number];
 const QUESTION_BANK = [
@@ -260,7 +267,7 @@ export default function CommunicationCheck() {
   const { toast } = useToast();
   // A shorter end-of-speech window is appropriate for this bounded check;
   // the final server transcript remains authoritative.
-  const speech = useSpeechRecognition("English", { silenceMs: 850 });
+  const speech = useSpeechRecognition("English");
   const synth = useGoogleTTS();
   const { stream, reset: resetStream } = useGeminiStream();
   const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");
@@ -273,10 +280,10 @@ export default function CommunicationCheck() {
     experienceLevel: "Fresher",
   });
   const [answers, setAnswers] = useState<Answer[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState("Tell me about something you are working towards right now.");
+  const [currentQuestion, setCurrentQuestion] = useState(FIRST_QUESTION);
   const [currentAnswer, setCurrentAnswer] = useState("");
   const answerRef = useRef("");
-  const questionRef = useRef("Tell me about something you are working towards right now.");
+  const questionRef = useRef(FIRST_QUESTION);
   const answersRef = useRef<Answer[]>([]);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -618,7 +625,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
       crypto.randomUUID(),
     ].join("|"));
     signalIndexRef.current = seededIndex(sessionSeedRef.current, SIGNALS.length);
-    const opening = openingFor(candidate, sessionSeedRef.current);
+    const opening = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
     questionRef.current = opening;
     setCurrentQuestion(opening);
     setPhase("interview");
