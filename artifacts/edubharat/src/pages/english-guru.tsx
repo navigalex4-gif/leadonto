@@ -122,6 +122,7 @@ function cleanSpokenReply(
   nativeMode: boolean,
   voiceGender: "male" | "female",
   nativeLanguage = "Hindi",
+  allowGenericFallback = true,
 ): string {
   let cleaned = alignTutorGender(stripMarkdownForSpeech(text), voiceGender)
     .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/, "")
@@ -142,7 +143,12 @@ function cleanSpokenReply(
     const isolatedIndicLetters = words.filter((word) =>
       /^[\u0900-\u0D7F\u0600-\u06FF]$/u.test(word.replace(/[,.!?।॥]/gu, "")),
     ).length;
-    if (words.length >= 4 && isolatedIndicLetters >= 3 && isolatedIndicLetters / words.length >= 0.45) {
+    if (
+      allowGenericFallback
+      && words.length >= 4
+      && isolatedIndicLetters >= 3
+      && isolatedIndicLetters / words.length >= 0.45
+    ) {
       return NATIVE_RETRY_FALLBACKS[nativeLanguage]?.[voiceGender]
         ?? "I want to help you practise clearly. Let us try that again slowly.";
     }
@@ -656,9 +662,12 @@ function EnglishGuruContent() {
         if (!isSilenceProbe) historySlice.push({ role: "user" as const, text: userMsg });
         const recentHistory = historySlice
           .map(m => `${m.role === "user" ? "Student" : teacherShort}: ${m.text}`).join("\n");
+        // Translation must always use the last actual English tutor sentence.
+        // A previous generic native fallback is not a valid translation source.
         const previousTeacherMessage = [...convHistoryRef.current]
           .reverse()
-          .find((item) => item.role === "ai")?.text ?? "";
+          .find((item) => item.role === "ai" && /[A-Za-z]{3,}/.test(item.text))?.text
+          ?? lastAiSpeechRef.current;
         // Treat "say what you asked in Hindi" as a real translation request.
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
@@ -734,7 +743,16 @@ function EnglishGuruContent() {
           ? `\n\nLive web context (use naturally if relevant): "${webContext}"`
           : "";
 
-        let response = await stream(
+        let response = "";
+        if (translationRequested && previousTeacherMessage) {
+          response = await stream(
+            `Translate the English sentence below into ${uiLang}. Return only its complete, natural ${uiLang} translation in native script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
+            `You are a strict ${uiLang} translator, not a tutor. Translate every part of the supplied English sentence faithfully, including its question form. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
+            undefined,
+            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 6000 },
+          );
+        } else {
+          response = await stream(
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
@@ -761,28 +779,33 @@ Rules for spoken replies:
           undefined,
           // Live Conversation uses Groq directly while Claude/Gemini credits
           // are unavailable; the server keeps Z.ai as the emergency fallback.
-           { endpoint: "/api/ai/stream?provider=groq", maxTokens: 100, timeoutMs: 2400 }
-        );
+            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 100, timeoutMs: 2400 },
+          );
+        }
         // A short live model can still choose the familiar acknowledgement
         // instead of translating. Retry once with no conversational ambiguity:
         // the previous English sentence is the only source it should translate.
-        if (translationRequested && previousTeacherMessage && looksLikeGenericNativeAcknowledgement(response)) {
+        if (
+          translationRequested
+          && previousTeacherMessage
+          && (!response.trim() || looksLikeGenericNativeAcknowledgement(response))
+        ) {
           response = await stream(
-            `Translate this exact English sentence into ${uiLang}. Return only the complete natural translation in ${uiLang}'s native script. Do not acknowledge, explain, ask a question, or coach the student.\nEnglish sentence: "${previousTeacherMessage}"`,
-            `You are a precise ${uiLang} translator. Translate the entire sentence faithfully. Preserve its meaning and question form. Use only ${uiLang}; never return a generic practice or acknowledgement sentence.`,
+            `STRICT TRANSLATION. Translate the complete sentence below into ${uiLang}. Return only its complete natural translation in native ${uiLang} script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
+            `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
-            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 120, timeoutMs: 5000 },
+            { endpoint: "/api/ai/stream?provider=groq", maxTokens: 140, timeoutMs: 6000 },
           );
         }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
-        if (!response.trim()) {
+        if (!response.trim() && !translationRequested) {
           response = variedFallback(userMsg, isSilenceProbe);
         }
         const previousAiReply = [...convHistoryRef.current]
           .reverse()
           .find((item) => item.role === "ai")?.text ?? "";
-        if (normalizeReply(response) === normalizeReply(previousAiReply)) {
+        if (!translationRequested && normalizeReply(response) === normalizeReply(previousAiReply)) {
           response = variedFallback(userMsg, isSilenceProbe);
         }
         // A fallback reply is a successful recovery, not a failed live turn.
