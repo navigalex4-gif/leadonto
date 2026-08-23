@@ -80,8 +80,13 @@ export function useGeminiStream() {
         if (!response.ok) throw new Error(`Server error ${response.status}`);
 
         let fullText = "";
+        let firstChunk = true;
         for await (const chunk of parseSSE(response, controller.signal)) {
           if (requestId !== requestIdRef.current) return "";
+          if (firstChunk) {
+            firstChunk = false;
+            console.info("[voice-latency] first-ai-token");
+          }
           fullText += chunk;
           setText(fullText);
           onChunk?.(chunk, fullText);

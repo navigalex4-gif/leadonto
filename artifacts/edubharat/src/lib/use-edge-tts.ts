@@ -551,6 +551,7 @@ function playChunkChain(
 
       try {
         await audio.play();
+        console.info("[voice-latency] audio-playback-start");
       } catch (playErr) {
         // NotAllowedError = autoplay policy still blocking despite unlock.
         console.warn("[TTS] audio.play() blocked:", playErr);

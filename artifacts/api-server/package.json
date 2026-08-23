@@ -19,6 +19,7 @@
     "@types/express-session": "^1.19.0",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/ws": "^8.18.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "connect-pg-simple": "^10.0.0",
@@ -35,6 +36,7 @@
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
     "web-vitals": "^5.3.0",
+    "ws": "^8.21.3",
     "zod": "catalog:"
   },
   "devDependencies": {

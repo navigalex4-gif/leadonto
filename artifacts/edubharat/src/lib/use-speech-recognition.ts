@@ -31,6 +31,11 @@ const RECORDER_TIMESLICE_MS = 160;
 // authoritative result, so keep preview off until it can be local/on-device.
 const ENABLE_SERVER_PREVIEW = true;
 
+type SpeechRecognitionOptions = {
+  silenceMs?: number;
+  realtime?: boolean;
+};
+
 function getMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
@@ -45,8 +50,9 @@ function getMimeType(): string {
  * graph. MediaRecorder is silent at the browser level; only the resulting
  * utterance is sent to the server for transcription.
  */
-export function useSpeechRecognition(language = "English", options?: { silenceMs?: number }) {
+export function useSpeechRecognition(language = "English", options?: SpeechRecognitionOptions) {
   const silenceMs = options?.silenceMs ?? SILENCE_MS;
+  const realtime = options?.realtime ?? false;
   const [status, setStatus] = useState<SpeechRecognitionStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -89,6 +95,11 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
   const previewInFlightRef = useRef(false);
   const lastPreviewAtRef = useRef(0);
   const utteranceIdRef = useRef(0);
+  const liveSocketRef = useRef<WebSocket | null>(null);
+  const liveFinalizingRef = useRef(false);
+  const livePendingAudioRef = useRef<Blob[]>([]);
+  const liveSpeechStartedAtRef = useRef(0);
+  const liveInterimReportedRef = useRef(false);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -106,6 +117,10 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
   }, []);
 
   const cancelRecorder = useCallback(() => {
+    liveSocketRef.current?.close();
+    liveSocketRef.current = null;
+    liveFinalizingRef.current = false;
+    livePendingAudioRef.current = [];
     const recorder = recorderRef.current;
     recorderRef.current = null;
     chunksRef.current = [];
@@ -128,6 +143,65 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
     monitorTimerRef.current = null;
     cancelRecorder();
   }, [cancelRecorder]);
+
+  const openRealtimeSocket = useCallback((generation: number) => {
+    if (!realtime || typeof WebSocket === "undefined" || liveSocketRef.current || !shouldContinueRef.current) return;
+    const baseUrl = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(`${protocol}//${window.location.host}${baseUrl}/api/stt/live`);
+    liveSocketRef.current = socket;
+    socket.binaryType = "arraybuffer";
+    socket.onopen = () => {
+      if (generation !== generationRef.current || !shouldContinueRef.current) {
+        socket.close();
+        return;
+      }
+      socket.send(JSON.stringify({ type: "start", language }));
+      for (const chunk of livePendingAudioRef.current) socket.send(chunk);
+      livePendingAudioRef.current = [];
+      console.info("[voice-latency] realtime-stt-ready");
+    };
+    socket.onmessage = (event) => {
+      if (generation !== generationRef.current || !shouldContinueRef.current) return;
+      let message: { type?: string; text?: string };
+      try { message = JSON.parse(String(event.data)) as typeof message; } catch { return; }
+      if (!message.text) return;
+      if (message.type === "interim") {
+        if (!liveInterimReportedRef.current) {
+          liveInterimReportedRef.current = true;
+          console.info("[voice-latency] first-interim-transcript", {
+            elapsedMs: liveSpeechStartedAtRef.current
+              ? Math.round(performance.now() - liveSpeechStartedAtRef.current)
+              : undefined,
+          });
+        }
+        setInterimTranscript(message.text);
+        return;
+      }
+      if (message.type === "final" && !liveFinalizingRef.current) {
+        liveFinalizingRef.current = true;
+        utteranceActiveRef.current = false;
+        utteranceIdRef.current += 1;
+        setInterimTranscript("");
+        stopMonitoring();
+        setStatus("processing");
+        console.info("[voice-latency] final-transcript", {
+          elapsedMs: liveSpeechStartedAtRef.current
+            ? Math.round(performance.now() - liveSpeechStartedAtRef.current)
+            : undefined,
+        });
+        socket.close();
+        liveSocketRef.current = null;
+        onPhraseRef.current?.(message.text);
+      }
+    };
+    socket.onerror = () => {
+      if (liveSocketRef.current === socket) liveSocketRef.current = null;
+    };
+    socket.onclose = () => {
+      if (liveSocketRef.current === socket) liveSocketRef.current = null;
+    };
+  }, [language, realtime, stopMonitoring]);
 
   const transcribe = useCallback(async (blob: Blob, generation: number) => {
     // Very short but valid answers are common in an interview (for example,
@@ -317,6 +391,13 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
           if (!event.data.size) return;
            recordingHeaderRef.current ||= event.data;
           firstAudioRef.current ||= performance.now();
+          if (realtime && liveSocketRef.current) {
+            if (liveSocketRef.current.readyState === WebSocket.OPEN) {
+              liveSocketRef.current.send(event.data);
+            } else if (liveSocketRef.current.readyState === WebSocket.CONNECTING) {
+              livePendingAudioRef.current.push(event.data);
+            }
+          }
           if (utteranceActiveRef.current) {
             utteranceChunksRef.current.push(event.data);
           } else {
@@ -326,6 +407,7 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
         };
         recorder.start(RECORDER_TIMESLICE_MS);
       }
+      openRealtimeSocket(generation);
        if (monitorTimerRef.current !== null) return;
       const data = new Float32Array(analyserRef.current!.fftSize);
       const monitor = () => {
@@ -364,19 +446,21 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
           utteranceStartedRef.current = now;
           lastVoiceRef.current = now;
           speechStartRef.current = performance.now();
+           liveSpeechStartedAtRef.current = speechStartRef.current;
+           liveInterimReportedRef.current = false;
           firstAudioRef.current = 0;
           console.info("[stt] speech started", { atMs: Math.round(speechStartRef.current), threshold });
           setStatus("listening");
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
           if (rms >= threshold) lastVoiceRef.current = now;
-          if (
+          if (!realtime && (
             ENABLE_SERVER_PREVIEW
             &&
             now - utteranceStartedRef.current >= 900
             && now - lastPreviewAtRef.current >= 1_300
             && utteranceChunksRef.current.length >= 4
             && !previewInFlightRef.current
-          ) {
+          )) {
             lastPreviewAtRef.current = now;
             void requestPreview(
               new Blob([...utteranceChunksRef.current], { type: recorder.mimeType || "audio/webm" }),
@@ -384,9 +468,14 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
               utteranceIdRef.current,
             );
           }
-           const quietLongEnough = now - lastVoiceRef.current >= silenceMs;
+            const quietLongEnough = now - lastVoiceRef.current >= silenceMs;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
-          if ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength) {
+           if (
+             (!realtime || !liveSocketRef.current || liveSocketRef.current.readyState === WebSocket.CLOSED)
+             && !liveFinalizingRef.current
+             && ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength)
+           ) {
+             liveFinalizingRef.current = true;
             utteranceActiveRef.current = false;
             utteranceIdRef.current += 1;
             previewAbortRef.current?.abort();
@@ -420,7 +509,7 @@ export function useSpeechRecognition(language = "English", options?: { silenceMs
     } finally {
       captureStartingRef.current = false;
     }
-  }, [isSupported, requestPreview, silenceMs, transcribe]);
+  }, [isSupported, openRealtimeSocket, realtime, requestPreview, silenceMs, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;

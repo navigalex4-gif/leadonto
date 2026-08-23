@@ -263,7 +263,7 @@ function EnglishGuruContent() {
   // English into native script defeated that guard and caused the "teacher
   // replies to its own voice" bug (worst in Malayalam and other native modes).
   const [recognitionLang, setRecognitionLang] = useState("English");
-  const speech = useSpeechRecognition(recognitionLang);
+  const speech = useSpeechRecognition(recognitionLang, { realtime: true });
   // Keep the native recognizer active only briefly after a native-language
   // explanation. Learners commonly continue speaking English on the next turn.
   const recognitionLangRevertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
