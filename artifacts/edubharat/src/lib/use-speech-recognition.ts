@@ -53,6 +53,7 @@ function getMimeType(): string {
 export function useSpeechRecognition(language = "English", options?: SpeechRecognitionOptions) {
   const silenceMs = options?.silenceMs ?? SILENCE_MS;
   const realtime = options?.realtime ?? false;
+  const effectiveSilenceMs = realtime ? Math.min(silenceMs, 900) : silenceMs;
   const [status, setStatus] = useState<SpeechRecognitionStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -100,6 +101,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
   const livePendingAudioRef = useRef<Blob[]>([]);
   const liveSpeechStartedAtRef = useRef(0);
   const liveInterimReportedRef = useRef(false);
+  const liveLastEventAtRef = useRef(0);
 
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const isSupported =
@@ -144,7 +146,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     cancelRecorder();
   }, [cancelRecorder]);
 
-  const openRealtimeSocket = useCallback((generation: number) => {
+  const openRealtimeSocket = useCallback((generation: number, mimeType: string) => {
     if (!realtime || typeof WebSocket === "undefined" || liveSocketRef.current || !shouldContinueRef.current) return;
     const baseUrl = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -156,17 +158,26 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
         socket.close();
         return;
       }
-      socket.send(JSON.stringify({ type: "start", language }));
+      socket.send(JSON.stringify({ type: "start", language, mimeType }));
       for (const chunk of livePendingAudioRef.current) socket.send(chunk);
       livePendingAudioRef.current = [];
       console.info("[voice-latency] realtime-stt-ready");
+      liveLastEventAtRef.current = performance.now();
     };
     socket.onmessage = (event) => {
       if (generation !== generationRef.current || !shouldContinueRef.current) return;
       let message: { type?: string; text?: string };
       try { message = JSON.parse(String(event.data)) as typeof message; } catch { return; }
+      if (message.type === "error" || message.type === "closed") {
+        // Deepgram may terminate a stream after sending useful interim text
+        // without emitting speech_final. Let the existing blob STT path finish
+        // the current utterance instead of leaving the mic in a dead state.
+        if (liveSocketRef.current === socket) liveSocketRef.current = null;
+        return;
+      }
       if (!message.text) return;
       if (message.type === "interim") {
+        liveLastEventAtRef.current = performance.now();
         if (!liveInterimReportedRef.current) {
           liveInterimReportedRef.current = true;
           console.info("[voice-latency] first-interim-transcript", {
@@ -407,7 +418,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
         };
         recorder.start(RECORDER_TIMESLICE_MS);
       }
-      openRealtimeSocket(generation);
+      openRealtimeSocket(generation, recorderRef.current?.mimeType || getMimeType() || "audio/webm");
        if (monitorTimerRef.current !== null) return;
       const data = new Float32Array(analyserRef.current!.fftSize);
       const monitor = () => {
@@ -471,7 +482,16 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
             const quietLongEnough = now - lastVoiceRef.current >= silenceMs;
           const maxLength = now - utteranceStartedRef.current >= MAX_UTTERANCE_MS;
            if (
-             (!realtime || !liveSocketRef.current || liveSocketRef.current.readyState === WebSocket.CLOSED)
+             (
+               !realtime
+               || !liveSocketRef.current
+               || liveSocketRef.current.readyState === WebSocket.CLOSED
+               || (
+                 realtime
+                 && now - lastVoiceRef.current >= effectiveSilenceMs
+                 && performance.now() - liveLastEventAtRef.current >= 900
+               )
+             )
              && !liveFinalizingRef.current
              && ((quietLongEnough && now - utteranceStartedRef.current >= MIN_UTTERANCE_MS) || maxLength)
            ) {
@@ -509,7 +529,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     } finally {
       captureStartingRef.current = false;
     }
-  }, [isSupported, openRealtimeSocket, realtime, requestPreview, silenceMs, transcribe]);
+  }, [effectiveSilenceMs, isSupported, openRealtimeSocket, realtime, requestPreview, transcribe]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;

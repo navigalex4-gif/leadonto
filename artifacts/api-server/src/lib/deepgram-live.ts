@@ -7,6 +7,7 @@ const DEEPGRAM_URL = "wss://api.deepgram.com/v1/listen";
 type LiveStartMessage = {
   type: "start";
   language?: string;
+  mimeType?: string;
 };
 
 const LANGUAGE_CODES: Record<string, string> = {
@@ -62,6 +63,7 @@ export function attachDeepgramLive(server: Server): void {
     let deepgram: WebSocket | null = null;
     let started = false;
     let closed = false;
+    let sentFinal = false;
     const pendingAudio: Buffer[] = [];
 
     const closeBoth = () => {
@@ -86,8 +88,6 @@ export function attachDeepgramLive(server: Server): void {
         const params = new URLSearchParams({
           model: "nova-3",
           language,
-          encoding: "opus",
-          sample_rate: "48000",
           interim_results: "true",
           smart_format: "true",
           punctuate: "true",
@@ -97,6 +97,12 @@ export function attachDeepgramLive(server: Server): void {
           filler_words: "true",
           numerals: "true",
         });
+        // MediaRecorder sends container fragments, not raw Opus packets.
+        // Telling Deepgram the container lets it parse the initialization
+        // segment and subsequent WebM clusters correctly.
+        const mimeType = message.mimeType?.toLowerCase() ?? "";
+        if (mimeType.includes("webm")) params.set("container", "webm");
+        else if (mimeType.includes("mp4")) params.set("container", "mp4");
         const apiKey = process.env["DEEPGRAM_API_KEY"];
         if (!apiKey) {
           sendJson(browser, { type: "error", error: "Realtime speech is unavailable." });
@@ -121,6 +127,7 @@ export function attachDeepgramLive(server: Server): void {
             };
             const transcript = data.channel?.alternatives?.[0]?.transcript?.trim() ?? "";
             if (transcript) {
+              sentFinal ||= Boolean(data.speech_final);
               sendJson(browser, {
                 type: data.speech_final ? "final" : data.is_final ? "interim" : "interim",
                 text: transcript,
@@ -131,9 +138,11 @@ export function attachDeepgramLive(server: Server): void {
             // Ignore non-transcript provider messages such as KeepAlive/VAD.
           }
         });
-        deepgram.on("error", () => sendJson(browser, { type: "error", error: "Realtime speech connection failed." }));
+        deepgram.on("error", () => {
+          if (!sentFinal) sendJson(browser, { type: "error", error: "Realtime speech connection failed." });
+        });
         deepgram.on("close", () => {
-          if (!closed) sendJson(browser, { type: "closed" });
+          if (!closed && !sentFinal) sendJson(browser, { type: "closed" });
         });
         return;
       }

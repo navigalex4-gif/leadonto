@@ -267,7 +267,7 @@ export default function CommunicationCheck() {
   const { toast } = useToast();
   // A shorter end-of-speech window is appropriate for this bounded check;
   // the final server transcript remains authoritative.
-  const speech = useSpeechRecognition("English");
+  const speech = useSpeechRecognition("English", { realtime: true });
   const synth = useGoogleTTS();
   const { stream, reset: resetStream } = useGeminiStream();
   const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");

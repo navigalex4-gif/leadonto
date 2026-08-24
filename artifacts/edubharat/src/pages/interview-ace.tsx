@@ -728,7 +728,7 @@ function InterviewAceContent() {
   const { save } = useHistory();
   const { text: streamText, isStreaming, stream, reset: resetStream } = useGeminiStream();
   const synth = useGoogleTTS();
-  const speech = useSpeechRecognition("English");
+  const speech = useSpeechRecognition("English", { realtime: true });
   // Real-time loudness of whatever the coach is currently saying — drives the
   // voice-visualiser bars below with the actual waveform instead of a canned
   // CSS pulse. Closed/zero automatically whenever the coach isn't speaking.

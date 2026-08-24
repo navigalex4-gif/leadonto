@@ -27,10 +27,10 @@ function applyLanguageQuality(prompt: string, system?: string | null): string | 
 
 function getAnthropicModelChain(_maxTokens: number, qualityFirst = false) {
   // Live coaching, interview evaluation, and generated lessons can opt into
-  // Sonnet first for stronger reasoning and more natural language. The default
-  // remains Haiku first for lower-cost general requests.
+  // the faster Haiku model first so spoken replies begin promptly. Sonnet
+  // remains the stronger model fallback. The default uses the same order.
   return qualityFirst
-    ? [ANTHROPIC_MODEL_CHAIN[1], ANTHROPIC_MODEL_CHAIN[0]]
+    ? [ANTHROPIC_MODEL_CHAIN[0], ANTHROPIC_MODEL_CHAIN[1]]
     : ANTHROPIC_MODEL_CHAIN;
 }
 
