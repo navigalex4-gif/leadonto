@@ -200,7 +200,7 @@ function LanguageHighlight() {
   );
 }
 
-export default function EnglishGuru() {
+export default function EnglishGuru({ embedded = false }: { embedded?: boolean }) {
   return (
     <>
       <PageMeta
@@ -209,12 +209,12 @@ export default function EnglishGuru() {
         ogUrl="https://leadonto.com/english-guru"
         canonicalUrl="https://leadonto.com/english-guru"
       />
-      <EnglishGuruContent />
+      <EnglishGuruContent embedded={embedded} />
     </>
   );
 }
 
-function EnglishGuruContent() {
+function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const { balance } = useCredits();
@@ -223,8 +223,14 @@ function EnglishGuruContent() {
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
   const synth = useGoogleTTS();
   const { profile, updateProfile } = useStudentProfile();
+  const requestedPractice = new URLSearchParams(window.location.search);
+  const requestedLang = requestedPractice.get("lang");
+  const requestedGoal = requestedPractice.get("goal");
 
-  const [uiLang, setUiLang] = useState(() => normalizeHelperLanguage(profile.preferredLanguage));
+  const [uiLang, setUiLang] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get("lang");
+    return requested ? normalizeHelperLanguage(requested) : normalizeHelperLanguage(profile.preferredLanguage);
+  });
 
   const [level, setLevel] = useState(() => mapEnglishLevel(profile.englishLevel));
   const [tutorId, setTutorId] = useState(() => {
@@ -319,6 +325,12 @@ function EnglishGuruContent() {
 
   useEffect(() => {
     const normalized = normalizeHelperLanguage(profile.preferredLanguage);
+    if (embedded && requestedLang) {
+      const requested = normalizeHelperLanguage(requestedLang);
+      setUiLang(requested);
+      if (requested !== profile.preferredLanguage) updateProfile({ preferredLanguage: requested });
+      return;
+    }
     setUiLang(normalized);
     // Older profile records used values such as "GB English", which are not
     // valid helper-language keys and made the AI prompt unnecessarily
@@ -326,7 +338,7 @@ function EnglishGuruContent() {
     if (normalized !== profile.preferredLanguage) {
       updateProfile({ preferredLanguage: normalized });
     }
-  }, [profile.preferredLanguage, updateProfile]);
+  }, [embedded, profile.preferredLanguage, requestedLang, updateProfile]);
 
   useEffect(() => {
     const el = convInputRef.current;
@@ -785,7 +797,7 @@ function EnglishGuruContent() {
         } else {
           response = await stream(
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
-         `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
+          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
 This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
@@ -1228,15 +1240,15 @@ Rules for spoken replies:
   }, [convInput, handleConvPhrase]);
 
   return (
-    <div className="english-workspace min-h-full w-full min-w-0 max-w-full overflow-x-hidden lg:h-full lg:flex lg:flex-col lg:overflow-hidden container mx-auto px-3 sm:px-4 pt-1 pb-2 max-w-6xl">
+    <div className={`english-workspace ${embedded ? "english-workspace-embedded" : ""} min-h-full w-full min-w-0 max-w-full overflow-x-hidden lg:h-full lg:flex lg:flex-col lg:overflow-hidden container mx-auto px-3 sm:px-4 pt-1 pb-2 ${embedded ? "" : "max-w-6xl"}`}>
       {showTutorPicker && (
         <TutorSelector currentId={tutorId} onSelect={handleSelectTutor} onClose={() => setShowTutorPicker(false)} />
       )}
-      <div className="mb-3 flex flex-col items-center gap-1.5 md:hidden">
+      {!embedded && <div className="mb-3 flex flex-col items-center gap-1.5 md:hidden">
         <LanguageHighlight />
         <MobilePrimaryCTA label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
-      </div>
-      <div className="mb-3 hidden flex-col items-center gap-1.5 md:flex">
+      </div>}
+      {!embedded && <div className="mb-3 hidden flex-col items-center gap-1.5 md:flex">
         <LanguageHighlight />
         <Button
           size="lg"
@@ -1246,11 +1258,11 @@ Rules for spoken replies:
           Start Speaking Practice
           <ChevronRight className="ml-2 h-4 w-4" />
         </Button>
-      </div>
+      </div>}
 
-      <div className="grid gap-3 lg:grid-cols-[280px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden">
+      <div className={`grid gap-3 ${embedded ? "lg:flex-1 lg:min-h-0 lg:overflow-hidden" : "lg:grid-cols-[280px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden"}`}>
         {/* Sidebar */}
-        <aside className="order-2 lg:order-1 space-y-2 lg:flex lg:flex-col lg:overflow-y-auto lg:min-h-0">
+        <aside className={`order-2 lg:order-1 space-y-2 lg:flex lg:flex-col lg:overflow-y-auto lg:min-h-0 ${embedded ? "hidden" : ""}`}>
           {/* Change Teacher — top of page CTA */}
           <Button
             variant="default"
@@ -1330,7 +1342,7 @@ Rules for spoken replies:
         {/* Main content */}
         <main className="order-1 lg:order-2 min-w-0 lg:flex lg:flex-col lg:min-h-0 lg:overflow-y-auto max-lg:overflow-y-auto max-lg:min-h-0">
           {/* ── MOBILE HERO — Change Teacher at top, then student greeting + tutor ── */}
-          <div className="lg:hidden flex flex-col shrink-0 mb-2 gap-1.5">
+          {!embedded && <div className="lg:hidden flex flex-col shrink-0 mb-2 gap-1.5">
             <Button
               variant="default"
               className="w-full font-semibold rounded-xl h-9"
@@ -1358,10 +1370,10 @@ Rules for spoken replies:
                 )}
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* ── STICKY PROFILE BAR — always visible at top without scrolling ── */}
-          <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-1 mb-2 bg-background/95 backdrop-blur-sm border-b flex items-center gap-2 flex-wrap">
+          {!embedded && <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-1 mb-2 bg-background/95 backdrop-blur-sm border-b flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-secondary truncate">{profile.name || user?.name || "Guest"}</span>
             <span className="text-muted-foreground/40">•</span>
             <span className="text-xs font-medium text-muted-foreground">Native language</span>
@@ -1413,7 +1425,7 @@ Rules for spoken replies:
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />Live
               </span>
             )}
-          </div>
+          </div>}
 
           {/* ── LIVE CONVERSATION — top section with its own heading ── */}
           <section id="english-guru-live" className="flex flex-col min-h-0 flex-1">

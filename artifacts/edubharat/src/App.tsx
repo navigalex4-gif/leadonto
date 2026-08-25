@@ -72,6 +72,9 @@ function Router() {
           <EnglishGuru />
         </Layout>
       </Route>
+      <Route path="/english-guru/embed">
+        <EnglishGuru embedded />
+      </Route>
       <Route path="/interview-ace">
         <Layout compact showFooter={false}>
           <InterviewAce />

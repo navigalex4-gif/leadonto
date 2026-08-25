@@ -181,7 +181,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
     <a class="logo" href="#top"><span class="logo-mark">🗣️</span> Lead&nbsp;Onto</a>
     <div class="nav-right">
       <span class="nav-note">15 min free · no signup</span>
-      <a href="#start" class="btn btn-primary btn-sm" onclick="track('nav_cta_click')">Start Free</a>
+       <a href="#livePractice" class="btn btn-primary btn-sm" onclick="track('nav_cta_click'); activatePractice(event)">Start Free</a>
     </div>
   </div>
 </header>
@@ -198,7 +198,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         No classes. No schedule. No judgement.
       </p>
       <div class="hero-cta">
-        <a href="#start" class="btn btn-primary btn-lg" onclick="track('hero_cta_click',{loc:'hero'})">
+        <a href="#livePractice" class="btn btn-primary btn-lg" onclick="track('hero_cta_click',{loc:'hero'}); activatePractice(event)">
           🎙️ Start Speaking Free
         </a>
         <a href="#how" class="btn btn-ghost btn-lg" onclick="track('hero_how_click')">See how it works</a>
@@ -346,8 +346,8 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         🎯 Your session: practising <em>a job interview</em>, with help in <em>Hindi</em> whenever you're stuck.
       </div>
 
-       <a href="/english-guru/app?src=lp" id="startBtn" class="btn btn-primary btn-lg btn-block"
-         onclick="track('trial_start',{language:LP.lang,goal:LP.goal})">
+       <a href="#livePractice" id="startBtn" class="btn btn-primary btn-lg btn-block"
+         onclick="track('trial_start',{language:LP.lang,goal:LP.goal}); activatePractice(event)">
          🎙️ Start My Free 15 Minutes
       </a>
       <p class="sub-cta center" style="margin-bottom:0">
@@ -385,7 +385,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
       </div>
     </div>
     <div class="center" style="margin-top:34px">
-      <a href="#start" class="btn btn-dark btn-lg" onclick="track('cta_click',{loc:'problem'})">
+      <a href="#livePractice" class="btn btn-dark btn-lg" onclick="track('cta_click',{loc:'problem'}); activatePractice(event)">
         Practise where nobody is judging →
       </a>
     </div>
@@ -455,7 +455,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
     </div>
 
     <div class="center" style="margin-top:38px">
-      <a href="#start" class="btn btn-primary btn-lg" onclick="track('cta_click',{loc:'bridge'})">
+      <a href="#livePractice" class="btn btn-primary btn-lg" onclick="track('cta_click',{loc:'bridge'}); activatePractice(event)">
         Try the bridge free →
       </a>
     </div>
@@ -808,6 +808,20 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
 .sticky .btn{flex:none;padding:14px 24px;font-size:15.5px;}
 @media(max-width:420px){.sticky-txt span{display:none;}.sticky .btn{padding:13px 18px;font-size:14.5px;}}
 @media(min-width:941px){footer{padding-bottom:44px;}}
+
+/* ---------- inline live practice ---------- */
+.live-practice{background:linear-gradient(180deg,#f5f2fc 0%,#fff 100%);padding-top:54px;}
+.live-shell{max-width:940px;margin:0 auto;background:#fff;border:2px solid #d9d1ef;border-radius:24px;
+  box-shadow:0 18px 55px rgba(30,20,78,.14);overflow:hidden;}
+.live-shell-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 26px;
+  background:linear-gradient(120deg,var(--navy),#3a236f);color:#fff;}
+.live-shell-head h2{margin:0;color:#fff;font-size:clamp(20px,3vw,28px);}
+.live-shell-head p{margin:5px 0 0;color:rgba(255,255,255,.75);font-size:14px;}
+.live-close{border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;border-radius:999px;
+  padding:9px 14px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.live-frame{display:block;width:100%;height:720px;border:0;background:#fff;}
+@media(max-width:640px){.live-practice{padding-top:34px}.live-shell{border-radius:18px}.live-shell-head{padding:18px;align-items:flex-start}
+  .live-shell-head p{font-size:13px}.live-close{font-size:12px;padding:8px 10px}.live-frame{height:760px;}}
 </style>
 
 <!-- ============ PRICING ============ -->
@@ -831,7 +845,7 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
           <li>Lessons, grammar, writing, jobs and news remain free</li>
           <li>Pay securely with UPI, cards or net banking</li>
         </ul>
-        <a href="/credits?returnTo=%2Fenglish-guru%3Fsrc%3Dlp" class="btn btn-primary btn-block" onclick="track('credits_click')">View Credits</a>
+       <a href="#start" class="btn btn-primary btn-block" onclick="track('credits_click'); activatePractice(event)">Try speaking first</a>
       </div>
     </div>
 
@@ -843,6 +857,27 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
     <div class="guar">
       <p><b>Start without paying.</b> Guests can try up to 15 minutes of live conversation and up to
       two mock interviews. If you create an account, you receive 20 signup credits.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INLINE LIVE PRACTICE ============ -->
+<section class="sec live-practice" id="livePractice" hidden>
+  <div class="wrap">
+    <div class="center" style="margin-bottom:24px">
+      <span class="eyebrow">● Your private practice room</span>
+      <h2>Speak with your AI teacher right here</h2>
+      <p class="lede">Your choices are already loaded. Allow microphone access when prompted, or type below to begin.</p>
+    </div>
+    <div class="live-shell">
+      <div class="live-shell-head">
+        <div>
+          <h2>Live English conversation</h2>
+          <p>Same teacher, same free trial — now without leaving this page.</p>
+        </div>
+        <button type="button" class="live-close" onclick="closePractice()">Back to choices</button>
+      </div>
+      <iframe id="liveFrame" class="live-frame" title="Live English conversation with your AI teacher" loading="lazy"></iframe>
     </div>
   </div>
 </section>
@@ -910,7 +945,7 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
       No signup. No card. No one listening but your teacher.<br>
       The only way to stop freezing is to start speaking.
     </p>
-    <a href="#start" class="btn btn-primary btn-lg" onclick="track('cta_click',{loc:'final'})">
+    <a href="#livePractice" class="btn btn-primary btn-lg" onclick="track('cta_click',{loc:'final'}); activatePractice(event)">
       🎙️ Start Speaking Free — 15 Minutes
     </a>
     <p style="margin-top:18px;font-size:14px;color:rgba(255,255,255,.6)">
@@ -941,7 +976,7 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
     <b>Try up to 15 minutes free</b>
     <span>No signup · No card needed</span>
   </div>
-  <a href="#start" class="btn btn-primary" onclick="track('cta_click',{loc:'sticky'})">Start Free</a>
+  <a href="#livePractice" class="btn btn-primary" onclick="track('cta_click',{loc:'sticky'}); activatePractice(event)">Start Free</a>
 </div>
 
 <script>
@@ -964,11 +999,29 @@ function render(){
     : 'with help in <em>'+LP.lang+'</em> whenever you\'re stuck';
   o.innerHTML='🎯 Your session: practising <em>'+LP.goal+'</em>, '+help+'.';
   var btn=document.getElementById('startBtn');
-  if(btn){btn.href='/english-guru/app?src=lp&lang='+encodeURIComponent(LP.lang)+'&goal='+encodeURIComponent(LP.goal);}
+  if(btn){btn.href='#livePractice';}
 }
 wire('langOpts','lang','demo_language_select');
 wire('goalOpts','goal','demo_goal_select');
 render();
+
+function activatePractice(e){
+  if(e)e.preventDefault();
+  var section=document.getElementById('livePractice'), frame=document.getElementById('liveFrame');
+  if(!section||!frame)return;
+  var src='/english-guru/embed?src=lp&lang='+encodeURIComponent(LP.lang)+'&goal='+encodeURIComponent(LP.goal);
+  if(frame.getAttribute('src')!==src)frame.setAttribute('src',src);
+  section.hidden=false;
+  section.scrollIntoView({behavior:'smooth',block:'start'});
+  track('inline_practice_open',{language:LP.lang,goal:LP.goal});
+}
+function closePractice(){
+  var section=document.getElementById('livePractice'), frame=document.getElementById('liveFrame');
+  if(!section)return;
+  section.hidden=true;
+  if(frame)frame.setAttribute('src','');
+  document.getElementById('start').scrollIntoView({behavior:'smooth',block:'start'});
+}
 
 /* ---------- billing toggle ---------- */
 function setBilling(mode){

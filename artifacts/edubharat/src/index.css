@@ -256,6 +256,20 @@
   position: relative;
   isolation: isolate;
 }
+.english-workspace-embedded {
+  min-height: 100%;
+  padding-top: .75rem;
+  padding-bottom: .75rem;
+}
+.english-workspace-embedded > .grid {
+  display: block;
+}
+.english-workspace-embedded main {
+  width: 100%;
+}
+.english-workspace-embedded #english-guru-live {
+  min-height: 620px;
+}
 .interview-workspace::before,
 .english-workspace::before {
   content: "";
