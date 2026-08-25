@@ -346,7 +346,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         🎯 Your session: practising <em>a job interview</em>, with help in <em>Hindi</em> whenever you're stuck.
       </div>
 
-      <a href="/english-guru?src=lp" id="startBtn" class="btn btn-primary btn-lg btn-block"
+       <a href="/english-guru/app?src=lp" id="startBtn" class="btn btn-primary btn-lg btn-block"
          onclick="track('trial_start',{language:LP.lang,goal:LP.goal})">
          🎙️ Start My Free 15 Minutes
       </a>
@@ -964,7 +964,7 @@ function render(){
     : 'with help in <em>'+LP.lang+'</em> whenever you\'re stuck';
   o.innerHTML='🎯 Your session: practising <em>'+LP.goal+'</em>, '+help+'.';
   var btn=document.getElementById('startBtn');
-  if(btn){btn.href='/english-guru?src=lp&lang='+encodeURIComponent(LP.lang)+'&goal='+encodeURIComponent(LP.goal);}
+  if(btn){btn.href='/english-guru/app?src=lp&lang='+encodeURIComponent(LP.lang)+'&goal='+encodeURIComponent(LP.goal);}
 }
 wire('langOpts','lang','demo_language_select');
 wire('goalOpts','goal','demo_goal_select');

@@ -13,6 +13,7 @@ const queryClient = new QueryClient();
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Home = lazy(() => import("@/pages/home"));
+const EnglishLanding = lazy(() => import("@/pages/english-landing"));
 const EnglishGuru = lazy(() => import("@/pages/english-guru"));
 const ToolsPro = lazy(() => import("@/pages/tools-pro"));
 const InterviewAce = lazy(() => import("@/pages/interview-ace"));
@@ -64,6 +65,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/english-guru">
+        <EnglishLanding />
+      </Route>
+      <Route path="/english-guru/app">
         <Layout compact showFooter={false}>
           <EnglishGuru />
         </Layout>
