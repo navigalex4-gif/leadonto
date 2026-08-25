@@ -4,22 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>English Speaking Practice with an AI Teacher Who Speaks Hindi | Lead Onto</title>
-<meta name="description" content="Practise real English conversation with an AI teacher who switches to Hindi, Tamil or Telugu the moment you get stuck. 15 minutes free — no signup, no card. Works on any phone.">
+<meta name="description" content="Practise real English conversation with an AI teacher who can help in Hindi, Tamil, Telugu and other Indian languages when you get stuck. Try up to 15 minutes free — no signup or card.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://leadonto.com/lp/speak">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Stop freezing in English. Start speaking in 10 seconds.">
-<meta property="og:description" content="An AI English teacher who explains in your mother tongue when you get stuck. 15 minutes free — no signup needed.">
+<meta property="og:title" content="Practise speaking English with an AI teacher | Lead Onto">
+<meta property="og:description" content="An AI English practice partner that can help in Indian languages when you get stuck. Try up to 15 minutes free — no signup needed.">
 <meta property="og:url" content="https://leadonto.com/lp/speak">
 <meta property="og:image" content="https://leadonto.com/opengraph.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#0F0B2D">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-<!-- ⚠️ REPLACE: your real GA4 / Google Ads IDs before launch -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18381164231"></script>
 <script>
 window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
 gtag('js',new Date());
+gtag('config','AW-18381164231');
 function track(name,params){try{gtag('event',name,params||{});}catch(e){}
   if(window.console&&console.debug)console.debug('[track]',name,params||{});}
 </script>
@@ -189,8 +190,8 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
 <section class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
-      <span class="lang-pill">🇮🇳 हिंदी · தமிழ் · తెలుగు · বাংলা · मराठी +8 more</span>
-      <h1>Stop freezing in English.<br>Start speaking in <span class="hi">10 seconds</span>.</h1>
+        <span class="lang-pill">🇮🇳 हिंदी · தமிழ் · తెలుగు · বাংলা · मराठी +8 more</span>
+       <h1>Practise speaking English<br>without the <span class="hi">pressure</span>.</h1>
       <p class="lede">
         Practise real conversations with an AI teacher who <strong style="color:#fff">switches to your
         mother tongue the second you get stuck</strong> — then brings you right back to English.
@@ -203,7 +204,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         <a href="#how" class="btn btn-ghost btn-lg" onclick="track('hero_how_click')">See how it works</a>
       </div>
       <div class="sub-cta" style="color:rgba(255,255,255,.72)">
-        15 minutes free · No signup · No card · Works on any phone
+         Up to 15 minutes free · No signup · No card · Works in your browser
       </div>
       <div class="hero-trust">
         <span class="tchip">✅ No credit card</span>
@@ -246,9 +247,9 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
 <div class="strip">
   <div class="wrap strip-in">
     <span class="strip-it">🗣️ <b>13</b> Indian languages</span>
-    <span class="strip-it">⚡ First word in <b>10 seconds</b></span>
+     <span class="strip-it">⚡ Start with <b>spoken practice</b></span>
     <span class="strip-it">🎯 <b>Zero</b> signup to try</span>
-    <span class="strip-it">💳 From <b>₹199</b>/month</span>
+     <span class="strip-it">💳 <b>₹1</b> per credit</span>
   </div>
 </div>
 
@@ -345,7 +346,6 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         🎯 Your session: practising <em>a job interview</em>, with help in <em>Hindi</em> whenever you're stuck.
       </div>
 
-      <!-- ⚠️ REPLACE href with your real session-start URL -->
       <a href="/english-guru?src=lp" id="startBtn" class="btn btn-primary btn-lg btn-block"
          onclick="track('trial_start',{language:LP.lang,goal:LP.goal})">
          🎙️ Start My Free 15 Minutes
@@ -379,8 +379,8 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         <b>— the meeting mute</b>
       </div>
       <div class="pain-c">
-        <p>"I can't practise with my friends — they'll laugh. And I can't afford a ₹40,000 spoken
-           English course just to find out if it works."</p>
+         <p>"I can't practise with my friends — they'll laugh. And I don't want to commit to an expensive
+            spoken English course just to find out if practice helps."</p>
         <b>— nowhere safe to fail</b>
       </div>
     </div>
@@ -397,7 +397,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
   <div class="wrap">
     <div class="center" style="margin-bottom:46px">
       <span class="eyebrow">◈ How it works</span>
-      <h2>Three taps to your first English conversation</h2>
+      <h2>Three steps to your first English conversation</h2>
     </div>
     <div class="steps">
       <div class="step">
@@ -411,9 +411,9 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
            to finish. It's a conversation, not a test.</p>
       </div>
       <div class="step">
-        <h3>Get your Fluency Score</h3>
-        <p>After every session: what you said well, the exact words you stumbled on, and three
-           sentences to practise tomorrow. Your score moves. You can see it moving.</p>
+        <h3>Review your practice</h3>
+         <p>Use your conversation feedback to notice what went well, work on difficult phrases, and
+            choose what to practise next.</p>
       </div>
     </div>
   </div>
@@ -710,8 +710,8 @@ table.cmp td:first-child{font-weight:700;color:var(--ink);}
           <tr><td>Try before paying anything</td>
             <td><span class="yes">✓</span></td><td><span class="no">✕</span> Card needed</td>
             <td><span class="no">✕</span> Sales call first</td><td class="us"><span class="yes">✓</span> 15 min, no signup</td></tr>
-          <tr><td>Monthly cost</td>
-            <td>Free</td><td>₹650–₹1,500</td><td>₹4,000–₹35,000</td><td class="us">From ₹199</td></tr>
+           <tr><td>How you pay</td>
+             <td>Usually free</td><td>Varies</td><td>Usually per class</td><td class="us">₹1 per credit</td></tr>
         </tbody>
       </table>
     </div>
@@ -814,65 +814,24 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
 <section class="sec" id="pricing">
   <div class="wrap center">
     <span class="eyebrow">₹ Simple pricing</span>
-    <h2>Less than one cup of chai a day</h2>
-    <p class="lede">Start free. Upgrade only when you can hear the difference in your own voice.</p>
+    <h2>Start free. Top up only when you need more.</h2>
+    <p class="lede">There is no subscription. Credits cost ₹1 each, and you decide how much to add.</p>
 
-    <div class="toggle" role="group" aria-label="Billing period">
-      <button id="bMonthly" aria-pressed="true" onclick="setBilling('m')">Monthly</button>
-      <button id="bYearly" aria-pressed="false" onclick="setBilling('y')">Yearly<span class="save">SAVE 37%</span></button>
-    </div>
-
-    <div class="plans">
-      <div class="plan">
-        <div class="pname">Starter</div>
-        <div class="pdesc">For dipping your toe in — a few sessions a week.</div>
-        <div class="price">₹<span class="amt" data-m="199" data-y="1499">199</span><small class="per">/month</small></div>
-        <div class="pbill billnote">Billed monthly · cancel anytime</div>
-        <ul class="feat">
-          <li>60 credits — <strong>12 hours</strong> of speaking</li>
-          <li>All 4 AI teachers</li>
-          <li>All 13 Indian languages</li>
-          <li>Fluency Score after every session</li>
-          <li>Daily streak &amp; 3-min goal</li>
-          <li class="off">Mistake Book</li>
-          <li class="off">Mock interviews</li>
-        </ul>
-        <a href="/signup?plan=starter" class="btn btn-outline btn-block" onclick="track('plan_click',{plan:'starter'})">Choose Starter</a>
-      </div>
-
+    <div class="plans" style="grid-template-columns:minmax(0,560px);justify-content:center">
       <div class="plan pop">
-        <span class="pop-tag">⭐ Most popular</span>
-        <div class="pname">Fluency Pro</div>
-        <div class="pdesc">For people who want this fixed in 90 days, not someday.</div>
-        <div class="price">₹<span class="amt" data-m="399" data-y="2999">399</span><small class="per">/month</small></div>
-        <div class="pbill billnote">Billed monthly · cancel anytime</div>
+        <span class="pop-tag">Pay as you go</span>
+        <div class="pname">Lead Onto Credits</div>
+        <div class="pdesc">For live English practice and mock interviews when you are ready.</div>
+        <div class="price">₹<span class="amt">1</span><small>/credit</small></div>
+        <div class="pbill">Minimum top-up: 10 credits (₹10)</div>
         <ul class="feat">
-          <li><strong>Unlimited</strong> speaking practice</li>
-          <li>Everything in Starter</li>
-          <li><strong>Mistake Book</strong> with spaced revision</li>
-          <li>Weekly Fluency Report</li>
-          <li>WhatsApp practice nudges</li>
-          <li>Streak freeze protection</li>
-          <li class="off">Mock interviews</li>
+          <li>1 credit covers 12 minutes of live conversation</li>
+          <li>Credits never expire</li>
+          <li>Use credits for live practice and mock interviews</li>
+          <li>Lessons, grammar, writing, jobs and news remain free</li>
+          <li>Pay securely with UPI, cards or net banking</li>
         </ul>
-        <a href="/signup?plan=pro" class="btn btn-primary btn-block" onclick="track('plan_click',{plan:'pro'})">Start ₹1 Trial →</a>
-        <p style="font-size:12.5px;color:var(--muted);margin:11px 0 0">7 days for ₹1, then ₹399/month. Cancel in one tap.</p>
-      </div>
-
-      <div class="plan">
-        <div class="pname">Career Pro</div>
-        <div class="pdesc">For the interview that changes your salary band.</div>
-        <div class="price">₹<span class="amt" data-m="799" data-y="5999">799</span><small class="per">/month</small></div>
-        <div class="pbill billnote">Billed monthly · cancel anytime</div>
-        <ul class="feat">
-          <li>Everything in Fluency Pro</li>
-          <li><strong>Unlimited mock interviews</strong></li>
-          <li>Role-specific practice (IT, BPO, sales, retail)</li>
-          <li>Recruiter-shareable Fluency Certificate</li>
-          <li>Resume &amp; self-intro voice coaching</li>
-          <li>Priority response speed</li>
-        </ul>
-        <a href="/signup?plan=career" class="btn btn-dark btn-block" onclick="track('plan_click',{plan:'career'})">Choose Career Pro</a>
+        <a href="/credits?returnTo=%2Fenglish-guru%3Fsrc%3Dlp" class="btn btn-primary btn-block" onclick="track('credits_click')">View Credits</a>
       </div>
     </div>
 
@@ -882,52 +841,8 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
     </div>
 
     <div class="guar">
-      <p><b>🛡️ 7-day money-back guarantee.</b> Practise for a week. If you don't feel more confident
-      speaking, reply to any of our emails and we'll refund you in full — no form, no questions.</p>
-    </div>
-
-    <!-- ⚠️ REPLACE: confirm these prices, the ₹1 trial terms and the refund policy match your billing system -->
-  </div>
-</section>
-
-<!-- ============ PROOF ============ -->
-<section class="sec bg-alt">
-  <div class="wrap">
-    <div class="center" style="margin-bottom:38px">
-      <span class="eyebrow">♥ Learner stories</span>
-      <h2>From "I'll just email them" to speaking up</h2>
-    </div>
-    <div class="grid g3">
-      <div class="quote" data-placeholder="true">
-        <div class="stars">★★★★★</div>
-        <p>"I used to write everything on chat because I was scared to call. After three weeks of
-           practising with Arjun Sir I took my first client call in English. My manager noticed."</p>
-        <div class="who"><div class="who-av">👨🏽</div>
-          <div><b>Rohit K.</b><span>Support Executive · Pune</span></div></div>
-      </div>
-      <div class="quote" data-placeholder="true">
-        <div class="stars">★★★★★</div>
-        <p>"The Hindi help is the whole thing for me. Other apps just repeat in English and I feel
-           stupid. Here I get the word in Hindi, say it in English, and I actually remember it."</p>
-        <div class="who"><div class="who-av">👩🏽</div>
-          <div><b>Priya S.</b><span>BSc Student · Lucknow</span></div></div>
-      </div>
-      <div class="quote" data-placeholder="true">
-        <div class="stars">★★★★★</div>
-        <p>"I practised the same interview answer eleven times at midnight. Nobody saw me fail those
-           ten times. I got the offer."</p>
-        <div class="who"><div class="who-av">👨🏾</div>
-          <div><b>Anand M.</b><span>QA Engineer · Coimbatore</span></div></div>
-      </div>
-    </div>
-
-    <div class="ph-note">
-      <b>⚠️ Note for the Lead Onto team — remove this box before launch.</b><br>
-      The three testimonials above are <b>illustrative placeholders</b> (marked
-      <code>data-placeholder="true"</code>). Replace them with real, consented learner quotes and real
-      names/cities, or delete the section entirely. Publishing invented testimonials risks Google Ads
-      disapproval and is a misleading-advertisement issue under India's Consumer Protection Act.
-      The same applies to any learner counts, ratings or "X% improved" statistics you add here.
+      <p><b>Start without paying.</b> Guests can try up to 15 minutes of live conversation and up to
+      two mock interviews. If you create an account, you receive 20 signup credits.</p>
     </div>
   </div>
 </section>
@@ -942,8 +857,8 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
     <div class="faq" onclick="track('faq_open')">
       <details><summary>Is it really free? Do I need to give my card?</summary>
         <p>Your first 15 minutes are free with no signup and no card — just tap Start and begin
-        talking. Create a free account and you get 20 more credits (about 4 hours). You only enter
-        payment details if you decide to subscribe.</p></details>
+         talking. Create a free account and you get 20 signup credits. You only enter payment details
+         if you decide to buy more credits.</p></details>
 
       <details><summary>My English is very weak. Will I be able to use this?</summary>
         <p>That's exactly who this is built for. You can speak entirely in Hindi (or Tamil, Telugu,
@@ -962,29 +877,27 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
 
       <details><summary>Can I practise for a specific job or interview?</summary>
         <p>Yes. Choose your scenario — HR interview, technical round, customer call, team meeting,
-        IELTS speaking, group discussion. Career Pro adds role-specific mock interviews for IT, BPO,
-        sales and retail positions.</p></details>
+         IELTS speaking and group discussion. You can also use the separate mock interview experience
+         for interview practice.</p></details>
 
       <details><summary>How do credits work?</summary>
-        <p>One credit covers 12 minutes of live conversation (5 credits per hour). Starter includes
-        60 credits a month. Fluency Pro and Career Pro are unlimited, so you never watch a counter
-        while you're trying to speak.</p></details>
+         <p>One credit is ₹1 and covers 12 minutes of live conversation. The minimum top-up is 10
+         credits (₹10), credits never expire, and there is no subscription.</p></details>
 
       <details><summary>Is my conversation private?</summary>
-        <p>Your sessions are private to your account. We use them to generate your feedback and
-        improve your teacher's accuracy for you. We never sell your data and never share recordings.
-        You can delete your history at any time from your account settings.</p>
-        <!-- ⚠️ REPLACE: make sure this matches your actual, published Privacy Policy --></details>
+         <p>Your sessions and account data are handled according to our
+         <a href="/privacy-policy" style="color:var(--orange);font-weight:700">Privacy Policy</a>.
+         Review that policy for the current details about collection, use, retention and your choices.</p></details>
 
       <details><summary>Can I cancel? What if it doesn't work for me?</summary>
-        <p>Cancel in one tap from your account — no phone call, no retention agent. If you're within
-        7 days of subscribing and it hasn't helped, reply to any email from us and we'll refund you
-        in full.</p></details>
+         <p>There is no subscription to cancel. If you buy credits and need help with a payment or
+         refund request, review our <a href="/shipping-refund" style="color:var(--orange);font-weight:700">Refund Policy</a>
+         or <a href="/contact-us" style="color:var(--orange);font-weight:700">contact us</a>.</p></details>
 
       <details><summary>Do you offer this for teams or institutes?</summary>
-        <p>Yes. Lead Onto for Business gives BPOs, IT services companies, retail chains and coaching
-        institutes bulk seats with an admin dashboard and team-level Fluency reporting.
-        <a href="/for-business" style="color:var(--orange);font-weight:700">See business plans →</a></p></details>
+         <p>For questions about team or institute use, please
+         <a href="/contact-us" style="color:var(--orange);font-weight:700">contact us</a> and tell us
+         what you need.</p></details>
     </div>
   </div>
 </section>
@@ -992,7 +905,7 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
 <!-- ============ FINAL CTA ============ -->
 <section class="final">
   <div class="wrap">
-    <h2>Your next English conversation<br>starts in 10 seconds</h2>
+      <h2>Your next English conversation<br>can start right here</h2>
     <p class="lede center" style="color:rgba(255,255,255,.85);margin-bottom:30px">
       No signup. No card. No one listening but your teacher.<br>
       The only way to stop freezing is to start speaking.
@@ -1001,22 +914,19 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
       🎙️ Start Speaking Free — 15 Minutes
     </a>
     <p style="margin-top:18px;font-size:14px;color:rgba(255,255,255,.6)">
-      Then ₹1 for 7 days if you like it · Cancel anytime
+       Up to 15 minutes free · No signup or card required
     </p>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <!-- ⚠️ REPLACE: these must be real, working pages or Google Ads will disapprove the campaign -->
     <div class="fnav">
-      <a href="/pricing">Pricing</a>
-      <a href="/for-business">For Business</a>
-      <a href="/teachers">Teachers</a>
-      <a href="/contact">Contact</a>
-      <a href="/privacy">Privacy Policy</a>
+      <a href="/credits">Credits</a>
+      <a href="/contact-us">Contact</a>
+      <a href="/privacy-policy">Privacy Policy</a>
       <a href="/terms">Terms of Use</a>
-      <a href="/refund">Refund Policy</a>
+      <a href="/shipping-refund">Refund Policy</a>
     </div>
     <div class="fbot">
       © 2026 Lead Onto. Made in India, for India. 🇮🇳<br>
@@ -1028,7 +938,7 @@ footer{background:#0A0720;color:rgba(255,255,255,.62);padding:44px 0 110px;font-
 <!-- ============ STICKY MOBILE CTA ============ -->
 <div class="sticky" id="sticky">
   <div class="sticky-txt">
-    <b>15 minutes free</b>
+    <b>Try up to 15 minutes free</b>
     <span>No signup · No card needed</span>
   </div>
   <a href="#start" class="btn btn-primary" onclick="track('cta_click',{loc:'sticky'})">Start Free</a>
@@ -1121,12 +1031,11 @@ function setBilling(mode){
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-{"@type":"Question","name":"Is it really free? Do I need to give my card?","acceptedAnswer":{"@type":"Answer","text":"Your first 15 minutes are free with no signup and no card. Create a free account for 20 more credits (about 4 hours). You only enter payment details if you decide to subscribe."}},
-{"@type":"Question","name":"My English is very weak. Will I be able to use this?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can speak entirely in Hindi, Tamil, Telugu, Bengali and 9 other Indian languages, and your AI teacher will help you say it in English one sentence at a time."}},
-{"@type":"Question","name":"How is this different from a free AI chatbot?","acceptedAnswer":{"@type":"Answer","text":"It is spoken rather than typed, it switches to your mother tongue at the moment you get stuck, and it tracks a Fluency Score across sessions so you can see measurable improvement."}},
-{"@type":"Question","name":"Will it work on my phone and my data pack?","acceptedAnswer":{"@type":"Answer","text":"Yes. It runs in your phone browser with nothing to install, and includes an audio-light mode built for patchy 3G connections."}},
-{"@type":"Question","name":"How do credits work?","acceptedAnswer":{"@type":"Answer","text":"One credit covers 12 minutes of live conversation (5 credits per hour). Starter includes 60 credits per month. Fluency Pro and Career Pro include unlimited practice."}},
-{"@type":"Question","name":"Can I cancel? What if it doesn't work for me?","acceptedAnswer":{"@type":"Answer","text":"Cancel in one tap from your account. If you are within 7 days of subscribing, reply to any email from us for a full refund."}}
+{"@type":"Question","name":"Is it really free? Do I need to give my card?","acceptedAnswer":{"@type":"Answer","text":"Guests can try up to 15 minutes of live conversation with no signup and no card. Create a free account and receive 20 signup credits. Buy more credits only if you choose to."}},
+{"@type":"Question","name":"My English is very weak. Will I be able to use this?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can ask for help in Hindi, Tamil, Telugu, Bengali and other supported Indian languages while practising English."}},
+{"@type":"Question","name":"How do credits work?","acceptedAnswer":{"@type":"Answer","text":"One credit costs ₹1 and covers 12 minutes of live conversation. The minimum top-up is 10 credits, credits never expire, and there is no subscription."}},
+{"@type":"Question","name":"Can I practise for a specific job or interview?","acceptedAnswer":{"@type":"Answer","text":"Yes. Choose practice scenarios such as interviews, customer calls, meetings, IELTS speaking, group discussions and presentations."}},
+{"@type":"Question","name":"How is my data handled?","acceptedAnswer":{"@type":"Answer","text":"Your sessions and account data are handled according to Lead Onto's Privacy Policy."}}
 ]}
 </script>
 
