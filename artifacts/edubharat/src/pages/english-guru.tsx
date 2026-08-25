@@ -1553,30 +1553,30 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                <div ref={convScrollRef} className="flex flex-col gap-3 flex-1 min-h-[260px] lg:min-h-0 overflow-y-auto pr-1 pt-1">
+                <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-[260px] lg:min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
-                    <div className="flex gap-2 justify-end">
-                      <div className="max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
+                    <div className="flex min-w-0 gap-2 justify-end">
+                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
                         {speech.interimTranscript}
                         <span className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary-foreground/80 animate-pulse" />
                       </div>
                     </div>
                   )}
                   {isStreaming && !aiText && (
-                    <div className="flex gap-2 justify-start">
-                      <div className="px-4 py-2.5 bg-muted rounded-2xl">
+                    <div className="flex min-w-0 gap-2 justify-start">
+                      <div className="min-w-0 px-4 py-2.5 bg-muted rounded-2xl">
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                       </div>
                     </div>
                   )}
                   {isStreaming && aiText && (
-                    <div className="flex gap-2 justify-start">
-                      <div className="max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">{formatGeneratedText(aiText)}</div>
+                    <div className="flex min-w-0 gap-2 justify-start">
+                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">{formatGeneratedText(aiText)}</div>
                     </div>
                   )}
                   {[...convHistory].reverse().map((msg, i) => (
-                    <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
+                    <div key={i} className={`flex min-w-0 gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
                          {msg.role === "user" ? msg.text : formatGeneratedText(msg.text)}
                       </div>
                     </div>
