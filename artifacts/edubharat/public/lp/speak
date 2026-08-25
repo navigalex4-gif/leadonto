@@ -8,7 +8,7 @@
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://leadonto.com/lp/speak">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Practise speaking English with an AI teacher | Lead Onto">
+<meta property="og:title" content="Stop freezing in English. Start speaking in 10 seconds.">
 <meta property="og:description" content="An AI English practice partner that can help in Indian languages when you get stuck. Try up to 15 minutes free — no signup needed.">
 <meta property="og:url" content="https://leadonto.com/lp/speak">
 <meta property="og:image" content="https://leadonto.com/opengraph.jpg">
@@ -191,7 +191,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
   <div class="wrap hero-grid">
     <div>
         <span class="lang-pill">🇮🇳 हिंदी · தமிழ் · తెలుగు · বাংলা · मराठी +8 more</span>
-       <h1>Practise speaking English<br>without the <span class="hi">pressure</span>.</h1>
+       <h1>Stop freezing in English.<br>Start speaking in <span class="hi">10 seconds</span>.</h1>
       <p class="lede">
         Practise real conversations with an AI teacher who <strong style="color:#fff">switches to your
         mother tongue the second you get stuck</strong> — then brings you right back to English.
@@ -204,7 +204,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
         <a href="#how" class="btn btn-ghost btn-lg" onclick="track('hero_how_click')">See how it works</a>
       </div>
       <div class="sub-cta" style="color:rgba(255,255,255,.72)">
-         Up to 15 minutes free · No signup · No card · Works in your browser
+         15 minutes free · No signup · No card · Works on any phone
       </div>
       <div class="hero-trust">
         <span class="tchip">✅ No credit card</span>
@@ -247,7 +247,7 @@ header{position:sticky;top:0;z-index:80;background:rgba(15,11,45,.94);
 <div class="strip">
   <div class="wrap strip-in">
     <span class="strip-it">🗣️ <b>13</b> Indian languages</span>
-     <span class="strip-it">⚡ Start with <b>spoken practice</b></span>
+    <span class="strip-it">⚡ First word in <b>10 seconds</b></span>
     <span class="strip-it">🎯 <b>Zero</b> signup to try</span>
      <span class="strip-it">💳 <b>₹1</b> per credit</span>
   </div>
