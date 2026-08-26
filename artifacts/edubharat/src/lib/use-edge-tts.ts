@@ -136,6 +136,7 @@ export function unlockAudio(): void {
 let _audio: HTMLAudioElement | null = null;
 let _abort: AbortController | null = null;
 let _url:   string | null = null;
+let _browserUtterance: SpeechSynthesisUtterance | null = null;
 type QueuedSpeech = {
   chunks: SpeechChunk[];
   gender: "male" | "female";
@@ -378,6 +379,11 @@ function globalStop() {
   _queueActive = false;
   _abort?.abort();
   _abort = null;
+  const browserUtterance = _browserUtterance;
+  _browserUtterance = null;
+  if (browserUtterance && typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
   if (_audio) {
     // Mute before pausing/resetting so stopping TTS cannot produce a decoder
     // click or boundary tone.
@@ -393,6 +399,81 @@ function globalStop() {
   publishMouthLevel(CLOSED_MOUTH);
   // Notify all mounted hook instances so isSpeaking resets everywhere
   _stopListeners.forEach(fn => fn());
+}
+
+const BROWSER_LANGUAGE_CODES: Record<string, string> = {
+  English: "en-IN",
+  Hindi: "hi-IN",
+  Tamil: "ta-IN",
+  Telugu: "te-IN",
+  Bengali: "bn-IN",
+  Marathi: "mr-IN",
+  Gujarati: "gu-IN",
+  Kannada: "kn-IN",
+  Malayalam: "ml-IN",
+  Punjabi: "pa-IN",
+  Odia: "or-IN",
+  Assamese: "as-IN",
+  Urdu: "ur-IN",
+};
+
+function chooseBrowserVoice(language: string, gender: "male" | "female"): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+  const languageCode = BROWSER_LANGUAGE_CODES[language] ?? "en-IN";
+  const languagePrefix = languageCode.slice(0, 2).toLowerCase();
+  const languageVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith(languagePrefix));
+  const candidates = languageVoices.length > 0
+    ? languageVoices
+    : voices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+  const genderHints = gender === "female"
+    ? /female|woman|zira|samantha|susan|karen|veena|heera|lekha|google uk english female/i
+    : /male|man|david|daniel|alex|ravi|rishi|google uk english male/i;
+  return candidates.find((voice) => genderHints.test(`${voice.name} ${voice.lang}`))
+    ?? candidates.find((voice) => voice.localService)
+    ?? candidates[0]
+    ?? null;
+}
+
+/**
+ * Browser speech is the last-resort safety net when the server TTS request or
+ * audio playback fails. It is intentionally kept in the same global generation
+ * lifecycle as Google audio so a stopped or superseded turn cannot speak late.
+ */
+function speakWithBrowserFallback(
+  text: string,
+  language: string,
+  gender: "male" | "female",
+  options: GoogleSpeakOptions,
+  onDone: () => void,
+): boolean {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || !text.trim()) return false;
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const languageCode = BROWSER_LANGUAGE_CODES[language] ?? "en-IN";
+    utterance.lang = languageCode;
+    utterance.voice = chooseBrowserVoice(language, gender);
+    utterance.rate = Math.max(0.75, Math.min(options.rate ?? 0.94, 1.35));
+    utterance.pitch = Math.max(0.5, Math.min(options.pitch ?? (gender === "female" ? 1.05 : 0.92), 2));
+    const generation = _speakGen;
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      if (_browserUtterance === utterance) _browserUtterance = null;
+      if (generation === _speakGen) onDone();
+    };
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    _browserUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+    console.warn(`[TTS] Google Cloud failed; using browser voice fallback (${languageCode})`);
+    return true;
+  } catch {
+    _browserUtterance = null;
+    return false;
+  }
 }
 
 function runNextQueuedSpeech(): void {
@@ -438,6 +519,11 @@ function playChunkChain(
   // Per-chunk hang guard — chunks are short, so 12s is already generous.
   const hangTimer = setTimeout(() => { if (_abort === ctrl) ctrl.abort(); }, 12_000);
   const next = () => playChunkChain(chunks, index + 1, myGen, gender, options, onAllDone);
+  const useFallbackThenNext = () => {
+    if (myGen !== _speakGen) return;
+    if (speakWithBrowserFallback(chunkText, language, gender, options, next)) return;
+    next();
+  };
   const retry = () => {
     if (attempt >= 1) return false;
     setTimeout(
@@ -462,7 +548,7 @@ function playChunkChain(
       if (myGen !== _speakGen) return;
       if (!res.ok || ctrl.signal.aborted) {
         if (!ctrl.signal.aborted && retry()) return;
-        next();
+        useFallbackThenNext();
         return;
       }
 
@@ -471,7 +557,7 @@ function playChunkChain(
       if (blob.size < 512) {
         console.warn("[TTS] audio blob too small (%d bytes) — skipping chunk", blob.size);
         if (retry()) return;
-        next();
+        useFallbackThenNext();
         return;
       }
 
@@ -544,7 +630,7 @@ function playChunkChain(
         publishMouthLevel(CLOSED_MOUTH);
         if (myGen !== _speakGen) return;
         if (retry()) return;
-        next();
+        useFallbackThenNext();
       };
       audio.onended = advance;
       audio.onerror = failed;
@@ -554,15 +640,15 @@ function playChunkChain(
         console.info("[voice-latency] audio-playback-start");
       } catch (playErr) {
         // NotAllowedError = autoplay policy still blocking despite unlock.
-        console.warn("[TTS] audio.play() blocked:", playErr);
-        advance();
+        console.warn("[TTS] audio.play() blocked; trying browser voice fallback:", playErr);
+        failed();
       }
     })
     .catch(() => {
       clearTimeout(hangTimer);
       if (myGen !== _speakGen) return;
       if (retry()) return;
-      next();
+      useFallbackThenNext();
     });
 }
 
