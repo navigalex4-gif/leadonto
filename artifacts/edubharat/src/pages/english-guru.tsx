@@ -62,6 +62,13 @@ function normalizeHelperLanguage(language: string): string {
   return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
 }
 
+function requestedHelperLanguage(text: string): string | null {
+  const match = text.match(/\b(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu|english)\b/i);
+  if (!match) return null;
+  const found = match[0].toLowerCase();
+  return found === "english" ? "English" : found.charAt(0).toUpperCase() + found.slice(1);
+}
+
 function alignTutorGender(text: string, voiceGender: "male" | "female"): string {
   if (voiceGender === "female") {
     return text
@@ -113,6 +120,7 @@ function looksLikeGenericNativeAcknowledgement(text: string): boolean {
     "i understand lets practise slowly",
     "i understand let us practise slowly",
   ].some((phrase) => normalized.includes(phrase))
+    || /^(?:समझ गया|समझ गई|समजलं|i understand)\s.{0,90}(?:अभ्यास|सराव|practice|practise)/iu.test(normalized)
     || (
       normalized.includes("అర్థమైంది")
       && /నెమ్మదిగా|నమ్మదిగా/u.test(normalized)
@@ -318,6 +326,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const silenceProbeCountRef = useRef(0);
   const lastLiveFallbackRef = useRef("");
   const liveFallbackTurnRef = useRef(0);
+  const lastAcceptedPhraseRef = useRef({ text: "", at: 0 });
+  const requestedLangAppliedRef = useRef(false);
 
   useEffect(() => {
     if (user?.name && !profile.name) updateProfile({ name: user.name });
@@ -325,8 +335,9 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
 
   useEffect(() => {
     const normalized = normalizeHelperLanguage(profile.preferredLanguage);
-    if (embedded && requestedLang) {
+    if (embedded && requestedLang && !requestedLangAppliedRef.current) {
       const requested = normalizeHelperLanguage(requestedLang);
+      requestedLangAppliedRef.current = true;
       setUiLang(requested);
       if (requested !== profile.preferredLanguage) updateProfile({ preferredLanguage: requested });
       return;
@@ -512,6 +523,9 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   }, [cancelActiveTurn, synth, updateProfile, speech, uiLang]);
 
   const teacherShort = tutor.name.replace(/\s+(Ma'am|Sir)$/i, "");
+  const coachStudentName = /^(?:admin|user|test|guest)$/i.test(profile.name.trim())
+    ? "a student"
+    : profile.name || "a student";
 
   // Sentinel value for silence-probe turns (no visible user message added)
   const SILENCE_MARKER = "__silence__";
@@ -650,6 +664,21 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       || ttsSpeakingRef.current
       || livePausedRef.current
     )) return;
+    // MediaRecorder/Web Speech can emit the same final result twice during a
+    // recorder handoff. Without this guard one utterance creates two AI turns,
+    // which looks like the tutor is repeating itself.
+    if (!isSilenceProbe) {
+      const normalizedPhrase = phrase.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+      const now = Date.now();
+      if (
+        normalizedPhrase.length >= 4
+        && normalizedPhrase === lastAcceptedPhraseRef.current.text
+        && now - lastAcceptedPhraseRef.current.at < 5000
+      ) return;
+      if (normalizedPhrase.length >= 4) {
+        lastAcceptedPhraseRef.current = { text: normalizedPhrase, at: now };
+      }
+    }
     if (isSilenceProbe && (aiBusyRef.current || !liveChatRef.current)) return;
     // A stopped Web Speech instance can still deliver one buffered final result
     // after the AI audio ends. Do not let that result become a new turn while
@@ -696,6 +725,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     void (async () => {
       try {
         const userMsg = isSilenceProbe ? "" : collapseRepeatedSpeech(phrase);
+        const languageRequest = !isSilenceProbe ? requestedHelperLanguage(userMsg) : null;
+        const isLanguageSwitchRequest = Boolean(
+          languageRequest
+          && languageRequest !== uiLang
+          && /(?:speak|talk|say|help|switch|use|understand|explain)/i.test(userMsg),
+        );
         // Only add normal phrases to visible conversation history
         if (!isSilenceProbe) {
           setConvHistory(h => [...h, { role: "user", text: userMsg }]);
@@ -787,7 +822,14 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           : "";
 
         let response = "";
-        if (translationRequested && previousTeacherMessage) {
+        if (isLanguageSwitchRequest && languageRequest) {
+          // A direct request such as “Can you speak in Tamil?” is a setting
+          // change, not a request to translate an arbitrary previous sentence.
+          // Switch immediately so the next turn uses the requested language.
+          setUiLang(languageRequest);
+          updateProfile({ preferredLanguage: languageRequest });
+          response = `Yes — I can help in ${languageRequest}. I’ll use ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
+        } else if (translationRequested && previousTeacherMessage) {
           response = await stream(
             `Translate the English sentence below into ${uiLang}. Return only its complete, natural ${uiLang} translation in native script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
             `You are a strict ${uiLang} translator, not a tutor. Translate every part of the supplied English sentence faithfully, including its question form. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
@@ -797,7 +839,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         } else {
           response = await stream(
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
-          `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${profile.name || "a student"} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
+           `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${coachStudentName} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
 This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
@@ -811,6 +853,7 @@ Rules for spoken replies:
 - If the student asks to learn vocabulary or English, teach 2–3 useful words or phrases immediately, with meanings and one example. Do not only ask where they want to use English.
 - Start replies smoothly with the substance of your answer. Do not open with "Oh", "Hmm", "Okay", "Got it", "Right", or another filler acknowledgement.
 - Do not repeat acknowledgement phrases before answering; move directly from understanding what the student said to the useful response or follow-up question.
+- Do not address the student as "Admin", "User", "Guest", or another system label. Use their name only when it feels natural, not as a repeated opener.
 - Ask follow-up questions based on what they just said — never repeat a question already covered in this conversation.
 - NEVER restate, rephrase, or echo your own previous message — each reply must add something genuinely new and move the conversation forward.
 - If they make a grammar mistake, quietly use the correct form in YOUR next sentence — never point it out.
@@ -849,6 +892,15 @@ Rules for spoken replies:
         // repair protects speech while keeping the translated content visible.
         if (translationRequested) {
           response = collapseFragmentedNativeScript(response);
+        }
+        // Some providers answer a normal coaching turn with the same generic
+        // native acknowledgement used by the emergency translator fallback.
+        // It is not useful feedback and, when emitted twice, makes the tutor
+        // sound stuck. Replace it with the contextual local fallback instead.
+        if (looksLikeGenericNativeAcknowledgement(response)) {
+          response = translationRequested
+            ? `I can help in ${uiLang}, but I need the sentence you want to practise. Please say it once more.`
+            : variedFallback(userMsg, isSilenceProbe);
         }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
@@ -1002,7 +1054,9 @@ Rules for spoken replies:
   // only opened the microphone and waited for the learner, which felt broken
   // because the teacher never initiated the conversation.
   const startLiveGreeting = useCallback(() => {
-    const firstName = profile.name?.trim().split(/\s+/)[0] || "there";
+    const firstName = /^(?:admin|user|test|guest)$/i.test(profile.name.trim())
+      ? "there"
+      : profile.name?.trim().split(/\s+/)[0] || "there";
     const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
       const greeting = `${opening} I’m ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}.`;
     aiBusyRef.current = true;
