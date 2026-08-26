@@ -75,3 +75,4 @@
 - [Rezi benchmark](rezi-benchmark.md) — benchmark Rezi’s ATS and job-tailoring workflows, but implement them natively instead of depending on Rezi.
 - [Dark navbar contrast](dark-navbar-contrast.md) — when shared nav text is light, explicitly scope white dropdown and mobile panels back to dark text.
 - [Native translation intent](native-translation-intent.md) — translation turns need exact source context and a guarded retry, not only general coaching instructions.
+- [Native language request handling](native-language-request-handling.md) — direct “speak in Hindi” requests bypass the live model; malformed native output is not a TTS balance symptom.

@@ -726,10 +726,10 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       try {
         const userMsg = isSilenceProbe ? "" : collapseRepeatedSpeech(phrase);
         const languageRequest = !isSilenceProbe ? requestedHelperLanguage(userMsg) : null;
-        const isLanguageSwitchRequest = Boolean(
+        const isDirectLanguageRequest = Boolean(
           languageRequest
-          && languageRequest !== uiLang
-          && /(?:speak|talk|say|help|switch|use|understand|explain)/i.test(userMsg),
+          && /(?:speak|talk|help|switch|use|understand|explain|respond|reply|properly|clearly)/i.test(userMsg)
+          && !/(?:translate|say\s+(?:this|that)|read\s+(?:this|that)|repeat\s+(?:this|that)|meaning\s+of)/i.test(userMsg),
         );
         // Only add normal phrases to visible conversation history
         if (!isSilenceProbe) {
@@ -822,13 +822,20 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           : "";
 
         let response = "";
-        if (isLanguageSwitchRequest && languageRequest) {
+        if (isDirectLanguageRequest && languageRequest) {
           // A direct request such as “Can you speak in Tamil?” is a setting
           // change, not a request to translate an arbitrary previous sentence.
-          // Switch immediately so the next turn uses the requested language.
-          setUiLang(languageRequest);
-          updateProfile({ preferredLanguage: languageRequest });
-          response = `Yes — I can help in ${languageRequest}. I’ll use ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
+          // Answer it locally so a live model cannot return malformed native
+          // script when the learner asks for a language it already has selected.
+          if (languageRequest !== uiLang) {
+            setUiLang(languageRequest);
+            updateProfile({ preferredLanguage: languageRequest });
+          }
+          response = languageRequest === "Hindi"
+            ? tutor.voiceGender === "female"
+              ? "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगी। जब भी आपको कोई बात समझ में न आए, मैं हिंदी में समझाऊँगी और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।"
+              : "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगा। जब भी आपको कोई बात समझ में न आए, मैं हिंदी में समझाऊँगा और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।"
+            : `Yes — I can help in ${languageRequest}. I’ll use clear ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
         } else if (translationRequested && previousTeacherMessage) {
           response = await stream(
             `Translate the English sentence below into ${uiLang}. Return only its complete, natural ${uiLang} translation in native script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
