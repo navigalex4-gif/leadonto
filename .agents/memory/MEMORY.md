@@ -76,3 +76,4 @@
 - [Dark navbar contrast](dark-navbar-contrast.md) — when shared nav text is light, explicitly scope white dropdown and mobile panels back to dark text.
 - [Native translation intent](native-translation-intent.md) — translation turns need exact source context and a guarded retry, not only general coaching instructions.
 - [Native language request handling](native-language-request-handling.md) — direct “speak in Hindi” requests bypass the live model; malformed native output is not a TTS balance symptom.
+- [Vertex AI Gemini](vertex-ai-gemini.md) — use the Google Cloud service account path for Gemini; disable hidden thinking on short voice turns to avoid truncated visible replies.

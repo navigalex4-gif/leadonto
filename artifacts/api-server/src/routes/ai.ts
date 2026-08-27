@@ -42,6 +42,17 @@ type VertexServiceAccount = {
 
 let vertexAI: GoogleGenAI | null = null;
 
+function isVertexAIConfigured(): boolean {
+  return Boolean(process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"]);
+}
+
+function getGeminiConfig(maxOutputTokens: number) {
+  return {
+    maxOutputTokens,
+    ...(isVertexAIConfigured() ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+  };
+}
+
 function getVertexAI(): GoogleGenAI {
   if (vertexAI) return vertexAI;
   const rawCredentials = process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"];
@@ -164,19 +175,77 @@ async function streamGemini(
   const ai = getAI();
   const contents = buildContents(prompt, system);
 
+  // Vertex streaming has occasionally closed after only the first few words
+  // in this runtime. A complete Vertex response is safer for voice turns than
+  // forwarding an incomplete sentence; it is still emitted as SSE so clients
+  // keep the same response contract.
+  if (isVertexAIConfigured()) {
+    for (let i = 0; i < GEMINI_MODEL_CHAIN.length; i++) {
+      const model = GEMINI_MODEL_CHAIN[i]!;
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config: getGeminiConfig(maxTokens),
+        });
+        const text = response.text?.trim();
+        if (!text) {
+          if (i < GEMINI_MODEL_CHAIN.length - 1) {
+            req.log.warn({ model }, "Vertex Gemini returned an empty response — trying next model");
+            continue;
+          }
+          throw new Error(`${model} returned an empty response`);
+        }
+        state.wrote = true;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+        return;
+      } catch (err) {
+        const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
+        if ((isRateLimit(err) || isAuthError(err)) && !isLast) {
+          req.log.warn({ model, err }, "Vertex Gemini issue — trying next model");
+          continue;
+        }
+        throw err;
+      }
+    }
+    return;
+  }
+
   for (let i = 0; i < GEMINI_MODEL_CHAIN.length; i++) {
     const model = GEMINI_MODEL_CHAIN[i]!;
     try {
       const stream = await ai.models.generateContentStream({
-        model,
-        contents,
-        config: { maxOutputTokens: maxTokens },
+          model,
+          contents,
+          config: getGeminiConfig(maxTokens),
       });
       for await (const chunk of stream) {
         const text = chunk.text;
         if (text) { state.wrote = true; res.write(`data: ${JSON.stringify({ content: text })}\n\n`); }
       }
-      if (!state.wrote) throw new Error(`${model} returned an empty response`);
+      if (!state.wrote) {
+        // Vertex can occasionally close a stream without exposing its text
+        // chunks. Retry the same request through the non-streaming method
+        // before treating the model as unavailable; this also avoids sending
+        // a harmless transient empty stream to the slower provider fallback.
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config: getGeminiConfig(maxTokens),
+        });
+        const text = response.text?.trim();
+        if (text) {
+          state.wrote = true;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        } else if (i < GEMINI_MODEL_CHAIN.length - 1) {
+          req.log.warn({ model }, "Gemini returned an empty streaming and non-streaming response — trying next model");
+          continue;
+        } else {
+          throw new Error(`${model} returned an empty response`);
+        }
+      }
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
       return;
@@ -628,7 +697,7 @@ router.post("/ai/chat", async (req, res) => {
           const response = await ai.models.generateContent({
             model,
             contents,
-            config: { maxOutputTokens: maxTokens ?? 8192 },
+            config: getGeminiConfig(maxTokens ?? 8192),
           });
           if (!response.text?.trim()) {
             req.log.warn({ model }, "Gemini returned an empty chat response");
@@ -762,7 +831,7 @@ export async function generateTextWithFallback(opts: {
       const model = GEMINI_MODEL_CHAIN[i]!;
       try {
         const stream = await ai.models.generateContentStream({
-          model, contents, config: { maxOutputTokens: maxTokens },
+          model, contents, config: getGeminiConfig(maxTokens),
         });
         for await (const chunk of stream) {
           const text = chunk.text;
