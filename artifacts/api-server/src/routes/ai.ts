@@ -5,10 +5,10 @@ import { AiChatBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-// Keep the current Gemini model first. Older model IDs can return NOT_FOUND
-// for newer API projects, which otherwise makes every short live turn appear
-// stuck after Claude falls through.
-const GEMINI_MODEL_CHAIN = ["gemini-3.6-flash", "gemini-3.5-flash-lite"] as const;
+// These stable model IDs are available through Vertex AI and are billed to the
+// Google Cloud project attached to the service account. The API-key path is
+// retained only as a compatibility fallback for environments without Vertex.
+const GEMINI_MODEL_CHAIN = ["gemini-2.5-flash", "gemini-2.5-flash-lite"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
@@ -34,10 +34,56 @@ function getAnthropicModelChain(_maxTokens: number, qualityFirst = false) {
     : ANTHROPIC_MODEL_CHAIN;
 }
 
+type VertexServiceAccount = {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+};
+
+let vertexAI: GoogleGenAI | null = null;
+
+function getVertexAI(): GoogleGenAI {
+  if (vertexAI) return vertexAI;
+  const rawCredentials = process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"];
+  if (!rawCredentials) {
+    throw new Error("GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON is not configured");
+  }
+
+  let credentials: VertexServiceAccount;
+  try {
+    credentials = JSON.parse(rawCredentials) as VertexServiceAccount;
+  } catch {
+    throw new Error("GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON is not valid JSON");
+  }
+  if (!credentials.project_id || !credentials.client_email || !credentials.private_key) {
+    throw new Error("GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON is missing required service-account fields");
+  }
+
+  vertexAI = new GoogleGenAI({
+    vertexai: true,
+    project: credentials.project_id,
+    location: process.env["GOOGLE_VERTEX_LOCATION"] || "global",
+    googleAuthOptions: {
+      credentials: {
+        client_email: credentials.client_email,
+        private_key: credentials.private_key,
+      },
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+    },
+  });
+  return vertexAI;
+}
+
 export function getAI() {
+  // Vertex AI is preferred when the service-account secret is present. The
+  // API-key path remains available for older environments and local setups.
+  if (process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"]) return getVertexAI();
+
   // Support both underscore and space variants (Replit sometimes stores secrets with spaces)
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
-  if (!apiKey) throw new Error("Gemini API key is not configured. Set GEMINI_API_KEY in secrets.");
+  if (!apiKey) {
+    throw new Error("Neither Vertex AI service account nor GEMINI_API_KEY is configured");
+  }
   return new GoogleGenAI({ apiKey });
 }
 
