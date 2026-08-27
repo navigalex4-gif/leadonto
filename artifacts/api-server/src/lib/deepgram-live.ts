@@ -10,26 +10,6 @@ type LiveStartMessage = {
   mimeType?: string;
 };
 
-const LANGUAGE_CODES: Record<string, string> = {
-  English: "en-IN",
-  Hindi: "hi",
-  Tamil: "ta",
-  Telugu: "te",
-  Bengali: "bn",
-  Marathi: "mr",
-  Gujarati: "gu",
-  Kannada: "kn",
-  Malayalam: "ml",
-  Punjabi: "pa",
-  Odia: "or",
-  Assamese: "as",
-  Urdu: "ur",
-};
-
-function deepgramLanguage(language: string): string {
-  return LANGUAGE_CODES[language] ?? "en-IN";
-}
-
 function isStartMessage(value: unknown): value is LiveStartMessage {
   if (!value || typeof value !== "object") return false;
   const message = value as Partial<LiveStartMessage>;
@@ -84,14 +64,16 @@ export function attachDeepgramLive(server: Server): void {
         }
         if (!isStartMessage(message) || started) return;
         started = true;
-        const language = deepgramLanguage(message.language ?? "English");
         const params = new URLSearchParams({
           model: "nova-3",
-          language,
+          // Live practice intentionally allows English/native-language
+          // code-switching. A fixed en-IN model turns a Hindi sentence into
+          // phonetic English gibberish before the AI ever sees it.
+          language: "multi",
           interim_results: "true",
           smart_format: "true",
           punctuate: "true",
-          endpointing: "300",
+          endpointing: "100",
           utterance_end_ms: "1000",
           vad_events: "true",
           filler_words: "true",

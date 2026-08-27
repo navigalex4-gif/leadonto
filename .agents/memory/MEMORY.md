@@ -77,3 +77,4 @@
 - [Native translation intent](native-translation-intent.md) — translation turns need exact source context and a guarded retry, not only general coaching instructions.
 - [Native language request handling](native-language-request-handling.md) — direct “speak in Hindi” requests bypass the live model; malformed native output is not a TTS balance symptom.
 - [Vertex AI Gemini](vertex-ai-gemini.md) — use the Google Cloud service account path for Gemini; disable hidden thinking on short voice turns to avoid truncated visible replies.
+- [Multilingual speech recognition](multilingual-stt.md) — live English practice must use Nova-3 multilingual code-switching; fixed en-IN turns native speech into gibberish.

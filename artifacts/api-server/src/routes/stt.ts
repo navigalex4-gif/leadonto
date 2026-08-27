@@ -106,6 +106,9 @@ async function transcribeWithGoogleCloud(
 function getDeepgramLanguage(language: string): string {
   // Deepgram accepts the Indian English locale directly. For the Indian
   // language names used by the app, use Deepgram's base language identifiers.
+  // English turns may contain a native-language help phrase, so use Nova-3's
+  // multilingual mode instead of forcing the whole utterance into en-IN.
+  if (language === "English") return "multi";
   const languages: Record<string, string> = {
     English: "en-IN",
     Hindi: "hi",
@@ -215,7 +218,7 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-       model: "gemini-3.6-flash",
+       model: "gemini-2.5-flash",
       contents: [{
         role: "user",
         parts: [
@@ -230,7 +233,12 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
           },
         ],
       }],
-      config: { maxOutputTokens: 512 },
+       config: {
+         maxOutputTokens: 512,
+         ...(process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"]
+           ? { thinkingConfig: { thinkingBudget: 0 } }
+           : {}),
+       },
     });
     res.json({ text: response.text?.trim() ?? "" });
   } catch (geminiError) {

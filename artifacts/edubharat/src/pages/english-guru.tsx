@@ -136,15 +136,15 @@ const INDIC_SCRIPT_CHARACTER = /[\u0900-\u0D7F\u0600-\u06FF]/u;
  */
 function hasFragmentedNativeScript(text: string): boolean {
   const tokens = text.trim().split(/\s+/u).filter(Boolean);
-  if (tokens.length < 5) return false;
+  if (tokens.length < 7) return false;
   const scriptTokens = tokens.filter((token) =>
     [...token].some((character) => INDIC_SCRIPT_CHARACTER.test(character)),
   );
-  if (scriptTokens.length < 5) return false;
+  if (scriptTokens.length < 6) return false;
   const shortScriptTokens = scriptTokens.filter((token) =>
-    [...token.replace(/[.,!?।॥]/gu, "")].length <= 2,
+    [...token.replace(/[.,!?।॥]/gu, "")].length <= 3,
   );
-  return shortScriptTokens.length / scriptTokens.length >= 0.8;
+  return shortScriptTokens.length / scriptTokens.length >= 0.6;
 }
 
 function collapseFragmentedNativeScript(text: string): string {
@@ -184,9 +184,14 @@ function cleanSpokenReply(
     ).length;
     if (
       allowGenericFallback
-      && words.length >= 4
-      && isolatedIndicLetters >= 3
-      && isolatedIndicLetters / words.length >= 0.45
+      && (
+        (
+          words.length >= 4
+          && isolatedIndicLetters >= 3
+          && isolatedIndicLetters / words.length >= 0.45
+        )
+        || hasFragmentedNativeScript(cleaned)
+      )
     ) {
       return NATIVE_RETRY_FALLBACKS[nativeLanguage]?.[voiceGender]
         ?? "I want to help you practise clearly. Let us try that again slowly.";
@@ -267,23 +272,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
 
-  // Recognition follows the language the AI last SPOKE — not the helper-language
-  // setting. The AI speaks mostly English, so the mic listens in English by
-  // default and switches to the native language only right after the AI gives a
-  // native-language explanation (when the student is most likely to answer in
-  // it). This keeps the student's English recognised well AND makes any speaker
-  // echo come back in the SAME script the AI just spoke, so the content
-  // echo-guard can match and drop it — a native recognizer transcribing the AI's
-  // English into native script defeated that guard and caused the "teacher
-  // replies to its own voice" bug (worst in Malayalam and other native modes).
-  const [recognitionLang, setRecognitionLang] = useState("English");
+  // Realtime STT uses Deepgram Nova-3 multilingual code-switching, so the
+  // learner can move between English and their helper language in one turn.
+  // Keep the legacy label for the hook's start-message contract; the server
+  // intentionally ignores it for the live multilingual path.
+  const recognitionLang = "English";
   const speech = useSpeechRecognition(recognitionLang, { realtime: true });
-  // Keep the native recognizer active only briefly after a native-language
-  // explanation. Learners commonly continue speaking English on the next turn.
-  const recognitionLangRevertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (recognitionLangRevertTimerRef.current) clearTimeout(recognitionLangRevertTimerRef.current);
-  }, []);
   /**
    * speechRef — always-current speech handle so handleConvPhrase doesn't need
    * `speech` in its deps (speech changes every render because it's an object
@@ -490,7 +484,6 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       speechRef.current.pause();
       lastAiSpeechRef.current = greeting;
       // Greeting is always English → recognise the student's reply in English.
-      setRecognitionLang("English");
       // Release the mic when the greeting finishes. Guarded by a safety timer so
       // that if TTS onEnd never fires (autoplay block, audio glitch, eviction)
       // the mic and busy flag can't stay stuck — otherwise the conversation would
@@ -994,9 +987,6 @@ Rules for spoken replies:
           // heavier "help" moment), so that gloss is still pronounced correctly.
           // Use speakRef so we always call the latest speak closure even though
           // handleConvPhrase no longer has `speak` in its deps.
-           // Keep the learner transcript in English. The selected native
-           // language is used for explanations and TTS, not as the STT locale.
-           setRecognitionLang("English");
           lastAiSpeechRef.current = cleanResponse;
           // Voice the reply with per-script accents: English words in the tutor's
           // English voice, native words in a true native accent. The server splits
@@ -1069,7 +1059,6 @@ Rules for spoken replies:
     aiBusyRef.current = true;
     speechRef.current.pause();
     lastAiSpeechRef.current = greeting;
-    setRecognitionLang("English");
     setConvHistory(h => [...h, { role: "ai", text: greeting }]);
     setConvFlowState("ai-speaking");
 
@@ -1442,20 +1431,9 @@ Rules for spoken replies:
               if (v === uiLang) return;
               setUiLang(v);
               updateProfile({ preferredLanguage: v });
-              // AI resumes English-first after a language change, so reset the mic
-              // to English; from there it re-follows whatever the AI actually
-              // speaks (English by default, the new native language right after an
-              // explanation). uiLang still reaches the AI on its next turn.
-              setRecognitionLang("English");
-              // Live chat: DON'T interrupt the conversation. If it's the student's
-              // turn, softly restart the mic so the reset language applies right
-              // away; the loop stays alive (pause()+blockFor keep shouldContinue
-              // true). Never touch the mic while the AI is mid-turn (aiBusyRef) or
-              // it would capture the coach's own voice as input.
-              if (liveChatRef.current && !aiBusyRef.current) {
-                speech.pause();
-                speech.blockFor(150);
-              }
+              // The multilingual realtime STT path accepts the new helper
+              // language without interrupting the live conversation. uiLang
+              // reaches the AI on its next turn.
             }}>
               <SelectTrigger className="h-7 text-xs w-[120px] rounded-full border-dashed" aria-label="Native language">
                 <SelectValue />
