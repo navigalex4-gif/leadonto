@@ -3,3 +3,18 @@
 
 # No need to store the pnpm store twice.
 .local
+
+# Replit/deployment can reinstall dependencies and rebuild these outputs.
+.git
+node_modules
+.cache
+**/dist
+**/.expo
+**/.vite
+**/static-build
+
+# Temporary exports, uploads, screenshots, and agent-rendered evidence are not runtime inputs.
+exports/
+attached_assets/
+screenshots/
+.agents/outputs/

@@ -19,52 +19,6 @@ type = "table"
 title = "EduBharat Fix Checklist (28 Items)"
 
 [[outputs]]
-id = "X9wF6pfSt-UmZK3aoxd7K"
-uri = "file://screenshots/rozgar-fixed.jpg"
-type = "image"
-title = "Rozgar Samachar — teal theme"
-
-[[outputs]]
-id = "6uK3B15xf7xBnqv7tioKL"
-uri = "file://screenshots/resume-fixed.jpg"
-type = "image"
-title = "Resume Intelligence — paste works without login"
-
-[[outputs]]
-id = "50V4OXkqgWvHHFeAydJ50"
-uri = "file://screenshots/interview-fixed.jpg"
-type = "image"
-title = "Interview Ace — no question counts"
-
-[[outputs]]
-id = "UOh9bOg8Ib_8ge2_gwQQI"
-uri = "file://exports/lead-onto-source.zip"
-type = "unspecified"
-title = "Lead Onto optimized project ZIP"
-description = "19 MB source-only project archive, safely below 500 MB. Excludes dependencies, Git history, platform folders, caches, generated builds, recordings, screenshots, and duplicate archives."
-
-[[outputs]]
-id = "RWuNJy_51nvguIaSBJSFc"
-uri = "file://exports/lead-onto-project.zip"
-type = "unspecified"
-title = "Lead Onto project ZIP"
-description = "Downloadable source archive excluding node_modules, generated build output, caches, and Git metadata."
-
-[[outputs]]
-id = "isfpSvxExBEOUGkuN3e6-"
-uri = "file://exports/lead-onto-source-download.zip"
-type = "unspecified"
-title = "Lead Onto source ZIP"
-description = "Smaller verified source archive for download; excludes dependencies, caches, generated output, Git metadata, and attached temporary files."
-
-[[outputs]]
-id = "caMoU4Tc10jaUnsBIRr78"
-uri = "file://exports/lead-onto-source.tar.gz"
-type = "unspecified"
-title = "Lead Onto project source archive"
-description = "Compatible compressed source archive. Use the download button on the attached file card."
-
-[[outputs]]
 id = "vO6tkKDrmMp2ctlIyhky5"
 uri = "file://exports/lead-onto-complete-under-50mb.zip"
 type = "unspecified"
