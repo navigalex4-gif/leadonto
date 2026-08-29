@@ -560,6 +560,26 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log('Manifests updated');
 }
 
+function copyProductionServer() {
+  const staticBuild = path.join(projectRoot, 'static-build');
+  const sourceServer = path.join(projectRoot, 'server', 'serve.js');
+  const sourceTemplate = path.join(
+    projectRoot,
+    'server',
+    'templates',
+    'landing-page.html',
+  );
+  const runtimeTemplateDir = path.join(staticBuild, 'templates');
+
+  fs.mkdirSync(runtimeTemplateDir, { recursive: true });
+  fs.copyFileSync(sourceServer, path.join(staticBuild, 'serve.js'));
+  fs.copyFileSync(
+    sourceTemplate,
+    path.join(runtimeTemplateDir, 'landing-page.html'),
+  );
+  console.log('Copied production server into static-build');
+}
+
 async function main() {
   console.log('Building static Expo Go deployment...');
 
@@ -610,6 +630,7 @@ async function main() {
 
   console.log('Updating manifests and creating landing page...');
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
+  copyProductionServer();
 
   console.log('Build complete! Deploy to:', baseUrl);
 

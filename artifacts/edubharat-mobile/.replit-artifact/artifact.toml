@@ -16,7 +16,7 @@ run = "pnpm --filter @workspace/edubharat-mobile run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/edubharat-mobile", "run", "build" ]
-run = [ "node", "artifacts/edubharat-mobile/server/serve.js" ]
+run = [ "node", "artifacts/edubharat-mobile/static-build/serve.js" ]
 
 [services.env]
 PORT = "22793"
