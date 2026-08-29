@@ -13,6 +13,15 @@ node_modules
 **/.vite
 **/static-build
 
+# These generated outputs are required by artifact production services after
+# the publish build finishes: the web artifact is served from dist/public and
+# the mobile artifact's production server reads static-build/.
+!artifacts/edubharat/dist/
+!artifacts/edubharat/dist/public/
+!artifacts/edubharat/dist/public/**
+!artifacts/edubharat-mobile/static-build/
+!artifacts/edubharat-mobile/static-build/**
+
 # Temporary exports, uploads, screenshots, and agent-rendered evidence are not runtime inputs.
 exports/
 attached_assets/
