@@ -82,7 +82,21 @@ export default function InterviewAceScreen() {
         650,
       );
       setReport(generated); setPhase('report');
-      await apiRequest('/sessions/interview', { method: 'POST', body: JSON.stringify({ interviewType: type, role: role || profile?.careerGoal || 'Professional', industry: type, difficulty: 'medium', score: null, duration: seconds, transcript: JSON.stringify(transcript), feedback: generated, data: JSON.stringify({ coach }) }) }).catch(() => undefined);
+      try {
+        await apiRequest('/sessions/interview', {
+          method: 'POST',
+          body: JSON.stringify({
+            interviewType: type,
+            role: role || profile?.careerGoal || 'Professional',
+            experienceLevel: 'Fresher',
+            durationSeconds: seconds,
+            questionsData: JSON.stringify(transcript),
+            feedbackJson: JSON.stringify({ summary: generated, coach }),
+          }),
+        });
+      } catch {
+        Alert.alert('Report saved locally', 'We could not sync this report right now. You can try again later.');
+      }
       await incrementProgress('interviewCount');
     } catch (error) { Alert.alert('Could not create report', error instanceof Error ? error.message : 'Please try again.'); }
     finally { setLoading(false); }

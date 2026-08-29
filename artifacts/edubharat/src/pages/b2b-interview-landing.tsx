@@ -166,15 +166,15 @@ export default function B2BInterviewLanding() {
 
           {/* Name input */}
           <div className="mb-6">
-            <label className="text-sm font-semibold text-secondary mb-1.5 block">Your name</label>
+             <label htmlFor="candidate-name" className="text-sm font-semibold text-secondary mb-1.5 block">Your name</label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
+                 id="candidate-name"
                 value={candidateName}
                 onChange={(e) => setCandidateName(e.target.value)}
                 placeholder="Enter your full name"
                 className="pl-9"
-                autoFocus
               />
             </div>
           </div>

@@ -78,36 +78,37 @@ export default function B2BRegister() {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Company name *</label>
-              <Input value={form.name} onChange={set("name")} placeholder="Acme Corp" required />
+               <label htmlFor="b2b-register-name" className="text-sm font-semibold text-secondary mb-1 block">Company name *</label>
+               <Input id="b2b-register-name" value={form.name} onChange={set("name")} placeholder="Acme Corp" required />
             </div>
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Company email *</label>
-                <Input type="email" autoComplete="email" value={form.email} onChange={set("email")} placeholder="hr@company.com" required />
+               <label htmlFor="b2b-register-email" className="text-sm font-semibold text-secondary mb-1 block">Company email *</label>
+                 <Input id="b2b-register-email" type="email" autoComplete="email" value={form.email} onChange={set("email")} placeholder="hr@company.com" required />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Password *</label>
-         <Input type="password" autoComplete="new-password" value={form.password} onChange={set("password")} placeholder="Strong password" required />
+                 <label htmlFor="b2b-register-password" className="text-sm font-semibold text-secondary mb-1 block">Password *</label>
+          <Input id="b2b-register-password" type="password" autoComplete="new-password" value={form.password} onChange={set("password")} placeholder="Strong password" required />
               </div>
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Confirm *</label>
-                <Input type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} placeholder="Repeat password" required />
+                 <label htmlFor="b2b-register-confirm" className="text-sm font-semibold text-secondary mb-1 block">Confirm *</label>
+                 <Input id="b2b-register-confirm" type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} placeholder="Repeat password" required />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Phone</label>
-                <Input type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
+                 <label htmlFor="b2b-register-phone" className="text-sm font-semibold text-secondary mb-1 block">Phone</label>
+                 <Input id="b2b-register-phone" type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="+91 98765 43210" />
                 <p className={`mt-1 text-[11px] ${form.phone && !normalizeIndianMobile(form.phone) ? "text-red-600" : "text-muted-foreground"}`}>
                   10 digits, starting with 6–9
                 </p>
               </div>
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Industry</label>
+                 <label htmlFor="b2b-register-industry" className="text-sm font-semibold text-secondary mb-1 block">Industry</label>
                 <select
+                   id="b2b-register-industry"
                   value={form.industry}
                   onChange={set("industry")}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
@@ -129,8 +130,8 @@ export default function B2BRegister() {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Website</label>
-              <Input value={form.website} onChange={set("website")} placeholder="https://company.com" />
+               <label htmlFor="b2b-register-website" className="text-sm font-semibold text-secondary mb-1 block">Website</label>
+               <Input id="b2b-register-website" value={form.website} onChange={set("website")} placeholder="https://company.com" />
             </div>
 
             {/* ── Anonymity toggle ── */}

@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import ts from "typescript-eslint";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactHooks from "eslint-plugin-react-hooks";
 
 export default ts.config(
   { ignores: ["dist", "node_modules", "*.config.*"] },
@@ -12,6 +13,9 @@ export default ts.config(
       parserOptions: {
         ecmaFeatures: { jsx: true },
       },
+    },
+    plugins: {
+      "react-hooks": reactHooks,
     },
     rules: {
       // Keep the audit focused on accessibility; existing TypeScript issues

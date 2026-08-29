@@ -9,8 +9,8 @@
  * never repeats back-to-back in the queue.
  *
  * Progress is stored in PostgreSQL (lesson_progress table).
- * Guest users (userId starts with "guest_") use the same table — no foreign-key
- * constraint on user_id so any string ID is accepted.
+ * Guest users use the same table, but their progress key is bound to the
+ * server session so callers cannot read or write another visitor's rows.
  */
 import { Router, type Request, type Response } from "express";
 import { db, lessonProgressTable, lessonActivityTable } from "@workspace/db";
@@ -202,6 +202,24 @@ async function loadUserProgress(userId: string): Promise<UserProgress> {
   }
 }
 
+function resolveProgressUserId(req: Request, supplied: unknown): string | null {
+  if (req.session.userId) return String(req.session.userId);
+
+  const candidate = typeof supplied === "string" ? supplied.trim() : "";
+  if (candidate && candidate !== "guest" && !/^guest_[a-z0-9]{6,64}$/i.test(candidate)) {
+    return null;
+  }
+
+  const bound = req.session.guestProgressId;
+  if (bound && candidate && candidate !== "guest" && bound !== candidate) return null;
+  if (!bound) {
+    req.session.guestProgressId = candidate && candidate !== "guest"
+      ? candidate
+      : `guest_${req.sessionID.replace(/[^a-z0-9]/gi, "").slice(0, 32)}`;
+  }
+  return req.session.guestProgressId ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // In-memory retry buffer for failed DB writes.
 //
@@ -302,15 +320,17 @@ async function saveLesson(
   userId: string,
   lessonId: string,
   state: LessonState,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await writeLessonToDB(userId, lessonId, state);
     // On success, clear any queued entry for this lesson — it would be stale now
     retryBuffer.delete(retryKey(userId, lessonId));
+    return true;
   } catch (err) {
     // DB unavailable — queue for retry so progress is not lost
     console.warn("[journey] saveLesson failed, queuing for retry", { userId, lessonId, err });
     enqueueRetry(userId, lessonId, state);
+    return false;
   }
 }
 
@@ -384,7 +404,11 @@ export async function mergeGuestProgress(guestId: string, userId: string): Promi
 // in a single session. Reviews are capped at 5 to avoid overwhelm.
 // ------------------------------------------------------------------
 router.get("/journey/next", async (req: Request, res: Response) => {
-  const userId = (req.query["userId"] as string) || "guest";
+  const userId = resolveProgressUserId(req, req.query["userId"]);
+  if (!userId) {
+    res.status(403).json({ error: "This guest progress session is no longer valid." });
+    return;
+  }
   const progress = await loadUserProgress(userId);
   const today = todayStr();
 
@@ -480,6 +504,7 @@ router.get("/journey/next", async (req: Request, res: Response) => {
     next_due_date: nextDueDate,
     current_level: currentLevel,
     level_status: levelStatuses,
+    ...(req.session.userId ? {} : { guest_id: userId }),
   });
 });
 
@@ -488,7 +513,7 @@ router.get("/journey/next", async (req: Request, res: Response) => {
 // Body: { lesson_id, score (0–100), userId? }
 // ------------------------------------------------------------------
 router.post("/journey/submit-result", async (req: Request, res: Response) => {
-  const { lesson_id, score, userId = "guest" } = (req.body ?? {}) as {
+  const { lesson_id, score, userId: suppliedUserId = "guest" } = (req.body ?? {}) as {
     lesson_id?: string;
     score?: number;
     userId?: string;
@@ -499,6 +524,11 @@ router.post("/journey/submit-result", async (req: Request, res: Response) => {
     return;
   }
 
+  const userId = resolveProgressUserId(req, suppliedUserId);
+  if (!userId) {
+    res.status(403).json({ error: "This guest progress session is no longer valid." });
+    return;
+  }
   const numScore = Math.min(100, Math.max(0, Number(score ?? 0)));
   const progress = await loadUserProgress(userId);
 
@@ -515,7 +545,11 @@ router.post("/journey/submit-result", async (req: Request, res: Response) => {
   const due_date = addDays(todayStr(), interval);
   const newState: LessonState = { ease, interval, repetitions, due_date, last_score: numScore };
 
-  await saveLesson(userId, lesson_id, newState);
+  const saved = await saveLesson(userId, lesson_id, newState);
+  if (!saved) {
+    res.status(503).json({ ok: false, error: "Progress could not be saved. Please try again." });
+    return;
+  }
 
   // Append an activity-log row so streak calculation has a full per-day history.
   // This runs fire-and-forget; a failure here must never block the response.
@@ -681,7 +715,11 @@ async function computeStreak(userId: string): Promise<number> {
 // GET /journey/progress?userId=<id>  — full state for all lessons
 // ------------------------------------------------------------------
 router.get("/journey/progress", async (req: Request, res: Response) => {
-  const userId = (req.query["userId"] as string) || "guest";
+  const userId = resolveProgressUserId(req, req.query["userId"]);
+  if (!userId) {
+    res.status(403).json({ error: "This guest progress session is no longer valid." });
+    return;
+  }
   const [progress, streak] = await Promise.all([
     loadUserProgress(userId),
     computeStreak(userId),
@@ -712,6 +750,7 @@ router.get("/journey/progress", async (req: Request, res: Response) => {
     summary: { total: LESSON_BANK.length, studied, overdue, streak },
     level_status: levelStatuses,
     current_level: currentLevel,
+    ...(req.session.userId ? {} : { guest_id: userId }),
   });
 });
 

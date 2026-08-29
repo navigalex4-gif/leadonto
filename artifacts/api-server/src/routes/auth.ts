@@ -36,10 +36,31 @@ declare module "express-session" {
     b2bCompanyId?: number;
     b2bCompanyEmail?: string;
     b2bCompanyName?: string;
+    /** First guest progress key bound to this browser session. */
+    guestProgressId?: string;
   }
 }
 
 const router: IRouter = Router();
+const otpAttempts = new Map<string, { count: number; resetAt: number }>();
+const OTP_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+function allowOtpAttempt(key: string): boolean {
+  const now = Date.now();
+  const current = otpAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    otpAttempts.set(key, { count: 1, resetAt: now + OTP_ATTEMPT_WINDOW_MS });
+    return true;
+  }
+  if (current.count >= OTP_MAX_ATTEMPTS) return false;
+  current.count += 1;
+  return true;
+}
+
+function clearOtpAttempts(key: string): void {
+  otpAttempts.delete(key);
+}
 
 /**
  * Extract the real client IP with a priority chain that works on Replit (Cloudflare-fronted):
@@ -298,7 +319,7 @@ router.post("/auth/otp/send", async (req, res) => {
     return;
   }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = crypto.randomInt(100000, 1000000).toString();
   const hashed = crypto.createHash("sha256").update(code).digest("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -341,12 +362,19 @@ router.post("/auth/otp/verify", async (req, res) => {
   const email = rawEmail?.trim().toLowerCase();
   const code = (req.body?.code as string | undefined)?.trim();
   const guestId = req.body?.guestId as string | undefined;
-  if (!email || !code) {
+  const normalizedCode = code ?? "";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\d{6}$/.test(normalizedCode)) {
     res.status(400).json({ error: "Email and code required" });
     return;
   }
 
-  const hashed = crypto.createHash("sha256").update(code).digest("hex");
+  const attemptKey = `${clientIp(req) ?? "unknown"}:${email}`;
+  if (!allowOtpAttempt(attemptKey)) {
+    res.status(429).json({ error: "Too many incorrect attempts. Request a new code and try again later." });
+    return;
+  }
+
+  const hashed = crypto.createHash("sha256").update(normalizedCode).digest("hex");
   const now = new Date();
 
   try {
@@ -369,6 +397,7 @@ router.post("/auth/otp/verify", async (req, res) => {
       res.status(400).json({ error: "Invalid or expired code. Please request a new OTP." });
       return;
     }
+    clearOtpAttempts(attemptKey);
 
     let user = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     if (user.length === 0) {
@@ -409,10 +438,16 @@ router.get("/auth/me", async (req, res) => {
     const users = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId)).limit(1);
     if (!users.length) { res.json({ user: null }); return; }
     const user = users[0]!;
-    // Parse skills JSON for client convenience
-    let skills: string[] = [];
-    if (user.skills) { try { skills = JSON.parse(user.skills) as string[]; } catch { skills = []; } }
-    res.json({ user: { ...user, skills, isAdmin: req.session.isAdmin === true } });
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        preferredLanguage: user.preferredLanguage,
+        isAdmin: req.session.isAdmin === true,
+      },
+    });
   } catch {
     res.json({ user: null });
   }
@@ -429,13 +464,19 @@ router.post("/auth/logout", (req, res) => {
 router.post("/auth/admin-login", async (req, res) => {
   try {
     const { username, password } = req.body as { username?: string; password?: string };
-    const adminUser = process.env["ADMIN_USERNAME"] ?? "admin";
-    // Default hash = sha256("Jackyu@62"). Override via ADMIN_PASSWORD_HASH secret.
-    const adminHash = process.env["ADMIN_PASSWORD_HASH"]
-      ?? "3b335b336d1df1803c6de4da944f96c116eea3eccbd99dc4185f6ef859c7792e";
+    const adminUser = process.env["ADMIN_USERNAME"];
+    const adminHash = process.env["ADMIN_PASSWORD_HASH"];
+    if (!adminUser || !adminHash) {
+      res.status(503).json({ error: "Admin login is not configured." });
+      return;
+    }
 
     const incoming = crypto.createHash("sha256").update(password ?? "").digest("hex");
-    if (!username || username !== adminUser || incoming !== adminHash) {
+    const incomingBuffer = Buffer.from(incoming, "utf8");
+    const expectedBuffer = Buffer.from(adminHash, "utf8");
+    const passwordMatches = incomingBuffer.length === expectedBuffer.length
+      && crypto.timingSafeEqual(incomingBuffer, expectedBuffer);
+    if (!username || username !== adminUser || !passwordMatches) {
       res.status(401).json({ error: "Invalid username or password" });
       return;
     }

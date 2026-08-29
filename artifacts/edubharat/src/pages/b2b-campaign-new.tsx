@@ -113,26 +113,26 @@ export default function B2BCampaignNew() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Campaign title *</label>
-                <Input value={form.title} onChange={set("title")} placeholder="e.g. Sales Hiring Q3 2025" required />
+                 <label htmlFor="campaign-title" className="text-sm font-semibold text-secondary mb-1 block">Campaign title *</label>
+                 <Input id="campaign-title" value={form.title} onChange={set("title")} placeholder="e.g. Sales Hiring Q3 2025" required />
               </div>
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Role / Position *</label>
-                <Input value={form.role} onChange={set("role")} placeholder="e.g. Sales Executive" required />
+                 <label htmlFor="campaign-role" className="text-sm font-semibold text-secondary mb-1 block">Role / Position *</label>
+                 <Input id="campaign-role" value={form.role} onChange={set("role")} placeholder="e.g. Sales Executive" required />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Experience level</label>
-                <select value={form.experienceLevel} onChange={set("experienceLevel")}
+                 <label htmlFor="campaign-experience" className="text-sm font-semibold text-secondary mb-1 block">Experience level</label>
+                 <select id="campaign-experience" value={form.experienceLevel} onChange={set("experienceLevel")}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
                   {EXPERIENCE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Interview type</label>
-                <select value={form.interviewType} onChange={set("interviewType")}
+                 <label htmlFor="campaign-type" className="text-sm font-semibold text-secondary mb-1 block">Interview type</label>
+                 <select id="campaign-type" value={form.interviewType} onChange={set("interviewType")}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
                   {INTERVIEW_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
@@ -141,15 +141,15 @@ export default function B2BCampaignNew() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">AI Interviewer</label>
-                <select value={form.coachId} onChange={set("coachId")}
+                 <label htmlFor="campaign-coach" className="text-sm font-semibold text-secondary mb-1 block">AI Interviewer</label>
+                 <select id="campaign-coach" value={form.coachId} onChange={set("coachId")}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
                   {COACHES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-sm font-semibold text-secondary mb-1 block">Interview duration</label>
-                <select value={form.durationMinutes} onChange={setNum("durationMinutes")}
+                 <label htmlFor="campaign-duration" className="text-sm font-semibold text-secondary mb-1 block">Interview duration</label>
+                 <select id="campaign-duration" value={form.durationMinutes} onChange={setNum("durationMinutes")}
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary">
                   {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                 </select>
@@ -157,8 +157,9 @@ export default function B2BCampaignNew() {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Job description (optional)</label>
+               <label htmlFor="campaign-description" className="text-sm font-semibold text-secondary mb-1 block">Job description (optional)</label>
               <textarea
+                 id="campaign-description"
                 value={form.description}
                 onChange={set("description")}
                 placeholder="Brief description of the role, requirements, or anything the AI interviewer should focus on…"

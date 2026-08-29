@@ -5,6 +5,28 @@ import { AiChatBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+function parseAiRequest(req: Request, res: Response): {
+  prompt: string;
+  system?: string | null;
+  maxTokens?: number | null;
+} | null {
+  const parsed = AiChatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return null;
+  }
+  const { prompt, system, maxTokens } = parsed.data;
+  if (prompt.length > 20_000 || (system?.length ?? 0) > 10_000) {
+    res.status(413).json({ error: "AI request is too large." });
+    return null;
+  }
+  if (maxTokens != null && (!Number.isFinite(maxTokens) || maxTokens < 1 || maxTokens > 4_000)) {
+    res.status(400).json({ error: "maxTokens must be between 1 and 4000." });
+    return null;
+  }
+  return { prompt, system, maxTokens };
+}
+
 // These stable model IDs are available through Vertex AI and are billed to the
 // Google Cloud project attached to the service account. The API-key path is
 // retained only as a compatibility fallback for environments without Vertex.
@@ -465,12 +487,9 @@ async function streamGroq(
 }
 
 router.post("/ai/stream", async (req, res) => {
-  const parseResult = AiChatBody.safeParse(req.body);
-  if (!parseResult.success) {
-    res.status(400).json({ error: "Invalid request body" });
-    return;
-  }
-  const { prompt, system: rawSystem, maxTokens } = parseResult.data;
+  const parsed = parseAiRequest(req, res);
+  if (!parsed) return;
+  const { prompt, system: rawSystem, maxTokens } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -581,12 +600,9 @@ router.post("/ai/stream", async (req, res) => {
 // enrichment. The normal /ai/stream endpoint intentionally keeps its
 // Claude-first fallback for low-latency tutoring and interview turns.
 router.post("/ai/gemini-stream", async (req, res) => {
-  const parseResult = AiChatBody.safeParse(req.body);
-  if (!parseResult.success) {
-    res.status(400).json({ error: "Invalid request body" });
-    return;
-  }
-  const { prompt, system: rawSystem, maxTokens } = parseResult.data;
+  const parsed = parseAiRequest(req, res);
+  if (!parsed) return;
+  const { prompt, system: rawSystem, maxTokens } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -632,12 +648,9 @@ router.post("/ai/gemini-stream", async (req, res) => {
 });
 
 router.post("/ai/chat", async (req, res) => {
-  const parseResult = AiChatBody.safeParse(req.body);
-  if (!parseResult.success) {
-    res.status(400).json({ error: "Invalid request body" });
-    return;
-  }
-  const { prompt, maxTokens, system: rawSystem } = parseResult.data;
+  const parsed = parseAiRequest(req, res);
+  if (!parsed) return;
+  const { prompt, maxTokens, system: rawSystem } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
 
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);

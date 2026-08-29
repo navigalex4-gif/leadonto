@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Navbar } from "./navbar";
-import { MobileStickyCTA } from "./mobile-sticky-cta";
+import { MobileStickyCTA, shouldShowMobileStickyCTA } from "./mobile-sticky-cta";
 import { useContent } from "@/lib/use-content";
 
 /**
@@ -146,6 +146,8 @@ export function Layout({
   compact?: boolean;
   showFooter?: boolean;
 }) {
+  const [location] = useLocation();
+  const showMobileCtaSpace = !compact && shouldShowMobileStickyCTA(location);
   return (
     <div className={compact ? "flex h-[100dvh] flex-col overflow-hidden bg-background" : "flex min-h-[100dvh] flex-col"}>
       <a
@@ -160,7 +162,7 @@ export function Layout({
         className={
           compact
             ? "flex min-h-0 flex-1 animate-in flex-col overflow-y-auto fade-in duration-300"
-            : "flex flex-1 animate-in flex-col fade-in duration-300"
+            : `flex flex-1 animate-in flex-col fade-in duration-300${showMobileCtaSpace ? " pb-[4.5rem] md:pb-0" : ""}`
         }
       >
         {children}

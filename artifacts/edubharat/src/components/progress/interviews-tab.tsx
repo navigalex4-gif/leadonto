@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,11 +67,11 @@ export function InterviewsTab() {
             Sign in to save your mock interview scores, see how you improve over time, and access your full report history.
           </p>
         </div>
-        <a href="/sign-in">
+        <Link href="/login">
           <Button className="gap-2">
             <LogIn className="w-4 h-4" /> Sign in to unlock history
           </Button>
-        </a>
+        </Link>
         <p className="text-xs text-muted-foreground">
           Or <a href="/interview-ace" className="text-primary underline underline-offset-2">practice as a guest</a> — your latest report will be saved on this device.
         </p>

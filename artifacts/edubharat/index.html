@@ -141,12 +141,10 @@
       Loads only when VITE_CLARITY_ID is defined at build time. Safe to ship
       unset; the block is a no-op in that case. Get an id at https://clarity.microsoft.com.
     -->
-    <script>
+    <script type="module">
       (function () {
-        // Vite substitutes import.meta.env at build time. In older builds the
-        // token remains literal; guard for that too.
-        var CLARITY_ID = "%VITE_CLARITY_ID%";
-        if (!CLARITY_ID || CLARITY_ID === "%VITE_CLARITY_ID%") return;
+        var CLARITY_ID = import.meta.env.VITE_CLARITY_ID || "";
+        if (!CLARITY_ID) return;
         (function (c, l, a, r, i, t, y) {
           c[a] =
             c[a] ||

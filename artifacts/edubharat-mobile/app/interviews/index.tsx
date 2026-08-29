@@ -14,6 +14,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSafeBottomPadding } from '@/hooks/useSafeBottomPadding';
 import { Header } from '@/components/Header';
 import { EmptyState } from '@/components/EmptyState';
+import { getApiBase } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,9 +36,7 @@ export type InterviewSession = {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env['EXPO_PUBLIC_DOMAIN']
-  ? `https://${process.env['EXPO_PUBLIC_DOMAIN']}/api`
-  : '';
+const API_BASE = getApiBase();
 
 async function fetchInterviews(): Promise<InterviewSession[]> {
   if (!API_BASE) return [];

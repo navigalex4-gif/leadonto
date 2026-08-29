@@ -358,7 +358,7 @@ router.post("/admin/resend/test-email", requireAdmin, async (req: Request, res: 
 
   try {
     // Generate a fresh OTP (same flow as /auth/otp/send)
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
     const hashed = crypto.createHash("sha256").update(code).digest("hex");
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 

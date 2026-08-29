@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HelmetProvider } from "react-helmet-async";
+import { Helmet, HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
@@ -37,6 +37,7 @@ const AdminContent = lazy(() => import("@/pages/admin-content"));
 const AdminResumes = lazy(() => import("@/pages/admin-resumes"));
 const AdminActivity = lazy(() => import("@/pages/admin-activity"));
 const AdminEmail = lazy(() => import("@/pages/admin-email"));
+const AdminFunnel = lazy(() => import("@/pages/admin-funnel"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 // B2B portal
 const B2BLogin = lazy(() => import("@/pages/b2b-login"));
@@ -62,6 +63,12 @@ function Analytics() {
     if (location === "/pricing") trackFunnel("payment_page_viewed", { placement: "pricing_page" });
   }, [location]);
   return null;
+}
+
+function RouteMetaPolicy() {
+  const [location] = useLocation();
+  const noindex = /^(?:\/(?:login|profile|progress|history|credits|admin(?:\/|$)|b2b(?:\/|$)|b2b-interview(?:\/|$)|interview-ace(?:\/|$)|resume-intelligence(?:\/|$)|learning-journey(?:\/|$))|\/english-guru\/(?:app|embed)(?:\/|$))/.test(location);
+  return noindex ? <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet> : null;
 }
 
 function Router() {
@@ -133,6 +140,7 @@ function Router() {
             <Route path="/admin-resumes" component={AdminResumes} />
             <Route path="/admin-activity" component={AdminActivity} />
             <Route path="/admin-email" component={AdminEmail} />
+             <Route path="/admin-funnel" component={AdminFunnel} />
             <Route path="/admin" component={AdminPayments} />
             {/* B2B portal */}
             <Route path="/b2b/login" component={B2BLogin} />
@@ -163,6 +171,7 @@ function App() {
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
             <Analytics />
+            <RouteMetaPolicy />
             <Suspense fallback={<PageSkeleton />}>
               <Router />
             </Suspense>

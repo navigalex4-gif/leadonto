@@ -9,7 +9,7 @@ import { track, trackFunnel } from "@/lib/analytics";
  *
  * Kept separate from the existing per-page <MobilePrimaryCTA> which stays as-is.
  */
-const HIDE_ON: readonly string[] = [
+export const MOBILE_STICKY_CTA_HIDE_ON: readonly string[] = [
   "/english-guru",
   "/interview-ace",
   "/communication-check",
@@ -37,11 +37,14 @@ const HIDE_ON: readonly string[] = [
   "/b2b",
 ];
 
+export function shouldShowMobileStickyCTA(pathname: string): boolean {
+  const path = pathname.split("?")[0] ?? "/";
+  return !MOBILE_STICKY_CTA_HIDE_ON.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
+}
+
 export function MobileStickyCTA() {
   const [location] = useLocation();
-  const path = location.split("?")[0] ?? "/";
-  const hidden = HIDE_ON.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
-  if (hidden) return null;
+  if (!shouldShowMobileStickyCTA(location)) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">

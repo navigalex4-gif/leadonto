@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Bookmark,
@@ -60,6 +60,8 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { balance, authenticated, refetch: refetchCredits } = useCredits();
   const [open, setOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const isB2BRoute = location.startsWith("/b2b");
 
   useEffect(() => {
@@ -72,6 +74,39 @@ export function Navbar() {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const drawer = drawerRef.current;
+    const firstFocusable = drawer?.querySelector<HTMLElement>("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    firstFocusable?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawer) return;
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])"))
+        .filter((element) => !element.hasAttribute("disabled"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
     };
   }, [open]);
 
@@ -268,6 +303,8 @@ export function Navbar() {
               onClick={() => setOpen((o) => !o)}
               className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 transition-colors hover:bg-muted"
               aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="mobile-navigation-drawer"
             >
               {open ? <X className="h-5 w-5 text-secondary" /> : <Menu className="h-5 w-5 text-secondary" />}
             </button>
@@ -286,6 +323,11 @@ export function Navbar() {
 
       {/* Mobile drawer */}
       <div
+        id="mobile-navigation-drawer"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation"
         className={`fixed right-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
@@ -295,6 +337,7 @@ export function Navbar() {
           <button
             onClick={() => setOpen(false)}
             className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 hover:bg-muted"
+            aria-label="Close navigation menu"
           >
             <X className="h-5 w-5 text-secondary" />
           </button>

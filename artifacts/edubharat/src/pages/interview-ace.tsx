@@ -1011,7 +1011,6 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     setShowCreditGate(false);
     window.history.replaceState({}, "", `${window.location.pathname}`);
     // This is intentionally a one-shot navigation command.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeLocation]);
 
   // Live timer during interview

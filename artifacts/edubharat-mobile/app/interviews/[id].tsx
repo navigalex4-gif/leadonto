@@ -12,12 +12,11 @@ import { useSafeBottomPadding } from '@/hooks/useSafeBottomPadding';
 import { Header } from '@/components/Header';
 import { EmptyState } from '@/components/EmptyState';
 import type { InterviewSession } from './index';
+import { getApiBase } from '@/lib/api';
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env['EXPO_PUBLIC_DOMAIN']
-  ? `https://${process.env['EXPO_PUBLIC_DOMAIN']}/api`
-  : '';
+const API_BASE = getApiBase();
 
 async function fetchInterviews(): Promise<InterviewSession[]> {
   if (!API_BASE) return [];

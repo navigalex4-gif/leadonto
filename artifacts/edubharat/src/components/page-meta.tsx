@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { useLocation } from "wouter";
 
 const DEFAULT = {
   title: "Lead Onto — Speak with Confidence. Prepare for the Role You Want.",
@@ -21,13 +22,16 @@ export function PageMeta({
   canonicalUrl?: string;
   noindex?: boolean;
 }) {
+  const [location] = useLocation();
   const fullTitle = title ? `${title} | Lead Onto` : DEFAULT.title;
   const image = ogImage ?? DEFAULT.ogImage;
+  const routePath = location.split("?")[0] || "/";
+  const resolvedCanonical = canonicalUrl ?? `https://leadonto.com${routePath === "/" ? "" : routePath}`;
   const url = ogUrl
     ? /^https?:\/\//i.test(ogUrl)
       ? ogUrl
       : `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}${ogUrl}`
-    : undefined;
+    : resolvedCanonical;
   return (
     <Helmet>
       <title>{fullTitle}</title>
@@ -38,7 +42,7 @@ export function PageMeta({
       <meta property="og:type" content="website" />
       <meta property="og:image" content={image} />
       {url && <meta property="og:url" content={url} />}
-      {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+      <link rel="canonical" href={resolvedCanonical} />
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />

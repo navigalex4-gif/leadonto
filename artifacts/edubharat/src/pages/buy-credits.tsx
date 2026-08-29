@@ -17,6 +17,9 @@ import {
 import { useContent } from "@/lib/use-content";
 
 type Stage = "pick" | "pending" | "paid" | "failed";
+type CashfreeMode = "sandbox" | "production";
+
+const CASHFREE_MODE_KEY = "leadonto_cashfree_mode";
 
 const TX_LABEL: Record<string, string> = {
   signup_grant: "Welcome bonus", purchase: "Top-up", spend_interview: "Interview",
@@ -43,6 +46,16 @@ function loadCashfree(mode: "sandbox" | "production" = "sandbox"): Promise<(args
     script.onerror = () => reject(new Error("Cashfree checkout could not load"));
     document.head.appendChild(script);
   });
+}
+
+function getStoredCashfreeMode(): CashfreeMode {
+  try {
+    const stored = sessionStorage.getItem(CASHFREE_MODE_KEY);
+    if (stored === "production" || stored === "sandbox") return stored;
+  } catch {
+    // Private browsing can block sessionStorage; build mode is still reliable.
+  }
+  return import.meta.env.PROD ? "production" : "sandbox";
 }
 
 export default function BuyCredits() {
@@ -101,7 +114,7 @@ export default function BuyCredits() {
     let cancelled = false;
     void (async () => {
       try {
-        const checkout = await loadCashfree("sandbox");
+        const checkout = await loadCashfree(getStoredCashfreeMode());
         if (!cancelled) await checkout({ paymentSessionId: returnedSession, redirectTarget: "_self" });
       } catch {
         if (!cancelled) toast({ title: "Checkout could not open", description: "Please return to the app and try again.", variant: "destructive" });
@@ -137,7 +150,9 @@ export default function BuyCredits() {
     setStage("pending");
     setSubmitting(false);
     try {
-      const checkout = await loadCashfree(result.mode ?? "sandbox");
+       const mode = result.mode ?? (import.meta.env.PROD ? "production" : "sandbox");
+       try { sessionStorage.setItem(CASHFREE_MODE_KEY, mode); } catch { /* private browsing */ }
+       const checkout = await loadCashfree(mode);
       await checkout({ paymentSessionId: result.paymentSessionId, redirectTarget: "_self" });
     } catch {
       toast({ title: "Checkout could not open", description: "Your order is saved. You can retry from this page.", variant: "destructive" });
@@ -170,7 +185,7 @@ export default function BuyCredits() {
       ) : <div className="mb-6 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>}
       {loaded && authenticated && stage === "pick" && <Card className="mb-6 border shadow-sm"><CardContent className="py-6">
         <h2 className="font-bold text-secondary mb-4">Choose an amount</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">{CREDIT_QUICK_PICKS.map((c) => <button key={c} onClick={() => setAmount(c)} className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all hover:shadow-sm ${amount === c ? "border-amber-400 bg-amber-50" : "border-border bg-card hover:border-amber-200"}`}><span className="block text-lg font-extrabold text-secondary flex items-center gap-1"><Coins className="w-4 h-4 text-amber-500" />{c}</span><span className="block text-xs text-muted-foreground">₹{c}</span>{c === 99 && <span className="absolute -top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Popular</span>}</button>)}<div className={`rounded-xl border-2 px-3 py-2 flex flex-col justify-center ${!CREDIT_QUICK_PICKS.includes(amount) ? "border-amber-400 bg-amber-50" : "border-border"}`}><label className="text-[11px] font-semibold text-muted-foreground mb-1">Custom</label><input type="number" min={CREDIT_MIN_PURCHASE} max={100000} value={amount} onChange={(e) => setAmount(Math.floor(Number(e.target.value)))} className="w-full bg-transparent text-lg font-extrabold text-secondary outline-none" /></div></div>
+         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">{CREDIT_QUICK_PICKS.map((c) => <button key={c} type="button" onClick={() => setAmount(c)} className={`relative rounded-xl border-2 px-4 py-3 text-left transition-all hover:shadow-sm ${amount === c ? "border-amber-400 bg-amber-50" : "border-border bg-card hover:border-amber-200"}`}><span className="block text-lg font-extrabold text-secondary flex items-center gap-1"><Coins className="w-4 h-4 text-amber-500" />{c}</span><span className="block text-xs text-muted-foreground">₹{c}</span>{c === 99 && <span className="absolute -top-2 right-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Popular</span>}</button>)}<div className={`rounded-xl border-2 px-3 py-2 flex flex-col justify-center ${!CREDIT_QUICK_PICKS.includes(amount) ? "border-amber-400 bg-amber-50" : "border-border"}`}><label htmlFor="custom-credit-amount" className="text-[11px] font-semibold text-muted-foreground mb-1">Custom</label><input id="custom-credit-amount" type="number" min={CREDIT_MIN_PURCHASE} max={100000} value={amount} onChange={(e) => setAmount(Math.floor(Number(e.target.value)))} className="w-full bg-transparent text-lg font-extrabold text-secondary outline-none" /></div></div>
         <div className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3 mb-5"><span className="text-sm text-muted-foreground">You'll get</span><span className="font-bold text-secondary">{valid ? amount : "—"} credits <span className="text-muted-foreground font-normal">for ₹{valid ? amount : "—"}</span></span></div>
         <Button className="w-full h-12 font-bold text-base bg-amber-500 hover:bg-amber-600 text-white" onClick={() => void startCheckout()} disabled={!valid || submitting}><CreditCard className="w-5 h-5 mr-2" />{submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Opening secure checkout…</> : `Pay ₹${valid ? amount : "—"} securely`}</Button>
         {!valid && <p className="text-xs text-center text-destructive mt-2">Choose between {CREDIT_MIN_PURCHASE} and 100,000 credits.</p>}

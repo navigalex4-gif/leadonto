@@ -45,21 +45,22 @@ export default function B2BLogin() {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
             <div>
-               <label className="text-sm font-semibold text-secondary mb-1 block">Company email or mobile number</label>
+               <label htmlFor="b2b-login-identifier" className="text-sm font-semibold text-secondary mb-1 block">Company email or mobile number</label>
               <Input
+                  id="b2b-login-identifier"
                  type="text"
                   inputMode="text"
                  autoComplete="username"
                  value={identifier}
                  onChange={(e) => setIdentifier(e.target.value)}
                  placeholder="company@example.com or +91 98765 43210"
-                autoFocus
                 required
               />
             </div>
             <div>
-              <label className="text-sm font-semibold text-secondary mb-1 block">Password</label>
+               <label htmlFor="b2b-login-password" className="text-sm font-semibold text-secondary mb-1 block">Password</label>
               <Input
+                 id="b2b-login-password"
                 type="password"
                 autoComplete="current-password"
                 value={password}

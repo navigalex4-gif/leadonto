@@ -1525,7 +1525,7 @@ const LESSON_CONTENT: Record<string, LessonContent> = {
     exercises: [
       { q: "A job ad says 'CTC: ₹5–7 LPA.' What does LPA mean?", options: ["Lakhs Per Annum", "Location Per Assignment", "Leave Per Allowance", "Learning Per Activity"], answer: 0 },
       { q: "The ad says 'Required: Proficiency in MS Excel.' This is listed under:", options: ["Responsibilities", "Benefits", "Requirements / Qualifications", "Company description"], answer: 2 },
-      { q: "To apply, you should 'Send your CV with subject \'Application – Sales Executive\'.' What does this mean?", options: ["Email your CV with a specific email subject line", "Walk in with your CV", "Upload your CV to the company website", "Call the HR number with your details"], answer: 0 },
+       { q: "To apply, you should 'Send your CV with subject 'Application – Sales Executive'.' What does this mean?", options: ["Email your CV with a specific email subject line", "Walk in with your CV", "Upload your CV to the company website", "Call the HR number with your details"], answer: 0 },
     ],
   },
   l12: {
@@ -1898,7 +1898,6 @@ function LessonCard({
 
   useEffect(() => {
     if (expanded && aiContent === null && !loadingAI) void loadAIContent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
   const content = aiContent ?? staticContent;

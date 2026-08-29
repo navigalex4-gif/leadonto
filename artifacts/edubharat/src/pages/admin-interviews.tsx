@@ -338,11 +338,12 @@ export default function AdminInterviews() {
 
       {/* Candidate dropdown filter */}
       <div className="mb-3">
-        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+        <label htmlFor="admin-interview-candidate-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
           Filter by Candidate
         </label>
         <select
-          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+           id="admin-interview-candidate-filter"
+           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
           value={selectedCandidate === "ALL" ? "ALL" : String(selectedCandidate)}
           onChange={(e) => {
             const v = e.target.value;
@@ -359,11 +360,12 @@ export default function AdminInterviews() {
       </div>
       {/* Full interview-session dropdown */}
       <div className="mb-3">
-        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+        <label htmlFor="admin-interview-session-filter" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
           Select interview session
         </label>
         <select
-          className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+           id="admin-interview-session-filter"
+           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
           value={selectedSession === "ALL" ? "ALL" : String(selectedSession)}
           onChange={(event) => {
             const value = event.target.value;

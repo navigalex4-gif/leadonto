@@ -199,7 +199,6 @@ export function useRozgarJobs(
     profile.experienceLevel,
     profile.careerGoal,
     // skills is an array — stringify for stable dep
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(profile.skills),
     keyword,
     city,

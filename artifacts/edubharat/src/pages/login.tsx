@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -332,21 +332,22 @@ function LoginContent() {
             </div>
 
             {step === "email" ? (
-              <div className="space-y-3">
+              <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void handleSendOtp(); }}>
                 {config?.otpDevMode && (
                   <div className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded p-2.5">
                     <strong>Dev mode:</strong> Email isn't connected, so your 6-digit code will appear on screen after you click Send OTP.
                   </div>
                 )}
                 <div className="relative">
+                  <label htmlFor="login-email" className="sr-only">Email address</label>
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
+                    id="login-email"
                     type="email"
                     placeholder="Enter your email address"
                     className="h-12 pl-10"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleSendOtp()}
                     data-testid="input-email"
                   />
                 </div>
@@ -355,9 +356,9 @@ function LoginContent() {
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
                   Send OTP
                 </Button>
-              </div>
+              </form>
             ) : (
-              <div className="space-y-3">
+              <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void handleVerifyOtp(); }}>
                 <div className="text-center">
                   <ShieldCheck className="w-10 h-10 text-primary mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -371,7 +372,9 @@ function LoginContent() {
                     </div>
                   )}
                 </div>
+                <label htmlFor="login-otp" className="sr-only">One-time password</label>
                 <Input
+                  id="login-otp"
                   type="text"
                   inputMode="numeric"
                   placeholder="Enter 6-digit OTP"
@@ -379,7 +382,6 @@ function LoginContent() {
                   maxLength={6}
                   value={otp}
                   onChange={e => setOtp(e.target.value.replace(/\D/g, ""))}
-                  onKeyDown={e => e.key === "Enter" && handleVerifyOtp()}
                   data-testid="input-otp"
                 />
                 {error && <p className="text-sm text-destructive">{error}</p>}
@@ -390,11 +392,11 @@ function LoginContent() {
                 <Button variant="ghost" size="sm" className="w-full" onClick={() => { setStep("email"); setOtp(""); setError(""); }}>
                   ← Use different email
                 </Button>
-              </div>
+              </form>
             )}
 
             <p className="text-xs text-center text-muted-foreground">
-              By signing in, you agree to our Terms of Service.{" "}
+              By signing in, you agree to our <Link href="/terms" className="underline underline-offset-2 hover:text-primary">Terms of Service</Link>.{" "}
               <span className="text-muted-foreground/60">Your data is stored securely.</span>
             </p>
           </CardContent>

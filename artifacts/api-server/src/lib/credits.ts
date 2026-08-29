@@ -224,30 +224,35 @@ export async function reverseCredits(args: {
  * ledger insert is atomic (ON CONFLICT DO NOTHING + row check), so two
  * concurrent signups for the same normalized email can't both slip through.
  */
-export async function ensureSignupGrant(userId: number, email: string): Promise<void> {
+export async function ensureSignupGrant(userId: number, email: string): Promise<boolean> {
   try {
-    const normalized = normalizeEmailForAbuseCheck(email);
-    const claimed = await db
-      .insert(usedSignupEmailsTable)
-      .values({ normalizedEmail: normalized, firstUserId: userId })
-      .onConflictDoNothing({ target: usedSignupEmailsTable.normalizedEmail })
-      .returning();
+    return await db.transaction(async (tx) => {
+      const normalized = normalizeEmailForAbuseCheck(email);
+      const claimed = await tx
+        .insert(usedSignupEmailsTable)
+        .values({ normalizedEmail: normalized, firstUserId: userId })
+        .onConflictDoNothing({ target: usedSignupEmailsTable.normalizedEmail })
+        .returning();
 
-    if (claimed.length === 0) {
-      // Someone with an equivalent inbox already claimed the welcome bonus.
-      logger.info({ userId, normalized }, "Signup grant skipped — email already claimed a welcome bonus");
-      return;
-    }
+      if (claimed.length === 0) {
+        // Someone with an equivalent inbox already claimed the welcome bonus.
+        logger.info({ userId, normalized }, "Signup grant skipped — email already claimed a welcome bonus");
+        return false;
+      }
 
-    await grantCredits({
-      userId,
-      amount: SIGNUP_GRANT,
-      type: "signup_grant",
-      description: "Welcome bonus — 20 free credits",
-      reference: `signup:${userId}`,
+      const grant = await grantCreditsTx(tx, {
+        userId,
+        amount: SIGNUP_GRANT,
+        type: "signup_grant",
+        description: "Welcome bonus — 20 free credits",
+        reference: `signup:${userId}`,
+      });
+      if (!grant.ok && !grant.already) throw new Error("SIGNUP_GRANT_FAILED");
+      return true;
     });
   } catch (err) {
     logger.error({ err: (err as Error).message, userId }, "ensureSignupGrant failed");
+    return false;
   }
 }
 

@@ -44,7 +44,10 @@ export function useHistory() {
     syncedRef.current = true;
 
     fetch(`${BASE}/api/history/items?limit=200`, { credentials: "include" })
-      .then(r => r.json())
+      .then((response) => {
+        if (!response.ok) throw new Error(`History request failed: ${response.status}`);
+        return response.json();
+      })
       .then((data: { items?: Record<string, unknown>[] }) => {
         const serverItems = (data.items ?? []).map(apiItemToLocal);
         setItems(serverItems);
@@ -74,6 +77,7 @@ export function useHistory() {
           credentials: "include",
           body: JSON.stringify({ tool: item.tool, title: item.title, content: item.content }),
         });
+        if (!res.ok) throw new Error(`History save failed: ${res.status}`);
         const data = (await res.json()) as { item?: Record<string, unknown> };
         if (data.item) {
           const serverItem = apiItemToLocal(data.item);

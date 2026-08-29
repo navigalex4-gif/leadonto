@@ -183,27 +183,27 @@ export default function B2BDashboard() {
                 </div>
                 <form onSubmit={(event) => void saveProfile(event)} className="space-y-3">
                   <div>
-                    <label className="text-xs font-semibold text-secondary mb-1 block">Company name</label>
-                    <input value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
+                     <label htmlFor="account-company-name" className="text-xs font-semibold text-secondary mb-1 block">Company name</label>
+                     <input id="account-company-name" value={profileForm.name} onChange={(event) => setProfileForm((form) => ({ ...form, name: event.target.value }))} className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" required />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-secondary mb-1 block">Company email</label>
-                    <input value={company.email} readOnly className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/50 text-muted-foreground cursor-not-allowed" />
+                     <label htmlFor="account-company-email" className="text-xs font-semibold text-secondary mb-1 block">Company email</label>
+                     <input id="account-company-email" value={company.email} readOnly className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/50 text-muted-foreground cursor-not-allowed" />
                     <p className="text-[11px] text-muted-foreground mt-1">Email changes require account verification support.</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-secondary mb-1 block">Mobile number</label>
-                      <input type="tel" inputMode="tel" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+91 98765 43210" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                       <label htmlFor="account-phone" className="text-xs font-semibold text-secondary mb-1 block">Mobile number</label>
+                       <input id="account-phone" type="tel" inputMode="tel" value={profileForm.phone} onChange={(event) => setProfileForm((form) => ({ ...form, phone: event.target.value }))} placeholder="+91 98765 43210" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-secondary mb-1 block">Industry</label>
-                      <input value={profileForm.industry} onChange={(event) => setProfileForm((form) => ({ ...form, industry: event.target.value }))} placeholder="Technology" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                       <label htmlFor="account-industry" className="text-xs font-semibold text-secondary mb-1 block">Industry</label>
+                       <input id="account-industry" value={profileForm.industry} onChange={(event) => setProfileForm((form) => ({ ...form, industry: event.target.value }))} placeholder="Technology" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-secondary mb-1 block">Website</label>
-                    <input type="url" value={profileForm.website} onChange={(event) => setProfileForm((form) => ({ ...form, website: event.target.value }))} placeholder="https://company.com" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
+                     <label htmlFor="account-website" className="text-xs font-semibold text-secondary mb-1 block">Website</label>
+                     <input id="account-website" type="url" value={profileForm.website} onChange={(event) => setProfileForm((form) => ({ ...form, website: event.target.value }))} placeholder="https://company.com" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-secondary focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                   <Button type="submit" size="sm" disabled={savingProfile} className="font-semibold">
                     {savingProfile ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Saving…</> : <><Save className="w-4 h-4 mr-1.5" />Save changes</>}

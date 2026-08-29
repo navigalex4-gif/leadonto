@@ -511,7 +511,7 @@ export default function CommunicationCheck() {
     const askedQuestions = nextAnswers.map((item) => item.question);
     const signal = SIGNALS[signalIndexRef.current % SIGNALS.length]!;
     const answerDetail = answer.length > 220 ? `${answer.slice(0, 220)}…` : answer;
-    let response = "";
+     let response: string;
     try {
       response = await Promise.race([
         stream(
@@ -527,7 +527,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
         fallbackTimer,
       ]);
     } catch {
-      response = "";
+       response = "";
     }
     if (!response.trim()) {
       resetStream();

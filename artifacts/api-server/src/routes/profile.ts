@@ -12,6 +12,52 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function parseSkills(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function toPublicProfile(user: typeof usersTable.$inferSelect) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    picture: user.picture,
+    preferredLanguage: user.preferredLanguage,
+    age: user.age,
+    education: user.education,
+    careerGoal: user.careerGoal,
+    location: user.location,
+    industryPreference: user.industryPreference,
+    gender: user.gender,
+    degree: user.degree,
+    branch: user.branch,
+    graduationYear: user.graduationYear,
+    university: user.university,
+    skills: parseSkills(user.skills),
+    preferredRole: user.preferredRole,
+    preferredCity: user.preferredCity,
+    expectedSalary: user.expectedSalary,
+    experienceLevel: user.experienceLevel,
+    englishLevel: user.englishLevel,
+    voiceGender: user.voiceGender,
+    voiceStyle: user.voiceStyle,
+    preferredInterviewer: user.preferredInterviewer,
+    preferredTutor: user.preferredTutor,
+    resumeFileName: user.resumeFileName,
+    resumeAnalysis: user.resumeAnalysis,
+    experienceSummary: user.experienceSummary,
+    credits: user.credits,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
 // GET /api/profile — returns full user profile
 router.get("/profile", requireAuth, async (req: Request, res: Response) => {
   try {
@@ -27,13 +73,7 @@ router.get("/profile", requireAuth, async (req: Request, res: Response) => {
     }
 
     const user = users[0]!;
-    // Parse skills JSON safely
-    let skills: string[] = [];
-    if (user.skills) {
-      try { skills = JSON.parse(user.skills) as string[]; } catch { skills = []; }
-    }
-
-    res.json({ profile: { ...user, skills } });
+    res.json({ profile: toPublicProfile(user) });
   } catch (err) {
     req.log.error({ err }, "Profile fetch error");
     res.status(500).json({ error: "Failed to fetch profile" });
@@ -87,12 +127,7 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       .returning();
 
     const user = updated[0]!;
-    let parsedSkills: string[] = [];
-    if (user.skills) {
-      try { parsedSkills = JSON.parse(user.skills) as string[]; } catch { parsedSkills = []; }
-    }
-
-    res.json({ profile: { ...user, skills: parsedSkills } });
+    res.json({ profile: toPublicProfile(user) });
   } catch (err) {
     req.log.error({ err }, "Profile update error");
     res.status(500).json({ error: "Failed to update profile" });

@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { Screen, Card } from '@/components/Screen';
 import { ActionButton } from '@/components/ActionButton';
 import { useColors } from '@/hooks/useColors';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getApiBase } from '@/lib/api';
 
 const MIN_CREDITS = 10;
 const QUICK_AMOUNTS = [10, 49, 99, 199];
@@ -41,8 +41,12 @@ export default function CreditsScreen() {
         method: 'POST',
         body: JSON.stringify({ credits: amount }),
       });
-      // Cashfree returns to the same canonical page used by web checkout.
-      const checkoutUrl = `https://leadonto.com/credits?cashfreeOrder=${encodeURIComponent(order.orderId)}&cashfreeSession=${encodeURIComponent(order.paymentSessionId)}`;
+      // Cashfree returns to the web app on the same origin as the configured API.
+      // This keeps preview, staging, and published builds on their own domain.
+      const apiBase = getApiBase();
+      if (!apiBase) throw new Error('The Lead Onto web checkout is not configured for this build.');
+      const webOrigin = apiBase.replace(/\/api\/?$/, '');
+      const checkoutUrl = `${webOrigin}/credits?cashfreeOrder=${encodeURIComponent(order.orderId)}&cashfreeSession=${encodeURIComponent(order.paymentSessionId)}`;
       await WebBrowser.openBrowserAsync(checkoutUrl);
 
       // The webhook is authoritative. Reconcile for a short period after the

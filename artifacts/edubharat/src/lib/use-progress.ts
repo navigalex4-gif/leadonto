@@ -68,9 +68,14 @@ export function useProgress() {
     if (!user || syncedRef.current) return;
     syncedRef.current = true;
 
+    const readJson = async (url: string) => {
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error(`Progress request failed: ${response.status}`);
+      return response.json();
+    };
     Promise.all([
-      fetch(`${BASE}/api/sessions/learning?limit=200`, { credentials: "include" }).then(r => r.json()),
-      fetch(`${BASE}/api/sessions/interview?limit=100`, { credentials: "include" }).then(r => r.json()),
+      readJson(`${BASE}/api/sessions/learning?limit=200`),
+      readJson(`${BASE}/api/sessions/interview?limit=100`),
     ]).then(([learningData, interviewData]: [
       { sessions?: Record<string, unknown>[] },
       { sessions?: Record<string, unknown>[] }
