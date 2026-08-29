@@ -3,14 +3,14 @@ import { Navbar } from "./navbar";
 import { MobileStickyCTA, shouldShowMobileStickyCTA } from "./mobile-sticky-cta";
 import { useContent } from "@/lib/use-content";
 
-/**
- * Public footer only surfaces the two flagship products. The other four SKUs
- * remain accessible from the mobile drawer "In-app tools" section for signed-in
- * users, and via direct URL — so no existing user workflow breaks.
- */
 const PRODUCT_LINKS = [
   { href: "/english-guru", label: "English Guru" },
   { href: "/interview-ace", label: "Mock Interview" },
+  { href: "/tools-pro", label: "Tools Pro" },
+  { href: "/rozgar-samachar", label: "Rozgar Samachar" },
+  { href: "/resume-intelligence", label: "Resume Intelligence" },
+  { href: "/communication-check", label: "Communication Check" },
+  { href: "/learning-journey", label: "Learning Journey" },
 ] as const;
 
 const FOR_LINKS = [

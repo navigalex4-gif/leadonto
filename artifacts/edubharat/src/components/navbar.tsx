@@ -21,37 +21,30 @@ import {
   Users as UsersIcon,
   Building2,
   Tag,
+  ChevronDown,
+  MessageCircle,
 } from "lucide-react";
 import { useHistory } from "@/lib/use-history";
 import { useAuth } from "@/lib/use-auth";
 import { useCredits } from "@/lib/use-credits";
 import { Button } from "@/components/ui/button";
 
-/**
- * Public nav shows only 2 SKUs (English Guru + Interview Ace) plus /pricing
- * and /for-colleges. The other 4 SKUs (Tools Pro, My Journey, Resume, Rozgar)
- * remain accessible via their routes and the logged-in "My Account" section
- * of the mobile drawer — they are simply no longer marketed on the public
- * chrome. This preserves every existing route and existing user's workflow.
- */
-
-const PRIMARY_LINKS = [
+/** Every student-facing product stays discoverable from the public navigation. */
+const PRODUCT_LINKS = [
   { href: "/english-guru", label: "English Guru", icon: BookOpen },
-  { href: "/interview-ace", label: "Mock Interview", icon: Mic },
+  { href: "/interview-ace", label: "Interview Ace", icon: Mic },
+  { href: "/tools-pro", label: "Tools Pro", icon: Sparkles },
+  { href: "/rozgar-samachar", label: "Rozgar Samachar", icon: Newspaper },
+  { href: "/resume-intelligence", label: "Resume Intelligence", icon: FileText },
+  { href: "/communication-check", label: "Communication Check", icon: MessageCircle },
+  { href: "/learning-journey", label: "Learning Journey", icon: Route },
 ] as const;
+
+const PRIMARY_LINKS = PRODUCT_LINKS.slice(0, 2);
 
 const SECONDARY_LINKS = [
   { href: "/for-colleges", label: "For Colleges", icon: Building2 },
   { href: "/pricing", label: "Pricing", icon: Tag },
-] as const;
-
-/** Kept for signed-in users on the mobile drawer only — the 4 tools stay
- *  reachable without cluttering the public nav. */
-const IN_APP_TOOLS = [
-  { href: "/tools-pro", label: "Tools Pro", icon: Sparkles },
-  { href: "/learning-journey", label: "My Journey", icon: Route },
-  { href: "/rozgar-samachar", label: "Rozgar Samachar", icon: Newspaper },
-  { href: "/resume-intelligence", label: "Resume", icon: FileText },
 ] as const;
 
 export function Navbar() {
@@ -60,7 +53,9 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { balance, authenticated, refetch: refetchCredits } = useCredits();
   const [open, setOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const productsMenuRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const isB2BRoute = location.startsWith("/b2b");
 
@@ -69,6 +64,7 @@ export function Navbar() {
   }, [user?.id, refetchCredits]);
   useEffect(() => {
     setOpen(false);
+    setProductsOpen(false);
   }, [location]);
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -109,6 +105,16 @@ export function Navbar() {
       previouslyFocusedRef.current = null;
     };
   }, [open]);
+  useEffect(() => {
+    if (!productsOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (productsMenuRef.current && !productsMenuRef.current.contains(event.target as Node)) {
+        setProductsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [productsOpen]);
 
   const isActive = (href: string) => location === href;
   const pathOnly = location.split("?")[0] ?? "/";
@@ -135,13 +141,13 @@ export function Navbar() {
             Lead Onto
           </Link>
 
-          {/* Desktop primary links */}
+          {/* Desktop product navigation */}
           <div className="hidden md:flex items-center gap-1 ml-3">
             {PRIMARY_LINKS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={linkFor(href)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
                   pathOnly === href
                     ? "bg-primary/10 text-primary"
                     : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
@@ -152,13 +158,52 @@ export function Navbar() {
               </Link>
             ))}
 
+            <div ref={productsMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setProductsOpen((current) => !current)}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                  PRODUCT_LINKS.some(({ href }) => pathOnly === href)
+                    ? "bg-primary/10 text-primary"
+                    : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
+                }`}
+                aria-haspopup="menu"
+                aria-expanded={productsOpen}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                All Products
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {productsOpen && (
+                <div
+                  className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-white p-2 shadow-xl"
+                  role="menu"
+                  aria-label="All products"
+                >
+                  {PRODUCT_LINKS.slice(2).map(({ href, label, icon: Icon }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      role="menuitem"
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                        pathOnly === href ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <span className="mx-1 h-4 w-px bg-border" />
 
             {SECONDARY_LINKS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
                   isActive(href)
                     ? "bg-primary/10 text-primary"
                     : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
@@ -345,7 +390,7 @@ export function Navbar() {
 
         <div className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Products</p>
-          {PRIMARY_LINKS.map(({ href, label, icon: Icon }) => (
+          {PRODUCT_LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={linkFor(href)}
@@ -382,25 +427,6 @@ export function Navbar() {
             <Building2 className="h-4 w-4 shrink-0" />
             B2B Portal
           </Link>
-
-          {authenticated && (
-            <>
-              <div className="mx-3 my-3 h-px bg-border" />
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">In-app tools</p>
-              {IN_APP_TOOLS.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
-                    isActive(href) ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </Link>
-              ))}
-            </>
-          )}
 
           {user?.isAdmin && (
             <>

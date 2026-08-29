@@ -4,10 +4,13 @@ import {
   BadgeCheck,
   Building2,
   Check,
+  FileText,
   GraduationCap,
   Languages,
   Mic2,
   MessageCircle,
+  Newspaper,
+  Route,
   Sparkles,
 } from "lucide-react";
 import { TUTORS } from "@/lib/tutors";
@@ -27,6 +30,72 @@ const ROLE_EXAMPLES = [
   "Finance",
   "Fresh Graduate",
 ];
+
+const PRODUCT_SHOWCASE = [
+  {
+    href: "/english-guru",
+    name: "English Guru",
+    description: "Speak with confidence in interviews, meetings, and everyday work.",
+    icon: MessageCircle,
+    iconClass: "bg-orange-100 text-orange-700",
+    cardClass: "border-orange-200/70 bg-orange-50/60 hover:border-orange-400",
+    linkClass: "text-orange-700",
+  },
+  {
+    href: "/interview-ace",
+    name: "Interview Ace",
+    description: "Practice realistic, role-based mock interviews with instant feedback.",
+    icon: Mic2,
+    iconClass: "bg-blue-100 text-blue-700",
+    cardClass: "border-blue-200/70 bg-blue-50/60 hover:border-blue-400",
+    linkClass: "text-blue-700",
+  },
+  {
+    href: "/tools-pro",
+    name: "Tools Pro",
+    description: "Fix grammar, write better, build vocabulary, and practise pronunciation.",
+    icon: Sparkles,
+    iconClass: "bg-violet-100 text-violet-700",
+    cardClass: "border-violet-200/70 bg-violet-50/60 hover:border-violet-400",
+    linkClass: "text-violet-700",
+  },
+  {
+    href: "/rozgar-samachar",
+    name: "Rozgar Samachar",
+    description: "Find personalised jobs and career opportunities across India.",
+    icon: Newspaper,
+    iconClass: "bg-teal-100 text-teal-700",
+    cardClass: "border-teal-200/70 bg-teal-50/60 hover:border-teal-400",
+    linkClass: "text-teal-700",
+  },
+  {
+    href: "/resume-intelligence",
+    name: "Resume Intelligence",
+    description: "Match your resume to a real job and close your most important skill gaps.",
+    icon: FileText,
+    iconClass: "bg-amber-100 text-amber-700",
+    cardClass: "border-amber-200/70 bg-amber-50/60 hover:border-amber-400",
+    linkClass: "text-amber-700",
+  },
+  {
+    href: "/communication-check",
+    name: "Communication Check",
+    description: "Get a fast, free speaking assessment with practical next steps.",
+    icon: BadgeCheck,
+    iconClass: "bg-emerald-100 text-emerald-700",
+    cardClass: "border-emerald-200/70 bg-emerald-50/60 hover:border-emerald-400",
+    linkClass: "text-emerald-700",
+  },
+  {
+    href: "/learning-journey",
+    name: "Learning Journey",
+    description: "Follow a personalised A1 to C2 practice path with spaced repetition.",
+    icon: Route,
+    iconClass: "bg-rose-100 text-rose-700",
+    cardClass: "border-rose-200/70 bg-rose-50/60 hover:border-rose-400",
+    linkClass: "text-rose-700",
+  },
+] as const;
 
 /** 8 homepage FAQs — copied verbatim from the English Guru page copy that
  * already converts. Kept in one place so the JSON-LD schema in index.html
@@ -321,59 +390,37 @@ export default function Home() {
           </div>
         </section>
 
-        {/* TWO PRODUCTS — only English Guru + Interview Ace */}
+        {/* COMPLETE PRODUCT SUITE */}
         <section className="py-12 sm:py-14" aria-labelledby="products-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="max-w-xl">
-              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Two products, one goal</p>
+              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">One ecosystem, every next step</p>
               <h2 id="products-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-                Get ready for what's next.
+                Everything you need to move forward.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-                Start with a real conversation. Or jump straight into a mock interview for the role you want.
+                Build communication skills, prepare for interviews, improve your resume, find opportunities, and keep your progress moving.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 lg:grid-cols-2">
-              <Link
-                href="/english-guru"
-                className="group flex flex-col rounded-2xl border border-orange-200/70 bg-orange-50/60 p-6 transition-all hover:border-orange-400 hover:shadow-md sm:p-7"
-                onClick={() => trackFunnel("cta_clicked", { cta: "product_english_guru", placement: "home_products" })}
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
-                  <MessageCircle className="h-5 w-5" />
-                </span>
-                <h3 className="mt-5 text-2xl font-extrabold leading-tight tracking-tight text-secondary">English Guru</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Speak better in the real world.</p>
-                <ul className="mt-5 space-y-2 text-sm text-secondary">
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Real conversations with an AI teacher</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Mother-tongue support in {INDIAN_LANGUAGES.length} Indian languages</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Fluency Score across A1 → C2</li>
-                </ul>
-                <span className="mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-orange-700">
-                  Start My English Journey <ArrowRight className="h-4 w-4" />
-                </span>
-              </Link>
-
-              <Link
-                href="/interview-ace"
-                className="group flex flex-col rounded-2xl border border-blue-200/70 bg-blue-50/60 p-6 transition-all hover:border-blue-400 hover:shadow-md sm:p-7"
-                onClick={() => trackFunnel("cta_clicked", { cta: "product_interview_ace", placement: "home_products" })}
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-                  <Mic2 className="h-5 w-5" />
-                </span>
-                <h3 className="mt-5 text-2xl font-extrabold leading-tight tracking-tight text-secondary">Interview Ace</h3>
-                <p className="mt-2 text-sm text-muted-foreground">Prepare for the role you want.</p>
-                <ul className="mt-5 space-y-2 text-sm text-secondary">
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />Role-based mock interviews (SDE, Sales, Support, HR, BPO, Banking)</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />10-minute AI panels with instant feedback</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />2 free mock interviews — no signup</li>
-                </ul>
-                <span className="mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-blue-700">
-                  Try a Mock Interview <ArrowRight className="h-4 w-4" />
-                </span>
-              </Link>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PRODUCT_SHOWCASE.map(({ href, name, description, icon: Icon, iconClass, cardClass, linkClass }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`group flex min-h-52 flex-col rounded-2xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-6 ${cardClass}`}
+                  onClick={() => trackFunnel("cta_clicked", { cta: `product_${href.slice(1).replaceAll("-", "_")}`, placement: "home_products" })}
+                >
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClass}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-5 text-xl font-extrabold leading-tight tracking-tight text-secondary">{name}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+                  <span className={`mt-auto inline-flex items-center gap-2 pt-5 text-sm font-extrabold ${linkClass}`}>
+                    Explore {name} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              ))}
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">
