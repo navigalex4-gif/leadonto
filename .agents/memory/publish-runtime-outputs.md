@@ -3,8 +3,8 @@ name: Publish runtime outputs
 description: Generated output retention required by this workspace's multi-artifact autoscale publish
 ---
 
-In this workspace, the web artifact's Vite `dist/public/` output and the Expo artifact's `static-build/` output must remain available after the publish build phase. If broad ignore rules remove them, promotion reports a missing static public directory. The Expo server entry and landing template should also be copied into `static-build/`, so the runnable image does not depend on source-tree files surviving packaging.
+In this workspace, the web artifact's Vite output, the API artifact's bundled output, and the Expo artifact's static output must remain available after the publish build phase. Broad generated-directory ignore rules require narrow exceptions for all three. The Expo server entry and landing template should also be copied into its retained output, so the runnable image does not depend on source-tree files surviving packaging.
 
-**Why:** Autoscale starts the published artifact services from the post-build image; successful compilation alone does not prove that generated files survived into that image, and the mobile service's standalone Node entry previously failed to load from the published source tree.
+**Why:** Autoscale starts artifact services from the post-build image; successful compilation does not prove generated files survived packaging. Missing web output breaks static registration, while missing API or mobile runtime output crashes before ports open.
 
-**How to apply:** Preserve only the required web and Expo output paths with narrow ignore exceptions. Run the copied mobile entry from `static-build/` and make its path resolution support the bundled location; do not change deployment type or API configuration for this symptom.
+**How to apply:** Preserve only each artifact's required production output with narrow ignore exceptions. Keep API and mobile run commands pointed at files inside those retained outputs; do not change deployment type for a missing-built-file symptom.
