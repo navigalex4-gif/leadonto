@@ -71,12 +71,29 @@ function RouteMetaPolicy() {
   return noindex ? <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet> : null;
 }
 
+function LegacyEnglishLandingRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate("/english-guru", { replace: true });
+  }, [navigate]);
+  return (
+    <main className="flex min-h-[60vh] items-center justify-center bg-[#FFFDF9] text-secondary">
+      <p className="text-sm text-muted-foreground">Opening English Guru…</p>
+    </main>
+  );
+}
+
 function Router() {
   return (
     <Switch>
       {/* Product routes that keep the compact / no-footer shells they already use */}
       <Route path="/english-guru">
-        <EnglishLanding />
+        <Layout>
+          <EnglishLanding />
+        </Layout>
+      </Route>
+      <Route path="/lp/speak">
+        <LegacyEnglishLandingRedirect />
       </Route>
       <Route path="/english-guru/app">
         <Layout compact showFooter={false}>
