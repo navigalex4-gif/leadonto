@@ -26,6 +26,8 @@ const Login = lazy(() => import("@/pages/login"));
 const Progress = lazy(() => import("@/pages/progress"));
 const ProfilePage = lazy(() => import("@/pages/profile"));
 const BuyCredits = lazy(() => import("@/pages/buy-credits"));
+const Pricing = lazy(() => import("@/pages/pricing"));
+const ForColleges = lazy(() => import("@/pages/for-colleges"));
 const AdminPayments = lazy(() => import("@/pages/admin-payments"));
 const AdminUsers = lazy(() => import("@/pages/admin-users"));
 const AdminInterviews = lazy(() => import("@/pages/admin-interviews"));
@@ -57,6 +59,7 @@ function Analytics() {
   useEffect(() => {
     trackPageView(location);
     if (location === "/") trackFunnel("landing_viewed", { placement: "homepage" });
+    if (location === "/pricing") trackFunnel("payment_page_viewed", { placement: "pricing_page" });
   }, [location]);
   return null;
 }
@@ -64,6 +67,7 @@ function Analytics() {
 function Router() {
   return (
     <Switch>
+      {/* Product routes that keep the compact / no-footer shells they already use */}
       <Route path="/english-guru">
         <EnglishLanding />
       </Route>
@@ -100,10 +104,14 @@ function Router() {
           <LearningJourney />
         </Layout>
       </Route>
+
+      {/* All other routes use the standard Layout with footer + global mobile sticky */}
       <Route>
         <Layout>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/pricing" component={Pricing} />
+            <Route path="/for-colleges" component={ForColleges} />
             <Route path="/tools-pro" component={ToolsPro} />
             <Route path="/history" component={History} />
             <Route path="/login" component={Login} />

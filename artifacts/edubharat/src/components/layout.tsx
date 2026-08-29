@@ -1,44 +1,54 @@
 import { Link, useLocation } from "wouter";
 import { Navbar } from "./navbar";
+import { MobileStickyCTA } from "./mobile-sticky-cta";
 import { useContent } from "@/lib/use-content";
 
+/**
+ * Public footer only surfaces the two flagship products. The other four SKUs
+ * remain accessible from the mobile drawer "In-app tools" section for signed-in
+ * users, and via direct URL — so no existing user workflow breaks.
+ */
 const PRODUCT_LINKS = [
-  { href: "/english-guru",       label: "English Guru" },
-  { href: "/interview-ace",      label: "Interview Ace" },
-  { href: "/rozgar-samachar",    label: "Rozgar Samachar" },
-  { href: "/learning-journey",   label: "My Journey" },
-  { href: "/resume-intelligence", label: "Resume Intelligence" },
-  { href: "/tools-pro",          label: "Tools Pro" },
-];
+  { href: "/english-guru", label: "English Guru" },
+  { href: "/interview-ace", label: "Mock Interview" },
+] as const;
+
+const FOR_LINKS = [
+  { href: "/for-colleges", label: "For Colleges" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/credits", label: "Buy credits" },
+] as const;
 
 function Footer() {
   const [, navigate] = useLocation();
   const tagline = useContent(
     "footer.brandStatement",
-    "Helping India’s next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
+    "Helping India's next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
   );
   const contactEmail = useContent("footer.contact.email", "email@leadonto.com");
 
   return (
-    <footer className="bg-secondary text-secondary-foreground mt-auto">
+    <footer className="mt-auto bg-secondary text-secondary-foreground">
       <div className="container mx-auto px-4 py-12">
-        {/* 4-column grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div className="mb-10 grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 md:col-span-1">
-            <Link href="/" className="block font-display font-bold text-xl mb-3 text-primary hover:opacity-80 transition-opacity">
+            <Link
+              href="/"
+              className="mb-3 block font-display text-xl font-bold text-primary transition-opacity hover:opacity-80"
+            >
               Lead Onto
             </Link>
-            <p className="text-secondary-foreground/60 text-sm leading-relaxed max-w-xs">{tagline}</p>
+            <p className="max-w-xs text-sm leading-relaxed text-secondary-foreground/60">{tagline}</p>
           </div>
 
           {/* Products */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-secondary-foreground/40 mb-3">Products</h3>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-secondary-foreground/40">Products</h3>
             <ul className="space-y-2">
               {PRODUCT_LINKS.map(({ href, label }) => (
                 <li key={href}>
-                  <Link href={href} className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
+                  <Link href={href} className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
                     {label}
                   </Link>
                 </li>
@@ -46,59 +56,70 @@ function Footer() {
             </ul>
           </div>
 
-          {/* Company */}
+          {/* For */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-secondary-foreground/40 mb-3">Company</h3>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-secondary-foreground/40">For</h3>
             <ul className="space-y-2">
-              <li>
-                <Link href="/about-us" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact-us" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
-                  Contact Us
-                </Link>
-              </li>
+              {FOR_LINKS.map(({ href, label }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    onClick={(e) => {
+                      // Match old behaviour for /credits — always fire a navigate so
+                      // wouter can attach ?returnTo params on inner pages.
+                      if (href === "/credits") {
+                        e.preventDefault();
+                        navigate("/credits");
+                      }
+                    }}
+                    className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary"
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
               <li>
                 <Link
-                  href="/credits"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    navigate("/credits");
-                  }}
-                  className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors"
+                  href="/b2b/login"
+                  className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary"
                 >
-                  Buy Credits
+                  B2B Portal
                 </Link>
-              </li>
-              <li>
-                <a
-                  href={`mailto:${contactEmail}`}
-                  className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors"
-                >
-                  {contactEmail}
-                </a>
               </li>
             </ul>
           </div>
 
-          {/* Legal */}
+          {/* Company */}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-widest text-secondary-foreground/40 mb-3">Legal</h3>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-secondary-foreground/40">Company</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/terms" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
+                <Link href="/about-us" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact-us" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
+                  Contact Us
+                </Link>
+              </li>
+              <li>
+                <a href={`mailto:${contactEmail}`} className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
+                  {contactEmail}
+                </a>
+              </li>
+              <li>
+                <Link href="/terms" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
                   Terms &amp; Conditions
                 </Link>
               </li>
               <li>
-                <Link href="/privacy-policy" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
+                <Link href="/privacy-policy" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/shipping-refund" className="text-sm text-secondary-foreground/70 hover:text-primary transition-colors">
+                <Link href="/shipping-refund" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
                   Shipping &amp; Refund
                 </Link>
               </li>
@@ -107,7 +128,7 @@ function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t border-secondary-foreground/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-secondary-foreground/40">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-secondary-foreground/10 pt-6 text-xs text-secondary-foreground/40 sm:flex-row">
           <p>© {new Date().getFullYear()} Lead Onto. All rights reserved.</p>
           <p>Built for learners across India</p>
         </div>
@@ -126,10 +147,10 @@ export function Layout({
   showFooter?: boolean;
 }) {
   return (
-    <div className={compact ? "h-[100dvh] flex flex-col overflow-hidden bg-background" : "min-h-[100dvh] flex flex-col"}>
+    <div className={compact ? "flex h-[100dvh] flex-col overflow-hidden bg-background" : "flex min-h-[100dvh] flex-col"}>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:outline-hidden focus:ring-2 focus:ring-ring"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:outline-hidden focus:ring-2 focus:ring-ring"
       >
         Skip to main content
       </a>
@@ -138,13 +159,15 @@ export function Layout({
         id="main-content"
         className={
           compact
-            ? "flex-1 min-h-0 flex flex-col overflow-y-auto animate-in fade-in duration-300"
-            : "flex-1 flex flex-col animate-in fade-in duration-300"
+            ? "flex min-h-0 flex-1 animate-in flex-col overflow-y-auto fade-in duration-300"
+            : "flex flex-1 animate-in flex-col fade-in duration-300"
         }
       >
         {children}
       </main>
       {showFooter && <Footer />}
+      {/* Global mobile sticky CTA — hides itself on product / admin / auth routes */}
+      <MobileStickyCTA />
     </div>
   );
 }

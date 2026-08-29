@@ -1,122 +1,58 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  Bookmark, LogIn, LogOut, User, BarChart2, Menu, X,
-  BookOpen, Mic, Newspaper, Settings, FileText, Route,
-  Coins, Sparkles, Shield, CreditCard, Users as UsersIcon,
-  Briefcase, ChevronDown, Building2,
+  Bookmark,
+  LogIn,
+  LogOut,
+  User,
+  BarChart2,
+  Menu,
+  X,
+  BookOpen,
+  Mic,
+  Newspaper,
+  Settings,
+  FileText,
+  Route,
+  Coins,
+  Sparkles,
+  Shield,
+  CreditCard,
+  Users as UsersIcon,
+  Building2,
+  Tag,
 } from "lucide-react";
 import { useHistory } from "@/lib/use-history";
 import { useAuth } from "@/lib/use-auth";
 import { useCredits } from "@/lib/use-credits";
 import { Button } from "@/components/ui/button";
 
-const FLUENCY_LINKS = [
-  { href: "/english-guru",     label: "English Guru", icon: BookOpen, desc: "Real-world conversation" },
-  { href: "/tools-pro",        label: "Tools Pro",    icon: Sparkles, desc: "Grammar, writing & vocab" },
-  { href: "/learning-journey", label: "My Journey",   icon: Route,    desc: "CEFR roadmap A1→C2" },
-];
+/**
+ * Public nav shows only 2 SKUs (English Guru + Interview Ace) plus /pricing
+ * and /for-colleges. The other 4 SKUs (Tools Pro, My Journey, Resume, Rozgar)
+ * remain accessible via their routes and the logged-in "My Account" section
+ * of the mobile drawer — they are simply no longer marketed on the public
+ * chrome. This preserves every existing route and existing user's workflow.
+ */
 
-const CAREER_LINKS = [
-  { href: "/interview-ace",       label: "Interview Ace",   icon: Mic,      desc: "Role practice & feedback" },
-  { href: "/rozgar-samachar",     label: "Rozgar Samachar", icon: Newspaper, desc: "Live jobs & career news" },
-  { href: "/resume-intelligence", label: "Resume",          icon: FileText,  desc: "ATS score & keywords" },
-];
+const PRIMARY_LINKS = [
+  { href: "/english-guru", label: "English Guru", icon: BookOpen },
+  { href: "/interview-ace", label: "Mock Interview", icon: Mic },
+] as const;
 
-/** Hover-triggered dropdown for a suite group */
-function SuiteDropdown({
-  label,
-  links,
-  color,
-  icon: BadgeIcon,
-  isAnyActive,
-}: {
-  label: string;
-  links: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; desc: string }[];
-  color: "orange" | "blue";
-  icon: React.ComponentType<{ className?: string }>;
-  isAnyActive: boolean;
-}) {
-  const [location] = useLocation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const SECONDARY_LINKS = [
+  { href: "/for-colleges", label: "For Colleges", icon: Building2 },
+  { href: "/pricing", label: "Pricing", icon: Tag },
+] as const;
 
-  const accent = color === "orange"
-    ? { badge: "from-orange-500 to-amber-400 shadow-orange-200/60", dot: "bg-orange-400", link: "text-orange-600 bg-orange-50 ring-1 ring-orange-200", hover: "hover:text-orange-600 hover:bg-orange-50", divider: "border-orange-100", iconBg: "bg-orange-100 text-orange-600" }
-    : { badge: "from-blue-600 to-indigo-500 shadow-blue-200/60", dot: "bg-blue-500", link: "text-blue-700 bg-blue-50 ring-1 ring-blue-200", hover: "hover:text-blue-700 hover:bg-blue-50", divider: "border-blue-100", iconBg: "bg-blue-100 text-blue-600" };
-
-  const handleEnter = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setOpen(true);
-  };
-  const handleLeave = () => {
-    timerRef.current = setTimeout(() => setOpen(false), 120);
-  };
-
-  useEffect(() => { setOpen(false); }, [location]);
-
-  return (
-    <div ref={ref} className="relative max-[480px]:order-2 max-[480px]:basis-[calc(50%-0.25rem)] max-[480px]:grow" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      <button
-        type="button"
-        onClick={() => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          setOpen((current) => !current);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") setOpen(false);
-        }}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`inline-flex min-w-0 shrink items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all select-none whitespace-nowrap max-[480px]:w-full max-[480px]:gap-1 max-[480px]:px-2 ${
-          isAnyActive
-            ? `bg-gradient-to-r ${accent.badge} text-white shadow-md`
-            : `text-muted-foreground hover:text-secondary hover:bg-muted/60`
-        }`}
-      >
-        <BadgeIcon className="w-3 h-3 shrink-0" />
-        <span>{label}</span>
-        <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="leadonto-suite-menu absolute top-full left-0 mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-border/60 py-2 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
-          <p className={`text-[10px] font-bold uppercase tracking-widest px-3 pb-1.5 pt-0.5 ${color === "orange" ? "text-orange-500" : "text-blue-600"}`}>
-            {label}
-          </p>
-          {links.map(({ href, label: lbl, icon: Icon, desc }) => {
-            // Interview Ace is a stateful route. From its feedback screen, a
-            // second tap on the nav item must deliberately request the setup
-            // screen instead of leaving the user on the completed report.
-            const onInterviewRoute = location.split("?")[0] === "/interview-ace";
-            const linkHref = href === "/interview-ace" && onInterviewRoute
-              ? "/interview-ace?begin=1"
-              : href;
-            return (
-            <Link
-              key={href}
-              href={linkHref}
-              role="menuitem"
-              className={`flex items-center gap-3 px-3 py-2.5 mx-1 rounded-xl transition-colors ${
-                location.split("?")[0] === href ? accent.link : `text-secondary ${accent.hover}`
-              }`}
-            >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${accent.iconBg}`}>
-                <Icon className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold leading-tight">{lbl}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight">{desc}</p>
-              </div>
-            </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+/** Kept for signed-in users on the mobile drawer only — the 4 tools stay
+ *  reachable without cluttering the public nav. */
+const IN_APP_TOOLS = [
+  { href: "/tools-pro", label: "Tools Pro", icon: Sparkles },
+  { href: "/learning-journey", label: "My Journey", icon: Route },
+  { href: "/rozgar-samachar", label: "Rozgar Samachar", icon: Newspaper },
+  { href: "/resume-intelligence", label: "Resume", icon: FileText },
+] as const;
 
 export function Navbar() {
   const [location] = useLocation();
@@ -124,181 +60,216 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { balance, authenticated, refetch: refetchCredits } = useCredits();
   const [open, setOpen] = useState(false);
-  const isB2BRoute = location.startsWith("/b2b/");
+  const isB2BRoute = location.startsWith("/b2b");
 
-  useEffect(() => { void refetchCredits(); }, [user?.id, refetchCredits]);
-  useEffect(() => { setOpen(false); }, [location]);
+  useEffect(() => {
+    void refetchCredits();
+  }, [user?.id, refetchCredits]);
+  useEffect(() => {
+    setOpen(false);
+  }, [location]);
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   const isActive = (href: string) => location === href;
-  const fluencyActive = FLUENCY_LINKS.some(l => l.href === location);
-  const careerActive  = CAREER_LINKS.some(l => l.href === location);
+  const pathOnly = location.split("?")[0] ?? "/";
+
+  // Interview Ace is a stateful route. From its feedback screen, a second tap
+  // on the nav item must deliberately request the setup screen instead of
+  // leaving the user on the completed report.
+  const linkFor = (href: string) => {
+    if (href === "/interview-ace" && pathOnly === "/interview-ace") {
+      return "/interview-ace?begin=1";
+    }
+    return href;
+  };
 
   return (
     <>
-       <nav className="leadonto-navbar w-full max-w-full border-b sticky top-0 z-50 overflow-visible">
-          <div className="container relative mx-auto w-full max-w-full min-w-0 px-3 sm:px-4 min-h-14 flex items-center gap-1 max-[480px]:flex-wrap max-[480px]:gap-1 max-[480px]:py-1 overflow-visible">
-
+      <nav className="leadonto-navbar w-full max-w-full border-b sticky top-0 z-50 overflow-visible">
+        <div className="container relative mx-auto flex w-full min-w-0 max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4 h-14 overflow-visible">
           {/* Logo */}
-           <Link href="/" className="order-1 basis-full font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0 mr-1 max-[480px]:basis-full max-[360px]:text-base max-[360px]:mr-0">
+          <Link
+            href="/"
+            className="font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0"
+          >
             Lead Onto
           </Link>
 
-          {/* ── Suite dropdowns ── */}
-          <SuiteDropdown
-            label="Fluency Suite"
-            links={FLUENCY_LINKS}
-            color="orange"
-            icon={Sparkles}
-            isAnyActive={fluencyActive}
-          />
-          <SuiteDropdown
-            label="Career Suite"
-            links={CAREER_LINKS}
-            color="blue"
-            icon={Briefcase}
-            isAnyActive={careerActive}
-          />
+          {/* Desktop primary links */}
+          <div className="hidden md:flex items-center gap-1 ml-3">
+            {PRIMARY_LINKS.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={linkFor(href)}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                  pathOnly === href
+                    ? "bg-primary/10 text-primary"
+                    : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </Link>
+            ))}
 
-          {/* ── Utility links ── (desktop only) */}
-          <div className="hidden md:flex items-center gap-0.5 ml-0.5">
-            <span className="w-px h-4 bg-border mx-1 shrink-0" />
+            <span className="mx-1 h-4 w-px bg-border" />
 
-            <Link
-              href="/progress"
-              title="Progress"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                isActive("/progress") ? "text-primary bg-primary/8" : "text-muted-foreground hover:text-primary hover:bg-muted/60"
-              }`}
-            >
-              <BarChart2 className="w-3.5 h-3.5" />
-              <span>Progress</span>
-            </Link>
-
-            <Link
-              href="/history"
-              title="Saved"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                isActive("/history") ? "text-primary bg-primary/8" : "text-muted-foreground hover:text-primary hover:bg-muted/60"
-              }`}
-            >
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>Saved</span>
-              {items.length > 0 && (
-                <span className="bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                  {items.length > 9 ? "9+" : items.length}
-                </span>
-              )}
-            </Link>
-
-            {/* B2B Portal link */}
-            <Link
-              href="/b2b/login"
-              title="B2B Portal"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                location.startsWith("/b2b") ? "text-violet-700 bg-violet-50" : "text-muted-foreground hover:text-violet-700 hover:bg-violet-50"
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>B2B</span>
-            </Link>
+            {SECONDARY_LINKS.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                  isActive(href)
+                    ? "bg-primary/10 text-primary"
+                    : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </Link>
+            ))}
           </div>
 
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* ── Right actions (desktop) ── */}
-          {!isB2BRoute && <div className="hidden md:flex items-center gap-1.5">
-            {user?.isAdmin && (
+          {/* Right actions (desktop) */}
+          {!isB2BRoute && (
+            <div className="hidden md:flex items-center gap-1.5">
               <Link
-                href="/admin"
-                className="flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 px-2.5 py-1 text-xs font-bold hover:bg-violet-100 transition-colors"
-                title="Admin Panel"
+                href="/progress"
+                title="Progress"
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  isActive("/progress")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
+                }`}
               >
-                <Shield className="w-3.5 h-3.5" />
-                Admin
+                <BarChart2 className="h-3.5 w-3.5" />
+                Progress
               </Link>
-            )}
 
-            {authenticated && (
+              <Link
+                href="/history"
+                title="Saved"
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                  isActive("/history")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
+                }`}
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                Saved
+                {items.length > 0 && (
+                  <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                    {items.length > 9 ? "9+" : items.length}
+                  </span>
+                )}
+              </Link>
+
+              {user?.isAdmin && (
+                <Link
+                  href="/admin"
+                  title="Admin Panel"
+                  className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Admin
+                </Link>
+              )}
+
+              {authenticated && (
+                <Link
+                  href="/credits"
+                  title="Your credits"
+                  className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100"
+                >
+                  <Coins className="h-3.5 w-3.5" />
+                  {balance ?? "…"}
+                </Link>
+              )}
+
+              {user ? (
+                <div className="flex items-center gap-1.5">
+                  <Link href="/profile" className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
+                    {user.picture ? (
+                      <img
+                        src={user.picture}
+                        alt={user.name ?? user.email}
+                        width={28}
+                        height={28}
+                        className="h-7 w-7 rounded-full border-2 border-primary/20"
+                      />
+                    ) : (
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                    )}
+                    <span className="max-w-[96px] truncate text-xs font-medium text-secondary">
+                      {user.name ?? user.email}
+                    </span>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    onClick={logout}
+                  >
+                    <LogOut className="mr-1 h-3.5 w-3.5" />
+                    Sign out
+                  </Button>
+                </div>
+              ) : (
+                <Link href={`/login?returnTo=${encodeURIComponent(location)}`}>
+                  <Button variant="outline" size="sm" className="leadonto-sign-in h-7 px-3 text-xs font-semibold">
+                    <LogIn className="mr-1 h-3.5 w-3.5" />
+                    Sign In
+                  </Button>
+                </Link>
+              )}
+
+              <Link
+                href="/english-guru"
+                className="inline-flex items-center gap-1 rounded-lg bg-[#F97316] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#C2410C]"
+              >
+                Start Free
+              </Link>
+            </div>
+          )}
+
+          {/* Mobile right side */}
+          <div className="flex items-center gap-0.5 ml-auto md:hidden">
+            {!isB2BRoute && authenticated && (
               <Link
                 href="/credits"
-                className="leadonto-credit flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 text-xs font-bold hover:bg-amber-100 transition-colors"
+                className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
                 title="Your credits"
               >
-                <Coins className="w-3.5 h-3.5" />
+                <Coins className="h-3 w-3" />
                 {balance ?? "…"}
               </Link>
-            )}
-
-            {user ? (
-              <div className="flex items-center gap-1.5">
-                <Link href="/profile" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-                  {user.picture ? (
-                    <img src={user.picture} alt={user.name ?? user.email} width={28} height={28} className="w-7 h-7 rounded-full border-2 border-primary/20" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-3.5 h-3.5 text-primary" />
-                    </div>
-                  )}
-                  <span className="text-xs font-medium text-secondary max-w-[96px] truncate">{user.name ?? user.email}</span>
-                </Link>
-                <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive" onClick={logout}>
-                  <LogOut className="w-3.5 h-3.5 mr-1" />
-                  Sign out
-                </Button>
-              </div>
-            ) : (
-              <Link href={`/login?returnTo=${encodeURIComponent(location)}`}>
-                <Button variant="outline" size="sm" className="leadonto-sign-in h-7 px-3 text-xs font-semibold">
-                  <LogIn className="w-3.5 h-3.5 mr-1" />Sign In
-                </Button>
-              </Link>
-            )}
-          </div>}
-
-          {/* ── Mobile right side ── */}
-          <div className="leadonto-mobile-actions order-1 flex min-w-0 shrink-0 md:hidden items-center gap-0.5 ml-auto">
-            {!isB2BRoute && authenticated && (
-              <Link href="/credits" className="leadonto-credit flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-xs font-bold" title="Your credits">
-                <Coins className="w-3 h-3" />
-                {balance ?? "…"}
-              </Link>
-            )}
-            {!isB2BRoute && items.length > 0 && (
-              <Link href="/history" className="relative p-2 min-h-11 min-w-11 flex items-center justify-center">
-                <Bookmark className="w-5 h-5 text-muted-foreground" />
-                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                  {items.length > 9 ? "9+" : items.length}
-                </span>
-              </Link>
-            )}
-            {!isB2BRoute && user && (
-              user.picture
-                ? <img src={user.picture} alt="" width={26} height={26} className="w-6.5 h-6.5 rounded-full border border-primary/20" />
-                : <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                  </div>
             )}
             {!isB2BRoute && !user && (
               <Link
                 href={`/login?returnTo=${encodeURIComponent(location)}`}
-                className="leadonto-sign-in p-2 min-h-11 min-w-10 rounded-lg hover:bg-muted transition-colors flex items-center justify-center"
+                className="leadonto-sign-in flex min-h-11 min-w-10 items-center justify-center rounded-lg p-2 transition-colors hover:bg-muted"
                 aria-label="Sign in"
                 title="Sign in"
               >
-                <LogIn className="w-5 h-5 text-secondary" />
+                <LogIn className="h-5 w-5 text-secondary" />
               </Link>
             )}
             <button
-              onClick={() => setOpen(o => !o)}
-              className="p-2 min-h-11 min-w-11 rounded-lg hover:bg-muted transition-colors flex items-center justify-center"
+              onClick={() => setOpen((o) => !o)}
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 transition-colors hover:bg-muted"
               aria-label={open ? "Close menu" : "Open menu"}
             >
-              {open ? <X className="w-5 h-5 text-secondary" /> : <Menu className="w-5 h-5 text-secondary" />}
+              {open ? <X className="h-5 w-5 text-secondary" /> : <Menu className="h-5 w-5 text-secondary" />}
             </button>
           </div>
         </div>
@@ -307,140 +278,146 @@ export function Navbar() {
       {/* Mobile drawer overlay */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
           onClick={() => setOpen(false)}
           aria-hidden
         />
       )}
 
-      {/* Mobile drawer panel */}
+      {/* Mobile drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white z-50 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-5 h-14 border-b">
-          <span className="font-display font-extrabold text-lg text-primary">Lead Onto</span>
-          <button onClick={() => setOpen(false)} className="p-2 min-h-11 min-w-11 rounded-lg hover:bg-muted flex items-center justify-center">
-            <X className="w-5 h-5 text-secondary" />
+        <div className="flex h-14 items-center justify-between border-b px-5">
+          <span className="font-display text-lg font-extrabold text-primary">Lead Onto</span>
+          <button
+            onClick={() => setOpen(false)}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 hover:bg-muted"
+          >
+            <X className="h-5 w-5 text-secondary" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {/* Fluency Suite */}
-          <div className="flex items-center gap-2 px-3 mb-2">
-            <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-orange-500">Fluency Suite</p>
-          </div>
-          {FLUENCY_LINKS.map(({ href, label, icon: Icon }) => (
+        <div className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Products</p>
+          {PRIMARY_LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                isActive(href) ? "bg-orange-50 text-primary" : "text-secondary hover:bg-muted"
+              href={linkFor(href)}
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                pathOnly === href ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               {label}
-              {isActive(href) && <span className="ml-auto w-1.5 h-1.5 bg-primary rounded-full" />}
+              {pathOnly === href && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
             </Link>
           ))}
 
-          <div className="h-px bg-border my-3 mx-3" />
-
-          {/* Career Suite */}
-          <div className="flex items-center gap-2 px-3 mb-2">
-            <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">Career Suite</p>
-          </div>
-          {CAREER_LINKS.map(({ href, label, icon: Icon }) => (
+          <div className="mx-3 my-3 h-px bg-border" />
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">For business</p>
+          {SECONDARY_LINKS.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                isActive(href) ? "bg-blue-50 text-blue-700" : "text-secondary hover:bg-muted"
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                isActive(href) ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               {label}
-              {isActive(href) && <span className="ml-auto w-1.5 h-1.5 bg-blue-500 rounded-full" />}
             </Link>
           ))}
-
-          <div className="h-px bg-border my-3 mx-3" />
-
-          {/* B2B Portal */}
-          <div className="flex items-center gap-2 px-3 mb-2">
-            <span className="w-2 h-2 rounded-full bg-violet-400 shrink-0" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">B2B Portal</p>
-          </div>
           <Link
             href="/b2b/login"
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
               location.startsWith("/b2b") ? "bg-violet-50 text-violet-700" : "text-secondary hover:bg-muted"
             }`}
           >
-            <Building2 className="w-4 h-4 shrink-0" />
+            <Building2 className="h-4 w-4 shrink-0" />
             B2B Portal
           </Link>
 
+          {authenticated && (
+            <>
+              <div className="mx-3 my-3 h-px bg-border" />
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">In-app tools</p>
+              {IN_APP_TOOLS.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                    isActive(href) ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </>
+          )}
+
           {user?.isAdmin && (
             <>
-              <div className="h-px bg-border my-3 mx-3" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 mb-2">Admin Panel</p>
+              <div className="mx-3 my-3 h-px bg-border" />
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Panel</p>
               <Link
                 href="/admin-payments"
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                  isActive("/admin-payments") || isActive("/admin") ? "bg-violet-50 text-violet-700" : "text-secondary hover:bg-muted"
+                className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
+                  isActive("/admin-payments") || isActive("/admin")
+                    ? "bg-violet-50 text-violet-700"
+                    : "text-secondary hover:bg-muted"
                 }`}
               >
-                <CreditCard className="w-4 h-4 shrink-0" />
+                <CreditCard className="h-4 w-4 shrink-0" />
                 Payments
               </Link>
               <Link
                 href="/admin-users"
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
                   isActive("/admin-users") ? "bg-violet-50 text-violet-700" : "text-secondary hover:bg-muted"
                 }`}
               >
-                <UsersIcon className="w-4 h-4 shrink-0" />
+                <UsersIcon className="h-4 w-4 shrink-0" />
                 Users
               </Link>
               <Link
                 href="/admin-content"
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
                   isActive("/admin-content") ? "bg-violet-50 text-violet-700" : "text-secondary hover:bg-muted"
                 }`}
               >
-                <FileText className="w-4 h-4 shrink-0" />
+                <FileText className="h-4 w-4 shrink-0" />
                 Content
               </Link>
             </>
           )}
 
-          <div className="h-px bg-border my-3 mx-3" />
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-3 mb-2">My Account</p>
+          <div className="mx-3 my-3 h-px bg-border" />
+          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">My Account</p>
 
           <Link
             href="/progress"
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
               isActive("/progress") ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
             }`}
           >
-            <BarChart2 className="w-4 h-4 shrink-0" />
+            <BarChart2 className="h-4 w-4 shrink-0" />
             Progress
           </Link>
 
           <Link
             href="/history"
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
               isActive("/history") ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
             }`}
           >
-            <Bookmark className="w-4 h-4 shrink-0" />
+            <Bookmark className="h-4 w-4 shrink-0" />
             Saved
             {items.length > 0 && (
-              <span className="ml-auto bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                 {items.length}
               </span>
             )}
@@ -448,25 +425,26 @@ export function Navbar() {
 
           <Link
             href="/profile"
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
               isActive("/profile") ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
             }`}
           >
-            <Settings className="w-4 h-4 shrink-0" />
+            <Settings className="h-4 w-4 shrink-0" />
             My Profile
           </Link>
 
           <Link
             href="/credits"
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
               isActive("/credits") ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
             }`}
           >
-            <Coins className="w-4 h-4 shrink-0" />
+            <Coins className="h-4 w-4 shrink-0" />
             Credits
             {authenticated && (
-              <span className="ml-auto inline-flex items-center gap-1 text-amber-600 font-bold text-xs">
-                <Coins className="w-3.5 h-3.5" />{balance ?? "…"}
+              <span className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-amber-600">
+                <Coins className="h-3.5 w-3.5" />
+                {balance ?? "…"}
               </span>
             )}
           </Link>
@@ -475,30 +453,47 @@ export function Navbar() {
         <div className="border-t px-4 py-4">
           {isB2BRoute ? (
             <Link href="/" onClick={() => setOpen(false)} className="block">
-              <Button variant="outline" className="w-full font-semibold">← Back to Lead Onto</Button>
+              <Button variant="outline" className="w-full font-semibold">
+                ← Back to Lead Onto
+              </Button>
             </Link>
           ) : user ? (
             <div className="flex items-center gap-3">
               {user.picture ? (
-                <img src={user.picture} alt="" width={36} height={36} className="w-9 h-9 rounded-full border-2 border-primary/20 shrink-0" />
+                <img
+                  src={user.picture}
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 shrink-0 rounded-full border-2 border-primary/20"
+                />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5 text-primary" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <User className="h-5 w-5 text-primary" />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-secondary truncate">{user.name ?? "User"}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-secondary">{user.name ?? "User"}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <Button variant="outline" size="sm" className="min-h-11 px-3 shrink-0 text-sm font-semibold text-muted-foreground hover:text-destructive" onClick={() => { void logout(); setOpen(false); }}>
-                <LogOut className="w-4 h-4 mr-2" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 shrink-0 px-3 text-sm font-semibold text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  void logout();
+                  setOpen(false);
+                }}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </Button>
             </div>
           ) : (
             <Link href={`/login?returnTo=${encodeURIComponent(location)}`} className="block">
               <Button className="w-full font-bold">
-                <LogIn className="w-4 h-4 mr-2" />Sign In
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
               </Button>
             </Link>
           )}

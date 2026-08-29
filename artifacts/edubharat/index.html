@@ -3,31 +3,163 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Lead Onto — Speak with Confidence. Prepare for the Role You Want.</title>
-    <meta name="description" content="Speak with confidence, practise real conversations, and prepare for the role you want with Lead Onto's AI-powered English and interview coaching." />
+    <title>Lead Onto — AI English &amp; Mock Interview Practice in Hindi, Tamil, Telugu | 15 Min Free</title>
+    <meta
+      name="description"
+      content="Practise English and job interviews with an AI coach that switches to your mother tongue when you get stuck. 12 Indian languages. 15 minutes free — no signup, no card."
+    />
     <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="Lead Onto — Speak with Confidence. Prepare for the Role You Want." />
-    <meta property="og:description" content="Speak with confidence, practise real conversations, and prepare for the role you want with Lead Onto's AI-powered English and interview coaching." />
+    <meta
+      property="og:title"
+      content="Lead Onto — AI English &amp; Mock Interview Practice in Hindi, Tamil, Telugu"
+    />
+    <meta
+      property="og:description"
+      content="Practise real interviews with mother-tongue support. 15 minutes free — no signup, no card."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://leadonto.com/opengraph.jpg" />
     <meta property="og:url" content="https://leadonto.com" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Lead Onto — Speak with Confidence. Prepare for the Role You Want." />
-    <meta name="twitter:description" content="Speak with confidence, practise real conversations, and prepare for the role you want with Lead Onto's AI-powered English and interview coaching." />
+    <meta
+      name="twitter:title"
+      content="Lead Onto — AI English &amp; Mock Interview Practice in Hindi, Tamil, Telugu"
+    />
+    <meta
+      name="twitter:description"
+      content="Practise real interviews with mother-tongue support. 15 minutes free — no signup, no card."
+    />
     <meta name="twitter:image" content="https://leadonto.com/opengraph.jpg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href="https://leadonto.com" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Google tag (gtag.js) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Organization schema -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Lead Onto",
+        "url": "https://leadonto.com",
+        "logo": "https://leadonto.com/favicon.svg",
+        "sameAs": []
+      }
+    </script>
+
+    <!-- FAQPage schema — must stay in sync with the 8 FAQs in src/pages/home.tsx -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is it really free? Do I need to give my card?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Your first 15 minutes are free with no signup and no card — just tap Start and begin talking. Create a free account and you get 20 signup credits. You only enter payment details if you decide to buy more credits or subscribe."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "My English is very weak. Will I be able to use this?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "That is exactly who this is built for. You can speak entirely in Hindi (or Tamil, Telugu, Bengali and 9 others) and your AI coach will help you say it in English, one sentence at a time. Beginners usually start with 3-minute sessions."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is this different from a free AI chatbot?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "It is spoken not typed, it switches to your mother tongue when you get stuck, and it tracks a Fluency Score across sessions so you can see improvement."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Will it work on my phone and my data pack?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. It runs in the phone browser with nothing to install. There is an audio-light mode built for patchy 3G and a typical 12-minute session uses less data than a video call."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I practise for a specific job or interview?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Interview Ace has role-based mock interviews for HR, Software, Sales, BPO, Banking, Finance, Business Analyst and more."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do credits work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "One credit is one rupee and covers 12 minutes of live conversation. The minimum top-up is ten rupees, credits never expire, and there is no subscription required."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is my conversation private?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Your sessions and account data are handled according to our Privacy Policy. Sessions are private to your account."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I cancel? What if it does not work for me?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "There is no subscription to cancel on the pay-as-you-go plan. For monthly subscriptions, you can cancel anytime and keep access until the end of the billing period."
+            }
+          }
+        ]
+      }
+    </script>
+
+    <!-- Google tag (gtag.js) — existing Google Ads conversion pixel, do not remove -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18381164231"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "AW-18381164231");
+    </script>
 
-      gtag('config', 'AW-18381164231');
+    <!--
+      Microsoft Clarity — free session heatmaps + funnel debugging.
+      Loads only when VITE_CLARITY_ID is defined at build time. Safe to ship
+      unset; the block is a no-op in that case. Get an id at https://clarity.microsoft.com.
+    -->
+    <script>
+      (function () {
+        // Vite substitutes import.meta.env at build time. In older builds the
+        // token remains literal; guard for that too.
+        var CLARITY_ID = "%VITE_CLARITY_ID%";
+        if (!CLARITY_ID || CLARITY_ID === "%VITE_CLARITY_ID%") return;
+        (function (c, l, a, r, i, t, y) {
+          c[a] =
+            c[a] ||
+            function () {
+              (c[a].q = c[a].q || []).push(arguments);
+            };
+          t = l.createElement(r);
+          t.async = 1;
+          t.src = "https://www.clarity.ms/tag/" + i;
+          y = l.getElementsByTagName(r)[0];
+          y.parentNode.insertBefore(t, y);
+        })(window, document, "clarity", "script", CLARITY_ID);
+      })();
     </script>
   </head>
   <body>
