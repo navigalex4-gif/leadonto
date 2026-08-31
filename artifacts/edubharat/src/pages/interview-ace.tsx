@@ -1211,11 +1211,6 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       toast({ title: "One moment…", description: "Checking your account — please try again in a second." });
       return;
     }
-    // Guests get 2 free interviews (no signup); signed-in users spend credits.
-    if (!user && guestInterviewsLeft() <= 0) {
-      setShowCreditGate(true);
-      return;
-    }
     resetStream();
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
@@ -1245,6 +1240,12 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       }
       // Valid B2B invite — company's account is billed when the session is submitted
     } else if (!user) {
+      // Ordinary guests get 2 free interviews. A valid B2B invite bypasses this
+      // local trial gate because the company pays for the candidate's session.
+      if (guestInterviewsLeft() <= 0) {
+        setShowCreditGate(true);
+        return;
+      }
       consumeGuestInterview();
     } else {
       const charge = await chargeInterview(duration);

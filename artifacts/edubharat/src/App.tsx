@@ -67,7 +67,7 @@ function Analytics() {
 
 function RouteMetaPolicy() {
   const [location] = useLocation();
-  const noindex = /^(?:\/(?:login|profile|progress|history|credits|admin(?:\/|$)|b2b(?:\/|$)|b2b-interview(?:\/|$)|interview-ace(?:\/|$)|resume-intelligence(?:\/|$)|learning-journey(?:\/|$))|\/english-guru\/(?:app|embed)(?:\/|$))/.test(location);
+  const noindex = /^(?:\/(?:login|profile|progress|history|credits|buy-credits|admin(?:\/|$)|b2b(?:\/|$)|b2b-interview(?:\/|$)|interview-ace(?:\/|$)|resume-intelligence(?:\/|$)|learning-journey(?:\/|$))|\/english-guru\/(?:app|embed)(?:\/|$))/.test(location);
   return noindex ? <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet> : null;
 }
 
@@ -142,6 +142,7 @@ function Router() {
             <Route path="/progress" component={Progress} />
             <Route path="/profile" component={ProfilePage} />
             <Route path="/credits" component={BuyCredits} />
+            <Route path="/buy-credits" component={BuyCredits} />
             <Route path="/terms" component={Terms} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/shipping-refund" component={ShippingRefund} />

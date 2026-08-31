@@ -412,7 +412,7 @@ function isIndiaRelevantJob(item: LiveItem): boolean {
   if (item.remote === true) return true;
 
   // Exclude jobs with clearly non-India location tokens
-  const tokens = loc.split(/[\s,\/\-]+/).map(t => t.trim()).filter(Boolean);
+  const tokens = loc.split(/[\s,/-]+/).map(t => t.trim()).filter(Boolean);
   const nonIndiaTokens = new Set([
     "australia", "aus", "usa", "us", "united", "states", "canada", "ca",
     "uk", "germany", "de", "france", "netherlands", "nl", "zealand",

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { requireAuth } from "./profile.js";
 import { isAdminSession } from "../lib/guards.js";
@@ -17,6 +17,17 @@ const router: IRouter = Router();
 // the admin's real credit ledger. The server still returns a finite number so
 // existing client balance components remain compatible.
 const ADMIN_UNLIMITED_BALANCE = 999999;
+
+function nextMeterId(req: Request, kind: "interview" | "live"): string {
+  const generationKey = kind === "interview" ? "interviewGeneration" : "liveGeneration";
+  const generation = (req.session[generationKey] ?? 0) + 1;
+  req.session[generationKey] = generation;
+  const secret = process.env["SESSION_SECRET"] ?? "leadonto-development-session-secret";
+  return createHmac("sha256", secret)
+    .update(`${kind}:${req.sessionID}:${req.session.userId}:${generation}`)
+    .digest("hex")
+    .slice(0, 32);
+}
 
 // GET /api/credits/balance — public; guests receive authenticated:false.
 router.get("/credits/balance", async (req: Request, res: Response) => {
@@ -64,10 +75,11 @@ router.post("/credits/interview/charge", requireAuth, async (req: Request, res: 
     res.status(409).json({ error: "interview_in_progress" });
     return;
   }
-  // Server-minted id (never sent by the client) → the idempotent ledger reference
-  // for THIS interview's blocks; a fresh id per interview means old references
-  // can't be replayed for free credits.
-  const id = randomUUID();
+  // Concurrent start requests loaded from the same session calculate the same
+  // server-minted generation ID. Their ledger references therefore deduplicate
+  // instead of charging twice, while a later completed/ended session increments
+  // the generation and receives a fresh reference.
+  const id = nextMeterId(req, "interview");
   const result = isAdminSession(req)
     ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
     : await spendCredits({
@@ -176,7 +188,9 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
     res.json({ ok: true, balance: isAdminSession(req) ? ADMIN_UNLIMITED_BALANCE : await getBalance(userId), liveId: active.id, startedAt: active.startedAt, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
     return;
   }
-  const id = randomUUID();
+  // See the interview start path above: this deterministic per-generation ID
+  // makes overlapping retries share one ledger reference and one active meter.
+  const id = nextMeterId(req, "live");
   const result = isAdminSession(req)
     ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
     : await spendCredits({

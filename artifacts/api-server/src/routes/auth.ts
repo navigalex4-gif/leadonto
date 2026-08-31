@@ -30,8 +30,12 @@ declare module "express-session" {
      * `expiresAt` lets an abandoned meter be replaced so the user is never locked out.
      */
     interview?: { id: string; blocksCharged: number; startedAt: number; expiresAt: number };
+    /** Monotonic per-session generation used to make parallel interview starts idempotent. */
+    interviewGeneration?: number;
     /** Server-authoritative meter for Live Conversation blocks. */
     live?: { id: string; blocksCharged: number; startedAt: number; expiresAt: number };
+    /** Monotonic per-session generation used to make parallel live starts idempotent. */
+    liveGeneration?: number;
     /** B2B company session — set by /api/b2b/auth/login, never by student login paths. */
     b2bCompanyId?: number;
     b2bCompanyEmail?: string;
@@ -45,6 +49,15 @@ const router: IRouter = Router();
 const otpAttempts = new Map<string, { count: number; resetAt: number }>();
 const OTP_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
+
+function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 
 function allowOtpAttempt(key: string): boolean {
   const now = Date.now();
@@ -267,7 +280,6 @@ router.get("/auth/google", (req, res, next) => {
   if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
     req.session.pendingReturnTo = returnTo;
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   passport.authenticate("google", {
     scope: ["profile", "email"],
     callbackURL,
@@ -278,7 +290,6 @@ router.get(
   "/auth/google/callback",
   (req, res, next) => {
     const callbackURL = getCallbackURL();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     passport.authenticate("google", {
       failureRedirect: "/login?error=google_failed",
       callbackURL,
@@ -287,27 +298,25 @@ router.get(
   async (req, res) => {
     if (req.user) {
       const u = req.user as { id: number; email: string; name?: string };
+      const pendingGuestId = req.session.pendingGuestId;
+      const returnTo = req.session.pendingReturnTo;
+      // A successful student identity change gets a fresh session. This clears
+      // any prior user's admin/B2B authority and active paid-product meters.
+      await regenerateSession(req);
       req.session.userId = u.id;
       req.session.userEmail = u.email;
       req.session.userName = u.name ?? undefined;
-      // Explicitly clear admin and B2B privilege — Google OAuth is a student path
-      delete req.session.isAdmin;
-      delete req.session.b2bCompanyId;
-      delete req.session.b2bCompanyEmail;
-      delete req.session.b2bCompanyName;
 
       // Merge any guest progress that was saved before login
-      const pendingGuestId = req.session.pendingGuestId;
       if (pendingGuestId) {
-        delete req.session.pendingGuestId;
         await mergeGuestProgress(pendingGuestId, String(u.id));
       }
 
       void recordLogin(u.id, req);
+      res.redirect(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
+      return;
     }
-    const returnTo = req.session.pendingReturnTo;
-    delete req.session.pendingReturnTo;
-    res.redirect(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
+    res.redirect("/");
   }
 );
 
@@ -406,14 +415,12 @@ router.post("/auth/otp/verify", async (req, res) => {
       user = inserted;
     }
 
+    // A successful student identity change gets a fresh session. This clears
+    // any prior user's admin/B2B authority and active paid-product meters.
+    await regenerateSession(req);
     req.session.userId = user[0].id;
     req.session.userEmail = user[0].email;
     req.session.userName = user[0].name ?? undefined;
-    // Explicitly clear admin and B2B privilege — OTP login is a student path
-    delete req.session.isAdmin;
-    delete req.session.b2bCompanyId;
-    delete req.session.b2bCompanyEmail;
-    delete req.session.b2bCompanyName;
 
     // Merge any lesson progress the user built up as a guest
     if (guestId) {

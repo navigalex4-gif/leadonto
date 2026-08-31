@@ -735,7 +735,7 @@ router.post("/ai/chat", async (req, res) => {
     req.log.warn({ err }, "Claude/Gemini chat providers unavailable — trying Groq");
     try {
       const text = await requestGroqStream(prompt, system, maxTokens ?? 8192, () => {});
-      if (!text.trim()) throw new Error("Groq returned an empty response");
+      if (!text.trim()) throw new Error("Groq returned an empty response", { cause: err });
       res.json({ text });
       return;
     } catch (groqErr) {
@@ -743,7 +743,7 @@ router.post("/ai/chat", async (req, res) => {
     }
     try {
       const text = await requestMistralStream(prompt, system, maxTokens ?? 8192, () => {});
-      if (!text.trim()) throw new Error("Mistral returned an empty response");
+      if (!text.trim()) throw new Error("Mistral returned an empty response", { cause: err });
       res.json({ text });
       return;
     } catch (mistralErr) {
