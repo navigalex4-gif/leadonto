@@ -18,6 +18,8 @@ import {
 import { PageMeta } from "@/components/page-meta";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -169,6 +171,7 @@ export default function ResumeIntelligence() {
 function ResumeIntelligenceContent() {
   const { save } = useHistory();
   const { track } = useProgress();
+  const gam = useGamification(0);
   const { profile, updateProfile, isLoading: profileLoading } = useStudentProfile();
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -326,6 +329,7 @@ function ResumeIntelligenceContent() {
       }
       setAnalysis(parsed);
       track("Rozgar Samachar", `Resume analysis — ${targetRoleMeta.label}`, parsed.overallScore);
+      gam.award("resume_analysis", { product: "resume" });
 
       // Sync to local profile state if server sync succeeded
       await updateProfile({
@@ -339,7 +343,7 @@ function ResumeIntelligenceContent() {
     } finally {
       setIsAnalysing(false);
     }
-  }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile]);
+  }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile, gam.award]);
 
   const matchJob = useCallback(async () => {
     if (!jobUrl.trim()) {
@@ -502,6 +506,13 @@ ${paragraphs}
   // ── Upload / analyse input view ───────────────────────────────────────────────
   return (
     <div className="min-h-full overflow-y-auto container mx-auto px-4 py-8 max-w-4xl space-y-6">
+      {gam.celebration && (
+        <CelebrationOverlay
+          title={gam.celebration.title}
+          subtitle={gam.celebration.subtitle}
+          onDismiss={gam.dismissCelebration}
+        />
+      )}
       <div className="text-center mb-8">
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <FileText className="w-8 h-8 text-primary" />

@@ -24,10 +24,13 @@ import { trackFunnel } from "@/lib/analytics";
 import { exportConversationPdf, exportConversationWord } from "@/lib/export-conversation";
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
-  Users, FileText, FileDown, XCircle,
+  Users, FileText, FileDown, XCircle, Flame, Sparkles, Trophy,
 } from "lucide-react";
 import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
+import { WordPowerText, WordPowerPopup, CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
+import { wordOfTheDay, type WordPowerEntry } from "@/lib/word-power";
 
 const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   priya: 'Speak like a warm Mumbai schoolteacher. Use simple words, lots of encouragement, and occasional natural words like "haan", "bilkul", or "thoda practice karo". Never use jargon.',
@@ -136,15 +139,19 @@ const INDIC_SCRIPT_CHARACTER = /[\u0900-\u0D7F\u0600-\u06FF]/u;
  */
 function hasFragmentedNativeScript(text: string): boolean {
   const tokens = text.trim().split(/\s+/u).filter(Boolean);
-  if (tokens.length < 7) return false;
+  if (tokens.length < 4) return false;
   const scriptTokens = tokens.filter((token) =>
     [...token].some((character) => INDIC_SCRIPT_CHARACTER.test(character)),
   );
-  if (scriptTokens.length < 6) return false;
-  const shortScriptTokens = scriptTokens.filter((token) =>
-    [...token.replace(/[.,!?।॥]/gu, "")].length <= 3,
-  );
-  return shortScriptTokens.length / scriptTokens.length >= 0.6;
+  if (scriptTokens.length < 3) return false;
+  const stripPunct = (token: string) => token.replace(/[.,!?।॥]/gu, "");
+  const bareSingles = scriptTokens.filter((token) => {
+    const chars = [...stripPunct(token)];
+    return chars.length === 1 && INDIC_SCRIPT_CHARACTER.test(chars[0]!);
+  }).length;
+  if (bareSingles >= 2) return true;
+  const tinyScriptTokens = scriptTokens.filter((token) => [...stripPunct(token)].length <= 2).length;
+  return tokens.length >= 7 && bareSingles >= 1 && tinyScriptTokens / scriptTokens.length >= 0.5;
 }
 
 function collapseFragmentedNativeScript(text: string): string {
@@ -153,6 +160,11 @@ function collapseFragmentedNativeScript(text: string): string {
     /([\u0900-\u0D7F\u0600-\u06FF])\s+(?=[\u0900-\u0D7F\u0600-\u06FF])/gu,
     "$1",
   );
+}
+
+function sanitizeNativeDisplay(text: string, nativeMode: boolean): string {
+  if (!nativeMode) return text;
+  return collapseFragmentedNativeScript(text);
 }
 
 /** Keep native-language voice replies natural and safe for speech synthesis. */
@@ -232,7 +244,32 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const { toast } = useToast();
   const { balance } = useCredits();
   const { liveSecondsLeft: guestLiveLeft } = useGuestTrial();
-  const { track } = useProgress();
+  const { track, streak } = useProgress();
+  const gam = useGamification(streak);
+  const gamAwardRef = useRef(gam.award);
+  useEffect(() => { gamAwardRef.current = gam.award; }, [gam.award]);
+  const [wordPopup, setWordPopup] = useState<WordPowerEntry | null>(null);
+  const [wotdOpen, setWotdOpen] = useState(() => {
+    if (embedded) return false;
+    try {
+      return localStorage.getItem("edubharat_wotd_date") !== new Date().toISOString().slice(0, 10);
+    } catch {
+      return false;
+    }
+  });
+  const wotdAwardedRef = useRef(false);
+  const closeWotd = useCallback(() => {
+    setWotdOpen(false);
+    try {
+      localStorage.setItem("edubharat_wotd_date", new Date().toISOString().slice(0, 10));
+    } catch { /* local persistence is optional */ }
+  }, []);
+  const openWordCard = useCallback((entry: WordPowerEntry) => setWordPopup(entry), []);
+  useEffect(() => {
+    if (!wotdOpen || wotdAwardedRef.current) return;
+    wotdAwardedRef.current = true;
+    gamAwardRef.current("word_of_day", { product: "english-guru" });
+  }, [wotdOpen]);
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
   const synth = useGoogleTTS();
   const { profile, updateProfile } = useStudentProfile();
@@ -359,6 +396,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     if (!el) return;
     el.scrollTop = 0;
   }, [convHistory, aiText, isStreaming]);
+
+  useEffect(() => {
+    if (liveChat && liveElapsedSeconds > 0 && liveElapsedSeconds % 60 === 0) {
+      gamAwardRef.current("live_minute", { product: "english-guru" });
+    }
+  }, [liveElapsedSeconds, liveChat]);
 
   // Sync level to profile englishLevel when profile changes externally
   useEffect(() => {
@@ -702,6 +745,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     }
     // Real user phrase resets the silence-nudge counter
     if (!isSilenceProbe) { silenceProbeCountRef.current = 0; silenceProbeActiveRef.current = false; }
+    gamAwardRef.current("message", { product: "english-guru" });
     aiBusyRef.current = true;
     const turnGeneration = liveTurnGenerationRef.current;
     if (liveChatRef.current) {
@@ -962,13 +1006,10 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
-           const cleanResponse = cleanSpokenReply(
-             response,
-             uiLang !== "English",
-             tutor.voiceGender,
-             uiLang,
-             !translationRequested,
-           );
+            const cleanResponse = sanitizeNativeDisplay(
+              cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender, uiLang, !translationRequested),
+              uiLang !== "English",
+            );
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");
@@ -1160,6 +1201,7 @@ Rules for spoken replies:
     livePausedRef.current = false;
     setLiveChat(true);
     setConvFlowState("user-speaking");
+    gamAwardRef.current("live_start", { product: "english-guru" });
     // The teacher initiates first; the microphone starts after the greeting.
     startLiveGreeting();
   }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn, startLiveGreeting]);
@@ -1459,6 +1501,52 @@ Rules for spoken replies:
                 {["Beginner", "Intermediate", "Advanced"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/70 py-0.5 pl-1.5 pr-2.5">
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-[10px] font-black text-white shadow-sm"
+                title={`Level ${gam.level} — ${gam.xpIntoLevel}/${gam.xpForNextLevel} XP to next level`}
+              >
+                {gam.level}
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <div
+                  className="h-1.5 w-16 overflow-hidden rounded-full bg-amber-200/70 sm:w-24"
+                  role="progressbar"
+                  aria-valuenow={Math.round(gam.levelProgress * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`XP progress toward level ${gam.level + 1}`}
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
+                    style={{ width: `${Math.round(gam.levelProgress * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] font-semibold leading-none text-amber-700">
+                  {gam.dailyXp}/{gam.dailyGoal} XP today
+                </span>
+              </div>
+              {streak > 0 && (
+                <span className="flex items-center gap-0.5 text-[11px] font-bold text-orange-600" title={`${streak}-day practice streak`}>
+                  <Flame className="h-3.5 w-3.5" />{streak}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setWotdOpen(true)}
+                className="flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-violet-700 shadow-sm transition-colors hover:bg-white"
+                title="Open today's Word Power picture card"
+              >
+                <Sparkles className="h-3 w-3" />Word of the Day
+              </button>
+              <Link
+                href="/progress"
+                className="hidden items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-amber-700 shadow-sm transition-colors hover:bg-white sm:flex"
+                title={`${gam.unlockedBadges.length} badges earned — see all on Progress`}
+              >
+                <Trophy className="h-3 w-3" />{gam.unlockedBadges.length}
+              </Link>
+            </div>
             {liveChat && (
               <span className="ml-auto text-xs text-green-600 font-semibold animate-pulse flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />Live
@@ -1622,13 +1710,25 @@ Rules for spoken replies:
                   )}
                   {isStreaming && aiText && (
                     <div className="flex min-w-0 gap-2 justify-start">
-                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">{formatGeneratedText(aiText)}</div>
+                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">
+                        <WordPowerText
+                          text={sanitizeNativeDisplay(formatGeneratedText(aiText), uiLang !== "English")}
+                          onWordClick={openWordCard}
+                          learnedWords={gam.wordsLearned}
+                        />
+                      </div>
                     </div>
                   )}
                   {[...convHistory].reverse().map((msg, i) => (
                     <div key={i} className={`flex min-w-0 gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
-                         {msg.role === "user" ? msg.text : formatGeneratedText(msg.text)}
+                         {msg.role === "user"
+                           ? msg.text
+                           : <WordPowerText
+                               text={sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English")}
+                               onWordClick={openWordCard}
+                               learnedWords={gam.wordsLearned}
+                             />}
                       </div>
                     </div>
                   ))}
@@ -1706,6 +1806,43 @@ Rules for spoken replies:
             </div>
           </div>
         </div>
+      )}
+      {wotdOpen && (
+        <WordPowerPopup
+          entry={wordOfTheDay()}
+          learned={gam.wordsLearned.includes(wordOfTheDay().word)}
+          onHear={(text) => speakRef.current(text, "English")}
+          onPractice={(entry) => {
+            setWotdOpen(false);
+            setWordPopup(null);
+            setConvInput(`I want to use "${entry.word}" in a sentence.`);
+            setTimeout(() => convInputRef.current?.focus(), 0);
+          }}
+          onLearned={(entry) => {
+            if (!gam.wordsLearned.includes(entry.word)) {
+              gamAwardRef.current("word_learned", { word: entry.word, product: "english-guru" });
+            }
+          }}
+          onClose={closeWotd}
+        />
+      )}
+      {wordPopup && (
+        <WordPowerPopup
+          entry={wordPopup}
+          learned={gam.wordsLearned.includes(wordPopup.word)}
+          onHear={(text) => speakRef.current(text, "English")}
+          onPractice={(entry) => {
+            setWordPopup(null);
+            setConvInput(`I want to use "${entry.word}" in a sentence.`);
+            setTimeout(() => convInputRef.current?.focus(), 0);
+          }}
+          onLearned={(entry) => {
+            if (!gam.wordsLearned.includes(entry.word)) {
+              gamAwardRef.current("word_learned", { word: entry.word, product: "english-guru" });
+            }
+          }}
+          onClose={() => setWordPopup(null)}
+        />
       )}
     </div>
   );

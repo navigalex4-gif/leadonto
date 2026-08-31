@@ -19,6 +19,8 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { MODES, type Mode, stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, ResultPanel, TutorSelector } from "@/components/english/shared-ui";
 import { downloadText } from "@/lib/export-data";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
 import {
   Volume2, SpellCheck, PenLine, BookOpen, GraduationCap, Briefcase, Loader2, Users,
 } from "lucide-react";
@@ -39,6 +41,7 @@ function ToolsProContent() {
   const { user } = useAuth();
   const { save } = useHistory();
   const { track } = useProgress();
+  const gam = useGamification(0);
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
   const synth = useGoogleTTS();
   const { profile, updateProfile } = useStudentProfile();
@@ -131,10 +134,11 @@ function ToolsProContent() {
     setResult(full);
     if (full) {
       track("English Guru", saveTitle);
+      gam.award("tool_use", { tool: mode, product: "tools-pro" });
     }
     // Tool results are NOT auto-spoken — each result panel has its own Speak button.
     return full;
-  }, [candidateContext, stream, resetAI, synth, track]);
+  }, [candidateContext, stream, resetAI, synth, track, mode, gam.award]);
 
   const saveResult = useCallback((key: string, title: string, content: string) => {
     save({ tool: "English Guru", title, content });
@@ -150,6 +154,13 @@ function ToolsProContent() {
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 max-w-5xl">
+       {gam.celebration && (
+         <CelebrationOverlay
+           title={gam.celebration.title}
+           subtitle={gam.celebration.subtitle}
+           onDismiss={gam.dismissCelebration}
+         />
+       )}
       {showTutorPicker && (
         <TutorSelector currentId={tutorId} onSelect={handleSelectTutor} onClose={() => setShowTutorPicker(false)} />
       )}

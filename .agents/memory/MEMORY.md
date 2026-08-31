@@ -81,3 +81,4 @@
 - [Native language request handling](native-language-request-handling.md) — direct “speak in Hindi” requests bypass the live model; malformed native output is not a TTS balance symptom.
 - [Vertex AI Gemini](vertex-ai-gemini.md) — use the Google Cloud service account path for Gemini; disable hidden thinking on short voice turns to avoid truncated visible replies.
 - [Multilingual speech recognition](multilingual-stt.md) — live English practice must use Nova-3 multilingual code-switching; fixed en-IN turns native speech into gibberish.
+- [Motivational gamification boundary](gamification-layer.md) — local XP, badges, and Word Power engagement never grant credits or paid access; reward triggers must be idempotent at action boundaries.

@@ -13,6 +13,8 @@ import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { unlockAudio, useGoogleTTS } from "@/lib/use-edge-tts";
 import { track, trackFunnel } from "@/lib/analytics";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 const TOTAL_SECONDS = 90;
@@ -270,6 +272,7 @@ export default function CommunicationCheck() {
   const speech = useSpeechRecognition("English", { realtime: true });
   const synth = useGoogleTTS();
   const { stream, reset: resetStream } = useGeminiStream();
+  const gam = useGamification(0);
   const [phase, setPhase] = useState<"details" | "interview" | "feedback">("details");
   const [candidate, setCandidate] = useState<Candidate>({
     name: user?.name ?? "",
@@ -438,8 +441,9 @@ export default function CommunicationCheck() {
       setIsSubmitting(false);
       setIsThinking(false);
       setPhase("feedback");
+      gam.award("comm_check", { product: "comm-check" });
     }
-  }, [candidate, clearTimers, speech, synth, toast, user]);
+  }, [candidate, clearTimers, speech, synth, toast, user, gam.award]);
 
   useEffect(() => {
     finishWithFeedbackRef.current = (finalAnswers) => {
@@ -637,6 +641,13 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
     return (
       <div className="container mx-auto max-w-3xl px-4 py-10">
         <PageMeta title="Communication Check" description="Get a free 90-second check of your communication, confidence, and interview readiness." ogUrl="https://leadonto.com/communication-check" canonicalUrl="https://leadonto.com/communication-check" />
+        {gam.celebration && (
+          <CelebrationOverlay
+            title={gam.celebration.title}
+            subtitle={gam.celebration.subtitle}
+            onDismiss={gam.dismissCelebration}
+          />
+        )}
         <Card className="overflow-hidden border-primary/20 shadow-xl">
           <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 p-7 text-white">
             <p className="text-sm font-semibold uppercase tracking-widest text-orange-300">Your 90-second result</p>
@@ -650,6 +661,9 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
                  <p className="text-xs text-muted-foreground">Each score is out of 100</p>
               </div>
                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+                    +30 XP earned
+                  </span>
                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${feedback.source === "ai" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
                    {feedback.source === "ai" ? "Based on your answers" : "Indicative only"}
                  </span>

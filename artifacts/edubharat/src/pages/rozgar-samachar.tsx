@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +14,8 @@ import { useRozgarJobs } from "@/lib/use-rozgar-jobs";
 import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useStudentProfile, type StudentProfile } from "@/lib/use-student-profile";
 import { useSavedJobs, type SavedJob } from "@/lib/use-saved-jobs";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
 import {
   enrichJob, filterJobs, activeFilterCount, computeMatchScore,
   getMatchReasons, hasPersonalizationProfile,
@@ -896,6 +898,8 @@ function RozgarSamacharContent() {
   const { toast } = useToast();
   const { profile: studentProfile, updateProfile: updateStudentProfile } = useStudentProfile();
   const { saveJob, unsaveJob, isJobSaved, savedJobs, count: savedCount } = useSavedJobs();
+  const gam = useGamification(0);
+  const rewardedJobIdsRef = useRef(new Set<string>());
 
   const derivedDefault = useMemo<Profile>(() => ({
     name: studentProfile.name || DEFAULT_PROFILE.name,
@@ -1018,10 +1022,14 @@ function RozgarSamacharContent() {
 
   const handleSaveJob = useCallback((item: RozgarLiveItem) => {
     const jobId = makeJobId(item.link);
+    if (isJobSaved(jobId) || rewardedJobIdsRef.current.has(jobId)) return;
+    rewardedJobIdsRef.current.add(jobId);
     void saveJob({ jobId, title: item.title, company: item.company, link: item.link, location: item.location, salary: item.salary, jobType: item.jobType, source: item.source });
-  }, [saveJob]);
+    gam.award("job_saved", { product: "rozgar" });
+  }, [isJobSaved, saveJob, gam.award]);
 
   const handleUnsaveJob = useCallback((jobId: string) => {
+    rewardedJobIdsRef.current.delete(jobId);
     void unsaveJob(jobId);
   }, [unsaveJob]);
 
@@ -1195,6 +1203,13 @@ function RozgarSamacharContent() {
 
   return (
     <div className="rozgar-theme min-h-full overflow-y-auto container mx-auto px-4 py-4 max-w-[1400px] bg-gradient-to-br from-teal-50/50 via-white to-indigo-50/50">
+      {gam.celebration && (
+        <CelebrationOverlay
+          title={gam.celebration.title}
+          subtitle={gam.celebration.subtitle}
+          onDismiss={gam.dismissCelebration}
+        />
+      )}
       <div className="flex min-h-full flex-col gap-4">
         {/* ── Header ── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b">

@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { formatGeneratedText } from "@/lib/english-tools";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
@@ -813,6 +815,7 @@ function InterviewAceContent() {
   const { profile } = useStudentProfile();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const gam = useGamification(0);
   const { balance } = useCredits();
   const { interviewsLeft: guestInterviewsRemaining } = useGuestTrial();
 
@@ -897,6 +900,7 @@ function InterviewAceContent() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const interviewGamAwardedRef = useRef(false);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // No-reply watchdog: if the candidate says NOTHING for 33 s after a question is
   // asked (never even starts an answer), we conclude the interview and generate
@@ -1267,6 +1271,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     setElapsedSeconds(0);
     setReport(null);
     setSaved(false);
+    interviewGamAwardedRef.current = false;
     endingRef.current = false;
     windDownRef.current = false;
     beatIdxRef.current = 0;
@@ -1981,6 +1986,13 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
   const saveSession = useCallback(async (reportData: InterviewReport, answered: QA[]) => {
     if (saved) return;
     setIsSaving(true);
+    if (!interviewGamAwardedRef.current) {
+      interviewGamAwardedRef.current = true;
+      gam.award("interview_complete", { product: "interview-ace", score: reportData.overallScore });
+      if (reportData.overallScore >= 80) {
+        gam.award("interview_star", { score: reportData.overallScore, product: "interview-ace" });
+      }
+    }
     const durationSeconds = elapsedSeconds;
     const payload = {
       role: interviewRoleLabel,
@@ -2036,7 +2048,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     }
     setSaved(true);
     setIsSaving(false);
-  }, [saved, elapsedSeconds, interviewRoleLabel, experience, user, toast]);
+  }, [saved, elapsedSeconds, interviewRoleLabel, experience, user, toast, gam.award]);
 
   const downloadReport = useCallback(() => {
     const label = typeMeta.label;
@@ -2290,7 +2302,14 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
       <div className="interview-workspace min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
         <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
           <Button
-            onClick={() => { endingRef.current = true; setPhase("setup"); setQuestions([]); setReport(null); setSaved(false); }}
+            onClick={() => {
+              endingRef.current = true;
+              setPhase("setup");
+              setQuestions([]);
+              setReport(null);
+              setSaved(false);
+              interviewGamAwardedRef.current = false;
+            }}
             className="w-full sm:w-auto font-bold shadow-md"
           >
             <PlayCircle className="w-4 h-4 mr-2" />New Session
@@ -2875,6 +2894,13 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             {displayCoachName} is preparing the next question…
           </div>
         )}
+      {gam.celebration && (
+        <CelebrationOverlay
+          title={gam.celebration.title}
+          subtitle={gam.celebration.subtitle}
+          onDismiss={gam.dismissCelebration}
+        />
+      )}
       </div>
     </div>
   );
