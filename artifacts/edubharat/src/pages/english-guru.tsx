@@ -215,6 +215,34 @@ const NATIVE_TRANSLATION_CLARIFICATIONS: Record<string, { male: string; female: 
     male: "দয়া করে ইংরেজি বাক্যটি আবার বলুন। আমি সেটি বাংলায় পরিষ্কার করে বলব।",
     female: "দয়া করে ইংরেজি বাক্যটি আবার বলুন। আমি সেটি বাংলায় পরিষ্কার করে বলব।",
   },
+  Gujarati: {
+    male: "કૃપા કરીને તે અંગ્રેજી વાક્ય ફરી કહો. હું તેનો અર્થ ગુજરાતીમાં સ્પષ્ટ રીતે કહીશ.",
+    female: "કૃપા કરીને તે અંગ્રેજી વાક્ય ફરી કહો. હું તેનો અર્થ ગુજરાતીમાં સ્પષ્ટ રીતે કહીશ.",
+  },
+  Kannada: {
+    male: "ದಯವಿಟ್ಟು ಆ ಇಂಗ್ಲಿಷ್ ವಾಕ್ಯವನ್ನು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ. ಅದರ ಅರ್ಥವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳುತ್ತೇನೆ.",
+    female: "ದಯವಿಟ್ಟು ಆ ಇಂಗ್ಲಿಷ್ ವಾಕ್ಯವನ್ನು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ. ಅದರ ಅರ್ಥವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳುತ್ತೇನೆ.",
+  },
+  Malayalam: {
+    male: "ദയവായി ആ ഇംഗ്ലീഷ് വാക്യം ഒരിക്കൽ കൂടി പറയൂ. അതിന്റെ അർത്ഥം മലയാളത്തിൽ വ്യക്തമായി പറയാം.",
+    female: "ദയവായി ആ ഇംഗ്ലീഷ് വാക്യം ഒരിക്കൽ കൂടി പറയൂ. അതിന്റെ അർത്ഥം മലയാളത്തിൽ വ്യക്തമായി പറയാം.",
+  },
+  Punjabi: {
+    male: "ਕਿਰਪਾ ਕਰਕੇ ਉਹ ਅੰਗਰੇਜ਼ੀ ਵਾਕ ਦੁਬਾਰਾ ਦੱਸੋ। ਮੈਂ ਉਸਦਾ ਅਰਥ ਪੰਜਾਬੀ ਵਿੱਚ ਸਪਸ਼ਟ ਕਰਾਂਗਾ।",
+    female: "ਕਿਰਪਾ ਕਰਕੇ ਉਹ ਅੰਗਰੇਜ਼ੀ ਵਾਕ ਦੁਬਾਰਾ ਦੱਸੋ। ਮੈਂ ਉਸਦਾ ਅਰਥ ਪੰਜਾਬੀ ਵਿੱਚ ਸਪਸ਼ਟ ਕਰਾਂਗੀ।",
+  },
+  Odia: {
+    male: "ଦୟାକରି ସେହି ଇଂରାଜୀ ବାକ୍ୟଟି ପୁଣି କୁହନ୍ତୁ। ମୁଁ ତାହାର ଅର୍ଥ ଓଡ଼ିଆରେ ସ୍ପଷ୍ଟ ଭାବେ କହିବି।",
+    female: "ଦୟାକରି ସେହି ଇଂରାଜୀ ବାକ୍ୟଟି ପୁଣି କୁହନ୍ତୁ। ମୁଁ ତାହାର ଅର୍ଥ ଓଡ଼ିଆରେ ସ୍ପଷ୍ଟ ଭାବେ କହିବି।",
+  },
+  Assamese: {
+    male: "অনুগ্ৰহ কৰি সেই ইংৰাজী বাক্যটো আকৌ কওক। মই তাৰ অৰ্থ অসমীয়াত স্পষ্টকৈ ক'ম।",
+    female: "অনুগ্ৰহ কৰি সেই ইংৰাজী বাক্যটো আকৌ কওক। মই তাৰ অৰ্থ অসমীয়াত স্পষ্টকৈ ক'ম।",
+  },
+  Urdu: {
+    male: "براہِ کرم وہ انگریزی جملہ دوبارہ کہیں۔ میں اس کا مطلب اردو میں واضح طور پر بتاؤں گا۔",
+    female: "براہِ کرم وہ انگریزی جملہ دوبارہ کہیں۔ میں اس کا مطلب اردو میں واضح طور پر بتاؤں گی۔",
+  },
 };
 
 const NATIVE_LANGUAGE_CONFIRMATIONS: Record<string, { male: string; female: string }> = {
@@ -299,18 +327,18 @@ function hasFragmentedNativeScript(text: string): boolean {
     && nativeRuns.some((run) => [...run].length >= 14)
   ) return true;
   if (nativeRuns.some((run) => [...run].length >= 24)) return true;
-  if (tokens.length < 4) return false;
-
   const scriptTokens = tokens.filter((token) =>
     [...token].some((character) => INDIC_SCRIPT_CHARACTER.test(character)),
   );
-  if (scriptTokens.length < 3) return false;
   const stripPunct = (token: string) => token.replace(/[.,!?।॥]/gu, "");
   const bareSingles = scriptTokens.filter((token) => {
     const chars = [...stripPunct(token)];
     return chars.length === 1 && INDIC_SCRIPT_CHARACTER.test(chars[0]!);
   }).length;
+  // Keep this check active for short translations too. The broken PDF output
+  // "व क य" has only three tokens, so the old four-token guard let it through.
   if (bareSingles >= 2) return true;
+  if (tokens.length < 4) return false;
   const tinyScriptTokens = scriptTokens.filter((token) => [...stripPunct(token)].length <= 2).length;
   if (tokens.length >= 7 && bareSingles >= 1 && tinyScriptTokens / scriptTokens.length >= 0.5) return true;
   return false;
@@ -1153,17 +1181,22 @@ Rules for spoken replies:
           );
         }
         // A second malformed response must never be handed to TTS character by
-        // character. The retry above normally returns normal words; this final
-        // repair protects speech while keeping the translated content visible.
+        // character. Validate the raw provider response BEFORE any repair:
+        // collapsing "व क य" into "वकय" would hide the fragmentation from the
+        // validator and teach the learner a broken word.
         if (translationRequested) {
-          response = collapseFragmentedNativeScript(response);
+          const malformedTranslation =
+            !response.trim()
+            || looksLikeGenericNativeAcknowledgement(response)
+            || !hasExpectedNativeScript(response, translationLanguage)
+            || hasFragmentedNativeScript(response);
           // A provider can return a successful English response while ignoring
           // the translation directive. Never show that as the answer to a
           // native-language request; a short native clarification is safer than
           // silently teaching the wrong language.
-          if (!hasExpectedNativeScript(response, translationLanguage)) {
+          if (malformedTranslation) {
             response = NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
-              ?? `कृपया वह वाक्य फिर से कहिए। मैं उसे ${translationLanguage} में स्पष्ट रूप से बताऊँगा।`;
+              ?? `Please say the English sentence once more, and I’ll translate it clearly into ${translationLanguage}.`;
           }
         }
         // Some providers answer a normal coaching turn with the same generic

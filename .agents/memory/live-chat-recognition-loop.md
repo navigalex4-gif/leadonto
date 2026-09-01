@@ -27,6 +27,13 @@ Deepgram realtime accepts browser MediaRecorder WebM only when the live request 
 
 **How to apply:** send the recorder MIME type in the realtime start message, set the provider container from that MIME type, preserve the latest provider transcript, and clear the live socket on provider close so the client can invoke the authoritative fallback.
 
+## Native translation validation
+Reject fragmented Indic output before collapsing spaces between script characters. A short response such as three isolated letters can pass a script-only check while remaining unreadable; every supported language needs a localized clarification fallback.
+
+**Why:** the conversation export exposed a provider response like `व क य`; collapsing it first changed the evidence of corruption and allowed malformed text into the transcript and TTS path.
+
+**How to apply:** validate raw translation output for short isolated-script tokens, expected script, and generic acknowledgements; only then display or speak it. Keep Assamese and Odia recovery text distinct from the Hindi fallback.
+
 ## Preview versus published voice fixes
 Voice behavior must be validated against the same artifact the user is testing. A healthy Replit preview does not update the already-published web/API build until Publish is run.
 
