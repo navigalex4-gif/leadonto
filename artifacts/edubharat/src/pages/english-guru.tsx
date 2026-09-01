@@ -1338,13 +1338,13 @@ Rules for spoken replies:
       )}
       {!embedded && <div className="mb-3 flex flex-col items-center gap-1.5 md:hidden">
         <LanguageHighlight />
-        <MobilePrimaryCTA label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+         <MobilePrimaryCTA compact label="Start Speaking Practice" onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
       </div>}
       {!embedded && <div className="mb-3 hidden flex-col items-center gap-1.5 md:flex">
         <LanguageHighlight />
-        <Button
+         <Button
           size="lg"
-          className="h-11 w-full max-w-sm bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-200 hover:bg-orange-600"
+           className="h-8 w-full max-w-[190px] bg-orange-500 px-3 text-xs font-extrabold text-white shadow-md shadow-orange-200 hover:bg-orange-600"
           onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           Start Speaking Practice
@@ -1352,7 +1352,7 @@ Rules for spoken replies:
         </Button>
       </div>}
 
-      <div className={`grid gap-3 ${embedded ? "lg:flex-1 lg:min-h-0 lg:overflow-hidden" : "lg:grid-cols-[280px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden"}`}>
+      <div className={`grid gap-3 ${embedded ? "lg:flex-1 lg:min-h-0 lg:overflow-hidden" : "lg:grid-cols-[200px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden"}`}>
         {/* Sidebar */}
         <aside className={`order-2 lg:order-1 space-y-2 lg:flex lg:flex-col lg:overflow-y-auto lg:min-h-0 ${embedded ? "hidden" : ""}`}>
           {/* Change Teacher — top of page CTA */}
@@ -1380,24 +1380,24 @@ Rules for spoken replies:
           </Card>
 
           {/* Desktop avatar card */}
-          <div className="hidden lg:flex flex-col items-center py-3 px-3 bg-card rounded-2xl border shadow-sm">
+           <div className="hidden lg:flex max-h-[238px] flex-col items-center overflow-hidden rounded-2xl border bg-card px-2 py-2 shadow-sm">
             <AnimatedAvatar
               name={tutor.name}
               subtitle={tutor.role}
               isSpeaking={synth.isSpeaking}
               isThinking={isStreaming}
               gender={tutor.gender}
-              size="md"
+               size="xl"
               imageSrc={tutor.imageSrc}
             />
              <Badge variant="secondary" className="mt-1 text-[10px] font-medium">
                Speaks: {tutor.languages.filter(l => l !== "English").concat("English").join(" + ")}
              </Badge>
-            <div className="mt-2 text-center px-2">
-              <p className="text-[11px] text-muted-foreground leading-relaxed italic line-clamp-2">"{tutor.intro}"</p>
+             <div className="mt-1 max-w-full px-1 text-center">
+               <p className="line-clamp-1 text-[10px] leading-tight text-muted-foreground italic">"{tutor.intro}"</p>
             </div>
-            <div className="mt-2 flex flex-wrap justify-center gap-1">
-              {tutor.languages.map(l => (
+             <div className="mt-1 flex flex-wrap justify-center gap-1">
+               {tutor.languages.slice(0, 3).map(l => (
                 <span key={l} className="text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground">{l}</span>
               ))}
             </div>
@@ -1442,19 +1442,19 @@ Rules for spoken replies:
             >
               <Users className="w-4 h-4 mr-2" />Change Teacher
             </Button>
-            <div className="flex items-center gap-2 py-2 px-3 bg-card rounded-2xl border shadow-sm">
+             <div className="flex items-center gap-2 rounded-2xl border bg-card px-2 py-1.5 shadow-sm">
               <AnimatedAvatar
                 name={tutor.name}
                 subtitle={tutor.role}
                 isSpeaking={synth.isSpeaking}
                 isThinking={isStreaming}
                 gender={tutor.gender}
-                size="sm"
+                 size="md"
                 imageSrc={tutor.imageSrc}
               />
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm text-secondary leading-tight">{profile.name || user?.name ? `Hi, ${profile.name || user?.name} 👋` : "Hi there 👋"}</p>
-                <p className="text-xs text-muted-foreground italic leading-snug line-clamp-2 mt-0.5">"{tutor.intro}"</p>
+                 <p className="text-xs font-bold leading-tight text-secondary">{profile.name || user?.name ? `Hi, ${profile.name || user?.name} 👋` : "Hi there 👋"}</p>
+                 <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground italic">"{tutor.intro}"</p>
                 {liveChat && (
                   <span className="flex items-center gap-1 text-xs text-green-600 font-semibold animate-pulse mt-1">
                     <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Live ON
@@ -1753,8 +1753,8 @@ Rules for spoken replies:
                   </div>
                 </div>
               )}
-              {convHistory.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
+               {convHistory.length > 0 && (
+                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground mr-1">Save chat:</span>
                   <Button variant="outline" size="sm" className="text-xs h-8"
                     onClick={() => exportConversationPdf(convHistory, { aiName: teacherShort, userName: profile.name || "You" })}>
@@ -1764,7 +1764,7 @@ Rules for spoken replies:
                     onClick={() => exportConversationWord(convHistory, { aiName: teacherShort, userName: profile.name || "You" })}>
                     <FileText className="w-3.5 h-3.5 mr-1.5" />Word
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-xs h-8 ml-auto"
+                   <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs"
                     onClick={() => { setConvHistory([]); void endLiveBlock(liveIdRef.current ?? undefined); liveIdRef.current = null; setLiveChat(false); speech.stop(); setConvFlowState("idle"); }}>
                     Clear & Start Over
                   </Button>

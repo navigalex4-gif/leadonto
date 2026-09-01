@@ -71,6 +71,39 @@ export default function EnglishGuruScreen() {
     speechRef.current = startBrowserSpeech((text) => { setInput(text); void send(text); }, setVoiceError, language === 'English' ? 'en-IN' : 'en-IN');
   };
 
+  const saveChat = async () => {
+    if (messages.length === 0) return;
+    try {
+      await saveHistory(
+        'english-guru',
+        `${tutor.name} chat`,
+        messages.map((item) => `${item.role === 'user' ? 'You' : tutor.name}: ${item.text}`).join('\n\n'),
+      );
+      Alert.alert('Chat saved', 'The complete conversation was added to your history.');
+    } catch (error) {
+      Alert.alert('Could not save chat', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
+  const clearChat = () => {
+    Alert.alert('Clear chat?', 'This removes the current conversation from the screen.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          speechRef.current?.stop();
+          speechRef.current = null;
+          stopSpeaking();
+          setInput('');
+          setMessages([]);
+          setActive(false);
+          setPaused(false);
+        },
+      },
+    ]);
+  };
+
   const end = () => {
     speechRef.current?.stop();
     speechRef.current = null;
@@ -115,6 +148,18 @@ export default function EnglishGuruScreen() {
         <ActionButton title={paused ? 'Resume' : 'Pause'} variant="outline" onPress={() => { setPaused(!paused); if (!paused) { speechRef.current?.stop(); stopSpeaking(); } }} disabled={!active} />
         <ActionButton title="End session" variant="secondary" onPress={end} disabled={!active} />
       </View>
+      {messages.length > 0 && (
+        <View style={styles.chatActions}>
+          <TouchableOpacity onPress={() => void saveChat()} style={[styles.chatAction, { borderColor: colors.border, backgroundColor: colors.card }]} accessibilityRole="button" accessibilityLabel="Save chat">
+            <Feather name="bookmark" size={16} color={colors.primary} />
+            <Text style={[styles.chatActionText, { color: colors.foreground }]}>Save chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={clearChat} style={[styles.chatAction, { borderColor: colors.border, backgroundColor: colors.card }]} accessibilityRole="button" accessibilityLabel="Clear chat">
+            <Feather name="trash-2" size={16} color={colors.destructive} />
+            <Text style={[styles.chatActionText, { color: colors.foreground }]}>Clear chat</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {messages.findLast?.((item) => item.role === 'assistant') && (
         <ResultCard title="Save this practice" content={messages.filter((item) => item.role === 'assistant').at(-1)?.text || ''} onSave={() => void saveHistory('english-guru', `${tutor.name} practice`, messages.map((item) => `${item.role}: ${item.text}`).join('\n')).then(() => Alert.alert('Saved', 'Added to your history.'))} />
       )}
@@ -133,5 +178,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 },
   iconButton: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
   sessionActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginTop: 12 },
+  chatActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginTop: 12 },
+  chatAction: { flex: 1, minHeight: 42, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  chatActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   error: { fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 8 },
 });
