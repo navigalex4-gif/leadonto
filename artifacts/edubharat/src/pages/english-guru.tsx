@@ -62,14 +62,78 @@ function formatLiveTime(totalSeconds: number): string {
 }
 
 function normalizeHelperLanguage(language: string): string {
-  return /^(?:gb|uk|us|indian)\s+english$/i.test(language.trim()) ? "English" : language;
+  const value = language.trim();
+  if (/^(?:gb|uk|us|indian)\s+english$/i.test(value)) return "English";
+  return requestedHelperLanguage(value) ?? value;
 }
 
+const HELPER_LANGUAGE_ALIASES: Array<{ name: string; patterns: RegExp[] }> = [
+  { name: "Hindi", patterns: [/\bhindi\b/i, /हिंदी|हिन्दी/u] },
+  { name: "Marathi", patterns: [/\bmarathi\b/i, /मराठी/u] },
+  { name: "Tamil", patterns: [/\btamil\b/i, /தமிழ்/u] },
+  { name: "Telugu", patterns: [/\btelugu\b/i, /తెలుగు/u] },
+  { name: "Bengali", patterns: [/\bbengali\b/i, /বাংলা|বাঙলা/u] },
+  { name: "Gujarati", patterns: [/\bgujarati\b/i, /ગુજરાતી/u] },
+  { name: "Kannada", patterns: [/\bkannada\b/i, /ಕನ್ನಡ/u] },
+  { name: "Malayalam", patterns: [/\bmalayalam\b/i, /മലയാളം/u] },
+  { name: "Punjabi", patterns: [/\bpunjabi\b/i, /ਪੰਜਾਬੀ/u] },
+  { name: "Odia", patterns: [/\bodia\b|\boriya\b/i, /ଓଡ଼ିଆ|ଓଡିଆ/u] },
+  { name: "Assamese", patterns: [/\bassamese\b/i, /অসমীয়া|অসমিয়া/u] },
+  { name: "Urdu", patterns: [/\burdu\b/i, /اردو/u] },
+  { name: "English", patterns: [/\benglish\b/i, /अंग्रेज़ी|ইংরেজি/u] },
+];
+
 function requestedHelperLanguage(text: string): string | null {
-  const match = text.match(/\b(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu|english)\b/i);
-  if (!match) return null;
-  const found = match[0].toLowerCase();
-  return found === "english" ? "English" : found.charAt(0).toUpperCase() + found.slice(1);
+  return HELPER_LANGUAGE_ALIASES.find(({ patterns }) => patterns.some((pattern) => pattern.test(text)))?.name ?? null;
+}
+
+function extractTranslationSource(text: string, previousTeacherMessage: string): string {
+  // Pull an explicit English word/phrase out of mixed-language requests such as
+  // “Immediately को Marathi में क्या बोलते हैं?”. Function words are not a
+  // translation source; when the learner says “this/that”, use the teacher's
+  // latest real English sentence instead.
+  const ignored = new Set([
+    "a", "an", "the", "can", "could", "please", "you", "i", "me", "my", "is",
+    "are", "do", "does", "did", "what", "this", "that", "these", "those",
+    "say", "speak", "read", "repeat", "tell", "explain", "translate", "meaning",
+    "mean", "in", "into", "to", "using", "of", "for", "how", "word",
+  ]);
+  const explicitWords = (text.match(/[A-Za-z][A-Za-z'-]*/g) ?? [])
+    .map((word) => word.toLowerCase())
+    .filter((word) => !ignored.has(word) && !HELPER_LANGUAGE_ALIASES.some(({ name }) => name.toLowerCase() === word));
+  if (explicitWords.length > 0) {
+    return explicitWords.join(" ");
+  }
+  return previousTeacherMessage;
+}
+
+function isNativeTranslationRequest(text: string, targetLanguage: string, hasPreviousTeacherMessage: boolean): boolean {
+  if (targetLanguage === "English") return false;
+  const hasLanguageName = requestedHelperLanguage(text) === targetLanguage;
+  const sourceWords = (text.match(/[A-Za-z][A-Za-z'-]*/g) ?? [])
+    .map((word) => word.toLowerCase())
+    .filter((word) => !new Set([
+      "a", "an", "the", "can", "could", "please", "you", "i", "me", "my", "is",
+      "are", "do", "does", "did", "what", "this", "that", "these", "those",
+      "say", "speak", "read", "repeat", "tell", "explain", "translate", "meaning",
+      "mean", "in", "into", "to", "using", "of", "for", "how", "word",
+    ]).has(word))
+    .filter((word) => !HELPER_LANGUAGE_ALIASES.some(({ name }) => name.toLowerCase() === word));
+  const hasSourceReference = /\b(?:this|that|sentence|phrase|question|what)\b/i.test(text);
+  const asksInEnglish =
+    /\b(?:translate|meaning|mean)\b/i.test(text)
+    || /\bwhat\s+(?:is|does|do|did)\b/i.test(text)
+    || /\bhow\s+(?:do|does|can)\b/i.test(text)
+    || (
+      /(?:say|speak|read|repeat|tell|explain)\b.{0,70}\b(?:in|into|to|using)\b/i.test(text)
+      && (sourceWords.length > 0 || hasSourceReference)
+    );
+  const asksInNativeScript = /(?:मतलब|अर्थ|क्या\s+बोलते|कैसे\s+कहते|काय\s+म्हणतात|कसा\s+म्हणतात|எப்படி|என்ன\s+அர்த்தம்|ఏమని|ఎలా\s+చెప్ప|মানে|অর্থ|શું\s+કહેવાય|ಅರ್ಥ|ಹೇಗೆ\s+ಹೇಳ|അർത്ഥം|എങ്ങനെ\s+പറയ|ਕੀ\s+ਕਹਿੰਦੇ|କଣ\s+କୁହାଯାଏ|মানে|معنی)/u.test(text);
+  const asksWhatIsThis = /what\s+is\s+(?:this|that)|what\s+does\s+(?:this|that)\s+mean/i.test(text);
+  return Boolean(
+    (hasLanguageName && (asksInEnglish || asksWhatIsThis || asksInNativeScript))
+    || (hasPreviousTeacherMessage && asksInNativeScript),
+  );
 }
 
 function alignTutorGender(text: string, voiceGender: "male" | "female"): string {
@@ -110,6 +174,24 @@ const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> =
   Odia: { male: "ବୁଝିଲି। ଚାଲନ୍ତୁ ଧୀରେ ଧୀରେ ଅଭ୍ୟାସ କରିବା।", female: "ବୁଝିଲି। ଚାଲନ୍ତୁ ଧୀରେ ଧୀରେ ଅଭ୍ୟାସ କରିବା।" },
   Assamese: { male: "বুজিলোঁ। আহক লাহে লাহে অনুশীলন কৰোঁ।", female: "বুজিলোঁ। আহক লাহে লাহে অনুশীলন কৰোঁ।" },
   Urdu: { male: "سمجھ گیا۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔", female: "سمجھ گئی۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔" },
+};
+
+const NATIVE_LANGUAGE_CONFIRMATIONS: Record<string, { male: string; female: string }> = {
+  Hindi: {
+    male: "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगा। आप अटकें तो मैं हिंदी में समझाऊँगा और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।",
+    female: "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगी। आप अटकें तो मैं हिंदी में समझाऊँगी और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।",
+  },
+  Marathi: { male: "हो, मी स्पष्ट आणि योग्य मराठीत तुमची मदत करेन. तुम्ही अडकलात तर मी मराठीत समजावून सांगेन आणि आपण इंग्रजीचा सराव सुरू ठेवू.", female: "हो, मी स्पष्ट आणि योग्य मराठीत तुमची मदत करेन. तुम्ही अडकलात तर मी मराठीत समजावून सांगेन आणि आपण इंग्रजीचा सराव सुरू ठेवू." },
+  Tamil: { male: "ஆம், நான் தெளிவான தமிழில் உங்களுக்கு உதவுவேன். நீங்கள் சிக்கிக்கொண்டால் தமிழில் விளக்கி, மீண்டும் ஆங்கிலப் பயிற்சியைத் தொடர்வோம்.", female: "ஆம், நான் தெளிவான தமிழில் உங்களுக்கு உதவுவேன். நீங்கள் சிக்கிக்கொண்டால் தமிழில் விளக்கி, மீண்டும் ஆங்கிலப் பயிற்சியைத் தொடர்வோம்." },
+  Telugu: { male: "అవును, నేను స్పష్టమైన తెలుగులో మీకు సహాయం చేస్తాను. మీరు ఇబ్బంది పడితే తెలుగులో వివరించి, మళ్లీ ఇంగ్లీష్ సాధన కొనసాగిస్తాం.", female: "అవును, నేను స్పష్టమైన తెలుగులో మీకు సహాయం చేస్తాను. మీరు ఇబ్బంది పడితే తెలుగులో వివరించి, మళ్లీ ఇంగ్లీష్ సాధన కొనసాగిస్తాం." },
+  Bengali: { male: "হ্যাঁ, আমি পরিষ্কার বাংলায় আপনাকে সাহায্য করব। আপনি আটকে গেলে বাংলায় বুঝিয়ে আবার ইংরেজি অনুশীলন চালিয়ে যাব।", female: "হ্যাঁ, আমি পরিষ্কার বাংলায় আপনাকে সাহায্য করব। আপনি আটকে গেলে বাংলায় বুঝিয়ে আবার ইংরেজি অনুশীলন চালিয়ে যাব।" },
+  Gujarati: { male: "હા, હું સ્પષ્ટ ગુજરાતીમાં તમારી મદદ કરીશ. તમે અટકી જાઓ તો ગુજરાતીમાં સમજાવીને ફરી અંગ્રેજીનો અભ્યાસ ચાલુ રાખીશું.", female: "હા, હું સ્પષ્ટ ગુજરાતીમાં તમારી મદદ કરીશ. તમે અટકી જાઓ તો ગુજરાતીમાં સમજાવીને ફરી અંગ્રેજીનો અભ્યાસ ચાલુ રાખીશું." },
+  Kannada: { male: "ಹೌದು, ನಾನು ಸ್ಪಷ್ಟವಾದ ಕನ್ನಡದಲ್ಲಿ ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನೀವು ಸಿಲುಕಿಕೊಂಡರೆ ಕನ್ನಡದಲ್ಲಿ ವಿವರಿಸಿ ಮತ್ತೆ ಇಂಗ್ಲಿಷ್ ಅಭ್ಯಾಸ ಮುಂದುವರಿಸುತ್ತೇವೆ.", female: "ಹೌದು, ನಾನು ಸ್ಪಷ್ಟವಾದ ಕನ್ನಡದಲ್ಲಿ ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನೀವು ಸಿಲುಕಿಕೊಂಡರೆ ಕನ್ನಡದಲ್ಲಿ ವಿವರಿಸಿ ಮತ್ತೆ ಇಂಗ್ಲಿಷ್ ಅಭ್ಯಾಸ ಮುಂದುವರಿಸುತ್ತೇವೆ." },
+  Malayalam: { male: "അതെ, ഞാൻ വ്യക്തമായ മലയാളത്തിൽ നിങ്ങളെ സഹായിക്കാം. നിങ്ങൾക്ക് ബുദ്ധിമുട്ടുണ്ടെങ്കിൽ മലയാളത്തിൽ വിശദീകരിച്ച് വീണ്ടും ഇംഗ്ലീഷ് പരിശീലനം തുടരും.", female: "അതെ, ഞാൻ വ്യക്തമായ മലയാളത്തിൽ നിങ്ങളെ സഹായിക്കാം. നിങ്ങൾക്ക് ബുദ്ധിമുട്ടുണ്ടെങ്കിൽ മലയാളത്തിൽ വിശദീകരിച്ച് വീണ്ടും ഇംഗ്ലീഷ് പരിശീലനം തുടരും." },
+  Punjabi: { male: "ਹਾਂ, ਮੈਂ ਸਾਫ਼ ਪੰਜਾਬੀ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰਾਂਗਾ। ਜੇ ਤੁਸੀਂ ਅਟਕੋ ਤਾਂ ਪੰਜਾਬੀ ਵਿੱਚ ਸਮਝਾ ਕੇ ਅਸੀਂ ਅੰਗਰੇਜ਼ੀ ਦੀ ਅਭਿਆਸ ਜਾਰੀ ਰੱਖਾਂਗੇ।", female: "ਹਾਂ, ਮੈਂ ਸਾਫ਼ ਪੰਜਾਬੀ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰਾਂਗੀ। ਜੇ ਤੁਸੀਂ ਅਟਕੋ ਤਾਂ ਪੰਜਾਬੀ ਵਿੱਚ ਸਮਝਾ ਕੇ ਅਸੀਂ ਅੰਗਰੇਜ਼ੀ ਦੀ ਅਭਿਆਸ ਜਾਰੀ ਰੱਖਾਂਗੇ।" },
+  Odia: { male: "ହଁ, ମୁଁ ସ୍ପଷ୍ଟ ଓଡ଼ିଆରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବି। ଆପଣ ଅଟକିଗଲେ ଓଡ଼ିଆରେ ବୁଝାଇ ପୁଣି ଇଂରାଜୀ ଅଭ୍ୟାସ କରିବା।", female: "ହଁ, ମୁଁ ସ୍ପଷ୍ଟ ଓଡ଼ିଆରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବି। ଆପଣ ଅଟକିଗଲେ ଓଡ଼ିଆରେ ବୁଝାଇ ପୁଣି ଇଂରାଜୀ ଅଭ୍ୟାସ କରିବା।" },
+  Assamese: { male: "হয়, মই স্পষ্ট অসমীয়াত আপোনাক সহায় কৰিম। আপুনি ৰৈ গ’লে অসমীয়াত বুজাই আকৌ ইংৰাজী অনুশীলন কৰিম।", female: "হয়, মই স্পষ্ট অসমীয়াত আপোনাক সহায় কৰিম। আপুনি ৰৈ গ’লে অসমীয়াত বুজাই আকৌ ইংৰাজী অনুশীলন কৰিম।" },
+  Urdu: { male: "جی ہاں، میں صاف اور درست اردو میں آپ کی مدد کروں گا۔ اگر آپ رک جائیں تو میں اردو میں سمجھاؤں گا اور پھر انگریزی کی مشق جاری رکھیں گے۔", female: "جی ہاں، میں صاف اور درست اردو میں آپ کی مدد کروں گی۔ اگر آپ رک جائیں تو میں اردو میں سمجھاؤں گی اور پھر انگریزی کی مشق جاری رکھیں گے۔" },
 };
 
 function looksLikeGenericNativeAcknowledgement(text: string): boolean {
@@ -763,11 +845,6 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       try {
         const userMsg = isSilenceProbe ? "" : collapseRepeatedSpeech(phrase);
         const languageRequest = !isSilenceProbe ? requestedHelperLanguage(userMsg) : null;
-        const isDirectLanguageRequest = Boolean(
-          languageRequest
-          && /(?:speak|talk|help|switch|use|understand|explain|respond|reply|properly|clearly)/i.test(userMsg)
-          && !/(?:translate|say\s+(?:this|that)|read\s+(?:this|that)|repeat\s+(?:this|that)|meaning\s+of)/i.test(userMsg),
-        );
         // Only add normal phrases to visible conversation history
         if (!isSilenceProbe) {
           setConvHistory(h => [...h, { role: "user", text: userMsg }]);
@@ -781,26 +858,52 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         // A previous generic native fallback is not a valid translation source.
         const previousTeacherMessage = [...convHistoryRef.current]
           .reverse()
-          .find((item) => item.role === "ai" && /[A-Za-z]{3,}/.test(item.text))?.text
-          ?? lastAiSpeechRef.current;
+          .find((item) =>
+            item.role === "ai"
+            && /[A-Za-z]{3,}/.test(item.text)
+            && !looksLikeGenericNativeAcknowledgement(item.text),
+          )?.text
+          ?? (
+            /[A-Za-z]{3,}/.test(lastAiSpeechRef.current)
+            && !looksLikeGenericNativeAcknowledgement(lastAiSpeechRef.current)
+              ? lastAiSpeechRef.current
+              : ""
+          );
         // Treat "say what you asked in Hindi" as a real translation request.
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
         // written in Devanagari. Give the model the exact source sentence.
-        const asksForNativeTranslation =
+        const legacyNativeTranslationDetected =
           uiLang !== "English" && (
              /(?:say|speak|read|repeat|tell).{0,35}(?:what|question).{0,35}(?:asked|said).{0,25}(?:in|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|urdu)/i.test(userMsg)
             || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
           );
-        const asksForDirectNativeTranslation =
+        const legacyDirectTranslationDetected =
           uiLang !== "English" && /(?:translate|say|speak|read|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
-        const translationRequested = asksForNativeTranslation || asksForDirectNativeTranslation;
-        const translationInstruction = translationRequested
-          ? previousTeacherMessage
-            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: The student wants the complete English sentence translated and spoken in ${uiLang}. If they refer to what you asked, translate your immediately previous teacher message exactly. The source sentence is: "${previousTeacherMessage}". Output the FULL natural ${uiLang} translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
-            : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the complete English sentence the student supplied into natural ${uiLang}. Output the FULL translation first, using ${uiLang}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+        const translationLanguage = languageRequest && languageRequest !== "English"
+          ? languageRequest
+          : uiLang;
+        const translationRequested = !isSilenceProbe
+          && (
+            isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousTeacherMessage))
+            || legacyNativeTranslationDetected
+            || legacyDirectTranslationDetected
+          );
+        const translationSource = translationRequested
+          ? extractTranslationSource(userMsg, previousTeacherMessage)
           : "";
-        const escapedUiLang = uiLang.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const isDirectLanguageRequest = Boolean(
+          languageRequest
+          && /(?:speak|talk|help|switch|use|understand|explain|respond|reply|properly|clearly)/i.test(userMsg)
+          && !translationRequested
+          && !/(?:translate|meaning\s+of|what\s+(?:is|does|do|did)\s+(?:this|that))/i.test(userMsg),
+        );
+        const translationInstruction = translationRequested
+          ? translationSource
+            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the exact English word or sentence "${translationSource}" into natural ${translationLanguage}. Return only the complete translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+            : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the complete English sentence the student is referring to into natural ${translationLanguage}. Use the immediately previous teacher message as the source and return the full translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+          : "";
+        const escapedUiLang = translationLanguage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const archiveTranslationRequest = new RegExp(
           `\\b(say|speak|read|repeat|tell|explain|translate)\\b[^.?!]{0,25}\\b(in|into)\\b\\s*${escapedUiLang}\\b`
             + `|\\bwhat\\s+(does|do|did)\\b[^.?!]{0,30}\\bmean\\b`
@@ -808,8 +911,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           "i",
         );
         const explicitTranslationDirective =
-          uiLang !== "English" && !isSilenceProbe && archiveTranslationRequest.test(userMsg)
-            ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the complete English sentence the student is referring to into natural ${uiLang} in ${uiLang}'s native script. Use the immediately previous teacher message as the source: "${previousTeacherMessage}". Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
+          translationRequested && archiveTranslationRequest.test(userMsg)
+            ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the exact source "${translationSource || previousTeacherMessage}" into natural ${translationLanguage} in ${translationLanguage}'s native script. Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
             : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
@@ -870,13 +973,15 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           }
           response = languageRequest === "Hindi"
             ? tutor.voiceGender === "female"
-              ? "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगी। जब भी आपको कोई बात समझ में न आए, मैं हिंदी में समझाऊँगी और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।"
-              : "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगा। जब भी आपको कोई बात समझ में न आए, मैं हिंदी में समझाऊँगा और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।"
-            : `Yes — I can help in ${languageRequest}. I’ll use clear ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
-        } else if (translationRequested && previousTeacherMessage) {
+              ? NATIVE_LANGUAGE_CONFIRMATIONS.Hindi!.female
+              : NATIVE_LANGUAGE_CONFIRMATIONS.Hindi!.male
+            : NATIVE_LANGUAGE_CONFIRMATIONS[languageRequest]?.[tutor.voiceGender]
+              ?? NATIVE_RETRY_FALLBACKS[languageRequest]?.[tutor.voiceGender]
+              ?? `Yes — I can help in ${languageRequest}. I’ll use clear ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
+        } else if (translationRequested && translationSource) {
           response = await stream(
-            `Translate the English sentence below into ${uiLang}. Return only its complete, natural ${uiLang} translation in native script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
-            `You are a strict ${uiLang} translator, not a tutor. Translate every part of the supplied English sentence faithfully, including its question form. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
+            `Translate the English word or sentence below into ${translationLanguage}. Return only its complete, natural ${translationLanguage} translation in native script.\n\nEnglish source: "${translationSource}"`,
+            `You are a strict ${translationLanguage} translator, not a tutor. Translate every part of the supplied English source faithfully. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
@@ -917,7 +1022,7 @@ Rules for spoken replies:
         // the previous English sentence is the only source it should translate.
         if (
           translationRequested
-          && previousTeacherMessage
+          && translationSource
           && (
             !response.trim()
             || looksLikeGenericNativeAcknowledgement(response)
@@ -925,7 +1030,7 @@ Rules for spoken replies:
           )
         ) {
           response = await stream(
-            `STRICT TRANSLATION. Translate the complete sentence below into ${uiLang}. Return only its complete natural translation in native ${uiLang} script.\n\nEnglish sentence: "${previousTeacherMessage}"`,
+            `STRICT TRANSLATION. Translate the complete English word or sentence below into ${translationLanguage}. Return only its complete natural translation in ${translationLanguage} script.\n\nEnglish source: "${translationSource}"`,
             `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
@@ -943,7 +1048,7 @@ Rules for spoken replies:
         // sound stuck. Replace it with the contextual local fallback instead.
         if (looksLikeGenericNativeAcknowledgement(response)) {
           response = translationRequested
-            ? `I can help in ${uiLang}, but I need the sentence you want to practise. Please say it once more.`
+            ? `I can help in ${translationLanguage}, but I need the sentence or word you want translated. Please say it once more.`
             : variedFallback(userMsg, isSilenceProbe);
         }
         // Never leave the student waiting while a provider stalls. The
@@ -1006,9 +1111,13 @@ Rules for spoken replies:
 
         if (response) {
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
+          const replyNativeLanguage = translationRequested || isDirectLanguageRequest
+            ? translationLanguage
+            : uiLang;
+          const replyUsesNativeLanguage = replyNativeLanguage !== "English";
             const cleanResponse = sanitizeNativeDisplay(
-              cleanSpokenReply(response, uiLang !== "English", tutor.voiceGender, uiLang, !translationRequested),
-              uiLang !== "English",
+              cleanSpokenReply(response, replyUsesNativeLanguage, tutor.voiceGender, replyNativeLanguage, !translationRequested),
+              replyUsesNativeLanguage,
             );
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
@@ -1035,7 +1144,7 @@ Rules for spoken replies:
            // the English runs on the tutor voice.
           speakRef.current(cleanResponse, "English", releaseTurn, {
             rate: 1.0,
-            nativeLanguage: uiLang !== "English" ? uiLang : undefined,
+            nativeLanguage: replyUsesNativeLanguage ? replyNativeLanguage : undefined,
           });
         } else {
           releaseTurn();
@@ -1822,6 +1931,7 @@ Rules for spoken replies:
             if (!gam.wordsLearned.includes(entry.word)) {
               gamAwardRef.current("word_learned", { word: entry.word, product: "english-guru" });
             }
+             closeWotd();
           }}
           onClose={closeWotd}
         />
@@ -1840,6 +1950,7 @@ Rules for spoken replies:
             if (!gam.wordsLearned.includes(entry.word)) {
               gamAwardRef.current("word_learned", { word: entry.word, product: "english-guru" });
             }
+             setWordPopup(null);
           }}
           onClose={() => setWordPopup(null)}
         />
