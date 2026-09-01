@@ -87,6 +87,13 @@ function requestedHelperLanguage(text: string): string | null {
   return HELPER_LANGUAGE_ALIASES.find(({ patterns }) => patterns.some((pattern) => pattern.test(text)))?.name ?? null;
 }
 
+function isDirectHelperLanguageCommand(text: string): boolean {
+  return (
+    /\b(?:speak|talk|help|switch|use|understand|explain|respond|reply)\b/i.test(text)
+    || /(?:पूरा|पूरी|पूर्ण|सिर्फ|केवल|स्पष्ट|ठीक\s*से|पूर्णपणे|फक्त)?.{0,24}(?:बोलो|बोलिए|बोला|सांगा|उत्तर\s*द्या|समजावून\s*सांगा)|(?:பேசு|பேசுங்கள்|பதில்\s*சொல்லுங்கள்)|(?:మాట్లాడు|మాట్లాడండి|చెప్పండి)|(?:বলুন|বলো)|(?:બોલો|કહો)|(?:ಮಾತನಾಡಿ|ಹೇಳಿ)|(?:സംസാരിക്കൂ|പറയൂ)|(?:ਬੋਲੋ|ਦੱਸੋ)|(?:କୁହନ୍ତୁ|କହନ୍ତୁ)|(?:কওক|কওঁক)|(?:بولیں|بات\s*کریں)/u.test(text)
+  );
+}
+
 function extractTranslationSource(text: string, previousTeacherMessage: string): string {
   // Pull an explicit English word/phrase out of mixed-language requests such as
   // “Immediately को Marathi में क्या बोलते हैं?”. Function words are not a
@@ -343,12 +350,12 @@ function cleanSpokenReply(
 function LanguageHighlight() {
   return (
     <div
-      className="inline-flex max-w-full items-center justify-center rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[11px] font-medium leading-tight text-orange-800"
+      className="inline-flex max-w-full flex-wrap items-center justify-center rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-base font-medium leading-snug text-orange-800"
       aria-label="Learn in your language: Hindi, Tamil, Telugu, and more"
     >
-      <span>🗣️ Apni Bhasha Mein Seekhiye — </span>
-      <span className="ml-1 font-semibold">हिंदी, தமிழ், తెలుగు</span>
-      <span className="ml-1">+10 more</span>
+      <span>🗣️ Apni Bhasha Mein Seekhiye —</span>
+      <span className="ml-1.5 font-semibold">हिंदी, தமிழ், తెలుగు</span>
+      <span className="ml-1.5 whitespace-nowrap">+10 more</span>
     </div>
   );
 }
@@ -376,6 +383,19 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const gam = useGamification(streak);
   const gamAwardRef = useRef(gam.award);
   useEffect(() => { gamAwardRef.current = gam.award; }, [gam.award]);
+  const [guestWordSeed] = useState(() => {
+    try {
+      let seed = localStorage.getItem("edubharat_word_power_seed");
+      if (!seed) {
+        seed = crypto.randomUUID();
+        localStorage.setItem("edubharat_word_power_seed", seed);
+      }
+      return seed;
+    } catch {
+      return "guest";
+    }
+  });
+  const dailyWord = wordOfTheDay(new Date(), user?.id ? `user:${user.id}` : `guest:${guestWordSeed}`);
   const [wordPopup, setWordPopup] = useState<WordPowerEntry | null>(null);
   const [wotdOpen, setWotdOpen] = useState(() => {
     if (embedded) return false;
@@ -388,14 +408,16 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const wotdAwardedRef = useRef(false);
   const closeWotd = useCallback(() => {
     setWotdOpen(false);
-    try {
-      localStorage.setItem("edubharat_wotd_date", new Date().toISOString().slice(0, 10));
-    } catch { /* local persistence is optional */ }
   }, []);
   const openWordCard = useCallback((entry: WordPowerEntry) => setWordPopup(entry), []);
   useEffect(() => {
     if (!wotdOpen || wotdAwardedRef.current) return;
     wotdAwardedRef.current = true;
+    // Mark it as shown as soon as it opens. Refreshing or revisiting the route
+    // must not keep blocking the teacher with the same modal all day.
+    try {
+      localStorage.setItem("edubharat_wotd_date", new Date().toISOString().slice(0, 10));
+    } catch { /* local persistence is optional */ }
     gamAwardRef.current("word_of_day", { product: "english-guru" });
   }, [wotdOpen]);
   const { text: aiText, isStreaming, error: aiError, stream, reset: resetAI } = useGeminiStream();
@@ -890,7 +912,10 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     void (async () => {
       try {
         const userMsg = isSilenceProbe ? "" : collapseRepeatedSpeech(phrase);
-        const languageRequest = !isSilenceProbe ? requestedHelperLanguage(userMsg) : null;
+        const directLanguageCommand = !isSilenceProbe && isDirectHelperLanguageCommand(userMsg);
+        const languageRequest = !isSilenceProbe
+          ? requestedHelperLanguage(userMsg) ?? (directLanguageCommand && uiLang !== "English" ? uiLang : null)
+          : null;
         // Only add normal phrases to visible conversation history
         if (!isSilenceProbe) {
           setConvHistory(h => [...h, { role: "user", text: userMsg }]);
@@ -944,7 +969,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           : "";
         const isDirectLanguageRequest = Boolean(
           languageRequest
-          && /(?:speak|talk|help|switch|use|understand|explain|respond|reply|properly|clearly)/i.test(userMsg)
+          && directLanguageCommand
           && !translationRequested
           && !/(?:translate|meaning\s+of|what\s+(?:is|does|do|did)\s+(?:this|that))/i.test(userMsg),
         );
@@ -1510,11 +1535,11 @@ Rules for spoken replies:
         <LanguageHighlight />
          <Button
            size="sm"
-            className="h-6 w-full max-w-[140px] bg-orange-500 px-2 text-[10px] font-extrabold text-white shadow-sm shadow-orange-200 hover:bg-orange-600"
+            className="h-8 w-full max-w-[210px] whitespace-nowrap bg-orange-500 px-3 text-sm font-extrabold text-white shadow-sm shadow-orange-200 hover:bg-orange-600"
           onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           Start Speaking Practice
-           <ChevronRight className="ml-1 h-3.5 w-3.5" />
+           <ChevronRight className="ml-1.5 h-4 w-4" />
         </Button>
       </div>}
 
@@ -1546,7 +1571,7 @@ Rules for spoken replies:
           </Card>
 
           {/* Desktop avatar card */}
-            <div className="hidden min-h-[320px] flex-col items-center overflow-visible rounded-2xl border bg-card px-2 py-3 shadow-sm">
+            <div className="hidden min-h-[320px] flex-col items-center overflow-visible rounded-2xl border bg-card px-2 py-3 shadow-sm lg:flex">
             <AnimatedAvatar
               name={tutor.name}
               subtitle={tutor.role}
@@ -1976,8 +2001,8 @@ Rules for spoken replies:
       )}
       {wotdOpen && (
         <WordPowerPopup
-          entry={wordOfTheDay()}
-          learned={gam.wordsLearned.includes(wordOfTheDay().word)}
+          entry={dailyWord}
+          learned={gam.wordsLearned.includes(dailyWord.word)}
           onHear={(text) => speakRef.current(text, "English")}
           onPractice={(entry) => {
             setWotdOpen(false);

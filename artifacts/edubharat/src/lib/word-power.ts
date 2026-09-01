@@ -115,10 +115,26 @@ export const WORD_MAP: Map<string, WordPowerEntry> = new Map(
   WORD_BANK.map((entry) => [entry.word.toLowerCase(), entry]),
 );
 
-/** Deterministic word-of-the-day, one entry per calendar day. */
-export function wordOfTheDay(date = new Date()): WordPowerEntry {
+function stableLearnerHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Deterministic learner-specific word of the day.
+ *
+ * The learner seed spreads concurrent visitors across the full word bank with
+ * no server request or shared counter, while the day number advances each
+ * learner through the bank without repeating until the bank wraps.
+ */
+export function wordOfTheDay(date = new Date(), learnerSeed = ""): WordPowerEntry {
   const dayNumber = Math.floor(date.getTime() / 86400000);
-  return WORD_BANK[dayNumber % WORD_BANK.length]!;
+  const learnerOffset = stableLearnerHash(learnerSeed) % WORD_BANK.length;
+  return WORD_BANK[(dayNumber + learnerOffset) % WORD_BANK.length]!;
 }
 
 /**

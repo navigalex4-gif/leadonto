@@ -9,6 +9,20 @@ Direct requests such as “Can you speak in Hindi properly?” must be handled l
 
 **How to apply:** Keep direct language-setting requests separate from “translate this into …” requests. Use a deterministic, correctly scripted confirmation for the requested language, then return to the normal mostly-English coaching flow.
 
+Direct language commands must recognize the command verb in supported native
+scripts, not only the language name or English verbs. For example, “पूरा बोलो
+मराठी में”, “पूर्ण मराठीत बोला”, and “తెలుగులో మాట్లాడండి” are setting
+requests and must take the same deterministic path as “Speak in Marathi”.
+
+**Why:** Detecting the Marathi target while only recognizing English command
+verbs still sends these common mixed-script requests to the live model, where
+they can produce malformed or fragmented native text.
+
+**How to apply:** Detect native-script speak/talk/reply commands across every
+supported helper language. Let explicit translation-source requests keep
+translation precedence; otherwise use the named language, or the currently
+selected helper language when the command omits its name.
+
 Natural learner phrasing needs the same deterministic path: “What is this? Hindi?”, a
 meaning question written in the selected native script, and mixed-language questions
 such as “Immediately को Marathi में क्या बोलते हैं?” are translation requests even
