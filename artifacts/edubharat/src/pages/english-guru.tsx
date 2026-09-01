@@ -13,6 +13,7 @@ import { useCredits, startLiveBlock, tickLiveBlock, endLiveBlock, LIVE_BLOCK_SEC
 import { useGuestTrial, guestLiveSecondsLeft, addGuestLiveSeconds } from "@/lib/guest-trial";
 import { useProgress } from "@/lib/use-progress";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
+import { requestTranslation, type TranslationLanguage } from "@/lib/use-translation";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useGoogleTTS, unlockAudio } from "@/lib/use-edge-tts";
 import { useStudentProfile } from "@/lib/use-student-profile";
@@ -1191,12 +1192,18 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
               ?? NATIVE_RETRY_FALLBACKS[languageRequest]?.[tutor.voiceGender]
               ?? `Yes — I can help in ${languageRequest}. I’ll use clear ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
         } else if (translationRequested && translationSource) {
-          response = await stream(
-            `Translate the source text below into ${translationLanguage}. The source may be English or another Indian language. Return only its complete, natural ${translationLanguage} translation in native script.\n\nSource text: "${translationSource}"`,
-            `You are a strict ${translationLanguage} translator, not a tutor. Translate every part of the supplied source faithfully. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
-            undefined,
-            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
-          );
+          // Translation has its own non-streaming Gemini JSON contract. It never
+          // enters the conversation stream, so Claude cannot answer a
+          // translation request with a contextual coaching reply.
+          try {
+            response = await requestTranslation(
+              translationSource,
+              translationLanguage as TranslationLanguage,
+            );
+          } catch (error) {
+            console.warn("[English Guru] structured translation failed", error);
+            response = "";
+          }
         } else if (translationRequested) {
           // “Can you speak this in Hindi?” is not safe to send to the coach
           // when there is no real English source in the conversation. Ask for
@@ -1231,29 +1238,7 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}${translationInstruction}${explicitTranslationDirective}`,
           undefined,
-          // Live Conversation uses Groq directly while Claude/Gemini credits
-          // are unavailable; the server keeps Z.ai as the emergency fallback.
-            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 100, timeoutMs: 4500 },
-          );
-        }
-        // A short live model can still choose the familiar acknowledgement
-        // instead of translating. Retry once with no conversational ambiguity:
-        // the previous English sentence is the only source it should translate.
-        if (
-          translationRequested
-          && translationSource
-          && (
-            !response.trim()
-            || looksLikeGenericNativeAcknowledgement(response)
-            || !hasExpectedNativeScript(response, translationLanguage)
-            || hasFragmentedNativeScript(response)
-          )
-        ) {
-          response = await stream(
-            `STRICT TRANSLATION. Translate the complete source text below into ${translationLanguage}. The source may be English or another Indian language. If it is a misspelling or joined English phrase, infer the closest natural phrase before translating it. Return only its complete natural translation in ${translationLanguage} script.\n\nSource text: "${translationSource}"`,
-            `You must translate, not teach. Preserve the source sentence's complete meaning and question form. If the source is an unfamiliar joined word, infer the most likely intended phrase instead of asking the student to repeat it. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
-            undefined,
-            { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
+            { endpoint: "/api/ai/conversation", maxTokens: 100, timeoutMs: 4500 },
           );
         }
         // A second malformed response must never be handed to TTS character by

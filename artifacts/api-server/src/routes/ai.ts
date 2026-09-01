@@ -619,6 +619,33 @@ router.post("/ai/stream", async (req, res) => {
   }
 });
 
+// Claude-only conversation endpoint. English Guru uses this for coaching turns
+// so a translation request can never fall through to a conversation provider.
+router.post("/ai/conversation", async (req, res) => {
+  const parsed = parseAiRequest(req, res);
+  if (!parsed) return;
+  const { prompt, system: rawSystem, maxTokens } = parsed;
+  const system = applyLanguageQuality(prompt, rawSystem);
+  setSseHeaders(res);
+  const state = { wrote: false };
+
+  if (!process.env["ANTHROPIC_API_KEY"]) {
+    res.write(`data: ${JSON.stringify({ error: "Conversation provider unavailable" })}\n\n`);
+    res.end();
+    return;
+  }
+
+  try {
+    await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+  } catch (err) {
+    req.log.error({ err }, "Claude conversation stream failed");
+    if (!state.wrote) {
+      res.write(`data: ${JSON.stringify({ error: userFriendlyError(err) })}\n\n`);
+    }
+    res.end();
+  }
+});
+
 // Gemini-only streaming endpoint for feeds that explicitly need Gemini
 // enrichment. The normal /ai/stream endpoint intentionally keeps its
 // Claude-first fallback for low-latency tutoring and interview turns.
