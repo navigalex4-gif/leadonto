@@ -44,6 +44,7 @@ export function attachDeepgramLive(server: Server): void {
     let started = false;
     let closed = false;
     let sentFinal = false;
+    let latestTranscript = "";
     const pendingAudio: Buffer[] = [];
 
     const closeBoth = () => {
@@ -108,6 +109,20 @@ export function attachDeepgramLive(server: Server): void {
               channel?: { alternatives?: Array<{ transcript?: string }> };
             };
             const transcript = data.channel?.alternatives?.[0]?.transcript?.trim() ?? "";
+            // Deepgram normally marks the last utterance with speech_final.
+            // On mobile/network interruption it can instead send UtteranceEnd
+            // or close after useful interim text. Preserve that text so the
+            // client can still complete the live turn rather than going silent.
+            if (transcript) latestTranscript = transcript;
+            if (data.type === "UtteranceEnd" && latestTranscript && !sentFinal) {
+              sentFinal = true;
+              sendJson(browser, {
+                type: "final",
+                text: latestTranscript,
+                speechFinal: true,
+              });
+              return;
+            }
             if (transcript) {
               sentFinal ||= Boolean(data.speech_final);
               sendJson(browser, {
@@ -121,10 +136,24 @@ export function attachDeepgramLive(server: Server): void {
           }
         });
         deepgram.on("error", () => {
-          if (!sentFinal) sendJson(browser, { type: "error", error: "Realtime speech connection failed." });
+          if (!sentFinal) {
+            if (latestTranscript) {
+              sentFinal = true;
+              sendJson(browser, { type: "final", text: latestTranscript, speechFinal: true });
+            } else {
+              sendJson(browser, { type: "error", error: "Realtime speech connection failed." });
+            }
+          }
         });
         deepgram.on("close", () => {
-          if (!closed && !sentFinal) sendJson(browser, { type: "closed" });
+          if (!closed && !sentFinal) {
+            if (latestTranscript) {
+              sentFinal = true;
+              sendJson(browser, { type: "final", text: latestTranscript, speechFinal: true });
+            } else {
+              sendJson(browser, { type: "closed" });
+            }
+          }
         });
         return;
       }

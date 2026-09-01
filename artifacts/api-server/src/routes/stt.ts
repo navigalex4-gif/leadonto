@@ -9,6 +9,13 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 },
 });
 
+// The realtime endpoint is upgraded by the HTTP server before Express sees it.
+// Keep a lightweight HTTP response as well so the artifact health probe does
+// not report a false 500/failed service while WebSocket clients are healthy.
+router.get("/stt/live", (_req: Request, res: Response) => {
+  res.json({ status: "ready", transport: "websocket" });
+});
+
 const LANGUAGE_CODES: Record<string, string> = {
   English: "en-IN",
   Hindi: "hi-IN",

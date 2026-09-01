@@ -17,7 +17,10 @@ const SILENCE_MS = 1_350;
 const MIN_UTTERANCE_MS = 360;
 const MAX_UTTERANCE_MS = 45_000;
 const VAD_INTERVAL_MS = 50;
-const MIN_VAD_THRESHOLD = 0.015;
+// Android microphones often deliver quiet but perfectly usable speech after
+// browser echo cancellation. The previous floor could leave the live session
+// visibly listening while never marking a phrase as started.
+const MIN_VAD_THRESHOLD = 0.008;
 const MAX_VAD_THRESHOLD = 0.05;
 // Keep the state transition responsive after an interviewer finishes. The
 // recorder itself starts immediately; this short visual warmup avoids showing
@@ -82,7 +85,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
   const utteranceActiveRef = useRef(false);
   const utteranceStartedRef = useRef(0);
   const lastVoiceRef = useRef(0);
-  const noiseFloorRef = useRef(0.008);
+  const noiseFloorRef = useRef(0.004);
   const audioLevelRef = useRef(0);
   const speechStartRef = useRef(0);
   const firstAudioRef = useRef(0);
@@ -438,7 +441,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
         const recorder = recorderRef.current;
         const threshold = Math.min(
           MAX_VAD_THRESHOLD,
-          Math.max(MIN_VAD_THRESHOLD, noiseFloorRef.current * 2.2),
+          Math.max(MIN_VAD_THRESHOLD, noiseFloorRef.current * 1.7 + 0.003),
         );
         if (!utteranceActiveRef.current && rms < threshold) {
           noiseFloorRef.current = noiseFloorRef.current * 0.96 + rms * 0.04;

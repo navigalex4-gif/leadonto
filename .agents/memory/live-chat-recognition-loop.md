@@ -21,11 +21,11 @@ Live voice turns need a client-side AI deadline around 2.5 seconds with a short 
 **How to apply:** pass `timeoutMs` to conversational stream calls, use a natural fallback reply after abort, and release the mic through an idempotent timer if TTS `onEnd` never fires.
 
 ## Realtime container close fallback
-Deepgram realtime accepts browser MediaRecorder WebM only when the live request declares the WebM container; it can still close after useful interim text without sending `speech_final`. Treat `error`/`closed` as a handoff to final blob STT, not as a terminal UI state.
+Deepgram realtime accepts browser MediaRecorder WebM only when the live request declares the WebM container; it can still close after useful interim text without sending `speech_final`. Treat `error`/`closed` as a handoff to final blob STT, not as a terminal UI state. The relay should promote its latest useful interim to a final transcript on provider error/close so mobile disconnects cannot drop an otherwise valid answer.
 
 **Why:** a mobile-style live session can otherwise show listening forever after the provider has stopped, even though the existing MediaRecorder buffer contains the user's answer.
 
-**How to apply:** send the recorder MIME type in the realtime start message, set the provider container from that MIME type, and clear the live socket on provider close so VAD can invoke the authoritative fallback.
+**How to apply:** send the recorder MIME type in the realtime start message, set the provider container from that MIME type, preserve the latest provider transcript, and clear the live socket on provider close so the client can invoke the authoritative fallback.
 
 ## Preview versus published voice fixes
 Voice behavior must be validated against the same artifact the user is testing. A healthy Replit preview does not update the already-published web/API build until Publish is run.
