@@ -21,3 +21,14 @@ the requested meaning.
 **How to apply:** Detect the target language from English or native-script aliases,
 extract an explicit English word/phrase when present, otherwise use the latest real
 English teacher sentence, and never use a generic native recovery reply as the source.
+
+Native-script quality checks must cover both over-spaced graphemes and long
+concatenated Indic runs with missing word boundaries, with the long-run check before
+any token-count shortcut.
+
+**Why:** A provider can return HTTP 200 and valid TTS audio while emitting a
+sentence that renders and sounds broken because the words were concatenated.
+
+**How to apply:** Reject or replace clearly malformed native output before it reaches
+the chat history or TTS; if a translation has no valid source, ask for the source
+deterministically instead of invoking the coach model.

@@ -176,6 +176,29 @@ const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> =
   Urdu: { male: "سمجھ گیا۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔", female: "سمجھ گئی۔ آئیے آہستہ آہستہ مشق کرتے ہیں۔" },
 };
 
+const NATIVE_TRANSLATION_CLARIFICATIONS: Record<string, { male: string; female: string }> = {
+  Hindi: {
+    male: "कृपया वह अंग्रेज़ी वाक्य फिर से बोलिए। मैं उसे हिंदी में साफ़-साफ़ बताऊँगा।",
+    female: "कृपया वह अंग्रेज़ी वाक्य फिर से बोलिए। मैं उसे हिंदी में साफ़-साफ़ बताऊँगी।",
+  },
+  Marathi: {
+    male: "कृपया ते इंग्रजी वाक्य पुन्हा सांगा. मी त्याचा अर्थ मराठीत स्पष्टपणे सांगेन.",
+    female: "कृपया ते इंग्रजी वाक्य पुन्हा सांगा. मी त्याचा अर्थ मराठीत स्पष्टपणे सांगेन.",
+  },
+  Tamil: {
+    male: "தயவுசெய்து அந்த ஆங்கில வாக்கியத்தை மீண்டும் சொல்லுங்கள். அதைத் தெளிவாக தமிழில் சொல்கிறேன்.",
+    female: "தயவுசெய்து அந்த ஆங்கில வாக்கியத்தை மீண்டும் சொல்லுங்கள். அதைத் தெளிவாக தமிழில் சொல்கிறேன்.",
+  },
+  Telugu: {
+    male: "దయచేసి ఆ ఇంగ్లీష్ వాక్యాన్ని మళ్లీ చెప్పండి. దాన్ని తెలుగులో స్పష్టంగా చెబుతాను.",
+    female: "దయచేసి ఆ ఇంగ్లీష్ వాక్యాన్ని మళ్లీ చెప్పండి. దాన్ని తెలుగులో స్పష్టంగా చెబుతాను.",
+  },
+  Bengali: {
+    male: "দয়া করে ইংরেজি বাক্যটি আবার বলুন। আমি সেটি বাংলায় পরিষ্কার করে বলব।",
+    female: "দয়া করে ইংরেজি বাক্যটি আবার বলুন। আমি সেটি বাংলায় পরিষ্কার করে বলব।",
+  },
+};
+
 const NATIVE_LANGUAGE_CONFIRMATIONS: Record<string, { male: string; female: string }> = {
   Hindi: {
     male: "हाँ, मैं साफ़ और सही हिंदी में आपकी मदद करूँगा। आप अटकें तो मैं हिंदी में समझाऊँगा और फिर हम अंग्रेज़ी का अभ्यास जारी रखेंगे।",
@@ -221,7 +244,23 @@ const INDIC_SCRIPT_CHARACTER = /[\u0900-\u0D7F\u0600-\u06FF]/u;
  */
 function hasFragmentedNativeScript(text: string): boolean {
   const tokens = text.trim().split(/\s+/u).filter(Boolean);
+  const nativeRuns: string[] = text.match(/[\u0900-\u0D7F\u0600-\u06FF]+/gu) ?? [];
+  const nativeCharacterCount = nativeRuns.reduce((total, run) => total + [...run].length, 0);
+  const whitespaceCount = (text.match(/\s/gu) ?? []).length;
+
+  // Some provider responses have the opposite failure: a whole sentence is
+  // emitted as one long Indic run with almost no word boundaries. Browsers
+  // then wrap it at arbitrary characters, which looks like broken Hindi and
+  // makes the TTS voice sound equally unnatural. This check must run before
+  // the token-count guard because the broken response can be one token.
+  if (
+    nativeCharacterCount >= 18
+    && whitespaceCount <= 2
+    && nativeRuns.some((run) => [...run].length >= 14)
+  ) return true;
+  if (nativeRuns.some((run) => [...run].length >= 24)) return true;
   if (tokens.length < 4) return false;
+
   const scriptTokens = tokens.filter((token) =>
     [...token].some((character) => INDIC_SCRIPT_CHARACTER.test(character)),
   );
@@ -234,20 +273,7 @@ function hasFragmentedNativeScript(text: string): boolean {
   if (bareSingles >= 2) return true;
   const tinyScriptTokens = scriptTokens.filter((token) => [...stripPunct(token)].length <= 2).length;
   if (tokens.length >= 7 && bareSingles >= 1 && tinyScriptTokens / scriptTokens.length >= 0.5) return true;
-
-  // Some provider responses have the opposite failure: a whole sentence is
-  // emitted as one long Indic run with almost no word boundaries. Browsers
-  // then wrap it at arbitrary characters, which looks like the screenshot's
-  // broken Hindi and makes the TTS voice sound equally unnatural.
-  const nativeRuns = text.match(/[\u0900-\u0D7F\u0600-\u06FF]+/gu) ?? [];
-  const nativeCharacterCount = nativeRuns.reduce((total, run) => total + [...run].length, 0);
-  const whitespaceCount = (text.match(/\s/gu) ?? []).length;
-  if (
-    nativeCharacterCount >= 18
-    && whitespaceCount <= 2
-    && nativeRuns.some((run) => [...run].length >= 14)
-  ) return true;
-  return nativeRuns.some((run) => [...run].length >= 24);
+  return false;
 }
 
 function collapseFragmentedNativeScript(text: string): string {
@@ -1005,6 +1031,13 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
+        } else if (translationRequested) {
+          // “Can you speak this in Hindi?” is not safe to send to the coach
+          // when there is no real English source in the conversation. Ask for
+          // the source deterministically instead of letting the model invent
+          // a native-language paragraph.
+          response = NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
+            ?? "Please say the English sentence once more, and I’ll translate it clearly.";
         } else {
           response = await stream(
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
