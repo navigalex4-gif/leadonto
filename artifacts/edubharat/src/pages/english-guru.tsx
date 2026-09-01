@@ -110,10 +110,37 @@ function extractTranslationSource(text: string, previousConversationMessage: str
     .map((word) => word.toLowerCase())
     .filter((word) => !ignored.has(word) && !HELPER_LANGUAGE_ALIASES.some(({ name }) => name.toLowerCase() === word));
   if (explicitWords.length > 0) {
-    return explicitWords.join(" ");
+    return normalizeTranslationSource(explicitWords.join(" "));
   }
-  return previousConversationMessage;
+  return normalizeTranslationSource(previousConversationMessage);
 }
+
+function normalizeTranslationSource(source: string): string {
+  const normalized = source.trim().replace(/\s+/g, " ");
+  // Learners often join two English words when speaking. Treat this common
+  // spelling of "strong growth" as the phrase they intended, rather than
+  // sending an unknown token to the translator and then showing an unrelated
+  // clarification.
+  if (/^strongrowth$/i.test(normalized)) return "strong growth";
+  return normalized;
+}
+
+const KNOWN_TRANSLATION_FALLBACKS: Record<string, Record<string, string>> = {
+  "strong growth": {
+    Hindi: "मज़बूत विकास",
+    Marathi: "भक्कम वाढ",
+    Tamil: "வலுவான வளர்ச்சி",
+    Telugu: "బలమైన వృద్ధి",
+    Bengali: "শক্তিশালী বৃদ্ধি",
+    Gujarati: "મજબૂત વૃદ્ધિ",
+    Kannada: "ಬಲವಾದ ಬೆಳವಣಿಗೆ",
+    Malayalam: "ശക്തമായ വളർച്ച",
+    Punjabi: "ਮਜ਼ਬੂਤ ਵਿਕਾਸ",
+    Odia: "ଦୃଢ଼ ବିକାଶ",
+    Assamese: "শক্তিশালী বৃদ্ধি",
+    Urdu: "مضبوط ترقی",
+  },
+};
 
 function isTranslationRecoveryMessage(text: string): boolean {
   const normalized = text
@@ -1223,8 +1250,8 @@ Rules for spoken replies:
           )
         ) {
           response = await stream(
-            `STRICT TRANSLATION. Translate the complete source text below into ${translationLanguage}. The source may be English or another Indian language. Return only its complete natural translation in ${translationLanguage} script.\n\nSource text: "${translationSource}"`,
-            `You must translate, not teach. Preserve the source sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
+            `STRICT TRANSLATION. Translate the complete source text below into ${translationLanguage}. The source may be English or another Indian language. If it is a misspelling or joined English phrase, infer the closest natural phrase before translating it. Return only its complete natural translation in ${translationLanguage} script.\n\nSource text: "${translationSource}"`,
+            `You must translate, not teach. Preserve the source sentence's complete meaning and question form. If the source is an unfamiliar joined word, infer the most likely intended phrase instead of asking the student to repeat it. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
@@ -1244,7 +1271,8 @@ Rules for spoken replies:
           // native-language request; a short native clarification is safer than
           // silently teaching the wrong language.
           if (malformedTranslation) {
-            response = NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
+            response = KNOWN_TRANSLATION_FALLBACKS[translationSource.toLowerCase()]?.[translationLanguage]
+              ?? NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
               ?? `Please say the English sentence once more, and I’ll translate it clearly into ${translationLanguage}.`;
           }
         }
