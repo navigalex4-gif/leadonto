@@ -172,27 +172,36 @@ export function Navbar() {
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 All Products
+                <span className="rounded-full bg-secondary/10 px-1.5 py-0.5 text-[9px] font-extrabold tabular-nums">
+                  {PRODUCT_LINKS.length}
+                </span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
               </button>
               {productsOpen && (
                 <div
-                  className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-white p-2 shadow-xl"
+                  className="absolute left-0 top-full z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-white p-2 shadow-xl"
                   role="menu"
                   aria-label="All products"
                 >
-                  {PRODUCT_LINKS.slice(2).map(({ href, label, icon: Icon }) => (
-                    <Link
-                      key={href}
-                      href={href}
-                      role="menuitem"
-                      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                        pathOnly === href ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {label}
-                    </Link>
-                  ))}
+                  <div className="px-3 pb-2 pt-1">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">Product suite</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Every tool for communication and career readiness.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {PRODUCT_LINKS.map(({ href, label, icon: Icon }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        role="menuitem"
+                        className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors ${
+                          pathOnly === href ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{label}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

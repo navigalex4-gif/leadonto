@@ -223,11 +223,11 @@ export default function Home() {
   );
   const heroTitle = useContent(
     "home.hero.title",
-    "The AI English coach that switches to your mother tongue the moment you get stuck.",
+    "Stop freezing in English. Start speaking in 10 seconds.",
   );
   const heroSubtitle = useContent(
     "home.hero.subheadline",
-    "Practise real interviews and workplace conversations. Get help in Hindi, Tamil, Telugu, Bengali and 9 more when the English word won't come — then get right back to English.",
+    "Practise real conversations with an AI teacher who switches to your mother tongue the second you get stuck — then brings you right back to English. No classes. No schedule. No judgement.",
   );
   const ctaPrimary = useContent("home.hero.startCta", "🎙 Start 15 Free Minutes");
   const ctaSecondary = useContent("home.hero.checkCta", "Try a Mock Interview");
@@ -290,7 +290,7 @@ export default function Home() {
                 </QuietLink>
               </div>
               <p className="mt-3 text-xs font-semibold text-[#596273]">
-                Trusted by learners preparing for placements, BPO jobs and MNC interviews.
+                A private practice room for placements, BPO jobs and MNC interviews.
               </p>
             </div>
 
@@ -489,18 +489,19 @@ export default function Home() {
         <section className="py-12 sm:py-14" aria-labelledby="pricing-teaser-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="max-w-xl">
-              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">₹ Simple pricing</p>
+              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">₹ Choose your pace</p>
               <h2 id="pricing-teaser-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-                Try free. Subscribe when it works.
+                Start free. Upgrade when your interview is on the calendar.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-                Start with 15 minutes free — no signup. Add a subscription only when practice becomes a daily habit.
+                Try 15 guest minutes with no card, then choose the everyday plan or the complete job-search stack.
               </p>
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {homePlans.map((p) => {
                 const isHighlight = !!p.highlight;
+                const isBestValue = p.id === "career";
                 return (
                   <div
                     key={p.id}
@@ -508,9 +509,18 @@ export default function Home() {
                       "rounded-2xl p-6 " +
                       (isHighlight
                         ? "border-2 border-[#F97316] bg-white shadow-md"
+                        : isBestValue
+                          ? "border-2 border-emerald-500/70 bg-emerald-50/20 shadow-md"
                         : "border border-border bg-card/60")
                     }
                   >
+                    {p.pricingBadge && (
+                      <span className={`mb-3 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest ${
+                        isHighlight ? "bg-orange-500 text-white" : isBestValue ? "bg-emerald-100 text-emerald-800" : "bg-secondary/10 text-secondary"
+                      }`}>
+                        {p.pricingBadge}
+                      </span>
+                    )}
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{p.name}</p>
                     <p className="mt-1 text-3xl font-extrabold text-secondary">
                       {p.priceLabel}
@@ -537,7 +547,7 @@ export default function Home() {
                 onClick={() => trackFunnel("cta_clicked", { cta: "see_all_plans", placement: "home_pricing" })}
                 className="inline-flex items-center gap-2 text-sm font-extrabold text-primary"
               >
-                See all plans <ArrowRight className="h-4 w-4" />
+                Compare all 5 paths <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

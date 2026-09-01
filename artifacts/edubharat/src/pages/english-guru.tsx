@@ -1463,7 +1463,7 @@ Rules for spoken replies:
 
       <div className={`grid gap-3 ${embedded ? "lg:flex-1 lg:min-h-0 lg:overflow-hidden" : "lg:grid-cols-[200px_1fr] lg:flex-1 lg:min-h-0 lg:overflow-hidden"}`}>
         {/* Sidebar */}
-        <aside className={`order-2 lg:order-1 space-y-2 lg:flex lg:flex-col lg:overflow-y-auto lg:min-h-0 ${embedded ? "hidden" : ""}`}>
+        <aside className={`hidden order-2 space-y-2 lg:order-1 lg:flex lg:flex-col lg:overflow-y-auto lg:min-h-0 ${embedded ? "lg:hidden" : ""}`}>
           {/* Change Teacher — top of page CTA */}
           <Button
             variant="default"

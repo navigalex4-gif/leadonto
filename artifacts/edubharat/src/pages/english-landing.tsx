@@ -113,22 +113,23 @@ export default function EnglishLanding() {
               🇮🇳 Hindi · Tamil · Telugu · Bengali · Marathi + 8 more
             </p>
             <h1 id="english-guru-title" className="max-w-xl text-[clamp(1.75rem,4vw,2.7rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#111827]">
-              Speak English with confidence, with help in your language.
+              Stop freezing in English. Start speaking in <span className="text-[#C2410C]">10 seconds.</span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-[#596273] sm:text-lg">
-              Practise real conversations with a patient AI English coach. Get a simple explanation in your language when a word does not come — then return to English and keep speaking.
+              Practise real conversations with an AI teacher who switches to your mother tongue the second you get stuck — then brings you right back to English.
             </p>
 
             <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#596273]" aria-label="English Guru benefits">
               <li className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" />15 minutes free</li>
               <li className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" />No signup</li>
+              <li className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" />No judgement</li>
               <li className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" />Works on 3G</li>
             </ul>
 
             <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
               <StartLink>
                 <Mic2 className="h-4 w-4" />
-                Start 15 Free Minutes
+                Start speaking free
                 <ArrowRight className="h-4 w-4" />
               </StartLink>
               <QuietLink href="/">
@@ -136,9 +137,7 @@ export default function EnglishLanding() {
                 Back to home
               </QuietLink>
             </div>
-            <p className="mt-3 text-xs font-semibold text-[#596273]">
-              Built for learners preparing for placements, BPO jobs and MNC interviews.
-            </p>
+            <p className="mt-3 text-xs font-semibold text-[#596273]">No classes. No schedule. Just a safe place to practise.</p>
           </div>
 
           <div className="mx-auto w-full max-w-md rounded-2xl border border-[#F97316]/35 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(249,115,22,.42)] sm:p-6">
@@ -183,7 +182,7 @@ export default function EnglishLanding() {
       <section className="border-y border-orange-200/70 bg-[#FFF8F0] py-6 sm:py-8" aria-label="English Guru highlights">
         <div className="container mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 text-center sm:grid-cols-4 sm:px-8">
           <div><p className="text-2xl font-extrabold text-secondary">{INDIAN_LANGUAGES.length}+</p><p className="text-xs text-muted-foreground">Indian languages supported</p></div>
-          <div><p className="text-2xl font-extrabold text-secondary">15 min</p><p className="text-xs text-muted-foreground">Free guest practice</p></div>
+          <div><p className="text-2xl font-extrabold text-secondary">10 sec</p><p className="text-xs text-muted-foreground">To your first prompt</p></div>
           <div><p className="text-2xl font-extrabold text-secondary">Spoken</p><p className="text-xs text-muted-foreground">Practice, not worksheets</p></div>
           <div><p className="text-2xl font-extrabold text-secondary">3G</p><p className="text-xs text-muted-foreground">Audio-light on mobile</p></div>
         </div>
@@ -192,15 +191,15 @@ export default function EnglishLanding() {
       <section className="bg-background py-12 sm:py-16" aria-labelledby="how-it-works-title">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-2xl">
-            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Simple practice loop</p>
+            <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Three taps to your first conversation</p>
             <h2 id="how-it-works-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">Speak first. Get help. Try again.</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">English Guru keeps the conversation moving so you build confidence in the situations that matter at work.</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">It is a conversation, not a test — built for the exact moment your confidence gets stuck.</p>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {[
-              { icon: MessageCircle, title: "Say what you can", text: "Talk naturally about your work, goals, interviews or everyday life." },
+              { icon: MessageCircle, title: "Just start talking", text: "Speak about your work, goals, interviews or everyday life — in English, your language, or a mix." },
               { icon: Languages, title: "Get a bridge, not a lecture", text: "When you get stuck, your coach explains the idea in a language you understand." },
-              { icon: Volume2, title: "Repeat with confidence", text: "Hear a clear English version, say it back, and keep the conversation going." },
+              { icon: Volume2, title: "Say the next sentence", text: "Hear a clear English version, say it back, and keep the conversation moving." },
             ].map(({ icon: Icon, title, text }, index) => (
               <div key={title} className="rounded-2xl border border-border bg-white p-5">
                 <div className="flex items-center gap-3">
@@ -234,8 +233,8 @@ export default function EnglishLanding() {
       <section className="bg-[#FFFDF9] py-12 sm:py-16" aria-labelledby="english-guru-final-title">
         <div className="container mx-auto max-w-3xl px-5 text-center sm:px-8">
           <Sparkles className="mx-auto h-6 w-6 text-primary" />
-          <h2 id="english-guru-final-title" className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">The next sentence gets easier when you say it.</h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">Start with one short conversation. No signup, no card, and no pressure to be perfect.</p>
+          <h2 id="english-guru-final-title" className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">Your next English conversation starts in 10 seconds.</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">No signup. No card. No one listening but your teacher. The only way past the freeze is to start speaking.</p>
           <StartLink className="mt-6">Start speaking free <ArrowRight className="h-4 w-4" /></StartLink>
         </div>
       </section>

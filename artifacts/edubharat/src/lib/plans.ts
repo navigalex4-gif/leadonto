@@ -24,6 +24,10 @@ export type Plan = {
   homeBullets: string[];
   /** Full bullets used on the /pricing page. */
   fullBullets: string[];
+  /** Short decision cue shown on the full pricing comparison. */
+  pricingBadge?: string;
+  /** One-line explanation of the role this plan plays in the decision. */
+  decisionNote?: string;
   highlight?: boolean;
 };
 
@@ -47,6 +51,8 @@ export const PLANS: Plan[] = [
       "20 credits (≈ 4 hours) when you create a free account",
       "Free forever: lessons, grammar, writing, jobs, news",
     ],
+    pricingBadge: "Try risk-free",
+    decisionNote: "Start with the full Lead Onto experience before paying.",
   },
   {
     id: "practice",
@@ -70,6 +76,8 @@ export const PLANS: Plan[] = [
       "Mistake Book with spaced repetition",
       "Cancel anytime",
     ],
+    pricingBadge: "Most popular",
+    decisionNote: "The practical everyday plan for building a speaking habit.",
   },
   {
     id: "career",
@@ -93,6 +101,8 @@ export const PLANS: Plan[] = [
       "Priority feedback on your practice sessions",
       "Cancel anytime",
     ],
+    pricingBadge: "Best value",
+    decisionNote: "The complete job-search stack when interviews are your priority.",
   },
   {
     id: "sprint",
@@ -110,6 +120,8 @@ export const PLANS: Plan[] = [
       "Certified completion badge (shareable on LinkedIn)",
       "One-time payment — no auto-renew",
     ],
+    pricingBadge: "Focused sprint",
+    decisionNote: "A one-time intensive option for a near-term placement push.",
   },
   {
     id: "credits",
@@ -126,6 +138,8 @@ export const PLANS: Plan[] = [
       "Credits never expire",
       "Minimum top-up ₹10 (₹99 recommended)",
     ],
+    pricingBadge: "Flexible fallback",
+    decisionNote: "Pay only for occasional sessions, with no monthly commitment.",
   },
 ];
 

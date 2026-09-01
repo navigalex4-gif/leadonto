@@ -852,13 +852,15 @@ function InterviewAceContent() {
   // Experience is an explicit candidate choice. Role selection must never
   // infer seniority because the same role can be appropriate at many levels.
   const [experience, setExperience] = useState("");
+  const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya") ?? INTERVIEW_COACHES[0]!;
+  const [coachHasBeenRematched, setCoachHasBeenRematched] = useState(false);
   const [coach, setCoach] = useState<Coach>(() => {
-    // B2B invites lock the interviewer to the recruiter's choice; otherwise the
-    // interviewer is auto-matched to the interview type the candidate picked.
+    // B2B invites lock the interviewer to the recruiter's choice; otherwise
+    // Ananya Ma'am is the welcoming default for a new candidate.
     if (b2bParams.coach) {
       return INTERVIEW_COACHES.find(c => c.id === b2bParams.coach) ?? INTERVIEW_COACHES[0]!;
     }
-    return recommendedCoachFor(type);
+    return defaultCoach;
   });
   const displayCoachName = interviewerDisplayName(coach.name);
   const candidateDisplayName = profile.name || user?.name || "You";
@@ -977,7 +979,9 @@ function InterviewAceContent() {
   const spokenInterviewRoleLabel = spokenRoleLabel(interviewRoleLabel);
   const domainExpertise = `${functionalKnowledgeFor(typeMeta.value, interviewRoleLabel)}
 ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.industryPreference)}`;
-  const recommendedCoachId = recommendedCoachFor(type).id;
+  const recommendedCoachId = !b2bParams.coach && !coachHasBeenRematched
+    ? defaultCoach.id
+    : recommendedCoachFor(type).id;
   // B2B invites lock the interviewer to the recruiter's choice — the candidate
   // must not be able to swap it (from the type dropdown or the coach grid).
   const coachLocked = !!b2bParams.coach;
@@ -1008,7 +1012,10 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     speech.stop();
     synth.stop();
     setPhase("setup");
-    if (!b2bParams.coach) setCoach(recommendedCoachFor(type));
+    if (!b2bParams.coach) {
+      setCoach(defaultCoach);
+      setCoachHasBeenRematched(false);
+    }
     setQuestions([]);
     setReport(null);
     setSaved(false);
@@ -2151,7 +2158,10 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                // they change the role so the benchmark is intentional.
                setExperience("");
               // Re-match the interviewer to the new type (unless a B2B invite locked it).
-              if (!b2bParams.coach) setCoach(recommendedCoachFor(v));
+              if (!b2bParams.coach) {
+                setCoachHasBeenRematched(true);
+                setCoach(recommendedCoachFor(v));
+              }
             }}
           >
             <SelectTrigger className="h-7 text-xs w-[150px] rounded-full border-dashed">

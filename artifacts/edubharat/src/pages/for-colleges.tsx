@@ -5,6 +5,7 @@ import {
   BookOpen,
   Building2,
   CheckCircle2,
+  Clock3,
   GraduationCap,
   Mic,
   ShieldCheck,
@@ -42,18 +43,60 @@ const BULLETS = [
 const STEPS = [
   {
     step: "1",
-    title: "Free 100-seat pilot",
-    body: "We activate 100 seats for your final-year students for 30 days. No card, no lock-in.",
+    title: "Start with 100 seats",
+    body: "Activate a 30-day pilot for final-year students with no card and no lock-in.",
   },
   {
     step: "2",
-    title: "TPO reviews the cohort report",
-    body: "At day 30 you receive fluency and interview-readiness data for the pilot cohort.",
+    title: "Watch practice happen",
+    body: "Students build speaking and interview habits while the TPO sees participation and readiness signals.",
   },
   {
     step: "3",
-    title: "Renew for the whole batch",
-    body: "Annual licence from ₹299 per student for 200+ seats. Includes admin dashboard and support.",
+    title: "Make the annual call",
+    body: "At day 30, use the cohort report to renew for the batch from ₹299 per student per year.",
+  },
+] as const;
+
+const BUYER_LENSES = [
+  {
+    icon: GraduationCap,
+    title: "For students",
+    body: "Practice English conversations, mock interviews, and job-ready communication before placement day.",
+  },
+  {
+    icon: BarChart3,
+    title: "For the TPO",
+    body: "See participation, fluency, interview readiness, and common gaps without chasing spreadsheets.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "For leadership",
+    body: "Start with a bounded pilot, keep student work private, and expand only when the evidence is useful.",
+  },
+] as const;
+
+const INSTITUTION_PLANS = [
+  {
+    name: "Pilot",
+    price: "₹0",
+    detail: "100 seats · 30 days",
+    body: "A low-risk way to see participation and readiness before committing to an annual licence.",
+    badge: "Start here",
+  },
+  {
+    name: "College Standard",
+    price: "₹299",
+    detail: "per student · per year · 200+ seats",
+    body: "The practical whole-batch option with the TPO dashboard, support, and the full student practice stack.",
+    badge: "Best value",
+  },
+  {
+    name: "Corporate Cohort",
+    price: "Custom",
+    detail: "100-seat minimum",
+    body: "Custom scenarios, HR reports, and a private cohort experience for L&D and hiring teams.",
+    badge: "For employers",
   },
 ] as const;
 
@@ -69,14 +112,20 @@ export default function ForColleges() {
       {/* Hero */}
       <section className="border-b border-border/70 bg-gradient-to-br from-indigo-950 to-secondary text-secondary-foreground">
         <div className="container mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
-          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-200">🎓 For placement cells</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-200">For placement cells &amp; L&amp;D teams</p>
           <h1 className="mt-4 max-w-3xl text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            Give every final-year student unlimited interview practice.
+            Turn placement prep into a measurable campus advantage.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-secondary-foreground/80 sm:text-lg">
-            Branded portal for your college, cohort analytics for the TPO, and mother-tongue support so no student is
-            left behind. From ₹299/student/year for 200+ seats.
+            Give every final-year student a private place to practise English and interviews, while your TPO gets
+            a clear view of cohort readiness. Start with 100 seats free for 30 days.
           </p>
+
+          <div className="mt-6 flex flex-wrap gap-2 text-xs font-bold text-indigo-100">
+            {["100 seats", "30 days", "No card", "India-first support"].map((item) => (
+              <span key={item} className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5">{item}</span>
+            ))}
+          </div>
 
           <div className="mt-7 flex flex-wrap gap-3">
             <a
@@ -87,7 +136,7 @@ export default function ForColleges() {
               }}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-secondary hover:bg-orange-50"
             >
-              Book a free 100-seat pilot
+              Start the free 100-seat pilot
               <ArrowRight className="h-4 w-4" />
             </a>
             <Link
@@ -103,7 +152,7 @@ export default function ForColleges() {
           </div>
 
           <p className="mt-4 text-xs text-secondary-foreground/60">
-            Already partnered with placement cells across India. No credit card required for the pilot.
+            See the pilot evidence first. No credit card is required, and you choose whether to continue after 30 days.
           </p>
         </div>
       </section>
@@ -112,14 +161,14 @@ export default function ForColleges() {
       <section className="py-12 sm:py-16">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Why placement cells choose us</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">One platform, three wins</p>
             <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
-              Everything your students need before the interview.
+              The value is visible to the student, the TPO, and the decision-maker.
             </h2>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {BULLETS.map(({ icon: Icon, title, body }) => (
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[...BUYER_LENSES, ...BULLETS.slice(0, 1)].map(({ icon: Icon, title, body }) => (
               <Card key={title} className="border-border/80">
                 <CardContent className="p-5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100 text-orange-700">
@@ -158,13 +207,13 @@ export default function ForColleges() {
         </div>
       </section>
 
-      {/* How it works */}
+      {/* Pilot nudge */}
       <section className="py-12 sm:py-16">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">How it works</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">A practical 30-day decision</p>
             <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
-              Start with a free 100-seat pilot.
+              Start small. See the signal. Then scale with confidence.
             </h2>
           </div>
 
@@ -175,6 +224,7 @@ export default function ForColleges() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-secondary-foreground font-extrabold">
                     {step}
                   </div>
+                  {step === "1" && <Clock3 className="ml-auto h-4 w-4 text-primary" aria-label="30-day pilot" />}
                   <h3 className="mt-4 text-lg font-extrabold text-secondary">{title}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
                 </CardContent>
@@ -187,26 +237,43 @@ export default function ForColleges() {
       {/* Pricing summary */}
       <section className="border-y border-border/70 bg-card/40 py-12 sm:py-16">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Institution pricing</p>
+            <h2 className="mt-3 max-w-2xl text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
+              One low-risk pilot, one clear annual value choice.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Compare the path that fits your buying moment. Every paid college seat is annual, predictable, and
+              free from per-session surprises.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            {INSTITUTION_PLANS.map((plan, index) => (
+              <Card
+                key={plan.name}
+                className={index === 1 ? "border-2 border-[#F97316] bg-white shadow-lg shadow-orange-100/50" : "border-border/80"}
+              >
+                <CardContent className="p-5">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest ${
+                    index === 1 ? "bg-orange-100 text-orange-800" : "bg-secondary/10 text-secondary"
+                  }`}>
+                    {plan.badge}
+                  </span>
+                  <h3 className="mt-4 text-lg font-extrabold text-secondary">{plan.name}</h3>
+                  <p className="mt-2 text-3xl font-extrabold text-secondary">{plan.price}</p>
+                  <p className="mt-1 text-xs font-semibold text-muted-foreground">{plan.detail}</p>
+                  <p className="mt-4 text-sm leading-6 text-muted-foreground">{plan.body}</p>
+                  <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" /> Predictable institutional access
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Institution pricing</p>
-              <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
-                Simple annual licences. No per-session fees.
-              </h2>
-              <ul className="mt-6 space-y-3 text-sm text-secondary">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span><strong>College Pilot</strong> — free · 100 seats · 30 days</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span><strong>College Standard</strong> — ₹299/student/year for 200+ seats · TPO dashboard included</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span><strong>Corporate Cohort</strong> — from ₹799/employee/month (100-seat minimum) · custom scenarios · HR reports</span>
-                </li>
-              </ul>
               <a
                 href="mailto:email@leadonto.com?subject=B2B%20pricing%20enquiry"
                 className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#F97316] px-5 text-sm font-extrabold text-white hover:bg-[#C2410C]"
@@ -216,6 +283,12 @@ export default function ForColleges() {
               >
                 <Mic className="h-4 w-4" /> Get a proposal
               </a>
+              <Link
+                href="/b2b/login"
+                className="ml-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-5 text-sm font-extrabold text-secondary hover:bg-muted/30"
+              >
+                <Building2 className="h-4 w-4" /> B2B Portal
+              </Link>
             </div>
 
             <div className="rounded-2xl border border-border bg-white p-6 shadow-sm">
