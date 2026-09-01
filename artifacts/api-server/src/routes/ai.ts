@@ -2,6 +2,11 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import { AiChatBody } from "@workspace/api-zod";
+import {
+  applyNativeLanguagePolicy,
+  isDeterministicLanguageSwitch,
+  nativeLanguageConfirmation,
+} from "../lib/native-language-policy";
 
 const router: IRouter = Router();
 
@@ -43,8 +48,23 @@ const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an I
 
 function applyLanguageQuality(prompt: string, system?: string | null): string | null | undefined {
   const requestedText = `${prompt}\n${system ?? ""}`;
-  if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|हिंदी|हिन्दी|मराठी|देवनागरी|matra|मात्रा)/iu.test(requestedText)) return system;
-  return `${system ? `${system}\n\n` : ""}${INDIAN_LANGUAGE_QUALITY_RULE}`;
+  const nativePolicy = applyNativeLanguagePolicy(prompt, system);
+  if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|हिंदी|हिन्दी|मराठी|देवनागरी|matra|मात्रा|বাংলা|తెలుగు|தமிழ்|ગુજરાતી|ಕನ್ನಡ|മലയാളം|ਪੰਜਾਬੀ|ଓଡ଼ିଆ|اردو|অসমীয়া)/iu.test(requestedText)) {
+    return nativePolicy;
+  }
+  return `${nativePolicy ? `${nativePolicy}\n\n` : ""}${INDIAN_LANGUAGE_QUALITY_RULE}`;
+}
+
+function setSseHeaders(res: Response) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+}
+
+function writeDeterministicSseResponse(res: Response, text: string) {
+  res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  res.end();
 }
 
 function getAnthropicModelChain(_maxTokens: number, qualityFirst = false) {
@@ -492,9 +512,12 @@ router.post("/ai/stream", async (req, res) => {
   const { prompt, system: rawSystem, maxTokens } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  setSseHeaders(res);
+  const directLanguage = isDeterministicLanguageSwitch(prompt);
+  if (directLanguage) {
+    writeDeterministicSseResponse(res, nativeLanguageConfirmation(directLanguage));
+    return;
+  }
 
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
   const tokens = maxTokens ?? 8192;
@@ -604,9 +627,12 @@ router.post("/ai/gemini-stream", async (req, res) => {
   if (!parsed) return;
   const { prompt, system: rawSystem, maxTokens } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  setSseHeaders(res);
+  const directLanguage = isDeterministicLanguageSwitch(prompt);
+  if (directLanguage) {
+    writeDeterministicSseResponse(res, nativeLanguageConfirmation(directLanguage));
+    return;
+  }
   const state = { wrote: false };
 
   try {
@@ -652,6 +678,11 @@ router.post("/ai/chat", async (req, res) => {
   if (!parsed) return;
   const { prompt, maxTokens, system: rawSystem } = parsed;
   const system = applyLanguageQuality(prompt, rawSystem);
+  const directLanguage = isDeterministicLanguageSwitch(prompt);
+  if (directLanguage) {
+    res.json({ text: nativeLanguageConfirmation(directLanguage) });
+    return;
+  }
 
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
 

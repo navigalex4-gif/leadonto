@@ -136,9 +136,20 @@ function isNativeTranslationRequest(text: string, targetLanguage: string, hasPre
       && (sourceWords.length > 0 || hasSourceReference)
     );
   const asksInNativeScript = /(?:मतलब|अर्थ|क्या\s+बोलते|कैसे\s+कहते|काय\s+म्हणतात|कसा\s+म्हणतात|எப்படி|என்ன\s+அர்த்தம்|ఏమని|ఎలా\s+చెప్ప|মানে|অর্থ|શું\s+કહેવાય|ಅರ್ಥ|ಹೇಗೆ\s+ಹೇಳ|അർത്ഥം|എങ്ങനെ\s+പറയ|ਕੀ\s+ਕਹਿੰਦੇ|କଣ\s+କୁହାଯାଏ|মানে|معنی)/u.test(text);
+  // Learners often combine the target language's postposition with an
+  // English/native explanation verb, e.g. “मराठी में explain करो” or
+  // “मराठीत समजावून सांगा”. This is an explanation/translation request, not
+  // merely a request to switch the tutor's helper language.
+  const asksMixedLanguageExplanation =
+    hasLanguageName
+    && /(?:में|मध्ये|मराठीत|हिंदी\s+में|தமிழில்|తెలుగులో|బెంగాలీలో|ગુજરાતીમાં|ಕನ್ನಡದಲ್ಲಿ|മലയാളത്തിൽ|ਪੰਜਾਬੀ\s+ਵਿੱਚ|ଓଡ଼ିଆରେ|অসমীয়াত|اردو\s+میں)/u.test(text)
+    && (
+      /\b(?:explain|translate|meaning|mean)\b/i.test(text)
+      || /(?:समझाओ|समजाव|स्पष्ट\s*करा|விளக்க|వివరించ|বোঝাও|સમજાવ|ವಿವರಿಸಿ|വിശദീകരി|ਸਮਝਾ|ବୁଝାଅ|বুজাই|سمجھائیں)/u.test(text)
+    );
   const asksWhatIsThis = /what\s+is\s+(?:this|that)|what\s+does\s+(?:this|that)\s+mean/i.test(text);
   return Boolean(
-    (hasLanguageName && (asksInEnglish || asksWhatIsThis || asksInNativeScript))
+    (hasLanguageName && (asksInEnglish || asksWhatIsThis || asksInNativeScript || asksMixedLanguageExplanation))
     || (hasPreviousTeacherMessage && asksInNativeScript),
   );
 }
@@ -244,6 +255,28 @@ function looksLikeGenericNativeAcknowledgement(text: string): boolean {
 }
 
 const INDIC_SCRIPT_CHARACTER = /[\u0900-\u0D7F\u0600-\u06FF]/u;
+
+const NATIVE_SCRIPT_RANGES: Record<string, RegExp> = {
+  Hindi: /[\u0900-\u097F]/u,
+  Marathi: /[\u0900-\u097F]/u,
+  Tamil: /[\u0B80-\u0BFF]/u,
+  Telugu: /[\u0C00-\u0C7F]/u,
+  Bengali: /[\u0980-\u09FF]/u,
+  Gujarati: /[\u0A80-\u0AFF]/u,
+  Kannada: /[\u0C80-\u0CFF]/u,
+  Malayalam: /[\u0D00-\u0D7F]/u,
+  Punjabi: /[\u0A00-\u0A7F]/u,
+  Odia: /[\u0B00-\u0B7F]/u,
+  Assamese: /[\u0980-\u09FF]/u,
+  Urdu: /[\u0600-\u06FF]/u,
+};
+
+function hasExpectedNativeScript(text: string, language: string): boolean {
+  if (language === "English") return true;
+  const script = NATIVE_SCRIPT_RANGES[language];
+  if (!script) return false;
+  return [...text].filter((character) => script.test(character)).length >= 2;
+}
 
 /**
  * Some live-model responses place a space after every Indic grapheme. That is
@@ -1108,6 +1141,7 @@ Rules for spoken replies:
           && (
             !response.trim()
             || looksLikeGenericNativeAcknowledgement(response)
+            || !hasExpectedNativeScript(response, translationLanguage)
             || hasFragmentedNativeScript(response)
           )
         ) {
@@ -1123,6 +1157,14 @@ Rules for spoken replies:
         // repair protects speech while keeping the translated content visible.
         if (translationRequested) {
           response = collapseFragmentedNativeScript(response);
+          // A provider can return a successful English response while ignoring
+          // the translation directive. Never show that as the answer to a
+          // native-language request; a short native clarification is safer than
+          // silently teaching the wrong language.
+          if (!hasExpectedNativeScript(response, translationLanguage)) {
+            response = NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
+              ?? `कृपया वह वाक्य फिर से कहिए। मैं उसे ${translationLanguage} में स्पष्ट रूप से बताऊँगा।`;
+          }
         }
         // Some providers answer a normal coaching turn with the same generic
         // native acknowledgement used by the emergency translator fallback.
