@@ -11,9 +11,9 @@ type Props = {
 
 export function MobilePrimaryCTA({ label, href, onClick, compact = false }: Props) {
   const button = <Button onClick={onClick} size={compact ? "sm" : "lg"} className={compact
-    ? "h-8 w-full max-w-[190px] bg-orange-500 px-3 text-xs font-extrabold text-white shadow-md shadow-orange-200 hover:bg-orange-600"
+    ? "h-6 w-full max-w-[140px] bg-orange-500 px-2 text-[10px] font-extrabold text-white shadow-sm shadow-orange-200 hover:bg-orange-600"
     : "h-11 w-full bg-orange-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-orange-200 hover:bg-orange-600"}>
-    {label}<ArrowRight className="ml-2 h-4 w-4" />
+    {label}<ArrowRight className={`${compact ? "ml-1 h-3.5 w-3.5" : "ml-2 h-4 w-4"}`} />
   </Button>;
   return (
     <div className={`${compact ? "mb-2" : "mb-4"} flex justify-center md:hidden`}>

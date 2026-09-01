@@ -925,7 +925,11 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
             || /(?:हिंदी|मराठी|तमिल|தமிழ்|तेलुगु|తెలుగు|बंगाली|बংলা|गुजराती|ગુજરાતી|कन्नड़|ಕನ್ನಡ|मलयालम|മലയാളം|पंजाबी|ਪੰਜਾਬੀ|उर्दू|اردو).{0,45}(?:बोलिए|कहिए|दोहराइए|बताइए).{0,45}(?:पूछा|कहा|सवाल)/u.test(userMsg)
           );
         const legacyDirectTranslationDetected =
-          uiLang !== "English" && /(?:translate|say|speak|read|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg);
+          uiLang !== "English"
+          && /(?:translate|say|speak|read|repeat|tell|explain|meaning).{0,55}(?:in|to|using)\s+(?:hindi|marathi|tamil|telugu|bengali|gujarati|kannada|malayalam|punjabi|odia|assamese|urdu)/i.test(userMsg)
+          // “Speak in Hindi” is a language-setting command. Only classify it
+          // as translation when the learner names something to translate.
+          && /\b(?:translate|meaning|mean|this|that|sentence|phrase|question|word)\b/i.test(userMsg);
         const translationLanguage = languageRequest && languageRequest !== "English"
           ? languageRequest
           : uiLang;
@@ -1505,12 +1509,12 @@ Rules for spoken replies:
       {!embedded && <div className="mb-3 hidden flex-col items-center gap-1.5 md:flex">
         <LanguageHighlight />
          <Button
-          size="lg"
-           className="h-8 w-full max-w-[190px] bg-orange-500 px-3 text-xs font-extrabold text-white shadow-md shadow-orange-200 hover:bg-orange-600"
+           size="sm"
+            className="h-6 w-full max-w-[140px] bg-orange-500 px-2 text-[10px] font-extrabold text-white shadow-sm shadow-orange-200 hover:bg-orange-600"
           onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           Start Speaking Practice
-          <ChevronRight className="ml-2 h-4 w-4" />
+           <ChevronRight className="ml-1 h-3.5 w-3.5" />
         </Button>
       </div>}
 
@@ -1542,7 +1546,7 @@ Rules for spoken replies:
           </Card>
 
           {/* Desktop avatar card */}
-           <div className="hidden lg:flex max-h-[238px] flex-col items-center overflow-hidden rounded-2xl border bg-card px-2 py-2 shadow-sm">
+            <div className="hidden min-h-[320px] flex-col items-center overflow-visible rounded-2xl border bg-card px-2 py-3 shadow-sm">
             <AnimatedAvatar
               name={tutor.name}
               subtitle={tutor.role}
@@ -1616,7 +1620,8 @@ Rules for spoken replies:
               />
               <div className="min-w-0 flex-1">
                  <p className="text-xs font-bold leading-tight text-secondary">{profile.name || user?.name ? `Hi, ${profile.name || user?.name} 👋` : "Hi there 👋"}</p>
-                 <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground italic">"{tutor.intro}"</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-primary">{tutor.role}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground italic">"{tutor.intro}"</p>
                 {liveChat && (
                   <span className="flex items-center gap-1 text-xs text-green-600 font-semibold animate-pulse mt-1">
                     <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Live ON
@@ -1717,8 +1722,8 @@ Rules for spoken replies:
           </div>}
 
           {/* ── LIVE CONVERSATION — top section with its own heading ── */}
-          <section id="english-guru-live" className="flex flex-col min-h-0 flex-1">
-            <Card className={`flex flex-col overflow-hidden border-2 transition-all flex-1 min-h-0 max-h-[calc(100dvh-6rem)] lg:max-h-none ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
+              <section id="english-guru-live" className="flex min-h-[480px] flex-col flex-1">
+            <Card className={`flex min-h-[480px] flex-1 flex-col overflow-hidden border-2 transition-all lg:min-h-[560px] ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
             <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-1 flex-col">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1854,7 +1859,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-[260px] lg:min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-[390px] overflow-x-hidden overflow-y-auto pr-1 pt-1 lg:min-h-[420px]">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
