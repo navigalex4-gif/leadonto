@@ -169,8 +169,12 @@ app.use("/api/auth", (req, res, next) => {
   authRateLimiter(req, res, next);
 });
 app.use("/api/ai", createRateLimiter(60 * 1000, 60));
-app.use("/api/stt", createRateLimiter(60 * 1000, 20));
-app.use("/api/tts", createRateLimiter(60 * 1000, 30));
+// Voice products share these endpoints and can legitimately produce several
+// turns per minute. Keep them below the general API ceiling while leaving
+// enough room for Live Conversation, Communication Check, and Interview Ace
+// to recover/retry without rate-limiting one another.
+app.use("/api/stt", createRateLimiter(60 * 1000, 60));
+app.use("/api/tts", createRateLimiter(60 * 1000, 120));
 app.use("/api", createRateLimiter(60 * 1000, 240));
 
 app.use("/api", router);

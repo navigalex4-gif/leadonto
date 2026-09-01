@@ -29,7 +29,7 @@ const RECORDER_TIMESLICE_MS = 160;
 // That competes with final answer transcription and can exhaust or delay the
 // providers without ever advancing the interview. Final transcription is the
 // authoritative result, so keep preview off until it can be local/on-device.
-const ENABLE_SERVER_PREVIEW = true;
+const ENABLE_SERVER_PREVIEW = false;
 
 type SpeechRecognitionOptions = {
   silenceMs?: number;

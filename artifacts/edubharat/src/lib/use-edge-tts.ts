@@ -328,9 +328,11 @@ function languageForCharacter(char: string, nativeLanguage?: string, baseLanguag
 }
 
 /**
- * Keep one utterance as one ordered queue, but send each script run to the
- * correct neural voice. Whitespace and punctuation stay with the preceding
- * run so mixed replies do not sound like isolated words.
+ * Keep one utterance on one natural voice. Native neural voices handle short
+ * English code-switches well; splitting at every script boundary creates many
+ * tiny network calls, robotic prosody, and can exhaust the shared TTS limiter.
+ * Use the native voice only when native script makes up a meaningful share of
+ * the reply, otherwise retain the tutor's English voice.
  */
 function splitIntoSpeechChunks(
   text: string,
@@ -339,30 +341,18 @@ function splitIntoSpeechChunks(
 ): SpeechChunk[] {
   const clean = text.trim();
   if (!clean) return [];
-  const runs: SpeechChunk[] = [];
-  let currentLanguage = baseLanguage;
-  let current = "";
-  for (const char of clean) {
-    const charLanguage = languageForCharacter(char, nativeLanguage, baseLanguage);
-    const isWhitespaceOrPunctuation = /[\s.,!?;:'"()[\]{}\-–—/\\]/u.test(char);
-    // Keep separators with the current run. A script character is what starts
-    // a real language transition; this avoids tiny whitespace-only requests.
-    const targetLanguage = isWhitespaceOrPunctuation ? currentLanguage : charLanguage;
-    if (current && targetLanguage !== currentLanguage) {
-      runs.push({ text: current.trim(), language: currentLanguage });
-      current = "";
-    }
-    currentLanguage = targetLanguage;
-    current += char;
-  }
-  if (current.trim()) runs.push({ text: current.trim(), language: currentLanguage });
+  const scriptCharacters = [...clean].filter((char) => /[\p{L}\p{M}]/u.test(char));
+  const nativeCharacters = nativeLanguage
+    ? scriptCharacters.filter(
+        (char) => languageForCharacter(char, nativeLanguage, baseLanguage) === nativeLanguage,
+      ).length
+    : 0;
+  const nativeRatio = nativeCharacters / Math.max(1, scriptCharacters.length);
+  const language = nativeLanguage && nativeLanguage !== baseLanguage && nativeRatio >= 0.25
+    ? nativeLanguage
+    : baseLanguage;
 
-  return runs.flatMap((run) =>
-    splitSentenceChunks(run.text).map((sentence) => ({
-      text: sentence,
-      language: run.language,
-    })),
-  );
+  return splitSentenceChunks(clean).map((sentence) => ({ text: sentence, language }));
 }
 
 // Small natural gap between chunks — real speech has a breath/beat at full
@@ -547,6 +537,14 @@ function playChunkChain(
       clearTimeout(hangTimer);
       if (myGen !== _speakGen) return;
       if (!res.ok || ctrl.signal.aborted) {
+        // A rate-limited retry would immediately consume another rejected
+        // request from the same window. Speak through the local browser voice
+        // instead so the learner still hears the turn and the mic is released.
+        if (!ctrl.signal.aborted && res.status === 429) {
+          console.warn("[TTS] server rate limited; using browser voice fallback");
+          useFallbackThenNext();
+          return;
+        }
         if (!ctrl.signal.aborted && retry()) return;
         useFallbackThenNext();
         return;

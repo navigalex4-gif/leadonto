@@ -69,6 +69,7 @@ Per-character segment stitching (old approach) rendered 1-3 word fragments witho
 ## API Limits
 - `/api/tts` rejects text > 3000 characters
 - Streams `audioStream` from `msedge-tts`'s `tts.toStream()` result (returns `{ audioStream, metadataStream }` — use `audioStream` not result directly)
+- The shared TTS request limiter must allow a full minute of legitimate turns across Communication Check, Live Conversation, and Interview Ace. A 30/minute IP bucket strands active sessions; keep mixed replies on one dominant voice so they do not fragment into request bursts.
 
 ## Key Files
 - Backend: `artifacts/api-server/src/routes/tts.ts`
