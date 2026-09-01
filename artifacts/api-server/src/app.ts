@@ -152,9 +152,22 @@ function createRateLimiter(windowMs: number, max: number, keyFor: (req: Request)
 
 const byIpAndEmail = (req: Request) => {
   const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-  return `${req.ip ?? "unknown"}:${email}`;
+  // Keep harmless session/config reads and OAuth redirects from sharing a
+  // bucket with OTP attempts or other credential-bearing auth requests.
+  return `${req.ip ?? "unknown"}:${req.method}:${req.path}:${email}`;
 };
-app.use("/api/auth", createRateLimiter(15 * 60 * 1000, 20, byIpAndEmail));
+const authRateLimiter = createRateLimiter(15 * 60 * 1000, 20, byIpAndEmail);
+app.use("/api/auth", (req, res, next) => {
+  // These endpoints are read-only or hand off immediately to Google's OAuth
+  // flow. The general /api limiter still protects them from request floods,
+  // while they must not be blocked by frequent browser session checks.
+  const readOrRedirectPath = new Set(["/me", "/config", "/google", "/google/callback"]);
+  if (req.method === "GET" && readOrRedirectPath.has(req.path)) {
+    next();
+    return;
+  }
+  authRateLimiter(req, res, next);
+});
 app.use("/api/ai", createRateLimiter(60 * 1000, 60));
 app.use("/api/stt", createRateLimiter(60 * 1000, 20));
 app.use("/api/tts", createRateLimiter(60 * 1000, 30));
