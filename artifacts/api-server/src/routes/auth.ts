@@ -466,19 +466,25 @@ router.post("/auth/logout", (req, res) => {
   });
 });
 
-// POST /api/auth/admin-login — username + password login for admin/local accounts
-// Set ADMIN_USERNAME and ADMIN_PASSWORD_HASH (sha256 hex) as Replit secrets to enable.
+// POST /api/auth/admin-login — username + password login for admin/local accounts.
+// ADMIN_USERNAME is optional (defaults to "admin"). Configure either the
+// SHA-256 ADMIN_PASSWORD_HASH or ADMIN_PASSWORD as a Replit secret.
 router.post("/auth/admin-login", async (req, res) => {
   try {
     const { username, password } = req.body as { username?: string; password?: string };
-    const adminUser = process.env["ADMIN_USERNAME"];
-    const adminHash = process.env["ADMIN_PASSWORD_HASH"];
-    if (!adminUser || !adminHash) {
+    const adminUser = process.env["ADMIN_USERNAME"]?.trim() || "admin";
+    const configuredHash = process.env["ADMIN_PASSWORD_HASH"]?.trim();
+    const configuredPassword = process.env["ADMIN_PASSWORD"];
+    if (!configuredHash && !configuredPassword) {
       res.status(503).json({ error: "Admin login is not configured." });
       return;
     }
 
     const incoming = crypto.createHash("sha256").update(password ?? "").digest("hex");
+    // Prefer the pre-hashed secret when present. ADMIN_PASSWORD is supported
+    // for setup convenience, but it is never compared or logged in plaintext.
+    const adminHash = configuredHash
+      ?? crypto.createHash("sha256").update(configuredPassword ?? "").digest("hex");
     const incomingBuffer = Buffer.from(incoming, "utf8");
     const expectedBuffer = Buffer.from(adminHash, "utf8");
     const passwordMatches = incomingBuffer.length === expectedBuffer.length
