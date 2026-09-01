@@ -17,7 +17,8 @@ import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { MODES, type Mode, stripMarkdownForSpeech, mapEnglishLevel } from "@/lib/english-tools";
-import { MicButton, ResultPanel, TutorSelector } from "@/components/english/shared-ui";
+import { MicButton, TutorSelector } from "@/components/english/shared-ui";
+import { ToolResultPanel } from "@/components/english/tool-result-panel";
 import { downloadText } from "@/lib/export-data";
 import { CelebrationOverlay } from "@/components/english/word-power";
 import { useGamification } from "@/lib/use-gamification";
@@ -147,6 +148,12 @@ function ToolsProContent() {
 
   const displayed = isStreaming ? aiText : result;
   const activeMode = MODES.find(m => m.value === mode);
+  const resultContext = {
+    mode,
+    coachName: tutor.name,
+    coachImage: tutor.imageSrc,
+    coachAccent: tutor.accentColor,
+  };
   const downloadResult = useCallback((title: string) => {
     if (!displayed) return;
     downloadText(stripMarkdownForSpeech(displayed), `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.txt`);
@@ -293,7 +300,7 @@ function ToolsProContent() {
                   </Button>
                 </div>
                 {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                {displayed && <ResultPanel title="Corrections:" content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title="Corrections:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
                   onSave={() => saveResult("grammar", `Grammar: "${grammarInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["grammar"]}
                   onDownload={() => downloadResult("grammar-fix")} />}
@@ -321,7 +328,7 @@ function ToolsProContent() {
                     Improve Writing
                   </Button>
                 </div>
-                {displayed && <ResultPanel title="Improved Version:" content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title="Improved Version:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
                   onSave={() => saveResult("write", `Write Better: "${writeInput.slice(0, 50)}"`, displayed)} saved={!!savedMap["write"]}
                   onDownload={() => downloadResult("write-better")} />}
@@ -345,7 +352,7 @@ function ToolsProContent() {
                   {isStreaming ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BookOpen className="w-4 h-4 mr-2" />}
                   Generate Vocabulary
                 </Button>
-                {displayed && <ResultPanel title={`Vocabulary (${uiLang} meanings):`} content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title={`Vocabulary (${uiLang} meanings):`} content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
                   onSave={() => saveResult("vocab", `Vocabulary: ${vocabTopic}`, displayed)} saved={!!savedMap["vocab"]}
                   onDownload={() => downloadResult("vocabulary")} />}
@@ -376,7 +383,7 @@ function ToolsProContent() {
                   {isStreaming ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Volume2 className="w-4 h-4 mr-2" />}
                   Get Pronunciation Guide
                 </Button>
-                {displayed && <ResultPanel title="Pronunciation Guide:" content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title="Pronunciation Guide:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(displayed)} onStop={synth.stop}
                   onSave={() => saveResult("pronounce", `Pronunciation: ${pronounceWord}`, displayed)} saved={!!savedMap["pronounce"]}
                   onDownload={() => downloadResult("pronunciation-guide")} />}
@@ -431,7 +438,7 @@ Teach warmly and directly. No markdown at all.`,
                   {isStreaming ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <GraduationCap className="w-5 h-5 mr-2" />}
                   Generate Today's Lesson
                 </Button>
-                {displayed && <ResultPanel title={`${level} English Lesson:`} content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title={`${level} English Lesson:`} content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(stripMarkdownForSpeech(displayed), "English")} onStop={synth.stop}
                   onSave={() => saveResult("lesson", `Daily Lesson: ${level}`, displayed)} saved={!!savedMap["lesson"]}
                   onDownload={() => downloadResult("daily-lesson")} />}
@@ -453,7 +460,7 @@ Teach warmly and directly. No markdown at all.`,
                   {isStreaming ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Briefcase className="w-5 h-5 mr-2" />}
                   Get Interview Phrases
                 </Button>
-                {displayed && <ResultPanel title="Interview Phrases:" content={displayed} isSpeaking={synth.isSpeaking}
+                {displayed && <ToolResultPanel {...resultContext} title="Interview Phrases:" content={displayed} isSpeaking={synth.isSpeaking}
                   onSpeak={() => speak(stripMarkdownForSpeech(displayed), "English")} onStop={synth.stop}
                   onSave={() => saveResult("interview_eng", "Interview English Phrases", displayed)} saved={!!savedMap["interview_eng"]}
                   onDownload={() => downloadResult("interview-english")} />}

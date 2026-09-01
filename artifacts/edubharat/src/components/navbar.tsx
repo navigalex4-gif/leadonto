@@ -179,7 +179,7 @@ export function Navbar() {
               </button>
               {productsOpen && (
                 <div
-                  className="absolute left-0 top-full z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-white p-2 shadow-xl"
+                  className="leadonto-suite-menu absolute left-0 top-full z-50 mt-2 w-[min(21rem,calc(100vw-1.5rem))] rounded-2xl border border-[#e8dccd] bg-[#fffdf8] p-2 text-[#17204d] opacity-100 shadow-2xl ring-1 ring-black/5 backdrop-blur-none"
                   role="menu"
                   aria-label="All products"
                 >
@@ -194,7 +194,7 @@ export function Navbar() {
                         href={href}
                         role="menuitem"
                         className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors ${
-                          pathOnly === href ? "bg-primary/10 text-primary" : "text-secondary hover:bg-muted"
+                          pathOnly === href ? "bg-orange-100 text-orange-700" : "text-[#17204d] hover:bg-orange-50 hover:text-orange-700"
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
