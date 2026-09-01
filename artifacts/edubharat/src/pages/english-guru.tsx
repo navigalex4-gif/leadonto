@@ -233,7 +233,21 @@ function hasFragmentedNativeScript(text: string): boolean {
   }).length;
   if (bareSingles >= 2) return true;
   const tinyScriptTokens = scriptTokens.filter((token) => [...stripPunct(token)].length <= 2).length;
-  return tokens.length >= 7 && bareSingles >= 1 && tinyScriptTokens / scriptTokens.length >= 0.5;
+  if (tokens.length >= 7 && bareSingles >= 1 && tinyScriptTokens / scriptTokens.length >= 0.5) return true;
+
+  // Some provider responses have the opposite failure: a whole sentence is
+  // emitted as one long Indic run with almost no word boundaries. Browsers
+  // then wrap it at arbitrary characters, which looks like the screenshot's
+  // broken Hindi and makes the TTS voice sound equally unnatural.
+  const nativeRuns = text.match(/[\u0900-\u0D7F\u0600-\u06FF]+/gu) ?? [];
+  const nativeCharacterCount = nativeRuns.reduce((total, run) => total + [...run].length, 0);
+  const whitespaceCount = (text.match(/\s/gu) ?? []).length;
+  if (
+    nativeCharacterCount >= 18
+    && whitespaceCount <= 2
+    && nativeRuns.some((run) => [...run].length >= 14)
+  ) return true;
+  return nativeRuns.some((run) => [...run].length >= 24);
 }
 
 function collapseFragmentedNativeScript(text: string): string {
@@ -289,6 +303,12 @@ function cleanSpokenReply(
     ) {
       return NATIVE_RETRY_FALLBACKS[nativeLanguage]?.[voiceGender]
         ?? "I want to help you practise clearly. Let us try that again slowly.";
+    }
+    if (!allowGenericFallback && hasFragmentedNativeScript(cleaned)) {
+      // A translation must never surface a provider's broken script after the
+      // bounded retry. A clear English retry request is safer than teaching
+      // the learner a malformed native sentence.
+      return "I couldn't form that translation clearly. Please say the sentence once more.";
     }
   }
   return cleaned;
