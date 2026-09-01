@@ -34,6 +34,13 @@ Reject fragmented Indic output before collapsing spaces between script character
 
 **How to apply:** validate raw translation output for short isolated-script tokens, expected script, and generic acknowledgements; only then display or speak it. Keep Assamese and Odia recovery text distinct from the Hindi fallback.
 
+## Referenced translation sources
+In “translate/speak this sentence in X,” words such as “sentence,” “phrase,” and “question” describe the request; they are not source text. Resolve “this” from the nearest useful prior learner or tutor message, including native-to-native translation.
+
+**Why:** treating “sentence” as explicit source text translated only that word, while searching only English tutor messages missed a learner’s immediately preceding Hindi/mixed-language sentence.
+
+**How to apply:** exclude request nouns from source extraction, skip prior error/clarification messages, and walk conversation history across both roles before asking the learner to repeat the source.
+
 ## Preview versus published voice fixes
 Voice behavior must be validated against the same artifact the user is testing. A healthy Replit preview does not update the already-published web/API build until Publish is run.
 

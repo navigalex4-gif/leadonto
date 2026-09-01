@@ -94,7 +94,7 @@ function isDirectHelperLanguageCommand(text: string): boolean {
   );
 }
 
-function extractTranslationSource(text: string, previousTeacherMessage: string): string {
+function extractTranslationSource(text: string, previousConversationMessage: string): string {
   // Pull an explicit English word/phrase out of mixed-language requests such as
   // “Immediately को Marathi में क्या बोलते हैं?”. Function words are not a
   // translation source; when the learner says “this/that”, use the teacher's
@@ -104,6 +104,7 @@ function extractTranslationSource(text: string, previousTeacherMessage: string):
     "are", "do", "does", "did", "what", "this", "that", "these", "those",
     "say", "speak", "read", "repeat", "tell", "explain", "translate", "meaning",
     "mean", "in", "into", "to", "using", "of", "for", "how", "word",
+    "sentence", "phrase", "question",
   ]);
   const explicitWords = (text.match(/[A-Za-z][A-Za-z'-]*/g) ?? [])
     .map((word) => word.toLowerCase())
@@ -111,7 +112,43 @@ function extractTranslationSource(text: string, previousTeacherMessage: string):
   if (explicitWords.length > 0) {
     return explicitWords.join(" ");
   }
-  return previousTeacherMessage;
+  return previousConversationMessage;
+}
+
+function isTranslationRecoveryMessage(text: string): boolean {
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (
+    looksLikeGenericNativeAcknowledgement(text)
+    || normalized.includes("couldn t form that translation")
+    || normalized.includes("not sure what you meant")
+    || normalized.includes("not quite sure what you meant")
+    || normalized.includes("say that again in english")
+    || normalized.includes("say the sentence once more")
+    || normalized.includes("need the sentence or word")
+    || Object.values(NATIVE_TRANSLATION_CLARIFICATIONS).some(({ male, female }) =>
+      [male, female].some((message) =>
+        message
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .replace(/\s+/g, " ")
+          .trim() === normalized,
+      ),
+    )
+  );
+}
+
+function isTranslationCommand(text: string): boolean {
+  return Boolean(
+    requestedHelperLanguage(text)
+    && (
+      /\b(?:translate|meaning|mean|this|that|sentence|phrase|question|word)\b/i.test(text)
+      || /\b(?:say|speak|read|repeat|tell|explain)\b.{0,70}\b(?:in|into|to|using)\b/i.test(text)
+    )
+  );
 }
 
 function isNativeTranslationRequest(text: string, targetLanguage: string, hasPreviousTeacherMessage: boolean): boolean {
@@ -124,6 +161,7 @@ function isNativeTranslationRequest(text: string, targetLanguage: string, hasPre
       "are", "do", "does", "did", "what", "this", "that", "these", "those",
       "say", "speak", "read", "repeat", "tell", "explain", "translate", "meaning",
       "mean", "in", "into", "to", "using", "of", "for", "how", "word",
+      "sentence", "phrase", "question",
     ]).has(word))
     .filter((word) => !HELPER_LANGUAGE_ALIASES.some(({ name }) => name.toLowerCase() === word));
   const hasSourceReference = /\b(?:this|that|sentence|phrase|question|what)\b/i.test(text);
@@ -399,10 +437,10 @@ function cleanSpokenReply(
         ?? "I want to help you practise clearly. Let us try that again slowly.";
     }
     if (!allowGenericFallback && hasFragmentedNativeScript(cleaned)) {
-      // A translation must never surface a provider's broken script after the
-      // bounded retry. A clear English retry request is safer than teaching
-      // the learner a malformed native sentence.
-      return "I couldn't form that translation clearly. Please say the sentence once more.";
+      // A translation must never surface broken script or fall back to English.
+      return NATIVE_TRANSLATION_CLARIFICATIONS[nativeLanguage]?.[voiceGender]
+        ?? NATIVE_RETRY_FALLBACKS[nativeLanguage]?.[voiceGender]
+        ?? cleaned;
     }
   }
   return cleaned;
@@ -986,21 +1024,32 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         if (!isSilenceProbe) historySlice.push({ role: "user" as const, text: userMsg });
         const recentHistory = historySlice
           .map(m => `${m.role === "user" ? "Student" : teacherShort}: ${m.text}`).join("\n");
-        // Translation must always use the last actual English tutor sentence.
-        // A previous generic native fallback is not a valid translation source.
+        // Keep the latest useful tutor sentence for general explanation requests.
+        // A previous error or generic acknowledgement is never a valid source.
         const previousTeacherMessage = [...convHistoryRef.current]
           .reverse()
           .find((item) =>
             item.role === "ai"
-            && /[A-Za-z]{3,}/.test(item.text)
-            && !looksLikeGenericNativeAcknowledgement(item.text),
+            && !isTranslationRecoveryMessage(item.text),
           )?.text
           ?? (
-            /[A-Za-z]{3,}/.test(lastAiSpeechRef.current)
-            && !looksLikeGenericNativeAcknowledgement(lastAiSpeechRef.current)
+            !isTranslationRecoveryMessage(lastAiSpeechRef.current)
               ? lastAiSpeechRef.current
               : ""
           );
+        // “Can you speak this sentence in Telugu?” often refers to the learner's
+        // own previous Hindi/mixed-language sentence, not the tutor's last reply.
+        // Walk backward through the actual conversation and use the nearest real
+        // sentence from either person, skipping translation commands and recovery
+        // messages. This also supports Hindi→Telugu and other native→native turns.
+        const previousReferencedMessage = [...convHistoryRef.current]
+          .reverse()
+          .find((item) =>
+            item.text.trim().length > 0
+            && !isTranslationRecoveryMessage(item.text)
+            && !(item.role === "user" && isTranslationCommand(item.text)),
+          )?.text
+          ?? previousTeacherMessage;
         // Treat "say what you asked in Hindi" as a real translation request.
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
@@ -1021,12 +1070,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           : uiLang;
         const translationRequested = !isSilenceProbe
           && (
-            isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousTeacherMessage))
+            isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousReferencedMessage))
             || legacyNativeTranslationDetected
             || legacyDirectTranslationDetected
           );
         const translationSource = translationRequested
-          ? extractTranslationSource(userMsg, previousTeacherMessage)
+          ? extractTranslationSource(userMsg, previousReferencedMessage)
           : "";
         const isDirectLanguageRequest = Boolean(
           languageRequest
@@ -1036,8 +1085,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         );
         const translationInstruction = translationRequested
           ? translationSource
-            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the exact English word or sentence "${translationSource}" into natural ${translationLanguage}. Return only the complete translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
-            : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the complete English sentence the student is referring to into natural ${translationLanguage}. Use the immediately previous teacher message as the source and return the full translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the exact source text "${translationSource}" into natural ${translationLanguage}. The source may be English or another Indian language. Return only the complete translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+            : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Ask the learner to repeat the source sentence in ${translationLanguage}. Do not invent a translation.]\n`
           : "";
         const escapedUiLang = translationLanguage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const archiveTranslationRequest = new RegExp(
@@ -1048,7 +1097,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         );
         const explicitTranslationDirective =
           translationRequested && archiveTranslationRequest.test(userMsg)
-            ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the exact source "${translationSource || previousTeacherMessage}" into natural ${translationLanguage} in ${translationLanguage}'s native script. Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
+             ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the exact source "${translationSource || previousReferencedMessage}" into natural ${translationLanguage} in ${translationLanguage}'s native script. The source may be English or another Indian language. Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
             : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
@@ -1116,8 +1165,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
               ?? `Yes — I can help in ${languageRequest}. I’ll use clear ${languageRequest} when you get stuck, and we’ll keep practising in English.`;
         } else if (translationRequested && translationSource) {
           response = await stream(
-            `Translate the English word or sentence below into ${translationLanguage}. Return only its complete, natural ${translationLanguage} translation in native script.\n\nEnglish source: "${translationSource}"`,
-            `You are a strict ${translationLanguage} translator, not a tutor. Translate every part of the supplied English source faithfully. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
+            `Translate the source text below into ${translationLanguage}. The source may be English or another Indian language. Return only its complete, natural ${translationLanguage} translation in native script.\n\nSource text: "${translationSource}"`,
+            `You are a strict ${translationLanguage} translator, not a tutor. Translate every part of the supplied source faithfully. Return only the translation. Never acknowledge the student, suggest practice, or ask a new question.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
@@ -1174,8 +1223,8 @@ Rules for spoken replies:
           )
         ) {
           response = await stream(
-            `STRICT TRANSLATION. Translate the complete English word or sentence below into ${translationLanguage}. Return only its complete natural translation in ${translationLanguage} script.\n\nEnglish source: "${translationSource}"`,
-            `You must translate, not teach. The answer must preserve the English sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
+            `STRICT TRANSLATION. Translate the complete source text below into ${translationLanguage}. The source may be English or another Indian language. Return only its complete natural translation in ${translationLanguage} script.\n\nSource text: "${translationSource}"`,
+            `You must translate, not teach. Preserve the source sentence's complete meaning and question form. Write natural complete words, with spaces only between words — never put a space between letters or script marks. Never return an acknowledgement, a practice suggestion, or any sentence about practising slowly.`,
             undefined,
             { endpoint: "/api/ai/stream?provider=quality", maxTokens: 140, timeoutMs: 6000 },
           );
