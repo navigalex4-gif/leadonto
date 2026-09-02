@@ -33,6 +33,11 @@ export type GoogleSpeakOptions = {
    */
   nativeLanguage?: string;
   /**
+   * Prefer the native voice for this complete turn even when the response also
+   * contains a short English practice sentence.
+   */
+  forceNativeLanguage?: boolean;
+  /**
    * Keep this utterance behind the current utterance instead of replacing it.
    * Live conversation uses this only for its short acknowledgement; the
    * complete AI response always replaces any stale audio/queue first.
@@ -338,6 +343,7 @@ function splitIntoSpeechChunks(
   text: string,
   baseLanguage: string,
   nativeLanguage?: string,
+  forceNativeLanguage = false,
 ): SpeechChunk[] {
   const clean = text.trim();
   if (!clean) return [];
@@ -348,7 +354,9 @@ function splitIntoSpeechChunks(
       ).length
     : 0;
   const nativeRatio = nativeCharacters / Math.max(1, scriptCharacters.length);
-  const language = nativeLanguage && nativeLanguage !== baseLanguage && nativeRatio >= 0.25
+  const language = nativeLanguage
+    && nativeLanguage !== baseLanguage
+    && (forceNativeLanguage || nativeRatio >= 0.25)
     ? nativeLanguage
     : baseLanguage;
 
@@ -703,7 +711,12 @@ export function useGoogleTTS() {
       // Sentence-chunked and queued so each clip finishes before the next
       // begins. This prevents overlapping voices and preserves every response
       // instead of cutting the current speaker off when a new request arrives.
-      const chunks = splitIntoSpeechChunks(text, language, options.nativeLanguage);
+       const chunks = splitIntoSpeechChunks(
+         text,
+         language,
+         options.nativeLanguage,
+         options.forceNativeLanguage,
+       );
       if (chunks.length === 0) {
         if (ownerRef.current) { ownerRef.current = false; setIsSpeaking(false); }
         onEnd?.();

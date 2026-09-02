@@ -365,12 +365,128 @@ const NATIVE_SCRIPT_RANGES: Record<string, RegExp> = {
   Urdu: /[\u0600-\u06FF]/u,
 };
 
+const SCRIPT_LANGUAGE_CANDIDATES: Array<{ language: string; script: RegExp }> = [
+  { language: "Punjabi", script: /[\u0A00-\u0A7F]/u },
+  { language: "Gujarati", script: /[\u0A80-\u0AFF]/u },
+  { language: "Bengali", script: /[\u0980-\u09FF]/u },
+  { language: "Odia", script: /[\u0B00-\u0B7F]/u },
+  { language: "Tamil", script: /[\u0B80-\u0BFF]/u },
+  { language: "Telugu", script: /[\u0C00-\u0C7F]/u },
+  { language: "Kannada", script: /[\u0C80-\u0CFF]/u },
+  { language: "Malayalam", script: /[\u0D00-\u0D7F]/u },
+  { language: "Urdu", script: /[\u0600-\u06FF]/u },
+  { language: "Hindi", script: /[\u0900-\u097F]/u },
+];
+
 function hasExpectedNativeScript(text: string, language: string): boolean {
   if (language === "English") return true;
   const script = NATIVE_SCRIPT_RANGES[language];
   if (!script) return false;
   return [...text].filter((character) => script.test(character)).length >= 2;
 }
+
+const ROMANIZED_NATIVE_MARKERS: Record<string, RegExp> = {
+  Hindi: /\b(?:mujhe|mera|meri|nahi|nahin|samajh|matlab|kaise|kya|kyun|chahiye|batao|bolna|thoda|accha|acha|haan|ji)\b/i,
+  Marathi: /\b(?:mala|majha|majhi|nahi|nahin|samajla|arth|kaay|kasa|kaise|sanga|bolaycha|thoda|ho)\b/i,
+  Tamil: /\b(?:enakku|enna|illai|puriyala|artham|eppadi|sollunga|pesunga|venum|konjam|nandri)\b/i,
+  Telugu: /\b(?:naaku|naaku|na|ardham|kaaledu|ela|cheppandi|maatlaadandi|kaavali|koncham|dhanyavadalu)\b/i,
+  Bengali: /\b(?:amar|amake|bujhte|parchina|mane|kibhabe|bolun|bolben|chai|ektu|dhonnobad)\b/i,
+  Gujarati: /\b(?:mane|maru|nathi|samajatu|arth|kem|kevi|kahejo|boljo|joiye|thodu)\b/i,
+  Kannada: /\b(?:nanage|nanna|illa|arthavaagilla|hege|heli|maatadi|beku|swalpa|dhanyavaada)\b/i,
+  Malayalam: /\b(?:enikku|ente|illa|manassilaayilla|engane|parayoo|samsaarikkoo|venam|kurachu|nandi)\b/i,
+  Punjabi: /\b(?:mainu|mera|meri|nahi|samajh|matlab|kivein|dasso|bolo|chahida|thoda|haan)\b/i,
+  Odia: /\b(?:mote|mora|nahi|bujhi|artha|kemiti|kuhantu|kahantu|darkar|tike|dhanyabad)\b/i,
+  Assamese: /\b(?:moi|mur|nahi|bujibo|mane|kenekoi|kowk|kobo|lage|olop|dhanyabad)\b/i,
+  Urdu: /\b(?:mujhe|mera|meri|nahin|samajh|matlab|kaise|kya|batayein|boliye|chahiye|thoda|shukriya)\b/i,
+};
+
+function isNativeLanguageTurn(text: string, language: string): boolean {
+  if (language === "English" || !text.trim()) return false;
+  const script = NATIVE_SCRIPT_RANGES[language];
+  if (script) {
+    const letters = [...text].filter((character) => /\p{L}/u.test(character)).length;
+    const nativeCharacters = [...text].filter((character) => script.test(character)).length;
+    if (nativeCharacters >= 2 && nativeCharacters / Math.max(1, letters) >= 0.15) return true;
+  }
+  return ROMANIZED_NATIVE_MARKERS[language]?.test(text) ?? false;
+}
+
+function detectNativeScriptLanguage(text: string, preferredLanguage: string): string | null {
+  let best: { language: string; count: number } | null = null;
+  for (const { language, script } of SCRIPT_LANGUAGE_CANDIDATES) {
+    const count = [...text].filter((character) => script.test(character)).length;
+    if (count >= 2 && (!best || count > best.count)) best = { language, count };
+  }
+  if (!best) return null;
+  // Devanagari is shared by Hindi and Marathi; the selected helper language is
+  // the safest distinction when the script itself cannot tell us which one.
+  if (best.language === "Hindi" && (preferredLanguage === "Hindi" || preferredLanguage === "Marathi")) {
+    return preferredLanguage;
+  }
+  // Bengali and Assamese share the Bengali script as well.
+  if (best.language === "Bengali" && (preferredLanguage === "Bengali" || preferredLanguage === "Assamese")) {
+    return preferredLanguage;
+  }
+  return best.language;
+}
+
+function detectNativeInputLanguage(text: string, preferredLanguage: string): string | null {
+  if (preferredLanguage !== "English" && isNativeLanguageTurn(text, preferredLanguage)) {
+    return preferredLanguage;
+  }
+  return detectNativeScriptLanguage(text, preferredLanguage);
+}
+
+const NATIVE_TURN_FALLBACKS: Record<string, { male: string; female: string }> = {
+  Hindi: {
+    male: "आपकी बात समझ में आ रही है। जिस शब्द या हिस्से पर दिक्कत है, उसे बताइए; मैं आसान हिंदी में समझाकर एक छोटा अंग्रेज़ी उदाहरण दूँगा।",
+    female: "आपकी बात समझ में आ रही है। जिस शब्द या हिस्से पर दिक्कत है, उसे बताइए; मैं आसान हिंदी में समझाकर एक छोटा अंग्रेज़ी उदाहरण दूँगी।",
+  },
+  Marathi: {
+    male: "तुमची गोष्ट मला समजत आहे. ज्या शब्दात किंवा भागात अडचण आहे तो सांगा; मी सोप्या मराठीत समजावून एक छोटं इंग्रजी उदाहरण देईन.",
+    female: "तुमची गोष्ट मला समजत आहे. ज्या शब्दात किंवा भागात अडचण आहे तो सांगा; मी सोप्या मराठीत समजावून एक छोटं इंग्रजी उदाहरण देईन.",
+  },
+  Tamil: {
+    male: "நீங்கள் சொல்வது எனக்கு புரிகிறது. எந்த வார்த்தை அல்லது பகுதி கடினமாக இருக்கிறது என்று சொல்லுங்கள்; அதை எளிய தமிழில் விளக்கி ஒரு சிறிய ஆங்கில உதாரணம் தருகிறேன்.",
+    female: "நீங்கள் சொல்வது எனக்கு புரிகிறது. எந்த வார்த்தை அல்லது பகுதி கடினமாக இருக்கிறது என்று சொல்லுங்கள்; அதை எளிய தமிழில் விளக்கி ஒரு சிறிய ஆங்கில உதாரணம் தருகிறேன்.",
+  },
+  Telugu: {
+    male: "మీరు చెప్పేది నాకు అర్థమవుతోంది. ఏ పదం లేదా భాగం కష్టంగా ఉందో చెప్పండి; నేను సులభమైన తెలుగులో వివరించి ఒక చిన్న ఇంగ్లీష్ ఉదాహరణ ఇస్తాను.",
+    female: "మీరు చెప్పేది నాకు అర్థమవుతోంది. ఏ పదం లేదా భాగం కష్టంగా ఉందో చెప్పండి; నేను సులభమైన తెలుగులో వివరించి ఒక చిన్న ఇంగ్లీష్ ఉదాహరణ ఇస్తాను.",
+  },
+  Bengali: {
+    male: "আপনি যা বলছেন তা আমি বুঝতে পারছি। কোন শব্দ বা অংশটি কঠিন লাগছে বলুন; আমি সহজ বাংলায় বুঝিয়ে একটি ছোট ইংরেজি উদাহরণ দেব।",
+    female: "আপনি যা বলছেন তা আমি বুঝতে পারছি। কোন শব্দ বা অংশটি কঠিন লাগছে বলুন; আমি সহজ বাংলায় বুঝিয়ে একটি ছোট ইংরেজি উদাহরণ দেব।",
+  },
+  Gujarati: {
+    male: "તમે જે કહી રહ્યા છો તે મને સમજાય છે. કયો શબ્દ અથવા ભાગ મુશ્કેલ લાગે છે તે કહો; હું સરળ ગુજરાતીમાં સમજાવીને એક નાનું અંગ્રેજી ઉદાહરણ આપીશ.",
+    female: "તમે જે કહી રહ્યા છો તે મને સમજાય છે. કયો શબ્દ અથવા ભાગ મુશ્કેલ લાગે છે તે કહો; હું સરળ ગુજરાતીમાં સમજાવીને એક નાનું અંગ્રેજી ઉદાહરણ આપીશ.",
+  },
+  Kannada: {
+    male: "ನೀವು ಹೇಳುತ್ತಿರುವುದು ನನಗೆ ಅರ್ಥವಾಗುತ್ತಿದೆ. ಯಾವ ಪದ ಅಥವಾ ಭಾಗ ಕಷ್ಟವಾಗಿದೆ ಎಂದು ಹೇಳಿ; ನಾನು ಸರಳ ಕನ್ನಡದಲ್ಲಿ ವಿವರಿಸಿ ಒಂದು ಚಿಕ್ಕ ಇಂಗ್ಲಿಷ್ ಉದಾಹರಣೆ ನೀಡುತ್ತೇನೆ.",
+    female: "ನೀವು ಹೇಳುತ್ತಿರುವುದು ನನಗೆ ಅರ್ಥವಾಗುತ್ತಿದೆ. ಯಾವ ಪದ ಅಥವಾ ಭಾಗ ಕಷ್ಟವಾಗಿದೆ ಎಂದು ಹೇಳಿ; ನಾನು ಸರಳ ಕನ್ನಡದಲ್ಲಿ ವಿವರಿಸಿ ಒಂದು ಚಿಕ್ಕ ಇಂಗ್ಲಿಷ್ ಉದಾಹರಣೆ ನೀಡುತ್ತೇನೆ.",
+  },
+  Malayalam: {
+    male: "നിങ്ങൾ പറയുന്നത് എനിക്ക് മനസ്സിലാകുന്നു. ഏത് വാക്കോ ഭാഗമോ ബുദ്ധിമുട്ടാണെന്ന് പറയൂ; ഞാൻ ലളിതമായ മലയാളത്തിൽ വിശദീകരിച്ച് ഒരു ചെറിയ ഇംഗ്ലീഷ് ഉദാഹരണം തരാം.",
+    female: "നിങ്ങൾ പറയുന്നത് എനിക്ക് മനസ്സിലാകുന്നു. ഏത് വാക്കോ ഭാഗമോ ബുദ്ധിമുട്ടാണെന്ന് പറയൂ; ഞാൻ ലളിതമായ മലയാളത്തിൽ വിശദീകരിച്ച് ഒരു ചെറിയ ഇംഗ്ലീഷ് ഉദാഹരണം തരാം.",
+  },
+  Punjabi: {
+    male: "ਤੁਸੀਂ ਜੋ ਕਹਿ ਰਹੇ ਹੋ ਉਹ ਮੈਨੂੰ ਸਮਝ ਆ ਰਿਹਾ ਹੈ। ਕਿਹੜਾ ਸ਼ਬਦ ਜਾਂ ਹਿੱਸਾ ਔਖਾ ਲੱਗ ਰਿਹਾ ਹੈ ਦੱਸੋ; ਮੈਂ ਸੌਖੀ ਪੰਜਾਬੀ ਵਿੱਚ ਸਮਝਾ ਕੇ ਇੱਕ ਛੋਟੀ ਅੰਗਰੇਜ਼ੀ ਉਦਾਹਰਨ ਦਿਆਂਗਾ।",
+    female: "ਤੁਸੀਂ ਜੋ ਕਹਿ ਰਹੇ ਹੋ ਉਹ ਮੈਨੂੰ ਸਮਝ ਆ ਰਿਹਾ ਹੈ। ਕਿਹੜਾ ਸ਼ਬਦ ਜਾਂ ਹਿੱਸਾ ਔਖਾ ਲੱਗ ਰਿਹਾ ਹੈ ਦੱਸੋ; ਮੈਂ ਸੌਖੀ ਪੰਜਾਬੀ ਵਿੱਚ ਸਮਝਾ ਕੇ ਇੱਕ ਛੋਟੀ ਅੰਗਰੇਜ਼ੀ ਉਦਾਹਰਨ ਦਿਆਂਗੀ।",
+  },
+  Odia: {
+    male: "ଆପଣ କହୁଥିବା କଥା ମୁଁ ବୁଝୁଛି। କେଉଁ ଶବ୍ଦ ବା ଅଂଶଟି କଷ୍ଟକର ଲାଗୁଛି କୁହନ୍ତୁ; ମୁଁ ସରଳ ଓଡ଼ିଆରେ ବୁଝାଇ ଏକ ଛୋଟ ଇଂରାଜୀ ଉଦାହରଣ ଦେବି।",
+    female: "ଆପଣ କହୁଥିବା କଥା ମୁଁ ବୁଝୁଛି। କେଉଁ ଶବ୍ଦ ବା ଅଂଶଟି କଷ୍ଟକର ଲାଗୁଛି କୁହନ୍ତୁ; ମୁଁ ସରଳ ଓଡ଼ିଆରେ ବୁଝାଇ ଏକ ଛୋଟ ଇଂରାଜୀ ଉଦାହରଣ ଦେବି।",
+  },
+  Assamese: {
+    male: "আপুনি কোৱা কথাটো মই বুজি পাইছোঁ। কোনটো শব্দ বা অংশ কঠিন লাগিছে কওক; মই সহজ অসমীয়াত বুজাই এটা সৰু ইংৰাজী উদাহৰণ দিম।",
+    female: "আপুনি কোৱা কথাটো মই বুজি পাইছোঁ। কোনটো শব্দ বা অংশ কঠিন লাগিছে কওক; মই সহজ অসমীয়াত বুজাই এটা সৰু ইংৰাজী উদাহৰণ দিম।",
+  },
+  Urdu: {
+    male: "آپ کی بات مجھے سمجھ آ رہی ہے۔ کون سا لفظ یا حصہ مشکل لگ رہا ہے بتائیے؛ میں آسان اردو میں سمجھا کر انگریزی کی ایک چھوٹی مثال دوں گا۔",
+    female: "آپ کی بات مجھے سمجھ آ رہی ہے۔ کون سا لفظ یا حصہ مشکل لگ رہا ہے بتائیے؛ میں آسان اردو میں سمجھا کر انگریزی کی ایک چھوٹی مثال دوں گی۔",
+  },
+};
 
 /**
  * Some live-model responses place a space after every Indic grapheme. That is
@@ -727,7 +843,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     if (preferred && preferred.id !== tutorId) setTutorId(preferred.id);
   }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
 
-  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; queueSpeech?: boolean } = {}) => {
+  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean } = {}) => {
     const t = stripMarkdownForSpeech(text)
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
@@ -1161,13 +1277,20 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           return;
         }
 
-        const isEnglishNative = uiLang === "English";
-         const languageGuidance = isEnglishNative
+        const nativeInputLanguage = !isSilenceProbe && !translationRequested
+          ? detectNativeInputLanguage(userMsg, uiLang)
+          : null;
+        const responseHelperLanguage = nativeInputLanguage ?? uiLang;
+        const isEnglishNative = responseHelperLanguage === "English";
+        const nativeInputDetected = Boolean(nativeInputLanguage);
+        const languageGuidance = isEnglishNative
            ? `Speak in clear, simple, natural English throughout. Start with the substance of your reply rather than a repeated acknowledgement or filler. Use one light, natural Gen-Z phrase such as "that's legit", "honestly", "nice", "totally", or "you've got this" only when it genuinely fits — never force slang or sound like a meme.`
+           : nativeInputDetected
+             ? `The learner's latest message is in ${responseHelperLanguage}. Respond directly to what they actually said, not with a vague acknowledgement or an unrelated question. Reply FIRST in two complete, natural ${responseHelperLanguage} sentences using ${responseHelperLanguage}'s standard native script. Address the learner's meaning, explain the difficulty simply, and give one concrete next step. You may add one short English practice sentence after the ${responseHelperLanguage} explanation, but do not make English the main reply.`
            : `The student's ONLY helper language is ${uiLang} — do NOT use any other Indian language (not Hindi, not Kannada, not Tamil, not any other — ONLY ${uiLang} when needed). English is the goal, so speak MOSTLY in simple, clear English and keep them practicing. But use ${uiLang} as a warm helping hand whenever they need it: if the student replies in ${uiLang}, tells you (in any language) that they didn't understand, or clearly seems confused, briefly explain the tricky word or idea in ${uiLang}, then continue in English. You may give a short ${uiLang} explanation when it genuinely helps, but never put it in quotation marks or brackets. When the student asks you to speak, say, or translate an English sentence in ${uiLang} — including phrases like "say this in ${uiLang}" or "can you speak this in ${uiLang}" — translate that exact sentence into natural ${uiLang} immediately and say the translation. Do not answer that request with a generic recovery phrase or an English practice prompt. When the student explicitly asks what an English word or sentence MEANS in ${uiLang} (or asks you to translate or explain it in ${uiLang}), immediately give that meaning written MOSTLY in ${uiLang} — keep English down to just the word being explained — so it is spoken aloud in a natural ${uiLang} accent; keep that reply short and focused on the meaning, then switch straight back to English in your very next reply. Never guess, reinterpret, or expand an unclear or possibly misheard word or acronym. Never discuss transcription errors or invent meanings unless the student clearly said them. If you are unsure, ask one short clarification in ${uiLang} without quoting the unclear phrase. Never leave them stuck or embarrassed — slow down, simplify, and lean on ${uiLang} to unblock them, then gently guide them back to English. When they're managing fine in English, keep your whole reply in English.`;
 
         const nativeScriptQuality = !isEnglishNative
-          ? ` When writing ${uiLang}, use its standard native script with complete vowel marks, diacritics, and natural conversational grammar. Never drop script marks, split words into isolated letters, transliterate, or invent phonetic spellings.`
+          ? ` When writing ${responseHelperLanguage}, use its standard native script with complete vowel marks, diacritics, and natural conversational grammar. Never drop script marks, split words into isolated letters, transliterate, or invent phonetic spellings.`
           : "";
 
         const webContextNote = webContext
@@ -1241,6 +1364,26 @@ Rules for spoken replies:
             { endpoint: "/api/ai/conversation", maxTokens: 100, timeoutMs: 4500 },
           );
         }
+        // A native-language turn must not silently degrade into a vague English
+        // recovery. Give Claude one bounded retry with an explicit native-output
+        // contract before using the local, actionable fallback.
+        if (
+          nativeInputDetected
+          && (
+            !response.trim()
+            || !hasExpectedNativeScript(response, responseHelperLanguage)
+            || hasFragmentedNativeScript(response)
+            || looksLikeGenericNativeAcknowledgement(response)
+          )
+        ) {
+          const nativeRetry = await stream(
+            `${recentHistory}\n${teacherShort}:`,
+            `You are ${teacherShort}, a warm Indian English coach. The learner's latest message is in ${uiLang}. Answer the actual latest message now. Return two complete, useful sentences in natural ${uiLang} using ${uiLang}'s standard native script. Be specific and practical, not vague. Do not say only that you understand, do not ask what the learner means unless the message is genuinely unintelligible, and do not switch to English before addressing the learner in ${uiLang}. You may add one short English practice example after the native-language answer. Never use another Indian language, transliteration, isolated script letters, markdown, or bullet points.`,
+            undefined,
+            { endpoint: "/api/ai/conversation", maxTokens: 180, timeoutMs: 6000 },
+          );
+          if (nativeRetry.trim()) response = nativeRetry;
+        }
         // A second malformed response must never be handed to TTS character by
         // character. Validate the raw provider response BEFORE any repair:
         // collapsing "व क य" into "वकय" would hide the fragmentation from the
@@ -1261,6 +1404,19 @@ Rules for spoken replies:
               ?? `Please say the English sentence once more, and I’ll translate it clearly into ${translationLanguage}.`;
           }
         }
+        if (
+          nativeInputDetected
+          && (
+            !response.trim()
+            || !hasExpectedNativeScript(response, responseHelperLanguage)
+            || hasFragmentedNativeScript(response)
+            || looksLikeGenericNativeAcknowledgement(response)
+          )
+        ) {
+          response = NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+            ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+            ?? `I want to help you in ${responseHelperLanguage}. Please tell me which word or part needs a clearer explanation.`;
+        }
         // Some providers answer a normal coaching turn with the same generic
         // native acknowledgement used by the emergency translator fallback.
         // It is not useful feedback and, when emitted twice, makes the tutor
@@ -1268,12 +1424,20 @@ Rules for spoken replies:
         if (looksLikeGenericNativeAcknowledgement(response)) {
           response = translationRequested
             ? `I can help in ${translationLanguage}, but I need the sentence or word you want translated. Please say it once more.`
-            : variedFallback(userMsg, isSilenceProbe);
+            : nativeInputDetected
+              ? NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+                ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+                ?? variedFallback(userMsg, isSilenceProbe)
+              : variedFallback(userMsg, isSilenceProbe);
         }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
         if (!response.trim() && !translationRequested) {
-          response = variedFallback(userMsg, isSilenceProbe);
+          response = nativeInputDetected
+            ? NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+              ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+              ?? variedFallback(userMsg, isSilenceProbe)
+            : variedFallback(userMsg, isSilenceProbe);
         }
         const previousAiReply = [...convHistoryRef.current]
           .reverse()
@@ -1332,7 +1496,7 @@ Rules for spoken replies:
           // Strip any "TeacherName: " prefix the AI may echo, plus markdown
           const replyNativeLanguage = translationRequested || isDirectLanguageRequest
             ? translationLanguage
-            : uiLang;
+            : responseHelperLanguage;
           const replyUsesNativeLanguage = replyNativeLanguage !== "English";
             const cleanResponse = sanitizeNativeDisplay(
               cleanSpokenReply(response, replyUsesNativeLanguage, tutor.voiceGender, replyNativeLanguage, !translationRequested),
@@ -1364,6 +1528,7 @@ Rules for spoken replies:
           speakRef.current(cleanResponse, "English", releaseTurn, {
             rate: 1.0,
             nativeLanguage: replyUsesNativeLanguage ? replyNativeLanguage : undefined,
+            forceNativeLanguage: nativeInputDetected || translationRequested || isDirectLanguageRequest,
           });
         } else {
           releaseTurn();
