@@ -526,6 +526,22 @@ function hasFragmentedNativeScript(text: string): boolean {
   return false;
 }
 
+function hasUnexpectedNonLatinScript(text: string, language: string): boolean {
+  const expectedScript = NATIVE_SCRIPT_RANGES[language];
+  if (!expectedScript) return false;
+  return [...text].some((character) =>
+    /\p{L}/u.test(character)
+    && !/\p{Script=Latin}/u.test(character)
+    && !expectedScript.test(character),
+  );
+}
+
+function looksTruncatedReply(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 32) return false;
+  return !/[.!?।॥…)"'’”」』\u0964\u0965]$/u.test(trimmed);
+}
+
 function collapseFragmentedNativeScript(text: string): string {
   if (!hasFragmentedNativeScript(text)) return text;
   return text.replace(
@@ -1361,7 +1377,11 @@ Rules for spoken replies:
 - Always finish your thought — never cut off mid-sentence.
 - If asked about news, sports, films, prices, or current events: answer confidently using "from what I know" or "last I heard". Do NOT say you have no internet. Your knowledge is up to early 2025; for very recent things, say "I may not have the very latest, but…".${webContextNote}${translationInstruction}${explicitTranslationDirective}`,
           undefined,
-            { endpoint: "/api/ai/conversation", maxTokens: 100, timeoutMs: 4500 },
+            {
+              endpoint: "/api/ai/conversation",
+              maxTokens: nativeInputDetected ? 180 : 100,
+              timeoutMs: nativeInputDetected ? 6000 : 4500,
+            },
           );
         }
         // A native-language turn must not silently degrade into a vague English
@@ -1372,7 +1392,9 @@ Rules for spoken replies:
           && (
             !response.trim()
             || !hasExpectedNativeScript(response, responseHelperLanguage)
+            || hasUnexpectedNonLatinScript(response, responseHelperLanguage)
             || hasFragmentedNativeScript(response)
+            || looksTruncatedReply(response)
             || looksLikeGenericNativeAcknowledgement(response)
           )
         ) {
@@ -1409,7 +1431,9 @@ Rules for spoken replies:
           && (
             !response.trim()
             || !hasExpectedNativeScript(response, responseHelperLanguage)
+            || hasUnexpectedNonLatinScript(response, responseHelperLanguage)
             || hasFragmentedNativeScript(response)
+            || looksTruncatedReply(response)
             || looksLikeGenericNativeAcknowledgement(response)
           )
         ) {

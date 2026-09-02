@@ -46,3 +46,17 @@ sentence that renders and sounds broken because the words were concatenated.
 **How to apply:** Reject or replace clearly malformed native output before it reaches
 the chat history or TTS; if a translation has no valid source, ask for the source
 deterministically instead of invoking the coach model.
+
+For a conversational turn, detect the actual native script in the learner's latest
+message even when the saved helper-language preference is English or names another
+Indian language. Use that detected language for the turn's native reply, validation,
+and TTS voice without silently changing the saved preference.
+
+**Why:** Learners can switch languages mid-session or arrive with an old English
+preference; routing only through the saved setting let genuine Hindi/Telugu/etc.
+messages reach an English-only prompt and receive vague replies.
+
+**How to apply:** Require a complete native-script-first answer for detected native
+turns, retry once when the provider returns English, foreign script, fragmented
+text, or a truncated ending, then use a complete local fallback. Force the matching
+native voice when the valid reply contains a short English practice sentence.
