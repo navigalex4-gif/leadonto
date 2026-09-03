@@ -11,12 +11,14 @@ id = "ySrQQ2mLIZSvKwSi_pRvk"
 uri = "file://reports/edubharat_issue_actions.xlsx"
 type = "table"
 title = "EduBharat — Downloadable Excel Checklist"
+logical_id = "e87bf92b-13ab-47b7-ade2-74d058a022fd"
 
 [[outputs]]
 id = "5ZSm4iveCYRHd0RUI_iBJ"
 uri = "file://EduBharat_Checklist.csv"
 type = "table"
 title = "EduBharat Fix Checklist (28 Items)"
+logical_id = "d760b6bd-eac7-4f20-85a4-16d28e65eee5"
 
 [[outputs]]
 id = "vO6tkKDrmMp2ctlIyhky5"
@@ -24,3 +26,18 @@ uri = "file://exports/lead-onto-complete-under-50mb.zip"
 type = "unspecified"
 title = "Lead Onto complete project ZIP"
 description = "Verified complete source project archive, 19.5 MB. Includes app code, configuration, scripts, public assets, and documentation; excludes dependencies, generated output, caches, Git metadata, and temporary attachments."
+logical_id = "7cf5c12d-d1b9-45bf-9b2c-07058f2730fd"
+
+[[outputs]]
+id = "TAqkkdTfcFX5_6Rnl19ka"
+uri = "file://exports/lead-onto-optimized-source.zip"
+type = "unspecified"
+title = "Lead Onto optimized source ZIP"
+description = "Clean rebuildable Lead Onto source archive, 6.60 MB. Includes web, mobile, API, shared libraries, configs, lockfile, and optimized assets; excludes dependencies, caches, generated build outputs, uploads, reports, and agent files."
+logical_id = "00edd1b0-cd86-4be5-8f84-8b10452906ea"
+content_hash = "sha256:90ca402d1a3d961e0c7d6fe502cceb5fba9b97428b6f4e28497f7500d51378cd"
+size = 6916159
+mtime_ms = 1788409443752
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:253b1260-26a5-43db-965d-8bf7a47f04a8/00edd1b0-cd86-4be5-8f84-8b10452906ea/1556a626-93f1-46e1-afed-2648c12f4a25"
+storage_version_token = "1788409560860583"
+content_type = "application/octet-stream"
