@@ -76,6 +76,8 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
   const monitorTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const utteranceRecorderRef = useRef<MediaRecorder | null>(null);
+  const utteranceRecorderChunksRef = useRef<Blob[]>([]);
   const rollingChunksRef = useRef<Blob[]>([]);
   // The first WebM chunk contains the container initialization segment.
   // Preserve it separately because the rolling pre-roll is intentionally
@@ -128,7 +130,10 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     livePendingAudioRef.current = [];
     const recorder = recorderRef.current;
     recorderRef.current = null;
+    const utteranceRecorder = utteranceRecorderRef.current;
+    utteranceRecorderRef.current = null;
     chunksRef.current = [];
+    utteranceRecorderChunksRef.current = [];
     rollingChunksRef.current = [];
     recordingHeaderRef.current = null;
     utteranceChunksRef.current = [];
@@ -137,6 +142,11 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
       recorder.ondataavailable = null;
       recorder.onstop = null;
       try { recorder.stop(); } catch { /* already stopped */ }
+    }
+    if (utteranceRecorder && utteranceRecorder.state !== "inactive") {
+      utteranceRecorder.ondataavailable = null;
+      utteranceRecorder.onstop = null;
+      try { utteranceRecorder.stop(); } catch { /* already stopped */ }
     }
     previewAbortRef.current?.abort();
     previewAbortRef.current = null;
@@ -148,6 +158,17 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     monitorTimerRef.current = null;
     cancelRecorder();
   }, [cancelRecorder]);
+
+  const discardUtteranceRecorder = useCallback(() => {
+    const recorder = utteranceRecorderRef.current;
+    utteranceRecorderRef.current = null;
+    utteranceRecorderChunksRef.current = [];
+    if (recorder && recorder.state !== "inactive") {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      try { recorder.stop(); } catch { /* already stopped */ }
+    }
+  }, []);
 
   const openRealtimeSocket = useCallback((generation: number, mimeType: string) => {
     if (!realtime || typeof WebSocket === "undefined" || liveSocketRef.current || !shouldContinueRef.current) return;
@@ -199,6 +220,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
         setInterimTranscript("");
         stopMonitoring();
         setStatus("processing");
+        discardUtteranceRecorder();
         console.info("[voice-latency] final-transcript", {
           elapsedMs: liveSpeechStartedAtRef.current
             ? Math.round(performance.now() - liveSpeechStartedAtRef.current)
@@ -215,13 +237,18 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     socket.onclose = () => {
       if (liveSocketRef.current === socket) liveSocketRef.current = null;
     };
-  }, [language, realtime, stopMonitoring]);
+  }, [discardUtteranceRecorder, language, realtime, stopMonitoring]);
 
   const transcribe = useCallback(async (blob: Blob, generation: number) => {
     // Very short but valid answers are common in an interview (for example,
     // "Yes, I have used Excel"). Dropping sub-800-byte WebM blobs made the
     // session appear frozen because no phrase reached Interview Ace.
-    if (blob.size < 320 || generation !== generationRef.current) return;
+    if (blob.size < 320 || generation !== generationRef.current) {
+      if (generation === generationRef.current && shouldContinueRef.current) {
+        setStatus("listening");
+      }
+      return;
+    }
     transcribingRef.current = true;
     setStatus("processing");
     setInterimTranscript("");
@@ -272,6 +299,55 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
       }
     }
   }, [base, language]);
+
+  // A MediaRecorder running continuously produces WebM fragments. Joining a
+  // header to a sparse selection of those fragments is not reliably decodable
+  // by Deepgram or Google. Keep a second recorder that starts exactly when an
+  // utterance starts and stop it at the end, so batch STT always receives one
+  // complete WebM container.
+  const startUtteranceRecorder = useCallback(() => {
+    if (!streamRef.current || utteranceRecorderRef.current) return;
+    try {
+      const mimeType = getMimeType();
+      const recorder = new MediaRecorder(
+        streamRef.current,
+        mimeType ? { mimeType, audioBitsPerSecond: 128_000 } : { audioBitsPerSecond: 128_000 },
+      );
+      utteranceRecorderChunksRef.current = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) utteranceRecorderChunksRef.current.push(event.data);
+      };
+      recorder.start();
+      utteranceRecorderRef.current = recorder;
+    } catch {
+      // The original recorder remains available as a degraded fallback.
+      utteranceRecorderRef.current = null;
+      utteranceRecorderChunksRef.current = [];
+    }
+  }, []);
+
+  const finishUtteranceRecorder = useCallback((
+    generation: number,
+    fallbackBlob: Blob,
+  ) => {
+    const recorder = utteranceRecorderRef.current;
+    if (!recorder) {
+      void transcribe(fallbackBlob, generation);
+      return;
+    }
+    utteranceRecorderRef.current = null;
+    const chunks = utteranceRecorderChunksRef.current;
+    utteranceRecorderChunksRef.current = [];
+    const submit = () => {
+      const blob = new Blob(chunks, { type: recorder.mimeType || getMimeType() || "audio/webm" });
+      void transcribe(blob.size >= 320 ? blob : fallbackBlob, generation);
+    };
+    recorder.onstop = submit;
+    if (recorder.state === "inactive") submit();
+    else {
+      try { recorder.stop(); } catch { submit(); }
+    }
+  }, [transcribe]);
 
   const prepareMicrophone = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false;
@@ -463,6 +539,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
            liveSpeechStartedAtRef.current = speechStartRef.current;
            liveInterimReportedRef.current = false;
           firstAudioRef.current = 0;
+           startUtteranceRecorder();
           console.info("[stt] speech started", { atMs: Math.round(speechStartRef.current), threshold });
           setStatus("listening");
         } else if (recorder && recorder.state === "recording" && utteranceActiveRef.current) {
@@ -517,7 +594,7 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
               durationMs: now - utteranceStartedRef.current,
               bytes: utterance.size,
             });
-            void transcribe(utterance, generation);
+             finishUtteranceRecorder(generation, utterance);
           }
         }
          // Keep this loop timer-based: animation frames stop being delivered
@@ -532,7 +609,15 @@ export function useSpeechRecognition(language = "English", options?: SpeechRecog
     } finally {
       captureStartingRef.current = false;
     }
-  }, [effectiveSilenceMs, isSupported, openRealtimeSocket, realtime, requestPreview, transcribe]);
+  }, [
+    effectiveSilenceMs,
+    finishUtteranceRecorder,
+    isSupported,
+    openRealtimeSocket,
+    realtime,
+    requestPreview,
+    startUtteranceRecorder,
+  ]);
 
   const suppressUntil = useCallback((epochMs: number) => {
     externalSuppressUntilRef.current = epochMs;

@@ -1,7 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { SpeechClient } from "@google-cloud/speech";
 import multer from "multer";
-import { getAI } from "./ai.js";
 
 const router: IRouter = Router();
 const upload = multer({
@@ -222,36 +221,15 @@ router.post("/stt", upload.single("audio"), async (req: Request, res: Response) 
     return;
   }
 
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-       model: "gemini-2.5-flash",
-      contents: [{
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              data: req.file.buffer.toString("base64"),
-              mimeType,
-            },
-          },
-          {
-            text: `Transcribe this short microphone utterance exactly. Return only the spoken words, with no labels, commentary, or punctuation added. The speaker is using ${language}.`,
-          },
-        ],
-      }],
-       config: {
-         maxOutputTokens: 512,
-         ...(process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"]
-           ? { thinkingConfig: { thinkingBudget: 0 } }
-           : {}),
-       },
-    });
-    res.json({ text: response.text?.trim() ?? "" });
-  } catch (geminiError) {
-    console.error("[stt] all transcription providers failed:", geminiError);
-    res.status(502).json({ error: "Speech transcription is temporarily unavailable." });
-  }
+  // Do not ask a general-purpose chat model to guess at failed microphone
+  // audio. It can turn silence or a malformed WebM fragment into plausible
+  // text, which then enters the conversation as a fake student turn.
+  console.warn("[stt] all transcription providers returned no reliable transcript", {
+    bytes: req.file.buffer.length,
+    mimeType,
+    language,
+  });
+  res.status(502).json({ error: "Speech transcription is temporarily unavailable. Please try speaking again." });
 });
 
 export default router;

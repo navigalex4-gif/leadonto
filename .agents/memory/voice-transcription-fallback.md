@@ -5,11 +5,11 @@ name: Voice transcription provider fallback
 description: Shared silent MediaRecorder/VAD STT path, provider ordering, recovery behavior, and WebM upload compatibility.
 ---
 
-The shared web voice hook uses silent MediaRecorder/VAD and sends complete utterances to `/api/stt`. Display-only server previews are disabled because duplicate STT requests can delay or exhaust final answer transcription. The API uses Deepgram Nova for conversational English first, Google Cloud Speech-to-Text as recovery, and reverses that ordering for Indian languages.
+The shared web voice hook uses silent MediaRecorder/VAD and sends complete utterances to `/api/stt`. Display-only server previews are disabled because duplicate STT requests can delay or exhaust final answer transcription. The API uses Deepgram Nova for conversational English first, Google Cloud Speech-to-Text as recovery, and reverses that ordering for Indian languages. A second per-utterance recorder creates a complete WebM container for batch fallback; the continuous recorder is not safe to sparsely reassemble.
 
 **Why:** Duplicate preview uploads competed with final transcription, while model quotas could make the old AI-first fallback path appear frozen.
 
-**How to apply:** Prioritize one complete final utterance, reject an empty successful response as a failed transcription, preserve the typed-answer recovery path, and never restore browser SpeechRecognition on the web live-service path because Android Chrome emits an external start/stop earcon.
+**How to apply:** Prioritize one complete final utterance, reject an empty successful response as a failed transcription, never pass a general AI model's guessed transcription into chat after STT failure, preserve the typed-answer recovery path, and never restore browser SpeechRecognition on the web live-service path because Android Chrome emits an external start/stop earcon.
 
 Google Speech-to-Text V2 Chirp 3 was tested in production and rejected with `PERMISSION_DENIED` for `speech.recognizers.recognize` on the implicit recognizer. Do not make Chirp 3 the sole transcription path unless that IAM permission and recognizer configuration are verified in the deployed project.
 
