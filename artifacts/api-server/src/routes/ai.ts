@@ -14,22 +14,28 @@ function parseAiRequest(req: Request, res: Response): {
   prompt: string;
   system?: string | null;
   maxTokens?: number | null;
+  responseLanguage?: string | null;
+  nativeInputDetected?: boolean | null;
 } | null {
   const parsed = AiChatBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
     return null;
   }
-  const { prompt, system, maxTokens } = parsed.data;
+  const { prompt, system, maxTokens, responseLanguage, nativeInputDetected } = parsed.data;
   if (prompt.length > 20_000 || (system?.length ?? 0) > 10_000) {
     res.status(413).json({ error: "AI request is too large." });
+    return null;
+  }
+  if (responseLanguage != null && responseLanguage.length > 40) {
+    res.status(400).json({ error: "responseLanguage is too long." });
     return null;
   }
   if (maxTokens != null && (!Number.isFinite(maxTokens) || maxTokens < 1 || maxTokens > 4_000)) {
     res.status(400).json({ error: "maxTokens must be between 1 and 4000." });
     return null;
   }
-  return { prompt, system, maxTokens };
+  return { prompt, system, maxTokens, responseLanguage, nativeInputDetected };
 }
 
 // These stable model IDs are available through Vertex AI and are billed to the
@@ -46,13 +52,28 @@ const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 // activates when an Indian language is actually requested.
 const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words. When the learner's latest message is primarily written in an Indian script, answer the substance of that message in the same language and script unless the learner explicitly asks for a different target language or English. Do not replace a meaningful answer with a generic acknowledgement such as "I understand" or "let's practise slowly".`;
 
-function applyLanguageQuality(prompt: string, system?: string | null): string | null | undefined {
+function applyLanguageQuality(
+  prompt: string,
+  system?: string | null,
+  responseLanguage?: string | null,
+  nativeInputDetected?: boolean | null,
+): string | null | undefined {
   const requestedText = `${prompt}\n${system ?? ""}`;
   const nativePolicy = applyNativeLanguagePolicy(prompt, system);
+  const explicitLanguagePolicy =
+    responseLanguage
+    && responseLanguage !== "English"
+    && nativeInputDetected
+      ? `Highest-priority response contract: The learner's latest message is in ${responseLanguage}. Reply first in two complete, useful sentences in natural ${responseLanguage} using ${responseLanguage}'s standard native script. Address the learner's actual message and meaning. Do not reply in English first, do not give a generic acknowledgement, and do not invent a new question. You may add one short English practice sentence only after the ${responseLanguage} explanation.`
+      : null;
   if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|हिंदी|हिन्दी|मराठी|देवनागरी|matra|मात्रा|বাংলা|తెలుగు|தமிழ்|ગુજરાતી|ಕನ್ನಡ|മലയാളം|ਪੰਜਾਬੀ|ଓଡ଼ିଆ|اردو|অসমীয়া)/iu.test(requestedText)) {
-    return nativePolicy;
+    return [nativePolicy, explicitLanguagePolicy].filter(Boolean).join("\n\n") || undefined;
   }
-  return `${nativePolicy ? `${nativePolicy}\n\n` : ""}${INDIAN_LANGUAGE_QUALITY_RULE}`;
+  return [
+    nativePolicy,
+    explicitLanguagePolicy,
+    INDIAN_LANGUAGE_QUALITY_RULE,
+  ].filter(Boolean).join("\n\n") || undefined;
 }
 
 function setSseHeaders(res: Response) {
@@ -509,8 +530,8 @@ async function streamGroq(
 router.post("/ai/stream", async (req, res) => {
   const parsed = parseAiRequest(req, res);
   if (!parsed) return;
-  const { prompt, system: rawSystem, maxTokens } = parsed;
-  const system = applyLanguageQuality(prompt, rawSystem);
+  const { prompt, system: rawSystem, maxTokens, responseLanguage, nativeInputDetected } = parsed;
+  const system = applyLanguageQuality(prompt, rawSystem, responseLanguage, nativeInputDetected);
 
   setSseHeaders(res);
   const directLanguage = isDeterministicLanguageSwitch(prompt);
@@ -624,8 +645,8 @@ router.post("/ai/stream", async (req, res) => {
 router.post("/ai/conversation", async (req, res) => {
   const parsed = parseAiRequest(req, res);
   if (!parsed) return;
-  const { prompt, system: rawSystem, maxTokens } = parsed;
-  const system = applyLanguageQuality(prompt, rawSystem);
+  const { prompt, system: rawSystem, maxTokens, responseLanguage, nativeInputDetected } = parsed;
+  const system = applyLanguageQuality(prompt, rawSystem, responseLanguage, nativeInputDetected);
   setSseHeaders(res);
   const state = { wrote: false };
 
@@ -652,8 +673,8 @@ router.post("/ai/conversation", async (req, res) => {
 router.post("/ai/gemini-stream", async (req, res) => {
   const parsed = parseAiRequest(req, res);
   if (!parsed) return;
-  const { prompt, system: rawSystem, maxTokens } = parsed;
-  const system = applyLanguageQuality(prompt, rawSystem);
+  const { prompt, system: rawSystem, maxTokens, responseLanguage, nativeInputDetected } = parsed;
+  const system = applyLanguageQuality(prompt, rawSystem, responseLanguage, nativeInputDetected);
   setSseHeaders(res);
   const directLanguage = isDeterministicLanguageSwitch(prompt);
   if (directLanguage) {

@@ -74,3 +74,15 @@ the exact canned reply the client was trying to detect.
 deterministic switch or translation routing. For ordinary native-script turns,
 preserve the substantive streamed reply when its script is valid, even if it is
 partial or punctuation-free.
+
+The live conversation API should receive the selected response language and a
+structured native-input flag in addition to the free-form prompt and system
+text.
+
+**Why:** A valid HTTP 200/SSE response can still be English when language intent
+is left for a model to infer from a long prompt; explicit routing metadata lets
+the server enforce native-first output before provider selection.
+
+**How to apply:** Send `responseLanguage` and `nativeInputDetected` on every
+English Guru conversation/retry request, and make the API apply the native
+script contract whenever the flag is true.

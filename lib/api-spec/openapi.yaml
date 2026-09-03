@@ -72,6 +72,12 @@ components:
           type: ["integer", "null"]
         system:
           type: ["string", "null"]
+        responseLanguage:
+          type: ["string", "null"]
+          description: Helper language for the current response, when applicable.
+        nativeInputDetected:
+          type: ["boolean", "null"]
+          description: Whether the learner's latest message is primarily in the helper language.
 
     AiChatResult:
       type: object

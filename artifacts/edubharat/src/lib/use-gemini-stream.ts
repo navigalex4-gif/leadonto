@@ -5,6 +5,10 @@ export type StreamOptions = {
   endpoint?: string;
   /** Abort a conversational turn that cannot produce a useful reply quickly. */
   timeoutMs?: number;
+  /** Explicit helper language for the current AI response. */
+  responseLanguage?: string;
+  /** Forces a native-script-first response for the latest learner turn. */
+  nativeInputDetected?: boolean;
 };
 
 async function* parseSSE(response: Response, signal: AbortSignal): AsyncGenerator<string> {
@@ -72,7 +76,13 @@ export function useGeminiStream() {
           headers: { "Content-Type": "application/json" },
           // Keep conversational turns compact so the first useful interviewer
           // sentence starts within the 4–5 second UX target.
-          body: JSON.stringify({ prompt, system, maxTokens: options?.maxTokens ?? 700 }),
+          body: JSON.stringify({
+            prompt,
+            system,
+            maxTokens: options?.maxTokens ?? 700,
+            responseLanguage: options?.responseLanguage,
+            nativeInputDetected: options?.nativeInputDetected,
+          }),
           credentials: "include",
           signal: controller.signal,
         });

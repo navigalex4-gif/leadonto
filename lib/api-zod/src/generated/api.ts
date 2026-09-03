@@ -23,7 +23,9 @@ export const HealthCheckResponse = zod.object({
 export const AiChatBody = zod.object({
   "prompt": zod.string(),
   "maxTokens": zod.number().nullish(),
-  "system": zod.string().nullish()
+  "system": zod.string().nullish(),
+  "responseLanguage": zod.string().nullish().describe('Helper language for the current response, when applicable.'),
+  "nativeInputDetected": zod.boolean().nullish().describe('Whether the learner\'s latest message is primarily in the helper language.')
 })
 
 export const AiChatResponse = zod.object({

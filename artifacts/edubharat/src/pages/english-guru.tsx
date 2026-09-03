@@ -1391,6 +1391,8 @@ Rules for spoken replies:
               endpoint: "/api/ai/conversation",
               maxTokens: nativeInputDetected ? 180 : 100,
               timeoutMs: nativeInputDetected ? 6000 : 4500,
+              responseLanguage: responseHelperLanguage,
+              nativeInputDetected,
             },
           );
         }
@@ -1407,7 +1409,13 @@ Rules for spoken replies:
             `${recentHistory}\n${teacherShort}:`,
             `You are ${teacherShort}, a warm Indian English coach. The learner's latest message is in ${responseHelperLanguage}. Answer the actual latest message now. Return two complete, useful sentences in natural ${responseHelperLanguage} using ${responseHelperLanguage}'s standard native script. Be specific and practical, not vague. Do not say only that you understand, do not ask what the learner means unless the message is genuinely unintelligible, and do not switch to English before addressing the learner in ${responseHelperLanguage}. You may add one short English practice example after the native-language answer. Never use another Indian language, transliteration, isolated script letters, markdown, or bullet points.`,
             undefined,
-            { endpoint: "/api/ai/conversation", maxTokens: 180, timeoutMs: 6000 },
+            {
+              endpoint: "/api/ai/conversation",
+              maxTokens: 180,
+              timeoutMs: 6000,
+              responseLanguage: responseHelperLanguage,
+              nativeInputDetected: true,
+            },
           );
           // Prefer the retry only when it is itself a valid native answer.
           // A timeout can return an empty or English-only retry; in that case

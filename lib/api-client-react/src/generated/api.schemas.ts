@@ -15,6 +15,16 @@ export interface AiChatInput {
   maxTokens?: number | null;
   /** @nullable */
   system?: string | null;
+  /**
+     * Helper language for the current response, when applicable.
+     * @nullable
+     */
+  responseLanguage?: string | null;
+  /**
+     * Whether the learner's latest message is primarily in the helper language.
+     * @nullable
+     */
+  nativeInputDetected?: boolean | null;
 }
 
 export interface AiChatResult {
