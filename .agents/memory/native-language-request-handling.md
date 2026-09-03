@@ -86,3 +86,14 @@ the server enforce native-first output before provider selection.
 **How to apply:** Send `responseLanguage` and `nativeInputDetected` on every
 English Guru conversation/retry request, and make the API apply the native
 script contract whenever the flag is true.
+
+The API must also infer native-turn metadata when those fields are missing from
+an older web bundle.
+
+**Why:** A deployment can temporarily serve an older hashed frontend while the
+server has already changed; relying only on the new client contract reopens the
+same English-first failure during that window.
+
+**How to apply:** Inspect only the latest `Student:` line for native script and
+use the helper language named in the system context to disambiguate shared
+scripts such as Devanagari. Treat an explicit translation request separately.

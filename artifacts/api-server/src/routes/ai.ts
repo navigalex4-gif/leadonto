@@ -4,8 +4,11 @@ import { GoogleGenAI } from "@google/genai";
 import { AiChatBody } from "@workspace/api-zod";
 import {
   applyNativeLanguagePolicy,
+  detectNativeLanguageIntent,
   isDeterministicLanguageSwitch,
   nativeLanguageConfirmation,
+  SUPPORTED_NATIVE_LANGUAGES,
+  type SupportedNativeLanguage,
 } from "../lib/native-language-policy";
 
 const router: IRouter = Router();
@@ -52,19 +55,98 @@ const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 // activates when an Indian language is actually requested.
 const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words. When the learner's latest message is primarily written in an Indian script, answer the substance of that message in the same language and script unless the learner explicitly asks for a different target language or English. Do not replace a meaningful answer with a generic acknowledgement such as "I understand" or "let's practise slowly".`;
 
+const NATIVE_SCRIPT_RANGES: Record<SupportedNativeLanguage, RegExp> = {
+  Hindi: /[\u0900-\u097F]/u,
+  Bengali: /[\u0980-\u09FF]/u,
+  Telugu: /[\u0C00-\u0C7F]/u,
+  Marathi: /[\u0900-\u097F]/u,
+  Tamil: /[\u0B80-\u0BFF]/u,
+  Gujarati: /[\u0A80-\u0AFF]/u,
+  Kannada: /[\u0C80-\u0CFF]/u,
+  Malayalam: /[\u0D00-\u0D7F]/u,
+  Punjabi: /[\u0A00-\u0A7F]/u,
+  Odia: /[\u0B00-\u0B7F]/u,
+  Urdu: /[\u0600-\u06FF]/u,
+  Assamese: /[\u0980-\u09FF]/u,
+};
+
+const SYSTEM_LANGUAGE_HINTS: Record<SupportedNativeLanguage, RegExp> = {
+  Hindi: /\bhindi\b|हिंदी|हिन्दी/iu,
+  Bengali: /\bbengali\b|বাংলা|বাঙলা/iu,
+  Telugu: /\btelugu\b|తెలుగు/iu,
+  Marathi: /\bmarathi\b|मराठी/iu,
+  Tamil: /\btamil\b|தமிழ்/iu,
+  Gujarati: /\bgujarati\b|ગુજરાતી/iu,
+  Kannada: /\bkannada\b|ಕನ್ನಡ/iu,
+  Malayalam: /\bmalayalam\b|മലയാളം/iu,
+  Punjabi: /\bpunjabi\b|ਪੰਜਾਬੀ/iu,
+  Odia: /\b(?:odia|oriya)\b|ଓଡ଼ିଆ|ଓଡିଆ/iu,
+  Urdu: /\burdu\b|اردو/iu,
+  Assamese: /\bassamese\b|অসমীয়া|অসমিয়া/iu,
+};
+
+function latestStudentText(prompt: string): string {
+  const matches = [...prompt.matchAll(/(?:^|\n)Student:\s*([^\n]*)/g)];
+  return matches.at(-1)?.[1]?.trim() ?? prompt;
+}
+
+/**
+ * Older web bundles did not send responseLanguage/nativeInputDetected. Infer
+ * the same metadata at the API boundary so a stale client cannot turn a Hindi
+ * turn into an English-first answer. Only the latest Student line is inspected
+ * for script; previous history must not change the current turn's language.
+ */
+function resolveLanguageMetadata(
+  prompt: string,
+  system: string | null | undefined,
+  responseLanguage?: string | null,
+  nativeInputDetected?: boolean | null,
+): { responseLanguage?: string | null; nativeInputDetected?: boolean | null } {
+  if (responseLanguage != null || nativeInputDetected != null) {
+    return { responseLanguage, nativeInputDetected };
+  }
+
+  const intent = detectNativeLanguageIntent(prompt);
+  if (intent) {
+    return { responseLanguage: intent.language, nativeInputDetected: false };
+  }
+
+  const latest = latestStudentText(prompt);
+  const scriptLanguage = SUPPORTED_NATIVE_LANGUAGES.find((language) =>
+    [...latest].filter((character) => NATIVE_SCRIPT_RANGES[language].test(character)).length >= 2,
+  );
+  if (!scriptLanguage) {
+    return { responseLanguage: null, nativeInputDetected: false };
+  }
+
+  // Devanagari and Bengali-family scripts are shared by more than one language.
+  // Prefer the helper language explicitly named in the system context, then use
+  // the script's first supported match as a safe fallback.
+  const helperLanguage = SUPPORTED_NATIVE_LANGUAGES.find((language) =>
+    SYSTEM_LANGUAGE_HINTS[language].test(system ?? ""),
+  );
+  return {
+    responseLanguage: helperLanguage ?? scriptLanguage,
+    nativeInputDetected: true,
+  };
+}
+
 function applyLanguageQuality(
   prompt: string,
   system?: string | null,
   responseLanguage?: string | null,
   nativeInputDetected?: boolean | null,
 ): string | null | undefined {
+  const resolved = resolveLanguageMetadata(prompt, system, responseLanguage, nativeInputDetected);
+  const effectiveResponseLanguage = resolved.responseLanguage;
+  const effectiveNativeInputDetected = resolved.nativeInputDetected;
   const requestedText = `${prompt}\n${system ?? ""}`;
   const nativePolicy = applyNativeLanguagePolicy(prompt, system);
   const explicitLanguagePolicy =
-    responseLanguage
-    && responseLanguage !== "English"
-    && nativeInputDetected
-      ? `Highest-priority response contract: The learner's latest message is in ${responseLanguage}. Reply first in two complete, useful sentences in natural ${responseLanguage} using ${responseLanguage}'s standard native script. Address the learner's actual message and meaning. Do not reply in English first, do not give a generic acknowledgement, and do not invent a new question. You may add one short English practice sentence only after the ${responseLanguage} explanation.`
+    effectiveResponseLanguage
+    && effectiveResponseLanguage !== "English"
+    && effectiveNativeInputDetected
+      ? `Highest-priority response contract: The learner's latest message is in ${effectiveResponseLanguage}. Reply first in two complete, useful sentences in natural ${effectiveResponseLanguage} using ${effectiveResponseLanguage}'s standard native script. Address the learner's actual message and meaning. Do not reply in English first, do not give a generic acknowledgement, and do not invent a new question. You may add one short English practice sentence only after the ${effectiveResponseLanguage} explanation.`
       : null;
   if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|हिंदी|हिन्दी|मराठी|देवनागरी|matra|मात्रा|বাংলা|తెలుగు|தமிழ்|ગુજરાતી|ಕನ್ನಡ|മലയാളം|ਪੰਜਾਬੀ|ଓଡ଼ିଆ|اردو|অসমীয়া)/iu.test(requestedText)) {
     return [nativePolicy, explicitLanguagePolicy].filter(Boolean).join("\n\n") || undefined;
