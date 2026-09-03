@@ -536,17 +536,27 @@ function hasUnexpectedNonLatinScript(text: string, language: string): boolean {
   );
 }
 
-function looksTruncatedReply(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed.length < 32) return false;
-  return !/[.!?।॥…)"'’”」』\u0964\u0965]$/u.test(trimmed);
-}
-
 function collapseFragmentedNativeScript(text: string): string {
   if (!hasFragmentedNativeScript(text)) return text;
   return text.replace(
     /([\u0900-\u0D7F\u0600-\u06FF])\s+(?=[\u0900-\u0D7F\u0600-\u06FF])/gu,
     "$1",
+  );
+}
+
+/**
+ * A streamed answer can end without punctuation when the browser timeout
+ * closes the connection after useful text has already arrived. Native script,
+ * not terminal punctuation, is the important safety signal here: preserve a
+ * readable partial answer rather than replacing it with a canned acknowledgement.
+ */
+function isUsableNativeResponse(text: string, language: string): boolean {
+  return Boolean(
+    text.trim()
+    && hasExpectedNativeScript(text, language)
+    && !hasUnexpectedNonLatinScript(text, language)
+    && !hasFragmentedNativeScript(text)
+    && !looksLikeGenericNativeAcknowledgement(text),
   );
 }
 
@@ -1390,21 +1400,21 @@ Rules for spoken replies:
         if (
           nativeInputDetected
           && (
-            !response.trim()
-            || !hasExpectedNativeScript(response, responseHelperLanguage)
-            || hasUnexpectedNonLatinScript(response, responseHelperLanguage)
-            || hasFragmentedNativeScript(response)
-            || looksTruncatedReply(response)
-            || looksLikeGenericNativeAcknowledgement(response)
+            !isUsableNativeResponse(response, responseHelperLanguage)
           )
         ) {
           const nativeRetry = await stream(
             `${recentHistory}\n${teacherShort}:`,
-            `You are ${teacherShort}, a warm Indian English coach. The learner's latest message is in ${uiLang}. Answer the actual latest message now. Return two complete, useful sentences in natural ${uiLang} using ${uiLang}'s standard native script. Be specific and practical, not vague. Do not say only that you understand, do not ask what the learner means unless the message is genuinely unintelligible, and do not switch to English before addressing the learner in ${uiLang}. You may add one short English practice example after the native-language answer. Never use another Indian language, transliteration, isolated script letters, markdown, or bullet points.`,
+            `You are ${teacherShort}, a warm Indian English coach. The learner's latest message is in ${responseHelperLanguage}. Answer the actual latest message now. Return two complete, useful sentences in natural ${responseHelperLanguage} using ${responseHelperLanguage}'s standard native script. Be specific and practical, not vague. Do not say only that you understand, do not ask what the learner means unless the message is genuinely unintelligible, and do not switch to English before addressing the learner in ${responseHelperLanguage}. You may add one short English practice example after the native-language answer. Never use another Indian language, transliteration, isolated script letters, markdown, or bullet points.`,
             undefined,
             { endpoint: "/api/ai/conversation", maxTokens: 180, timeoutMs: 6000 },
           );
-          if (nativeRetry.trim()) response = nativeRetry;
+          // Prefer the retry only when it is itself a valid native answer.
+          // A timeout can return an empty or English-only retry; in that case
+          // preserve the original if it already contains useful native text.
+          if (isUsableNativeResponse(nativeRetry, responseHelperLanguage)) {
+            response = nativeRetry;
+          }
         }
         // A second malformed response must never be handed to TTS character by
         // character. Validate the raw provider response BEFORE any repair:
@@ -1428,14 +1438,7 @@ Rules for spoken replies:
         }
         if (
           nativeInputDetected
-          && (
-            !response.trim()
-            || !hasExpectedNativeScript(response, responseHelperLanguage)
-            || hasUnexpectedNonLatinScript(response, responseHelperLanguage)
-            || hasFragmentedNativeScript(response)
-            || looksTruncatedReply(response)
-            || looksLikeGenericNativeAcknowledgement(response)
-          )
+          && !isUsableNativeResponse(response, responseHelperLanguage)
         ) {
           response = NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
             ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]

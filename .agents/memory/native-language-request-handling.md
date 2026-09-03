@@ -56,7 +56,21 @@ and TTS voice without silently changing the saved preference.
 preference; routing only through the saved setting let genuine Hindi/Telugu/etc.
 messages reach an English-only prompt and receive vague replies.
 
-**How to apply:** Require a complete native-script-first answer for detected native
-turns, retry once when the provider returns English, foreign script, fragmented
-text, or a truncated ending, then use a complete local fallback. Force the matching
-native voice when the valid reply contains a short English practice sentence.
+**How to apply:** Require a native-script-first answer for detected native turns,
+retry once when the provider returns English, foreign script, fragmented text, or
+generic acknowledgement. Do not reject useful native-script text only because a
+stream timeout left it without terminal punctuation; use the local fallback only
+when the response is empty or genuinely malformed. Force the matching native
+voice when the valid reply contains a short English practice sentence.
+
+The shared language policy must distinguish an explicit language command in the
+learner's message from a helper-language name repeated in the system prompt.
+
+**Why:** Treating the selected helper language as a fresh switch request added a
+generic acknowledgement instruction to ordinary native turns, which encouraged
+the exact canned reply the client was trying to detect.
+
+**How to apply:** Only explicit language names in the user prompt may trigger
+deterministic switch or translation routing. For ordinary native-script turns,
+preserve the substantive streamed reply when its script is valid, even if it is
+partial or punctuation-free.

@@ -136,8 +136,12 @@ export function detectNativeLanguageIntent(prompt: string, system?: string | nul
   const text = `${prompt}\n${system ?? ""}`;
   for (const language of SUPPORTED_NATIVE_LANGUAGES) {
     const definition = LANGUAGE_DEFINITIONS[language];
-    const named = definition.aliases.some((alias) => alias.test(prompt));
-    if (!named) continue;
+    // The helper language is often repeated in the system prompt on every
+    // turn. That is capability context, not a fresh user request to switch
+    // languages. Only explicit language names in the learner's message may
+    // activate deterministic switch/translation routing.
+    const namedInPrompt = definition.aliases.some((alias) => alias.test(prompt));
+    if (!namedInPrompt) continue;
 
     const nativeCommand = definition.switchVerbs.test(prompt) || COMMON_NATIVE_SWITCH_VERBS.test(prompt);
     const mixedExplanation =
@@ -148,8 +152,6 @@ export function detectNativeLanguageIntent(prompt: string, system?: string | nul
       || ENGLISH_TRANSLATION_MARKERS.test(prompt)
       || definition.explanationVerbs.test(prompt);
 
-    // A language in the system prompt alone means that the route supports it,
-    // but is not itself a request to answer in that language.
     if (!nativeCommand && !translationOrExplanation && !definition.aliases.some((alias) => alias.test(text))) continue;
     return { language, translationOrExplanation };
   }
