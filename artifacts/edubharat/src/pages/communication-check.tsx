@@ -29,15 +29,25 @@ const QUICK_ACKNOWLEDGEMENTS = [
   "That is worth unpacking",
   "You have given me something specific to work with",
 ];
-const OPENING_QUESTIONS = [
-  "Tell me about something you are working towards right now.",
-  "What is one recent experience you would enjoy telling a colleague about?",
-  "What is something you learned recently, and why did it matter to you?",
-  "Tell me about a small win you had recently.",
-];
-const FIRST_QUESTION = OPENING_QUESTIONS[0]!;
+const FIRST_QUESTION = "Tell me about something you are working towards right now.";
 const SIGNALS = ["structure", "clarity", "explanation", "collaboration", "adaptability", "confidence", "self-awareness", "listening"] as const;
 type Signal = typeof SIGNALS[number];
+const QUESTION_SCENARIOS = [
+  "a first week at work", "a customer conversation", "a team deadline",
+  "an interview follow-up", "a misunderstanding", "a difficult decision",
+  "a presentation", "a learning challenge", "a change of plan", "a proud result",
+] as const;
+const QUESTION_ANGLES = [
+  "what happened first", "the reason behind the choice", "how the other person reacted",
+  "what the candidate would change", "the clearest evidence", "how they kept it simple",
+  "the trade-off involved", "what they learned", "how they checked understanding",
+  "the next action they would take",
+] as const;
+const QUESTION_CONSTRAINTS = [
+  "ask for one concrete detail", "invite a short example", "ask for a before-and-after",
+  "ask the candidate to explain it to a beginner", "ask for the exact first sentence",
+  "ask for a 20-second summary", "ask what made it difficult", "ask what success looked like",
+] as const;
 const QUESTION_BANK = [
   // The bank is intentionally balanced across the strongest observable
   // communication signals: structure, clarity, listening/empathy, explanation,
@@ -189,15 +199,30 @@ function openingFor(candidate: Candidate, seed: number): string {
   const experience = candidate.experienceLevel === "Fresher"
     ? "as someone starting out"
     : `with ${candidate.experienceLevel || "your current experience"}`;
+  const themes = [
+    "a small win", "a useful lesson", "a problem you solved", "a choice you made",
+    "a moment you helped someone", "a time your plan changed", "something you built or improved",
+    "a conversation you handled well", "a skill you are practising", "a goal that matters to you",
+  ];
+  const theme = themes[seededIndex(seed, themes.length, 1)]!;
   const options = [
     `What are you working towards in ${role}, and what has prepared you for it?`,
-    `Tell me about something you have done recently that connects to ${role}.`,
+    `Tell me about ${theme} recently, and how it connects to ${role}.`,
     `Imagine you are introducing yourself for ${role} ${experience}. What would you want them to know?`,
     location
       ? `What would make a good opportunity in ${role} feel right for you in or around ${location}?`
       : `What interests you most about moving towards ${role}?`,
   ];
   return options[seededIndex(seed, options.length)]!;
+}
+
+function questionBlueprint(seed: number, turn: number, signal: Signal): string {
+  return [
+    `scenario: ${QUESTION_SCENARIOS[seededIndex(seed, QUESTION_SCENARIOS.length, turn * 3)]}`,
+    `angle: ${QUESTION_ANGLES[seededIndex(seed, QUESTION_ANGLES.length, turn * 3 + 1)]}`,
+    `constraint: ${QUESTION_CONSTRAINTS[seededIndex(seed, QUESTION_CONSTRAINTS.length, turn * 3 + 2)]}`,
+    `signal: ${signal}`,
+  ].join("; ");
 }
 
 function nextUnusedQuestion(askedQuestions: string[], seed: number, candidate: Candidate, signal: Signal): string {
@@ -514,6 +539,7 @@ export default function CommunicationCheck() {
     });
     const askedQuestions = nextAnswers.map((item) => item.question);
     const signal = SIGNALS[signalIndexRef.current % SIGNALS.length]!;
+    const blueprint = questionBlueprint(sessionSeedRef.current, nextAnswers.length, signal);
     const answerDetail = answer.length > 220 ? `${answer.slice(0, 220)}…` : answer;
      let response: string;
     try {
@@ -522,6 +548,7 @@ export default function CommunicationCheck() {
           `Respond as a fast, energetic but natural human interviewer after this answer: "${answerDetail}".
 Candidate profile: target role "${roleContext(candidate)}"; experience "${candidate.experienceLevel || "not specified"}"; location "${candidate.location || "not specified"}".
 This is a 90-second spoken communication check. Explore the signal "${signal}" next, but connect the question to one concrete detail from the answer. Choose a fresh direction, not a generic career question.
+Use this session variation blueprint to avoid predictable questions: ${blueprint}.
 Questions already asked: ${askedQuestions.join(" | ")}
 Never repeat or paraphrase an earlier question. Return one or two short spoken sentences: a specific reaction grounded in the answer, then one fresh question. Do not guess what an unclear phrase means. Do not use “Okay”, “Got it”, “Right”, or “Thanks for sharing” as the whole reaction. Maximum 32 words.`,
           "You are a warm, lively Indian interviewer. Sound alert, encouraging and genuinely interested, not like a form. Speak at a brisk conversational pace with clear energy, short sentences and varied reactions. Show empathy when the answer is difficult, celebrate a specific small win, and make brief answers easier. Never sound fake, breathless or scripted. No markdown or preamble.",
@@ -629,7 +656,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
       crypto.randomUUID(),
     ].join("|"));
     signalIndexRef.current = seededIndex(sessionSeedRef.current, SIGNALS.length);
-    const opening = OPENING_QUESTIONS[Math.floor(Math.random() * OPENING_QUESTIONS.length)]!;
+    const opening = openingFor(candidate, sessionSeedRef.current);
     questionRef.current = opening;
     setCurrentQuestion(opening);
     setPhase("interview");

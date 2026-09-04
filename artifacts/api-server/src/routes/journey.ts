@@ -561,35 +561,146 @@ router.post("/journey/submit-result", async (req: Request, res: Response) => {
 });
 
 // -----------------------------------------------------------------------
-// In-memory lesson-content cache: key = `${lessonId}|${level}|${goal}`
-// Max 200 entries; evict oldest when full.
-// TTL: 24 hours — cached content is regenerated once per day so it stays fresh.
+// On-demand lesson variation
+//
+// The cross-product of lesson, learner cohort and the explicit variation
+// blueprint gives us millions of possible lesson experiences without storing
+// millions of rows. A bounded LRU cache and in-flight request coalescing keep a
+// burst of learners from triggering duplicate provider calls.
 // -----------------------------------------------------------------------
+type LessonContent = {
+  concept: string;
+  examples: string[];
+  practice: string;
+};
+
 type CacheEntry = {
-  content: { concept: string; examples: string[]; practice: string };
+  content: LessonContent;
   cachedAt: number; // Date.now() ms
 };
 const CONTENT_CACHE = new Map<string, CacheEntry>();
-const CACHE_MAX = 200;
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CONTENT_IN_FLIGHT = new Map<string, Promise<LessonContent>>();
+const CACHE_MAX = 1_000;
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const VARIANT_BUCKETS = 4_096;
 
-function cacheGet(key: string): { concept: string; examples: string[]; practice: string } | undefined {
+const LESSON_FRAMINGS = [
+  "mini-story", "quick challenge", "role-play", "before-and-after contrast",
+  "spot-the-mistake", "curious question", "micro case study", "teach-back",
+  "decision moment", "visual observation", "pattern hunt", "confidence drill",
+] as const;
+const LESSON_SETTINGS = [
+  "job interview", "team stand-up", "customer call", "shop or market",
+  "college placement", "factory floor", "family business", "video meeting",
+  "commute", "bank visit", "healthcare front desk", "first week at work",
+] as const;
+const LESSON_PRACTICE_MODES = [
+  "speak for 30 seconds", "choose and explain", "transform a sentence",
+  "notice a difference", "role-play both sides", "recall without looking",
+  "repair an unclear message", "sequence three ideas", "summarise for a manager",
+  "ask one useful follow-up", "compare two responses", "give a voice-note reply",
+] as const;
+const LESSON_EXAMPLE_PATTERNS = [
+  "one correct, one improved, one natural", "fresher, experienced worker, manager",
+  "formal, neutral, friendly", "short, clearer, confident",
+  "question, answer, follow-up", "mistake, repair, explanation",
+  "workplace, public place, home practice", "simple, intermediate, stretch",
+] as const;
+const LESSON_CONSTRAINTS = [
+  "Use everyday words.", "Keep every spoken line under twelve words.",
+  "Make the learner state a reason.", "Include one polite clarification.",
+  "Include one measurable detail.", "Show a respectful disagreement.",
+  "Use a realistic time pressure.", "Include one misunderstanding to repair.",
+  "Make the final example more confident.", "Avoid textbook-style dialogue.",
+] as const;
+
+function hashVariation(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function pickVariation<T>(items: readonly T[], seed: number, offset: number): T {
+  const mixed = Math.imul(seed ^ Math.imul(offset + 1, 374761393), 668265263) >>> 0;
+  return items[mixed % items.length]!;
+}
+
+function boundedQuery(value: unknown, fallback: string, maxLength: number): string {
+  if (typeof value !== "string") return fallback;
+  const clean = value.replace(/\s+/g, " ").trim();
+  return clean ? clean.slice(0, maxLength) : fallback;
+}
+
+function skillCohort(skills: string, goal: string): string {
+  const source = `${skills} ${goal}`.toLowerCase();
+  const cohorts: Array<[string, RegExp]> = [
+    ["technology", /\b(software|developer|coding|data|computer|it|technical)\b/],
+    ["sales", /\b(sales|marketing|business development|retail)\b/],
+    ["finance", /\b(bank|banking|finance|account|insurance|bpo)\b/],
+    ["operations", /\b(operation|logistics|supply|manufactur|factory)\b/],
+    ["customer-service", /\b(customer|support|service|hospitality)\b/],
+    ["healthcare", /\b(health|medical|nurs|pharma)\b/],
+    ["education", /\b(teach|education|trainer|academic)\b/],
+    ["government", /\b(government|public sector|civil service)\b/],
+  ];
+  return cohorts.find(([, pattern]) => pattern.test(source))?.[0] ?? "general";
+}
+
+function lessonVariation(seedText: string) {
+  const seed = hashVariation(seedText);
+  const bucket = seed % VARIANT_BUCKETS;
+  return {
+    id: bucket.toString(36).padStart(3, "0"),
+    framing: pickVariation(LESSON_FRAMINGS, bucket, 0),
+    setting: pickVariation(LESSON_SETTINGS, bucket, 1),
+    practiceMode: pickVariation(LESSON_PRACTICE_MODES, bucket, 2),
+    examplePattern: pickVariation(LESSON_EXAMPLE_PATTERNS, bucket, 3),
+    constraint: pickVariation(LESSON_CONSTRAINTS, bucket, 4),
+  };
+}
+
+function cacheGet(key: string): LessonContent | undefined {
   const entry = CONTENT_CACHE.get(key);
   if (!entry) return undefined;
   if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
     CONTENT_CACHE.delete(key);
     return undefined;
   }
+  // Refresh insertion order so the map behaves as a small LRU cache.
+  CONTENT_CACHE.delete(key);
+  CONTENT_CACHE.set(key, entry);
   return entry.content;
 }
 
-function cacheSet(key: string, value: { concept: string; examples: string[]; practice: string }) {
+function cacheSet(key: string, value: LessonContent) {
+  CONTENT_CACHE.delete(key);
   if (CONTENT_CACHE.size >= CACHE_MAX) {
-    // Evict the oldest inserted entry (Maps preserve insertion order)
     const firstKey = CONTENT_CACHE.keys().next().value;
     if (firstKey !== undefined) CONTENT_CACHE.delete(firstKey);
   }
   CONTENT_CACHE.set(key, { content: value, cachedAt: Date.now() });
+}
+
+function parseLessonContent(raw: string): LessonContent {
+  const clean = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const parsed = JSON.parse(clean) as Partial<LessonContent>;
+  if (
+    typeof parsed.concept !== "string"
+    || typeof parsed.practice !== "string"
+    || !Array.isArray(parsed.examples)
+    || parsed.examples.length < 3
+    || parsed.examples.some(example => typeof example !== "string")
+  ) {
+    throw new Error("Lesson provider returned an invalid content shape");
+  }
+  return {
+    concept: parsed.concept.trim().slice(0, 1_200),
+    examples: parsed.examples.slice(0, 4).map(example => example.trim().slice(0, 400)),
+    practice: parsed.practice.trim().slice(0, 700),
+  };
 }
 
 // ------------------------------------------------------------------
@@ -600,55 +711,69 @@ router.get("/journey/lesson-content/:lessonId", async (req: Request, res: Respon
   const lesson = LESSON_BANK.find(l => l.id === lessonId);
   if (!lesson) { res.status(404).json({ error: "Lesson not found" }); return; }
 
-  const level = (req.query["level"] as string) || "Beginner";
-  const goal = (req.query["goal"] as string) || "Private Job";
-  const nativeLang = (req.query["nativeLang"] as string) || "Hindi";
-  const name = (req.query["name"] as string) || "";
-  const skills = (req.query["skills"] as string) || "";
-  // A fresh visit should feel like a new lesson, not a replay. The client
-  // supplies a short per-visit seed so the server cache still protects the
-  // provider while allowing the activity framing to change.
-  const variation = (req.query["variation"] as string) || "default";
-
-  const cacheKey = `${lessonId}|${level}|${goal}|${nativeLang}|${variation}`;
+  const level = boundedQuery(req.query["level"], "Beginner", 30);
+  const goal = boundedQuery(req.query["goal"], "Private Job", 80);
+  const nativeLang = boundedQuery(req.query["nativeLang"], "Hindi", 40);
+  const skills = boundedQuery(req.query["skills"], "", 180);
+  const variationSeed = boundedQuery(req.query["variation"], "default", 100);
+  const cohort = skillCohort(skills, goal);
+  const variant = lessonVariation(`${lessonId}|${level}|${goal}|${nativeLang}|${cohort}|${variationSeed}`);
+  const cacheKey = `${lessonId}|${level.toLowerCase()}|${goal.toLowerCase()}|${nativeLang.toLowerCase()}|${cohort}|${variant.id}`;
+  res.setHeader("Cache-Control", "private, max-age=300, stale-while-revalidate=1800");
   const cached = cacheGet(cacheKey);
-  if (cached) { res.json(cached); return; }
+  if (cached) { res.json({ ...cached, variationId: variant.id }); return; }
 
   try {
     const profileCtx = [
-      name && `Name: ${name}`,
       `English level: ${level}`,
       `Career goal: ${goal}`,
       `Native language: ${nativeLang}`,
-      skills && `Skills: ${skills}`,
+      `Skill/career cohort: ${cohort}`,
+      skills && `Current skills or gaps: ${skills}`,
     ].filter(Boolean).join(" | ");
 
-    const raw = await generateTextWithFallback({
-      prompt: `You are a warm, practical English teacher for Indian job-seekers.
+    let generation = CONTENT_IN_FLIGHT.get(cacheKey);
+    if (!generation) {
+      generation = (async () => {
+        const raw = await generateTextWithFallback({
+          prompt: `You are a warm, practical English teacher for Indian job-seekers.
 
 Lesson: "${lesson.title}"
 Skill: ${lesson.skill_type}
 Description: ${lesson.description}
 Student: ${profileCtx}
+Variation blueprint ${variant.id}:
+- Framing: ${variant.framing}
+- Setting: ${variant.setting}
+- Example pattern: ${variant.examplePattern}
+- Practice mode: ${variant.practiceMode}
+- Constraint: ${variant.constraint}
 
-Create a fresh lesson experience tailored to this student. Do not reuse a predictable opening, example setting, or practice format. Vary the framing between a mini-story, quick challenge, role-play, contrast, observation, curious question, or surprising mistake. Return ONLY valid JSON with these exact keys:
+Follow this blueprint exactly enough that another variation ID produces a recognisably different lesson. Tailor difficulty to the stated level and connect to the learner's goal. Do not mention the blueprint or variation ID. Return ONLY valid JSON with these exact keys:
 {
-  "concept": "2–3 plain sentences explaining the core idea. Use a vivid Indian context when it fits — office, shop, phone call, interview, family business, commute, or campus. No jargon.",
+  "concept": "2–3 plain sentences explaining the core idea through the assigned framing and setting. No jargon.",
   "examples": [
-    "Three varied examples with natural spoken language. Do not make them all the same sentence shape."
+    "Exactly three examples following the assigned example pattern, using natural spoken language and different sentence shapes."
   ],
-  "practice": "One specific task the student can do right now in 30–60 seconds. Alternate between speaking, choosing, transforming, noticing, role-playing, and recalling. Tie it to ${goal}."
+  "practice": "One specific 30–60 second task using the assigned practice mode and constraint, tied to ${goal}."
 }`,
-      maxTokens: 450,
-      log: req.log,
-      qualityFirst: true,
-    });
+          maxTokens: 500,
+          log: req.log,
+          qualityFirst: true,
+        });
+        const content = parseLessonContent(raw);
+        cacheSet(cacheKey, content);
+        return content;
+      })();
+      CONTENT_IN_FLIGHT.set(cacheKey, generation);
+      const clearInFlight = () => {
+        if (CONTENT_IN_FLIGHT.get(cacheKey) === generation) CONTENT_IN_FLIGHT.delete(cacheKey);
+      };
+      generation.then(clearInFlight, clearInFlight);
+    }
 
-    // Strip accidental markdown fences
-    const clean = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    const content = JSON.parse(clean) as { concept: string; examples: string[]; practice: string };
-    cacheSet(cacheKey, content);
-    res.json(content);
+    const content = await generation;
+    res.json({ ...content, variationId: variant.id });
   } catch (err) {
     req.log.error({ err }, "Lesson content AI error");
     res.status(500).json({ error: "Could not generate lesson content" });

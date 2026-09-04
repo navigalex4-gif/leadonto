@@ -185,6 +185,28 @@ function PrimaryLink({
   );
 }
 
+function SecondaryLink({
+  href,
+  children,
+  onClick,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={withAcquisition(href)}
+      onClick={onClick}
+      className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-indigo-200 bg-white/95 px-7 text-base font-extrabold text-indigo-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${className}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function Testimonials() {
   const items = TESTIMONIALS.filter((t) => t.consent);
   if (items.length === 0) return null;
@@ -246,6 +268,7 @@ export default function Home() {
     "Practise real conversations with an AI teacher who switches to your mother tongue the second you get stuck — then brings you right back to English. No classes. No schedule. No judgement.",
   );
   const ctaPrimary = useContent("home.hero.startCta", "Start 15 Free Minutes");
+  const ctaCheck = useContent("home.hero.checkCta", "Get My 90-Second Communication Score");
   
   const homePlans = PLANS.filter((p) => p.id === "free" || p.id === "credits");
   const heroTutor = TUTORS.find(t => t.id === "neha") || TUTORS[0]!;
@@ -294,6 +317,17 @@ export default function Home() {
                   {ctaPrimary}
                   <ArrowRight className="h-5 w-5" />
                 </PrimaryLink>
+                <SecondaryLink
+                  href="/communication-check"
+                  onClick={() => {
+                    track("home_cta_clicked", { cta: "communication_score", placement: "hero_secondary" });
+                    trackFunnel("cta_clicked", { cta: "communication_score", placement: "hero_secondary" });
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  <Mic2 className="h-5 w-5" />
+                  {ctaCheck}
+                </SecondaryLink>
               </div>
             </div>
 

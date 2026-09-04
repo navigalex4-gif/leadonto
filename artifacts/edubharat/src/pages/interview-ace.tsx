@@ -239,6 +239,85 @@ const INTERVIEW_BEHAVIOR_MOMENTS = [
   "Leave room for a natural conversational beat. Do not pack every response with praise or rush to the next competency.",
 ];
 
+const INTERVIEW_SCENARIOS = [
+  "a first week in the role", "a deadline slipping", "a customer changing direction",
+  "a handoff between teams", "a quality issue found late", "a manager asking for options",
+  "a new tool being introduced", "two priorities competing", "a process that keeps failing",
+  "a result that exceeded expectations", "a teammate challenging the approach", "limited information",
+] as const;
+const INTERVIEW_STAKEHOLDERS = [
+  "a customer", "a teammate", "a manager", "a new joiner", "a senior leader", "a vendor",
+  "another department", "a difficult prospect", "an operations partner", "an end user",
+  "a compliance reviewer", "a small business owner",
+] as const;
+const INTERVIEW_CONSTRAINTS = [
+  "with one day left", "without extra budget", "with incomplete data", "after a misunderstanding",
+  "while quality still matters", "when the first plan fails", "with two reasonable options",
+  "when the stakeholder disagrees", "under a strict policy", "during a busy period",
+  "with a junior colleague involved", "when the result must be measured",
+] as const;
+const INTERVIEW_LENSES = [
+  "personal ownership", "decision quality", "trade-off", "measurable result",
+  "risk awareness", "customer impact", "team communication", "learning speed",
+  "prioritisation", "clarity of explanation", "professional judgement", "follow-through",
+] as const;
+const INTERVIEW_QUESTION_SHAPES = [
+  "ask for the first action", "ask what they would measure", "ask them to choose between two options",
+  "ask what could go wrong", "ask how they would explain the decision", "ask what they would change",
+  "ask for a real example", "ask how they would check understanding", "ask what success looks like",
+  "ask for the hardest trade-off", "ask how they would involve another person", "ask what they learned",
+] as const;
+
+function hashInterviewSeed(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function interviewSeededIndex(seed: string, length: number, offset = 0): number {
+  const base = hashInterviewSeed(seed);
+  const mixed = Math.imul(base ^ Math.imul(offset + 1, 374761393), 668265263) >>> 0;
+  return mixed % length;
+}
+
+function interviewTurnBlueprint(seed: string, turn: number, areaKey: string): string {
+  const offset = turn * 5 + hashInterviewSeed(areaKey);
+  return [
+    `scenario: ${INTERVIEW_SCENARIOS[interviewSeededIndex(seed, INTERVIEW_SCENARIOS.length, offset)]}`,
+    `stakeholder: ${INTERVIEW_STAKEHOLDERS[interviewSeededIndex(seed, INTERVIEW_STAKEHOLDERS.length, offset + 1)]}`,
+    `constraint: ${INTERVIEW_CONSTRAINTS[interviewSeededIndex(seed, INTERVIEW_CONSTRAINTS.length, offset + 2)]}`,
+    `evaluation lens: ${INTERVIEW_LENSES[interviewSeededIndex(seed, INTERVIEW_LENSES.length, offset + 3)]}`,
+    `question shape: ${INTERVIEW_QUESTION_SHAPES[interviewSeededIndex(seed, INTERVIEW_QUESTION_SHAPES.length, offset + 4)]}`,
+  ].join("; ");
+}
+
+function answerEvaluationCue(answer: string): string {
+  if (/\d|percent|revenue|time|hours?|days?|target|metric/i.test(answer)) {
+    return "The answer includes a result or number. Test what caused that result or how it was measured.";
+  }
+  if (/\bwe\b/i.test(answer) && !/\bI\b/.test(answer)) {
+    return "The answer mainly says “we”. Clarify the candidate's own decision or contribution without sounding accusatory.";
+  }
+  if (/\b(because|so that|therefore|reason)\b/i.test(answer)) {
+    return "The answer gives a reason. Test the trade-off, alternative, or consequence behind it.";
+  }
+  return "Look for one observable detail that would make the answer useful to a real evaluator.";
+}
+
+function humourGuidance(answer: string, seed: string, turn: number, weak: boolean): string {
+  const serious = /\b(death|died|bereave|harass|abuse|accident|injur|illness|fired|laid off|discrimination|trauma|grief)\b/i.test(answer);
+  if (weak || serious) {
+    return "HUMOUR MODE: none. Stay warm and respectful; this answer does not call for humour.";
+  }
+  const allow = interviewSeededIndex(seed, 4, turn) === 0;
+  return allow
+    ? "HUMOUR MODE: optional light touch. You may add one gentle, situation-based witty phrase of at most six words before the question. Never joke about the candidate, identity, accent, ability, hardship, or answer quality."
+    : "HUMOUR MODE: neutral this turn. Keep the natural warmth, but do not force a joke.";
+}
+
 const INTERVIEW_OPENINGS = [
   (name: string, role: string) => `Hello, I'm ${name}. Please introduce yourself and share one experience that prepared you for ${role} work.`,
   (name: string, role: string) => `Hello, I'm ${name}. Tell me about your background, then describe a project, customer interaction, or responsibility relevant to ${role}.`,
@@ -442,11 +521,21 @@ function isCannedInterviewQuestion(question: string): boolean {
   );
 }
 
-function nextUnusedInterviewQuestion(askedQuestions: string[], areaKey: string, roleLabel: string, type: string, experience: string): string {
+function nextUnusedInterviewQuestion(
+  askedQuestions: string[],
+  areaKey: string,
+  roleLabel: string,
+  type: string,
+  experience: string,
+  variationSeed = "fallback",
+): string {
+  const blueprint = interviewTurnBlueprint(variationSeed, askedQuestions.length, areaKey);
+  const generatedRecovery = `In ${roleLabel}, imagine ${blueprint.split("; ")[0]!.replace("scenario: ", "")}. What would you do first?`;
   // Area-specific bank first (shuffled, so repeated fallbacks vary between
   // sessions and within one), domain questions woven around the actual role,
   // then the generic bank as a last resort.
   const candidates = [
+    generatedRecovery,
     ...shuffled(roleScenarioFallbackQuestions(roleLabel, type, areaKey)),
     ...shuffled(AREA_FALLBACK_QUESTIONS[areaKey] ?? []),
     ...(areaKey === "domainKnowledge" ? shuffled(domainFallbackQuestions(roleLabel, type, experience)) : []),
@@ -1258,7 +1347,9 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const candidateName = profile.name || "there";
     const firstName = candidateName.split(" ")[0];
     // Every interview begins with a basic introduction before domain testing.
-    const safeOpening = INTERVIEW_OPENINGS[Math.floor(Math.random() * INTERVIEW_OPENINGS.length)]!(
+    const sessionVariation = crypto.randomUUID();
+    questionVariationRef.current = sessionVariation;
+    const safeOpening = INTERVIEW_OPENINGS[interviewSeededIndex(sessionVariation, INTERVIEW_OPENINGS.length)]!(
       displayCoachName,
       spokenInterviewRoleLabel,
     );
@@ -1322,7 +1413,6 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     windDownRef.current = false;
     beatIdxRef.current = 0;
     retryRef.current = 0;
-    questionVariationRef.current = crypto.randomUUID();
     setPhase("interview");
     // Camera does NOT start automatically — user must enable it via the button.
     // Set coachSpeaking BEFORE the delay so the auto-listen effect cannot fire
@@ -1391,6 +1481,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
         interviewRoleLabel,
         typeMeta.value,
         experience,
+        questionVariationRef.current,
       );
       beatIdxRef.current += 1;
       retryRef.current = 0;
@@ -1472,6 +1563,18 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     // areaForBeat already composes the full focus (role-specific for domain
     // knowledge, experience-specific for the depth probe), so use it directly.
     const areaFocus = area.focus;
+    const turnBlueprint = interviewTurnBlueprint(
+      questionVariationRef.current,
+      askedQuestions.length,
+      area.key,
+    );
+    const evaluatorCue = answerEvaluationCue(recordedAnswer);
+    const turnHumourGuidance = humourGuidance(
+      recordedAnswer,
+      questionVariationRef.current,
+      askedQuestions.length,
+      isWeakAnswer,
+    );
 
     let directive: string;
     if (willRetry) {
@@ -1528,6 +1631,11 @@ ${firstName} answered: "${recordedAnswer}"
 
 ${directive}
 
+TURN BLUEPRINT — use this as a relevance guard, not a checklist:
+${turnBlueprint}
+EVALUATOR LOGIC: ${evaluatorCue}
+${turnHumourGuidance}
+
 IMPORTANT EVIDENCE BOUNDARY:
 - The candidate has NOT confirmed working in banking or any other industry unless their own answer explicitly says so.
 - Do not turn an industry preference, career goal, profile skill, job requirement, or selected interview domain into employment history.
@@ -1541,7 +1649,7 @@ STYLE — important:
  - Do not repeat or closely paraphrase anything in the full asked-question list. Avoid generic prompts such as "Could you elaborate", "Tell me more", "Walk me through that", or "Can you give me a specific example"; ask a fresh, concrete question tied to the new area instead.
   - Make the turn feel responsive: briefly pick up one meaningful detail from the answer, then ask a useful follow-up or a naturally connected new-area question. Do not praise every answer and do not announce a competency transition.
   - A brief listening acknowledgement has already been spoken while the answer was being processed. Do not add another stock acknowledgement; move naturally into the question with a short bridge only when it fits.
-  - SESSION VARIATION TOKEN: ${questionVariationRef.current}. Use it to choose a different scenario, verb, perspective or constraint from other sessions while staying relevant to the role.
+  - SESSION VARIATION TOKEN: ${questionVariationRef.current}. The explicit turn blueprint already maps this token to a scenario, stakeholder, constraint, lens and question shape. Use that combination while staying relevant to the role and actual answer.
   - HUMAN MOMENT FOR THIS TURN: ${INTERVIEW_BEHAVIOR_MOMENTS[Math.floor(Math.random() * INTERVIEW_BEHAVIOR_MOMENTS.length)]}
  - Ask EXACTLY ONE fresh question. Make it sound like a real follow-up in the conversation, not a questionnaire or checklist. Use one short sentence of about 8–18 simple words, with one clear idea only. Never join questions with "and", "or", or multiple question marks.
 - Do not summarise the whole answer, restate the prompt, announce the competency, or say "moving on to the next section."
@@ -1562,7 +1670,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     } catch (err) {
       console.error("[Interview Ace] follow-up stream failed", err);
       // Stream threw — inject a fallback so the interview keeps moving (no silent drop).
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience, questionVariationRef.current);
       response = `Next: ${fallback}`;
     }
 
@@ -1570,7 +1678,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     // stream and inject a fallback so the 4 s window is respected.
     if (streamTimedOut || !response.trim()) {
       resetStream();
-      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
+      const fallback = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience, questionVariationRef.current);
       response = `Next: ${fallback}`;
     }
 
@@ -1638,7 +1746,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
 
     // Safety: never let a parsing failure silently end the interview.
     if (!nextQuestion || nextQuestion.split(/\s+/).filter(Boolean).length > 24) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience, questionVariationRef.current);
     }
 
     if (turnRecoveredRef.current || turnGeneration !== turnGenerationRef.current) {
@@ -1649,7 +1757,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       isCannedInterviewQuestion(nextQuestion)
       || isRepeatedInterviewQuestion(nextQuestion, askedQuestions)
     ) {
-      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience);
+      nextQuestion = nextUnusedInterviewQuestion(askedQuestions, area.key, interviewRoleLabel, typeMeta.value, experience, questionVariationRef.current);
     }
 
       // Speak immediately after the stream or fallback resolves. Do not add a

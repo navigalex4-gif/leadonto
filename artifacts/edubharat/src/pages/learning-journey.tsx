@@ -22,7 +22,7 @@ import { trackFirstValue, withAcquisition } from "@/lib/analytics";
 import { Link } from "wouter";
 import {
   BookOpen, CheckCircle2, RotateCcw, ChevronRight, ChevronUp, ChevronDown,
-  Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2,
+  Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2, RefreshCw,
   Trophy, Lock, ChevronRight as ArrowRight, Target, Sparkles,
   AlertTriangle,
 } from "lucide-react";
@@ -1976,6 +1976,11 @@ function QuizSection({
 }
 
 // ── Lesson card ───────────────────────────────────────────────────────────────
+function createLessonVariation(): string {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function LessonCard({
   lesson, score, onScoreChange, onSubmit, submitting, submitted,
 }: {
@@ -1990,21 +1995,21 @@ function LessonCard({
   const staticContent = LESSON_CONTENT[lesson.id as keyof typeof LESSON_CONTENT];
   const [expanded, setExpanded] = useState(lesson.status === "new lesson");
   const [aiContent, setAiContent] = useState<{ concept: string; examples: string[]; practice: string } | null>(null);
+  const [contentVariation, setContentVariation] = useState(createLessonVariation);
   const [loadingAI, setLoadingAI] = useState(false);
   const [quizDone, setQuizDone] = useState(false);
   const { profile } = useStudentProfile();
 
-  const loadAIContent = async () => {
-    if (aiContent !== null || loadingAI) return;
+  const loadAIContent = async (variation = contentVariation, force = false) => {
+    if ((!force && aiContent !== null) || loadingAI) return;
     setLoadingAI(true);
     try {
       const params = new URLSearchParams({
         level:      profile.englishLevel || "Beginner",
         goal:       profile.careerGoal   || "Private Job",
         nativeLang: profile.preferredLanguage || "Hindi",
-        name:       profile.name || "",
         skills:     Array.isArray(profile.skills) ? profile.skills.join(", ") : (typeof profile.skills === "string" ? profile.skills : ""),
-        variation:  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        variation,
       });
       const res = await fetch(`${BASE}/api/journey/lesson-content/${lesson.id}?${params}`);
       if (res.ok) {
@@ -2019,6 +2024,13 @@ function LessonCard({
   useEffect(() => {
     if (expanded && aiContent === null && !loadingAI) void loadAIContent();
   }, [expanded]);
+
+  const regenerateLesson = () => {
+    const variation = createLessonVariation();
+    setContentVariation(variation);
+    setAiContent(null);
+    void loadAIContent(variation, true);
+  };
 
   const content = aiContent ?? staticContent;
 
@@ -2088,6 +2100,15 @@ function LessonCard({
                       <span className="text-amber-600 text-xs font-bold shrink-0 mt-0.5">Practice →</span>
                       <p className="text-xs text-amber-800 leading-relaxed">{content.practice}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={regenerateLesson}
+                      disabled={loadingAI}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${loadingAI ? "animate-spin" : ""}`} />
+                      Show me a different version
+                    </button>
                     {staticContent?.exercises && staticContent.exercises.length > 0 && (
                       <QuizSection
                         exercises={staticContent.exercises}
