@@ -138,7 +138,7 @@ function cleanSpeech(text: string): string {
 function normalizeQuestion(text: string): string {
   return cleanSpeech(text)
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
