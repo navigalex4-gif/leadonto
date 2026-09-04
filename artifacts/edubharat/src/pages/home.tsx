@@ -189,7 +189,7 @@ function Testimonials() {
   const items = TESTIMONIALS.filter((t) => t.consent);
   if (items.length === 0) return null;
   return (
-    <section className="bg-card py-16 sm:py-24" aria-labelledby="testimonials-title">
+    <section className="bg-card py-10 sm:py-16" aria-labelledby="testimonials-title">
       <div className="container mx-auto max-w-6xl px-5 sm:px-8">
         <div className="flex items-center gap-2 mb-4 text-primary">
           <Star className="h-4 w-4 fill-current" />
@@ -256,7 +256,7 @@ export default function Home() {
       <div className="home-shell min-w-0 overflow-hidden bg-[#FFFDF9]">
         
         {/* HERO */}
-        <section className="home-hero relative isolate overflow-hidden pb-16 pt-10 sm:pb-24 sm:pt-16 lg:pb-32 lg:pt-20" aria-labelledby="hero-title">
+        <section className="home-hero relative isolate overflow-hidden pb-12 pt-6 sm:pb-16 sm:pt-10 lg:pb-20 lg:pt-12" aria-labelledby="hero-title">
           <div className="pointer-events-none absolute -right-20 -top-32 -z-10 h-[34rem] w-[34rem] rounded-full bg-orange-500/25 blur-3xl" />
           <div className="pointer-events-none absolute -left-32 top-8 -z-10 h-[30rem] w-[30rem] rounded-full bg-violet-500/20 blur-3xl" />
           
@@ -371,7 +371,7 @@ export default function Home() {
         </section>
 
         {/* THE PROBLEM */}
-        <section className="py-16 sm:py-24 bg-[#FFFDF9]">
+        <section className="py-10 sm:py-16 bg-[#FFFDF9]">
           <div className="container mx-auto max-w-5xl px-5 sm:px-8">
             <div className="text-center mb-16 max-w-3xl mx-auto">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Sound familiar?</p>
@@ -394,7 +394,7 @@ export default function Home() {
         </section>
 
         {/* HOW IT WORKS */}
-        <section className="py-16 sm:py-24 bg-white border-y border-border/50">
+        <section className="py-10 sm:py-16 bg-white border-y border-border/50">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="text-center mb-16">
               <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
@@ -429,7 +429,7 @@ export default function Home() {
         </section>
 
         {/* MOTHER TONGUE BRIDGE (Why people stay) */}
-        <section className="py-16 sm:py-24 bg-slate-900 text-white overflow-hidden relative">
+        <section className="py-10 sm:py-16 bg-slate-900 text-white overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-900 pointer-events-none" />
           <div className="container mx-auto max-w-6xl px-5 sm:px-8 relative z-10">
             <div className="max-w-3xl mb-16">
@@ -482,9 +482,9 @@ export default function Home() {
         </section>
 
         {/* TEACHERS */}
-        <section className="py-16 sm:py-24 bg-white border-b border-border/50">
+        <section className="py-10 sm:py-16 bg-white border-b border-border/50">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="text-center mb-16 max-w-2xl mx-auto">
+            <div className="text-center mb-8 max-w-2xl mx-auto">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Your Teachers</p>
               <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
                   Not just a chatbot. Choose the coach who fits your goal.
@@ -515,7 +515,7 @@ export default function Home() {
         </section>
 
         {/* USE CASES */}
-        <section className="py-16 sm:py-24 bg-muted/20">
+        <section className="py-10 sm:py-16 bg-muted/20">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="max-w-2xl mb-12">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">What are you practising for?</p>
@@ -550,7 +550,7 @@ export default function Home() {
         </section>
 
         {/* WHY IT STICKS (Habit) */}
-        <section className="py-16 sm:py-24 bg-white border-t border-border/50">
+        <section className="py-10 sm:py-16 bg-white border-t border-border/50">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="text-center mb-16 max-w-2xl mx-auto">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Why it sticks</p>
@@ -577,7 +577,7 @@ export default function Home() {
         </section>
 
         {/* PRICING */}
-        <section className="py-16 sm:py-24 bg-white" aria-labelledby="pricing-title">
+        <section className="py-10 sm:py-16 bg-white" aria-labelledby="pricing-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
             <div className="text-center mb-16 max-w-2xl mx-auto">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Simple Pricing</p>
@@ -589,24 +589,21 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
+            <div className="grid gap-5 md:grid-cols-2 max-w-4xl mx-auto">
               {homePlans.map((p) => {
                 const isHighlight = !!p.highlight;
-                const isBestValue = p.id === "career";
                 return (
                   <div
                     key={p.id}
                     className={`relative flex flex-col rounded-3xl p-8 transition-transform hover:-translate-y-1 ${
                       isHighlight
                         ? "border-2 border-orange-500 bg-white shadow-xl shadow-orange-500/10 z-10 scale-100 md:scale-105"
-                        : isBestValue
-                          ? "border-2 border-emerald-500/50 bg-emerald-50/20 shadow-lg"
                         : "border border-border bg-card/60"
                     }`}
                   >
                     {p.pricingBadge && (
                       <span className={`absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-sm ${
-                        isHighlight ? "bg-orange-500 text-white" : isBestValue ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-white"
+                        isHighlight ? "bg-orange-500 text-white" : "bg-secondary text-white"
                       }`}>
                         {p.pricingBadge}
                       </span>
@@ -655,7 +652,7 @@ export default function Home() {
         <Testimonials />
 
         {/* FAQ */}
-        <section className="py-16 sm:py-24 bg-[#FFFDF9] border-t border-border/50" aria-labelledby="faq-title">
+        <section className="py-10 sm:py-16 bg-[#FFFDF9] border-t border-border/50" aria-labelledby="faq-title">
           <div className="container mx-auto max-w-3xl px-5 sm:px-8">
             <div className="flex items-center gap-2 mb-4 text-primary">
               <HelpCircle className="h-4 w-4" />
@@ -681,7 +678,7 @@ export default function Home() {
         </section>
 
         {/* FINAL CTA */}
-        <section className="bg-slate-900 py-20 sm:py-32 text-white relative overflow-hidden text-center" aria-labelledby="final-title">
+        <section className="bg-slate-900 py-12 sm:py-20 text-white relative overflow-hidden text-center" aria-labelledby="final-title">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-900 pointer-events-none" />
           <div className="container mx-auto max-w-3xl px-5 sm:px-8 relative z-10">
             <h2 id="final-title" className="text-[clamp(2rem,4vw,3rem)] font-extrabold leading-tight tracking-tight">

@@ -18,6 +18,8 @@ import { useHistory } from "@/lib/use-history";
 import { useGamification } from "@/lib/use-gamification";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { downloadText } from "@/lib/export-data";
+import { trackFirstValue, withAcquisition } from "@/lib/analytics";
+import { Link } from "wouter";
 import {
   BookOpen, CheckCircle2, RotateCcw, ChevronRight, ChevronUp, ChevronDown,
   Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2,
@@ -534,6 +536,7 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
       // otherwise client and backend would silently diverge for the session.
       if (!res.ok) return;
       const result = await res.json() as { next_review?: string };
+      trackFirstValue("learning_lesson", { lessonId, score });
       // Advance the focus session in place — no full reload, so the next
       // lesson slides in immediately instead of resetting the whole queue.
       const isReview = lesson?.status === "due for review" || lesson?.status === "practice ahead";
@@ -710,6 +713,20 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
             className="mt-2 h-1.5"
           />
         </div>
+
+        {sessionXP > 0 && !user && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-blue-950">Keep today’s progress</p>
+                <p className="text-xs text-blue-800">Create a free account to sync your lesson scores, review schedule, and streak across devices.</p>
+              </div>
+              <Link href={withAcquisition("/login?returnTo=%2Flearning-journey")}>
+                <Button size="sm" className="w-full whitespace-nowrap sm:w-auto">Save my learning</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Tabs ── */}
         <div className="flex gap-2 items-center">

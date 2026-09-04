@@ -754,7 +754,7 @@ Never repeat or paraphrase an earlier question. Return one or two short spoken s
   }
 
   return (
-    <div className={`container mx-auto max-w-4xl px-4 ${phase === "interview" ? "h-[calc(100dvh-4.5rem)] overflow-hidden py-2 sm:h-auto sm:overflow-visible sm:py-12" : "py-8 sm:py-12"}`}>
+    <div className={`container mx-auto max-w-4xl px-4 ${phase === "interview" ? "h-[calc(100dvh-4.5rem)] overflow-hidden py-2 sm:h-auto sm:overflow-visible sm:py-8" : "py-8"}`}>
       <PageMeta title="Communication Check" description="Get a free 90-second check of your communication, confidence, and interview readiness." ogUrl="https://leadonto.com/communication-check" canonicalUrl="https://leadonto.com/communication-check" />
       {phase === "details" ? (
         <Card className="overflow-hidden border-primary/20 shadow-xl">

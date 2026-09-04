@@ -132,11 +132,11 @@ export function Navbar() {
   return (
     <>
       <nav className="leadonto-navbar w-full max-w-full border-b sticky top-0 z-50 overflow-visible">
-        <div className="container relative mx-auto flex w-full min-w-0 max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4 h-14 overflow-visible">
+        <div className="container relative mx-auto flex w-full min-w-0 max-w-6xl items-center gap-2 px-3 sm:gap-3 sm:px-4 h-11 md:h-10 overflow-visible">
           {/* Logo */}
           <Link
             href="/"
-            className="font-display font-extrabold text-lg sm:text-xl text-primary tracking-tight shrink-0"
+            className="font-display font-extrabold text-base sm:text-lg text-primary tracking-tight shrink-0"
           >
             Lead Onto
           </Link>
@@ -147,13 +147,13 @@ export function Navbar() {
               <Link
                 key={href}
                 href={linkFor(href)}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold whitespace-nowrap transition-colors ${
                   pathOnly === href
                     ? "bg-primary/10 text-primary"
                     : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-3 w-3" />
                 {label}
               </Link>
             ))}
@@ -162,7 +162,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setProductsOpen((current) => !current)}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold whitespace-nowrap transition-colors ${
                   PRODUCT_LINKS.some(({ href }) => pathOnly === href)
                     ? "bg-primary/10 text-primary"
                     : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
@@ -170,12 +170,12 @@ export function Navbar() {
                 aria-haspopup="menu"
                 aria-expanded={productsOpen}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3 w-3" />
                 All Products
-                <span className="rounded-full bg-secondary/10 px-1.5 py-0.5 text-[9px] font-extrabold tabular-nums">
+                <span className="rounded-full bg-secondary/10 px-1 py-0 text-[8px] font-extrabold tabular-nums">
                   {PRODUCT_LINKS.length}
                 </span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`h-3 w-3 transition-transform ${productsOpen ? "rotate-180" : ""}`} />
               </button>
               {productsOpen && (
                 <div
@@ -212,13 +212,13 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold whitespace-nowrap transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold whitespace-nowrap transition-colors ${
                   isActive(href)
                     ? "bg-primary/10 text-primary"
                     : "text-secondary/80 hover:bg-muted/60 hover:text-secondary"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-3 w-3" />
                 {label}
               </Link>
             ))}
@@ -229,33 +229,33 @@ export function Navbar() {
 
           {/* Right actions (desktop) */}
           {!isB2BRoute && (
-            <div className="hidden md:flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1">
               <Link
                 href="/progress"
                 title="Progress"
-                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition-colors ${
                   isActive("/progress")
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
                 }`}
               >
-                <BarChart2 className="h-3.5 w-3.5" />
+                <BarChart2 className="h-3 w-3" />
                 Progress
               </Link>
 
               <Link
                 href="/history"
                 title="Saved"
-                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition-colors ${
                   isActive("/history")
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-primary"
                 }`}
               >
-                <Bookmark className="h-3.5 w-3.5" />
+                <Bookmark className="h-3 w-3" />
                 Saved
                 {items.length > 0 && (
-                  <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                  <span className="ml-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
                     {items.length > 9 ? "9+" : items.length}
                   </span>
                 )}
@@ -265,9 +265,9 @@ export function Navbar() {
                 <Link
                   href="/admin"
                   title="Admin Panel"
-                  className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700 hover:bg-violet-100"
+                  className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] font-bold text-violet-700 hover:bg-violet-100"
                 >
-                  <Shield className="h-3.5 w-3.5" />
+                  <Shield className="h-3 w-3" />
                   Admin
                 </Link>
               )}
@@ -276,47 +276,47 @@ export function Navbar() {
                 <Link
                   href="/credits"
                   title="Your credits"
-                  className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 hover:bg-amber-100"
+                  className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
                 >
-                  <Coins className="h-3.5 w-3.5" />
+                  <Coins className="h-3 w-3" />
                   {balance ?? "…"}
                 </Link>
               )}
 
               {user ? (
-                <div className="flex items-center gap-1.5">
-                  <Link href="/profile" className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
+                <div className="flex items-center gap-1">
+                  <Link href="/profile" className="flex items-center gap-1 transition-opacity hover:opacity-80">
                     {user.picture ? (
                       <img
                         src={user.picture}
                         alt={user.name ?? user.email}
-                        width={28}
-                        height={28}
-                        className="h-7 w-7 rounded-full border-2 border-primary/20"
+                        width={24}
+                        height={24}
+                        className="h-6 w-6 rounded-full border border-primary/20"
                       />
                     ) : (
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
-                        <User className="h-3.5 w-3.5 text-primary" />
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+                        <User className="h-3 w-3 text-primary" />
                       </div>
                     )}
-                    <span className="max-w-[96px] truncate text-xs font-medium text-secondary">
+                    <span className="max-w-[80px] truncate text-[11px] font-medium text-secondary">
                       {user.name ?? user.email}
                     </span>
                   </Link>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-destructive"
+                    className="h-6 px-2 text-[11px] font-semibold text-muted-foreground hover:text-destructive"
                     onClick={logout}
                   >
-                    <LogOut className="mr-1 h-3.5 w-3.5" />
+                    <LogOut className="mr-1 h-3 w-3" />
                     Sign out
                   </Button>
                 </div>
               ) : (
                 <Link href={`/login?returnTo=${encodeURIComponent(location)}`}>
-                  <Button variant="outline" size="sm" className="leadonto-sign-in h-7 px-3 text-xs font-semibold">
-                    <LogIn className="mr-1 h-3.5 w-3.5" />
+                  <Button variant="outline" size="sm" className="leadonto-sign-in h-6 px-2.5 text-[11px] font-semibold">
+                    <LogIn className="mr-1 h-3 w-3" />
                     Sign In
                   </Button>
                 </Link>
@@ -324,7 +324,7 @@ export function Navbar() {
 
               <Link
                 href="/english-guru"
-                className="inline-flex items-center gap-1 rounded-lg bg-[#F97316] px-3 py-1.5 text-xs font-extrabold text-white hover:bg-[#C2410C]"
+                className="inline-flex items-center gap-1 rounded-md bg-[#F97316] px-2.5 py-1 text-[11px] font-extrabold text-white hover:bg-[#C2410C]"
               >
                 Start Free
               </Link>
@@ -336,7 +336,7 @@ export function Navbar() {
             {!isB2BRoute && authenticated && (
               <Link
                 href="/credits"
-                className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700"
+                className="leadonto-credit inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700"
                 title="Your credits"
               >
                 <Coins className="h-3 w-3" />
@@ -346,21 +346,21 @@ export function Navbar() {
             {!isB2BRoute && !user && (
               <Link
                 href={`/login?returnTo=${encodeURIComponent(location)}`}
-                className="leadonto-sign-in flex min-h-11 min-w-10 items-center justify-center rounded-lg p-2 transition-colors hover:bg-muted"
+                className="leadonto-sign-in flex min-h-10 min-w-10 items-center justify-center rounded-md p-1.5 transition-colors hover:bg-muted"
                 aria-label="Sign in"
                 title="Sign in"
               >
-                <LogIn className="h-5 w-5 text-secondary" />
+                <LogIn className="h-4 w-4 text-secondary" />
               </Link>
             )}
             <button
               onClick={() => setOpen((o) => !o)}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 transition-colors hover:bg-muted"
+              className="flex min-h-10 min-w-10 items-center justify-center rounded-md p-1.5 transition-colors hover:bg-muted"
               aria-label={open ? "Close menu" : "Open menu"}
               aria-expanded={open}
               aria-controls="mobile-navigation-drawer"
             >
-              {open ? <X className="h-5 w-5 text-secondary" /> : <Menu className="h-5 w-5 text-secondary" />}
+              {open ? <X className="h-4 w-4 text-secondary" /> : <Menu className="h-4 w-4 text-secondary" />}
             </button>
           </div>
         </div>

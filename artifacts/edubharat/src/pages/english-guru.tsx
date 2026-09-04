@@ -21,7 +21,7 @@ import { AnimatedAvatar } from "@/components/avatar";
 import { TUTORS, getTutorById } from "@/lib/tutors";
 import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
-import { trackFunnel } from "@/lib/analytics";
+import { trackFirstValue, trackFunnel } from "@/lib/analytics";
 import { exportConversationPdf, exportConversationWord } from "@/lib/export-conversation";
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
@@ -109,6 +109,24 @@ function isNonReferentialTutorMessage(text: string): boolean {
     || looksLikeGenericNativeAcknowledgement(normalized)
     || /\b(?:i(?:'m| am)\s+ready|absolutely.{0,30}ready|take\s+your\s+time|are\s+you\s+still\s+there)\b/i.test(normalized)
     || /\b(?:what|which).{0,50}(?:sentence|question|word|phrase).{0,40}(?:explain|translate|meaning)\b/i.test(normalized)
+    || /\b(?:what|which).{0,30}(?:sentence|question|word|phrase).{0,30}(?:do\s+you\s+mean|are\s+you\s+referring\s+to|want)\b/i.test(normalized)
+  );
+}
+
+function refersToTutorQuestion(text: string): boolean {
+  return (
+    /\b(?:(?:this|that|the|your)\s+question|(?:question|what)\s+you\s+asked|what\s+you\s+asked\s+me)\b/i.test(text)
+    || /(?:आपने|तुमने).{0,20}(?:सवाल|प्रश्न).{0,20}(?:पूछा|किया)/u.test(text)
+  );
+}
+
+function isReferentCorrection(text: string): boolean {
+  return (
+    refersToTutorQuestion(text)
+    && (
+      /\b(?:no|not\s+that|i\s+mean|i\s+meant|referring\s+to|talking\s+about)\b/i.test(text)
+      || /(?:नहीं|मतलब|मेरा\s+मतलब)/u.test(text)
+    )
   );
 }
 
@@ -117,10 +135,14 @@ function resolveReferencedMessage(
   requestText: string,
   fallback: string,
 ): string {
-  const wantsQuestion = /\b(?:this|that|the)\s+question\b/i.test(requestText);
+  const wantsQuestion = refersToTutorQuestion(requestText);
   const candidates = [...history].reverse().filter((item) =>
     item.text.trim().length > 0
-    && !(item.role === "user" && (isTranslationCommand(item.text) || isExplanationRequest(item.text)))
+    && !(item.role === "user" && (
+      isTranslationCommand(item.text)
+      || isExplanationRequest(item.text)
+      || isReferentCorrection(item.text)
+    ))
     && !(item.role === "ai" && isNonReferentialTutorMessage(item.text)),
   );
   if (wantsQuestion) {
@@ -135,7 +157,10 @@ function extractTranslationSource(text: string, previousConversationMessage: str
   // “Immediately को Marathi में क्या बोलते हैं?”. Function words are not a
   // translation source; when the learner says “this/that”, use the teacher's
   // latest real English sentence instead.
-  if (/\b(?:this|that|it)(?:\s+(?:word|phrase|sentence|question))?\b/i.test(text)) {
+  if (
+    refersToTutorQuestion(text)
+    || /\b(?:this|that|it)(?:\s+(?:word|phrase|sentence|question))?\b/i.test(text)
+  ) {
     return normalizeTranslationSource(previousConversationMessage);
   }
   const ignored = new Set([
@@ -651,7 +676,7 @@ function cleanSpokenReply(
     // Quotes, dashes, brackets, emoji and markdown are visual notation, not
     // words the tutor should read aloud. Keep only sentence punctuation.
     cleaned = cleaned
-      .replace(/[^\p{L}\p{N}\s.,?!]/gu, " ")
+      .replace(/[^\p{L}\p{M}\p{N}\s.,?!।॥]/gu, " ")
       .replace(/\s+([.,?!])/g, "$1")
       .replace(/\s{2,}/g, " ")
       .trim();
@@ -969,7 +994,9 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   // own voice coming back through the speaker.
   const lastAiSpeechRef = useRef("");
   const lastAiSpeechEndRef = useRef(0);
-  const lastLanguageTaskRef = useRef<{ source: string; language: string } | null>(null);
+  const lastSubstantiveTutorQuestionRef = useRef("");
+  const lastLanguageTaskRef = useRef<{ source: string; language: string; historyLength: number } | null>(null);
+  const explicitQuestionReferentRef = useRef<{ source: string; historyLength: number } | null>(null);
 
   const cancelActiveTurn = useCallback(() => {
     liveTurnGenerationRef.current += 1;
@@ -989,6 +1016,9 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     if (!t) return;
     cancelActiveTurn();
     setConvHistory([]);
+    lastSubstantiveTutorQuestionRef.current = "";
+    lastLanguageTaskRef.current = null;
+    explicitQuestionReferentRef.current = null;
     setConvFlowState("idle");
     // Cancel any pending release/safety timer from an in-flight turn so it can't
     // later fire and unblock the mic in the middle of the handoff greeting.
@@ -1284,11 +1314,37 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         // Walk backward through the actual conversation and use the nearest real
         // sentence from either person, skipping translation commands and recovery
         // messages. This also supports Hindi→Telugu and other native→native turns.
-        const previousReferencedMessage = resolveReferencedMessage(
-          convHistoryRef.current,
-          userMsg,
-          previousTeacherMessage,
+        const latestTutorQuestion = lastSubstantiveTutorQuestionRef.current
+          || [...convHistoryRef.current]
+            .reverse()
+            .find((item) =>
+              item.role === "ai"
+              && item.text.includes("?")
+              && !isNonReferentialTutorMessage(item.text),
+            )?.text
+          || previousTeacherMessage;
+        if (refersToTutorQuestion(userMsg) && latestTutorQuestion) {
+          explicitQuestionReferentRef.current = {
+            source: latestTutorQuestion,
+            historyLength: convHistoryRef.current.length,
+          };
+        }
+        const carriedQuestionReferent = explicitQuestionReferentRef.current;
+        const hasFreshCarriedQuestion = Boolean(
+          carriedQuestionReferent
+          && convHistoryRef.current.length - carriedQuestionReferent.historyLength <= 4
+          && (
+            refersToTutorQuestion(userMsg)
+            || /\b(?:this|that|it)(?:\s+(?:question|sentence|phrase))?\b/i.test(userMsg)
+          ),
         );
+        const previousReferencedMessage = hasFreshCarriedQuestion && carriedQuestionReferent
+          ? carriedQuestionReferent.source
+          : resolveReferencedMessage(
+              convHistoryRef.current,
+              userMsg,
+              previousTeacherMessage,
+            );
         // Treat "say what you asked in Hindi" as a real translation request.
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
@@ -1304,16 +1360,13 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           // “Speak in Hindi” is a language-setting command. Only classify it
           // as translation when the learner names something to translate.
           && /\b(?:translate|meaning|mean|this|that|sentence|phrase|question|word)\b/i.test(userMsg);
-        const previousUserRequest = [...convHistoryRef.current]
-          .reverse()
-          .find((item) => item.role === "user")?.text ?? "";
         const priorLanguageTask = lastLanguageTaskRef.current;
         const continuesPriorLanguageTask = Boolean(
           priorLanguageTask
           && !requestedHelperLanguage(userMsg)
           && isExplanationRequest(userMsg)
           && /\b(?:this|that|it|question|sentence|phrase|word)\b/i.test(userMsg)
-          && (isTranslationCommand(previousUserRequest) || isExplanationRequest(previousUserRequest)),
+          && convHistoryRef.current.length - priorLanguageTask.historyLength <= 4,
         );
         const translationLanguage = languageRequest
           ?? (continuesPriorLanguageTask && priorLanguageTask ? priorLanguageTask.language : uiLang);
@@ -1406,7 +1459,16 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           ? `\n\nLive web context (use naturally if relevant): "${webContext}"`
           : "";
 
+        type TurnKind = "direct-language" | "structured-language" | "conversation" | "silence";
+        const turnKind: TurnKind = isDirectLanguageRequest
+          ? "direct-language"
+          : translationRequested
+            ? "structured-language"
+            : isSilenceProbe
+              ? "silence"
+              : "conversation";
         let response = "";
+        let structuredLanguageSucceeded = false;
         if (isDirectLanguageRequest && languageRequest) {
           // A direct request such as “Can you speak in Tamil?” is a setting
           // change, not a request to translate an arbitrary previous sentence.
@@ -1433,6 +1495,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
               translationLanguage as TranslationLanguage,
               explanationRequested ? "explain" : "translate",
             );
+            structuredLanguageSucceeded = response.trim().length > 0;
           } catch (error) {
             console.warn("[English Guru] structured translation failed", error);
             response = "";
@@ -1484,6 +1547,8 @@ Rules for spoken replies:
         // recovery. Give Claude one bounded retry with an explicit native-output
         // contract before using the local, actionable fallback.
         if (
+          turnKind === "conversation"
+          &&
           nativeInputDetected
           && (
             !isUsableNativeResponse(response, responseHelperLanguage)
@@ -1508,27 +1573,20 @@ Rules for spoken replies:
             response = nativeRetry;
           }
         }
-        // A second malformed response must never be handed to TTS character by
-        // character. Validate the raw provider response BEFORE any repair:
-        // collapsing "व क य" into "वकय" would hide the fragmentation from the
-        // validator and teach the learner a broken word.
-        if (translationRequested) {
-          const malformedTranslation =
-            !response.trim()
-            || looksLikeGenericNativeAcknowledgement(response)
-            || !hasExpectedNativeScript(response, translationLanguage)
-            || hasFragmentedNativeScript(response);
-          // A provider can return a successful English response while ignoring
-          // the translation directive. Never show that as the answer to a
-          // native-language request; a short native clarification is safer than
-          // silently teaching the wrong language.
-          if (malformedTranslation) {
+        // /api/ai/translate already validates the target script and structured
+        // response contract. A successful result is terminal and must not be
+        // reinterpreted by the older conversation-quality heuristics.
+        if (turnKind === "structured-language") {
+          if (!structuredLanguageSucceeded) {
+            structuredLanguageSucceeded = false;
             response = KNOWN_TRANSLATION_FALLBACKS[translationSource.toLowerCase()]?.[translationLanguage]
               ?? NATIVE_TRANSLATION_CLARIFICATIONS[translationLanguage]?.[tutor.voiceGender]
               ?? `Please say the English sentence once more, and I’ll translate it clearly into ${translationLanguage}.`;
           }
         }
         if (
+          turnKind === "conversation"
+          &&
           nativeInputDetected
           && !isUsableNativeResponse(response, responseHelperLanguage)
         ) {
@@ -1540,18 +1598,16 @@ Rules for spoken replies:
         // native acknowledgement used by the emergency translator fallback.
         // It is not useful feedback and, when emitted twice, makes the tutor
         // sound stuck. Replace it with the contextual local fallback instead.
-        if (looksLikeGenericNativeAcknowledgement(response)) {
-          response = translationRequested
-            ? `I can help in ${translationLanguage}, but I need the sentence or word you want translated. Please say it once more.`
-            : nativeInputDetected
-               ? contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
-                ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
-                ?? variedFallback(userMsg, isSilenceProbe)
-              : variedFallback(userMsg, isSilenceProbe);
+        if (turnKind === "conversation" && looksLikeGenericNativeAcknowledgement(response)) {
+          response = nativeInputDetected
+            ? contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
+              ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+              ?? variedFallback(userMsg, isSilenceProbe)
+            : variedFallback(userMsg, isSilenceProbe);
         }
         // Never leave the student waiting while a provider stalls. The
         // fallback is spoken normally, so the mic handoff still completes.
-        if (!response.trim() && !translationRequested) {
+        if (!response.trim() && (turnKind === "conversation" || turnKind === "silence")) {
           response = nativeInputDetected
              ? contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
               ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
@@ -1561,7 +1617,10 @@ Rules for spoken replies:
         const previousAiReply = [...convHistoryRef.current]
           .reverse()
           .find((item) => item.role === "ai")?.text ?? "";
-        if (!translationRequested && normalizeReply(response) === normalizeReply(previousAiReply)) {
+        if (
+          (turnKind === "conversation" || turnKind === "silence")
+          && normalizeReply(response) === normalizeReply(previousAiReply)
+        ) {
           response = variedFallback(userMsg, isSilenceProbe);
         }
         // A fallback reply is a successful recovery, not a failed live turn.
@@ -1621,14 +1680,27 @@ Rules for spoken replies:
               cleanSpokenReply(response, replyUsesNativeLanguage, tutor.voiceGender, replyNativeLanguage, !translationRequested),
               replyUsesNativeLanguage,
             );
-          if (translationRequested && translationSource) {
+          if (
+            turnKind === "conversation"
+            && cleanResponse.includes("?")
+            && !isNonReferentialTutorMessage(cleanResponse)
+          ) {
+            lastSubstantiveTutorQuestionRef.current = cleanResponse;
+          }
+          if (structuredLanguageSucceeded && translationSource) {
             lastLanguageTaskRef.current = {
               source: translationSource,
               language: translationLanguage,
+              historyLength: convHistoryRef.current.length,
             };
+            explicitQuestionReferentRef.current = null;
           }
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
+          trackFirstValue(
+            structuredLanguageSucceeded ? "english_guru_language_help" : "english_guru_reply",
+            { mode: liveChatRef.current ? "voice" : "typed" },
+          );
           setConvFlowState("ai-speaking");
           // Failsafe only: the normal path releases from the final queued audio
           // chunk. The old timeout was short enough to reopen the mic during a
@@ -2050,7 +2122,7 @@ Rules for spoken replies:
         </aside>
 
         {/* Main content */}
-        <main className="order-1 lg:order-2 min-w-0 lg:flex lg:flex-col lg:min-h-0 lg:overflow-y-auto max-lg:overflow-y-auto max-lg:min-h-0">
+        <main className="order-1 min-w-0 overflow-x-hidden lg:order-2 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto max-lg:min-h-0 max-lg:overflow-y-auto">
           {/* ── MOBILE HERO — Change Teacher at top, then student greeting + tutor ── */}
           {!embedded && <div className="lg:hidden flex flex-col shrink-0 mb-2 gap-1.5">
             <Button
@@ -2174,8 +2246,8 @@ Rules for spoken replies:
           </div>}
 
           {/* ── LIVE CONVERSATION — top section with its own heading ── */}
-              <section id="english-guru-live" className="flex min-h-[480px] flex-col flex-1">
-            <Card className={`flex min-h-[480px] flex-1 flex-col overflow-hidden border-2 transition-all lg:min-h-[560px] ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
+              <section id="english-guru-live" className="flex flex-col flex-1 min-h-0">
+            <Card className={`flex flex-1 flex-col overflow-hidden border-2 transition-all ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
             <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-1 flex-col">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -2310,8 +2382,37 @@ Rules for spoken replies:
                   {aiError} — tap mic to try again
                 </div>
               )}
+              {convHistory.length === 0 && !isStreaming && !(liveChat && speech.interimTranscript) && (
+                <div className="flex min-h-0 flex-1 items-center justify-center py-4">
+                  <div className="w-full max-w-xl rounded-2xl border border-dashed border-green-200 bg-white/70 p-4 text-center">
+                    <p className="text-sm font-bold text-secondary">Start with one real speaking goal</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Choose a prompt or type your own. Your teacher will respond and keep the conversation moving.</p>
+                    {!liveChat && (
+                      <div className="mt-3 flex flex-wrap justify-center gap-2">
+                        {[
+                          "Help me introduce myself",
+                          "Ask me a job interview question",
+                          uiLang === "English" ? "Correct my spoken English" : `Explain a difficult question in ${uiLang}`,
+                        ].map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => {
+                              setConvInput(prompt);
+                              setTimeout(() => convInputRef.current?.focus(), 0);
+                            }}
+                            className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800 transition-colors hover:bg-green-100"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-[390px] overflow-x-hidden overflow-y-auto pr-1 pt-1 lg:min-h-[420px]">
+                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
@@ -2384,7 +2485,17 @@ Rules for spoken replies:
                     <FileText className="w-3.5 h-3.5 mr-1.5" />Word
                   </Button>
                    <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs"
-                    onClick={() => { setConvHistory([]); void endLiveBlock(liveIdRef.current ?? undefined); liveIdRef.current = null; setLiveChat(false); speech.stop(); setConvFlowState("idle"); }}>
+                    onClick={() => {
+                      setConvHistory([]);
+                      lastSubstantiveTutorQuestionRef.current = "";
+                      lastLanguageTaskRef.current = null;
+                      explicitQuestionReferentRef.current = null;
+                      void endLiveBlock(liveIdRef.current ?? undefined);
+                      liveIdRef.current = null;
+                      setLiveChat(false);
+                      speech.stop();
+                      setConvFlowState("idle");
+                    }}>
                     Clear & Start Over
                   </Button>
                 </div>

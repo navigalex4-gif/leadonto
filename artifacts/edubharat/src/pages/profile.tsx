@@ -69,7 +69,7 @@ function ProfilePageContent() {
 
   if (!user) {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
+      <div className="container mx-auto px-4 py-8 max-w-md text-center">
         <div className="text-6xl mb-6">👤</div>
         <h1 className="text-2xl font-display font-bold text-secondary mb-3">Sign in to edit your profile</h1>
         <p className="text-muted-foreground mb-6">Your profile personalises English Guru, Interview Ace, and job recommendations.</p>
@@ -108,7 +108,7 @@ function ProfilePageContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
         <div>

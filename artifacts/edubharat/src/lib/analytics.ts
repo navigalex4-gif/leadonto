@@ -2,6 +2,7 @@ const ANALYTICS_BASE = (import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "") + "/
 const CONSENT_KEY = "edubharat_analytics_consent";
 const ANON_ID_KEY = "edubharat_anon_id";
 const ACQUISITION_KEY = "edubharat_acquisition";
+const FIRST_VALUE_KEY = "leadonto_first_value_received";
 const ACQUISITION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "gad_source", "gad_campaignid"] as const;
 const GOOGLE_ADS_PURCHASE_SEND_TO = "AW-18381164231/a-wwCM-S0-YcEMd6bxE";
 
@@ -22,9 +23,11 @@ export type FunnelEvent =
   | "communication_check_started"
   | "communication_check_completed"
   | "first_session_started"
+  | "first_value_received"
   | "payment_page_viewed"
   | "payment_started"
   | "payment_submitted"
+  | "payment_pending"
   | "payment_approved"
   | "payment_succeeded"
   | "payment_rejected"
@@ -141,6 +144,20 @@ export function trackGoogleAdsPurchase(transactionId: string, value: number): bo
 
 export function trackFunnel(event: FunnelEvent, properties?: Record<string, unknown>) {
   sendEvent(`funnel_${event}`, properties);
+}
+
+/** Record activation once per browser identity so repeat practice does not
+ * inflate the "first value" step of the acquisition funnel. */
+export function trackFirstValue(feature: string, properties?: Record<string, unknown>): boolean {
+  try {
+    if (localStorage.getItem(FIRST_VALUE_KEY)) return false;
+    localStorage.setItem(FIRST_VALUE_KEY, feature);
+  } catch {
+    // Storage-restricted browsers can still report the event; the admin funnel
+    // de-duplicates by visitor identity.
+  }
+  trackFunnel("first_value_received", { feature, ...properties });
+  return true;
 }
 
 function sendEvent(event: string, properties?: Record<string, unknown>) {

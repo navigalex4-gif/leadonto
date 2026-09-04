@@ -258,18 +258,24 @@
   width: 100%;
 }
 .english-workspace-embedded #english-guru-live {
-  min-height: 620px;
+  min-height: 480px;
 }
 .interview-workspace::before,
 .english-workspace::before {
   content: "";
   position: fixed;
-  inset: 56px 0 0;
+  inset: 44px 0 0;
   z-index: -1;
   pointer-events: none;
   background:
     radial-gradient(circle at 88% 8%, rgb(42 70 210 / .09), transparent 30%),
     linear-gradient(180deg, #f8faff 0%, #fffdf9 42%, #fffaf3 100%);
+}
+@media (min-width: 768px) {
+  .interview-workspace::before,
+  .english-workspace::before {
+    inset: 40px 0 0;
+  }
 }
 .interview-workspace > .sticky,
 .english-workspace > .sticky {
@@ -294,6 +300,12 @@
 .english-workspace #english-guru-live input:focus {
   border-color: rgb(37 99 235 / .55);
   box-shadow: 0 0 0 4px rgb(37 99 235 / .1);
+}
+@media (min-width: 768px) {
+  .leadonto-main:not(.leadonto-main--compact) > .container {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
 }
 .interview-workspace .rounded-2xl.border {
   transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;

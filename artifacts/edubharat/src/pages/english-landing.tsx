@@ -188,7 +188,7 @@ export default function EnglishLanding() {
         </div>
       </section>
 
-      <section className="bg-background py-12 sm:py-16" aria-labelledby="how-it-works-title">
+      <section className="bg-background py-8 sm:py-12" aria-labelledby="how-it-works-title">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-2xl">
             <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Three taps to your first conversation</p>
@@ -214,7 +214,7 @@ export default function EnglishLanding() {
         </div>
       </section>
 
-      <section className="border-t border-border/70 bg-card/40 py-12 sm:py-16" aria-labelledby="teachers-title">
+      <section className="border-t border-border/70 bg-card/40 py-8 sm:py-12" aria-labelledby="teachers-title">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
@@ -230,7 +230,7 @@ export default function EnglishLanding() {
         </div>
       </section>
 
-      <section className="bg-[#FFFDF9] py-12 sm:py-16" aria-labelledby="english-guru-final-title">
+      <section className="bg-[#FFFDF9] py-8 sm:py-12" aria-labelledby="english-guru-final-title">
         <div className="container mx-auto max-w-3xl px-5 text-center sm:px-8">
           <Sparkles className="mx-auto h-6 w-6 text-primary" />
           <h2 id="english-guru-final-title" className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">Your next English conversation starts in 10 seconds.</h2>

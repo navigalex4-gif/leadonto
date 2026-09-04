@@ -3,11 +3,10 @@
 // (src/pages/home.tsx). Never hard-code prices in two places.
 //
 // This file intentionally does not touch the credits API (src/lib/use-credits.ts).
-// Credits stay as the "pay-as-you-go" bolt-on at 1 credit = ₹1. Subscriptions
-// are surfaced here for the frontend; the backend recurring-payments route is
-// tracked as P1 work (see the README that ships with this file).
+// Credits are the only paid consumer option: pay as you go at 1 credit = ₹1.
+// Do not add subscription copy unless recurring billing exists end to end.
 
-export type PlanId = "free" | "practice" | "career" | "sprint" | "credits";
+export type PlanId = "free" | "credits";
 
 export type Plan = {
   id: PlanId;
@@ -55,91 +54,26 @@ export const PLANS: Plan[] = [
     decisionNote: "Start with the full Lead Onto experience before paying.",
   },
   {
-    id: "practice",
-    name: "Practice",
-    priceLabel: "₹199",
-    cadence: "mo",
-    tagline: "For daily English practice.",
-    ctaLabel: "Start Practice",
-    ctaHref: "/credits?plan=practice",
-    highlight: true,
-    showOnHome: true,
-    homeBullets: [
-      "Unlimited English Guru sessions",
-      "8 mock interviews / month",
-      "Fluency Score + Mistake Book",
-    ],
-    fullBullets: [
-      "Unlimited English Guru live conversations",
-      "8 role-based mock interviews / month",
-      "Fluency Score across A1 → C2",
-      "Mistake Book with spaced repetition",
-      "Cancel anytime",
-    ],
-    pricingBadge: "Most popular",
-    decisionNote: "The practical everyday plan for building a speaking habit.",
-  },
-  {
-    id: "career",
-    name: "Career",
-    priceLabel: "₹499",
-    cadence: "mo",
-    tagline: "For serious job seekers.",
-    ctaLabel: "Start Career",
-    ctaHref: "/credits?plan=career",
-    showOnHome: true,
-    homeBullets: [
-      "Everything in Practice",
-      "Unlimited mock interviews",
-      "Resume Intelligence Pro",
-    ],
-    fullBullets: [
-      "Everything in Practice",
-      "Unlimited role-based mock interviews",
-      "Resume Intelligence Pro (ATS + job match)",
-      "Rozgar Samachar — personalised jobs feed",
-      "Priority feedback on your practice sessions",
-      "Cancel anytime",
-    ],
-    pricingBadge: "Best value",
-    decisionNote: "The complete job-search stack when interviews are your priority.",
-  },
-  {
-    id: "sprint",
-    name: "Placement Sprint",
-    priceLabel: "₹1,499",
-    cadence: "once",
-    tagline: "4-week guided placement prep.",
-    ctaLabel: "Start Sprint",
-    ctaHref: "/credits?plan=sprint",
-    showOnHome: false,
-    homeBullets: [],
-    fullBullets: [
-      "Everything in Career for 4 weeks",
-      "Daily 15-min practice plan",
-      "Certified completion badge (shareable on LinkedIn)",
-      "One-time payment — no auto-renew",
-    ],
-    pricingBadge: "Focused sprint",
-    decisionNote: "A one-time intensive option for a near-term placement push.",
-  },
-  {
     id: "credits",
     name: "Pay as you go",
     priceLabel: "₹1 / credit",
     tagline: "For occasional practice.",
     ctaLabel: "Buy credits",
     ctaHref: "/credits",
-    showOnHome: false,
-    homeBullets: [],
+    showOnHome: true,
+    homeBullets: [
+      "Top up from ₹10",
+      "1 credit = 12 minutes of live conversation",
+      "No expiry and no subscription",
+    ],
     fullBullets: [
       "For learners who don't want a subscription",
       "1 credit = 12 minutes of live conversation",
       "Credits never expire",
       "Minimum top-up ₹10 (₹99 recommended)",
     ],
-    pricingBadge: "Flexible fallback",
-    decisionNote: "Pay only for occasional sessions, with no monthly commitment.",
+    pricingBadge: "Pay only when needed",
+    decisionNote: "Continue after your free practice without a monthly commitment.",
   },
 ];
 

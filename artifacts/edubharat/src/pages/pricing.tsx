@@ -7,18 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 
 function PlanCard({ plan }: { plan: Plan }) {
   const isHighlight = !!plan.highlight;
-  const isBestValue = plan.id === "career";
-  const isAnchor = plan.id === "sprint";
   return (
     <div
       className={
         "relative flex flex-col rounded-2xl p-6 " +
         (isHighlight
           ? "border-2 border-[#F97316] bg-white shadow-xl shadow-orange-200/40"
-          : isBestValue
-            ? "border-2 border-emerald-500/70 bg-emerald-50/20 shadow-lg shadow-emerald-100/50"
-            : isAnchor
-              ? "border border-dashed border-secondary/30 bg-secondary/[0.03]"
           : "border border-border bg-card")
       }
     >
@@ -27,9 +21,7 @@ function PlanCard({ plan }: { plan: Plan }) {
           className={`mb-3 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest ${
             isHighlight
               ? "bg-[#F97316] text-white"
-              : isBestValue
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-secondary/10 text-secondary"
+              : "bg-secondary/10 text-secondary"
           }`}
         >
           {plan.pricingBadge}
@@ -92,7 +84,7 @@ const FAQS = [
   },
   {
     q: "Do you offer refunds?",
-    a: "See our Refund Policy — refunds are available within 7 days if you have used fewer than 20% of your plan's entitlements.",
+    a: "Unused paid credits, duplicate payments, and failed payments may be eligible under our Refund Policy. Used credits and free bonus credits are not refundable.",
   },
   {
     q: "Which payment methods work?",
@@ -160,7 +152,7 @@ export default function Pricing() {
             One credit is ₹1, covers 12 minutes of live conversation, and never expires.
           </p>
         </div>
-        <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
           {availablePlans.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}

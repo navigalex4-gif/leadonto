@@ -39,7 +39,7 @@ function HistoryContent() {
 
   if (items.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-3xl text-center">
+      <div className="container mx-auto px-4 py-10 max-w-3xl text-center">
         <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-6">
           <BookmarkX className="w-10 h-10 text-muted-foreground" />
         </div>
@@ -52,7 +52,7 @@ function HistoryContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-display font-bold text-secondary mb-1">Saved History</h1>

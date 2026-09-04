@@ -31,8 +31,8 @@ function Footer() {
 
   return (
     <footer className="mt-auto bg-secondary text-secondary-foreground">
-      <div className="container mx-auto px-4 py-12">
-        <div className="mb-10 grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-6 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 md:col-span-1">
             <Link
@@ -135,7 +135,7 @@ function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-secondary-foreground/10 pt-6 text-xs text-secondary-foreground/40 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-2 border-t border-secondary-foreground/10 pt-4 text-xs text-secondary-foreground/40 sm:flex-row">
           <p>© {new Date().getFullYear()} Lead Onto · Legal owner: {legalOwner}. All rights reserved.</p>
           <p>Built for learners across India</p>
         </div>
@@ -168,8 +168,8 @@ export function Layout({
         id="main-content"
         className={
           compact
-            ? "flex min-h-0 flex-1 animate-in flex-col overflow-y-auto fade-in duration-300"
-            : `flex flex-1 animate-in flex-col fade-in duration-300${showMobileCtaSpace ? " pb-[4.5rem] md:pb-0" : ""}`
+            ? "leadonto-main leadonto-main--compact flex min-h-0 min-w-0 flex-1 animate-in flex-col overflow-x-hidden overflow-y-auto fade-in duration-300"
+            : `leadonto-main flex flex-1 animate-in flex-col fade-in duration-300${showMobileCtaSpace ? " pb-[4.5rem] md:pb-0" : ""}`
         }
       >
         {children}

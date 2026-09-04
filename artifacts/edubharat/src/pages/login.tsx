@@ -96,6 +96,7 @@ function LoginContent() {
   // This prevents the button from being disabled on transient config-fetch errors.
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [configError, setConfigError] = useState(false);
   const [copied, setCopied] = useState(false);
   // Detect during the initial render so Google is never clickable before the
   // page-load effect runs.
@@ -117,7 +118,7 @@ function LoginContent() {
       .then((d: AuthConfig) => { setConfig(d); setConfigLoaded(true); })
       .catch(() => {
         trackFunnel("api_failed", { stage: "auth_config" });
-        // Config fetch failed — fail open so Google button still works
+        setConfigError(true);
         setConfigLoaded(true);
       });
   }, []);
@@ -200,9 +201,7 @@ function LoginContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Fail open: treat Google as ready until config explicitly says it isn't.
-  // This prevents a transient /api/auth/config failure from disabling the button.
-  const googleReady = configLoaded ? (config?.googleConfigured ?? true) : true;
+  const googleReady = configLoaded && config?.googleConfigured === true;
   const externalBrowserUrl = getExternalBrowserUrl(
     new URL(withAcquisition(window.location.pathname + window.location.search), window.location.origin).toString(),
     navigator.userAgent,
@@ -281,6 +280,11 @@ function LoginContent() {
             </p>
           </div>
         )}
+        {configError && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+            Google Sign-In could not be checked right now. Email OTP below is available and secure.
+          </div>
+        )}
 
         {/* Google OAuth setup notice — configured but let user know it might still mismatch if URL changed */}
         {config && googleReady && (
@@ -308,17 +312,17 @@ function LoginContent() {
               <Button
                 variant="outline"
                 className="w-full h-12 font-semibold text-base border-2 disabled:opacity-60"
-                onClick={googleReady
-                   ? () => {
+                onClick={() => {
+                  if (!googleReady) return;
                        trackFunnel("signup_started", { method: "google" });
                         try { sessionStorage.setItem("leadonto_google_signup_pending", "1"); } catch { /* private browsing */ }
                        loginWithGoogle(
                       localStorage.getItem("edubharat_guest_id") ?? undefined,
                       new URLSearchParams(search).get("returnTo") ?? undefined,
                        );
-                     }
-                  : copyCallbackUrl}
-                title={!googleReady ? "Google login not yet configured — see setup instructions above" : undefined}
+                }}
+                disabled={!googleReady}
+                title={!googleReady ? "Use Email OTP while Google Sign-In is unavailable" : undefined}
                 data-testid="button-google-login"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -327,7 +331,7 @@ function LoginContent() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                {googleReady ? "Continue with Google" : "Google Sign-In (not configured)"}
+                {!configLoaded ? "Checking Google Sign-In…" : googleReady ? "Continue with Google" : "Google Sign-In unavailable"}
               </Button>
             )}
 

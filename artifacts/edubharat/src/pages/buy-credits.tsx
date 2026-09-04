@@ -3,7 +3,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import {
   Coins, Sparkles, Check, Loader2, Mic, MessageCircle, GraduationCap,
   LogIn, ShieldCheck, Infinity as InfinityIcon, Clock, CheckCircle2,
-  XCircle, ArrowLeft, CreditCard,
+  XCircle, ArrowLeft, CreditCard, RefreshCw, Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,10 +16,11 @@ import {
 } from "@/lib/use-credits";
 import { useContent } from "@/lib/use-content";
 
-type Stage = "pick" | "pending" | "paid" | "failed";
+type Stage = "pick" | "pending" | "delayed" | "paid" | "failed";
 type CashfreeMode = "sandbox" | "production";
 
 const CASHFREE_MODE_KEY = "leadonto_cashfree_mode";
+const MAX_PAYMENT_POLLS = 15;
 
 const TX_LABEL: Record<string, string> = {
   signup_grant: "Welcome bonus", purchase: "Top-up", spend_interview: "Interview",
@@ -72,11 +73,13 @@ export default function BuyCredits() {
   const returnedSession = params.get("cashfreeSession");
   const heroTitle = useContent("credits.hero.title", "Lead Onto Credits");
   const heroSubtitle = useContent("credits.hero.subtitle", "1 credit = ₹1. Pay securely with UPI, cards, or net banking. Credits never expire.");
+  const billingEmail = useContent("contact.billing.email", "email@leadonto.com");
   const [stage, setStage] = useState<Stage>("pick");
   const [amount, setAmount] = useState(10);
   const [orderId, setOrderId] = useState<string | null>(returnedOrder);
   const [orderCredits, setOrderCredits] = useState(amount);
   const [submitting, setSubmitting] = useState(false);
+  const [manualChecking, setManualChecking] = useState(false);
   const [pollCount, setPollCount] = useState(0);
   const [txns, setTxns] = useState<CreditTx[]>([]);
   const trackedPurchaseRef = useRef<string | null>(null);
@@ -143,13 +146,46 @@ export default function BuyCredits() {
     if (stage !== "pending" || !orderId) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
     const poll = async () => {
       const done = await reconcile(orderId);
-      if (!done && !cancelled) { setPollCount((n) => n + 1); timer = setTimeout(() => void poll(), 4000); }
+      if (done || cancelled) return;
+      attempts += 1;
+      setPollCount(attempts);
+      if (attempts >= MAX_PAYMENT_POLLS) {
+        setStage("delayed");
+        track("payment_pending_timeout", { orderId, amount: orderCredits, method: "cashfree" });
+        trackFunnel("payment_pending", { orderId, amount: orderCredits, method: "cashfree" });
+        return;
+      }
+      timer = setTimeout(() => void poll(), 4000);
     };
     void poll();
     return () => { cancelled = true; if (timer) clearTimeout(timer); };
-  }, [stage, orderId, reconcile]);
+  }, [stage, orderCredits, orderId, reconcile]);
+
+  const retryReconcile = useCallback(async () => {
+    if (!orderId) return;
+    setManualChecking(true);
+    try {
+      const done = await reconcile(orderId);
+      if (!done) {
+        setStage("delayed");
+        toast({
+          title: "Still processing",
+          description: "Do not pay again. Use the same order reference when you check later.",
+        });
+      }
+    } finally {
+      setManualChecking(false);
+    }
+  }, [orderId, reconcile, toast]);
+
+  const copyOrderId = useCallback(() => {
+    if (!orderId) return;
+    void navigator.clipboard?.writeText(orderId);
+    toast({ title: "Order reference copied" });
+  }, [orderId, toast]);
 
   const startCheckout = useCallback(async () => {
     if (!valid) return;
@@ -211,6 +247,7 @@ export default function BuyCredits() {
         {!valid && <p className="text-xs text-center text-destructive mt-2">Choose between {CREDIT_MIN_PURCHASE} and 100,000 credits.</p>}
       </CardContent></Card>}
       {stage === "pending" && <Card className="mb-6 border-amber-200 bg-amber-50/60 shadow-sm"><CardContent className="py-8 text-center"><Clock className="w-10 h-10 text-amber-600 animate-pulse mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Confirming your payment</h2><p className="text-sm text-muted-foreground">Cashfree is confirming ₹{orderCredits}. Credits appear automatically after successful confirmation.</p><p className="text-xs text-muted-foreground mt-2">{pollCount ? `Checked ${pollCount} time${pollCount > 1 ? "s" : ""}.` : "Please keep this page open."}</p></CardContent></Card>}
+      {stage === "delayed" && <Card className="mb-6 border-blue-200 bg-blue-50/70 shadow-sm"><CardContent className="py-7 text-center"><Clock className="mx-auto mb-3 h-10 w-10 text-blue-600" /><h2 className="mb-2 text-xl font-bold text-secondary">Payment is still processing</h2><p className="mx-auto max-w-lg text-sm text-muted-foreground">Do not pay again. Your order is saved and can still be confirmed safely.</p>{orderId && <button type="button" onClick={copyOrderId} className="mx-auto mt-3 inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 font-mono text-xs text-secondary shadow-sm"><Copy className="h-3.5 w-3.5" />{orderId}</button>}<div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row"><Button onClick={() => void retryReconcile()} disabled={manualChecking}><RefreshCw className={`mr-2 h-4 w-4 ${manualChecking ? "animate-spin" : ""}`} />{manualChecking ? "Checking…" : "Check payment again"}</Button><a href={`mailto:${billingEmail}?subject=${encodeURIComponent(`Payment status: ${orderId ?? "unknown order"}`)}`}><Button variant="outline" className="w-full">Contact payment support</Button></a></div></CardContent></Card>}
       {stage === "paid" && <Card className="mb-6 border-green-200 bg-green-50/60 shadow-sm"><CardContent className="py-8 text-center"><CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Payment successful</h2><p className="text-sm text-muted-foreground mb-6"><strong className="text-secondary">{orderCredits} credits</strong> have been added to your account.</p><div className="flex flex-col sm:flex-row gap-3 justify-center"><Button className="bg-primary hover:bg-primary/90 font-bold" onClick={() => navigate(returnTo ?? "/")}>{returnTo ? "Continue practising" : "Go to dashboard"}</Button><Button variant="outline" onClick={reset}>Buy more credits</Button></div></CardContent></Card>}
       {stage === "failed" && <Card className="mb-6 border-destructive/30 bg-destructive/5 shadow-sm"><CardContent className="py-8 text-center"><XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" /><h2 className="font-bold text-secondary text-xl mb-2">Payment not completed</h2><p className="text-sm text-muted-foreground mb-6">No credits were added. You can safely try again.</p><Button variant="outline" onClick={reset}><ArrowLeft className="w-4 h-4 mr-1.5" />Try again</Button></CardContent></Card>}
       {(stage === "pick" || stage === "paid") && <Card className="mb-6 border shadow-sm"><CardContent className="py-6"><h2 className="font-bold text-secondary mb-4">How credits work</h2><div className="space-y-3">{uses.map(({ icon: Icon, title, cost, note }) => <div key={title} className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-secondary" /></div><div className="min-w-0 flex-1"><p className="font-semibold text-secondary text-sm">{title}</p><p className="text-xs text-muted-foreground">{note}</p></div><span className="text-sm font-bold shrink-0 text-secondary">{cost}</span></div>)}</div><div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Credits never expire</span><span className="inline-flex items-center gap-1"><Check className="w-3.5 h-3.5 text-green-600" /> No subscription</span><span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-green-600" /> Secure Cashfree checkout</span></div></CardContent></Card>}

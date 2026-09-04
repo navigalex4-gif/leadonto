@@ -101,7 +101,16 @@ const FUNNEL_STAGES = [
   "otp_requested",
   "otp_verified",
   "account_created",
+  "signup_completed",
   "first_session_started",
+  "first_value_received",
+  "payment_page_viewed",
+  "payment_started",
+  "payment_submitted",
+  "payment_pending",
+  "payment_approved",
+  "payment_succeeded",
+  "payment_rejected",
 ] as const;
 
 function parseProperties(raw: string | null): Record<string, unknown> {

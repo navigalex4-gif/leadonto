@@ -20,6 +20,9 @@ import { formatGeneratedText } from "@/lib/english-tools";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { CelebrationOverlay } from "@/components/english/word-power";
 import { useGamification } from "@/lib/use-gamification";
+import { useAuth } from "@/lib/use-auth";
+import { trackFirstValue, withAcquisition } from "@/lib/analytics";
+import { Link } from "wouter";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -169,6 +172,7 @@ export default function ResumeIntelligence() {
 }
 
 function ResumeIntelligenceContent() {
+  const { user } = useAuth();
   const { items: historyItems, save } = useHistory();
   const { track } = useProgress();
   const gam = useGamification(0);
@@ -342,6 +346,7 @@ function ResumeIntelligenceContent() {
       }
       setAnalysis(parsed);
       track("Rozgar Samachar", `Resume analysis — ${targetRoleMeta.label}`, parsed.overallScore);
+      trackFirstValue("resume_analysis", { score: parsed.overallScore });
       // Sync to local profile state if server sync succeeded
       await updateProfile({
         resumeAnalysis: parsed,
@@ -525,12 +530,12 @@ ${paragraphs}
           onDismiss={gam.dismissCelebration}
         />
       )}
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <FileText className="w-8 h-8 text-primary" />
+      <div className="text-center mb-5">
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+          <FileText className="w-5 h-5 text-primary" />
         </div>
-        <h1 className="text-4xl font-display font-bold text-secondary mb-2">Resume Intelligence</h1>
-        <p className="text-muted-foreground max-w-md mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-secondary mb-1">Resume Intelligence</h1>
+        <p className="text-sm text-muted-foreground max-w-lg mx-auto">
           Upload your resume (PDF or DOCX) and get a clear score, skill gaps, ATS tips, and improvement suggestions.
         </p>
       </div>
@@ -677,6 +682,19 @@ ${paragraphs}
       {/* Results scorecard */}
       {analysis && !isAnalysing && (
         <div className="space-y-6">
+          {!user && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold text-blue-950">Keep this score and action plan</p>
+                  <p className="text-sm text-blue-800">Create a free account to sync this review and compare your next resume version across devices.</p>
+                </div>
+                <Link href={withAcquisition("/login?returnTo=%2Fresume-intelligence")}>
+                  <Button className="w-full whitespace-nowrap sm:w-auto">Save my progress</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
           <Card className={`border-2 ${g.bg}`}>
             <CardContent className="p-6">
               <div className="flex items-center gap-6 flex-wrap">

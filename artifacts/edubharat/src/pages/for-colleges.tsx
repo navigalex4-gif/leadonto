@@ -111,7 +111,7 @@ export default function ForColleges() {
 
       {/* Hero */}
       <section className="border-b border-border/70 bg-gradient-to-br from-indigo-950 to-secondary text-secondary-foreground">
-        <div className="container mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+        <div className="container mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-16">
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-indigo-200">For placement cells &amp; L&amp;D teams</p>
           <h1 className="mt-4 max-w-3xl text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
             Turn placement prep into a measurable campus advantage.
@@ -158,7 +158,7 @@ export default function ForColleges() {
       </section>
 
       {/* Value bullets */}
-      <section className="py-12 sm:py-16">
+      <section className="py-10 sm:py-14">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-xl">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">One platform, three wins</p>
@@ -208,7 +208,7 @@ export default function ForColleges() {
       </section>
 
       {/* Pilot nudge */}
-      <section className="py-12 sm:py-16">
+      <section className="py-10 sm:py-14">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div className="max-w-xl">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">A practical 30-day decision</p>
@@ -235,7 +235,7 @@ export default function ForColleges() {
       </section>
 
       {/* Pricing summary */}
-      <section className="border-y border-border/70 bg-card/40 py-12 sm:py-16">
+      <section className="border-y border-border/70 bg-card/40 py-10 sm:py-14">
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Institution pricing</p>
@@ -323,7 +323,7 @@ export default function ForColleges() {
       </section>
 
       {/* Trust */}
-      <section className="py-12 sm:py-14">
+      <section className="py-8 sm:py-10">
         <div className="container mx-auto max-w-3xl px-5 text-center sm:px-8">
           <ShieldCheck className="mx-auto h-6 w-6 text-emerald-600" />
           <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
