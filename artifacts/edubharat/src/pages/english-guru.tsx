@@ -2034,7 +2034,7 @@ Rules for spoken replies:
         <LanguageHighlight />
          <Button
            size="sm"
-            className="h-8 w-full max-w-[210px] whitespace-nowrap bg-orange-500 px-3 text-sm font-extrabold text-white shadow-sm shadow-orange-200 hover:bg-orange-600"
+            className="h-8 w-full max-w-[210px] whitespace-nowrap border border-sky-200 bg-gradient-to-r from-sky-100 via-indigo-100 to-violet-100 px-3 text-sm font-extrabold text-[#17204d] shadow-sm shadow-indigo-100 hover:from-sky-200 hover:via-indigo-200 hover:to-violet-200"
           onClick={() => document.getElementById("english-guru-live")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         >
           Start Speaking Practice
