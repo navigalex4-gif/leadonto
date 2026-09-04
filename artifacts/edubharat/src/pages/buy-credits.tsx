@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { track, trackFunnel, trackGoogleAdsPurchase } from "@/lib/analytics";
+import { track, trackFunnel, trackGoogleAdsPurchase, withAcquisition } from "@/lib/analytics";
 import { PageMeta } from "@/components/page-meta";
 import {
   useCredits, createCashfreeOrder, getCashfreeStatus, fetchTransactions,
@@ -90,9 +90,12 @@ export default function BuyCredits() {
     // Payment status is polled and the component can rerender several times.
     // Report one Google Ads conversion per server-confirmed order only.
     if (stage !== "paid" || !orderId || trackedPurchaseRef.current === orderId) return;
-    if (trackGoogleAdsPurchase(orderId, orderCredits)) trackedPurchaseRef.current = orderId;
+    trackedPurchaseRef.current = orderId;
+    trackGoogleAdsPurchase(orderId, orderCredits);
+    track("payment_success", { orderId, amount: orderCredits, method: "cashfree" });
     track("payment_approved", { orderId, amount: orderCredits, method: "cashfree" });
     trackFunnel("payment_approved", { amount: orderCredits });
+    trackFunnel("payment_succeeded", { orderId, amount: orderCredits, method: "cashfree" });
   }, [orderCredits, orderId, stage]);
 
   useEffect(() => {
@@ -104,7 +107,12 @@ export default function BuyCredits() {
   const reconcile = useCallback(async (id: string) => {
     const result = await getCashfreeStatus(id);
     if (!result) return false;
-    if (result.status === "paid") { setStage("paid"); void refreshCredits(); return true; }
+    if (result.status === "paid") {
+      if (typeof result.credits === "number") setOrderCredits(result.credits);
+      setStage("paid");
+      void refreshCredits();
+      return true;
+    }
     if (["failed", "cancelled", "expired"].includes(result.status)) { setStage("failed"); return true; }
     return false;
   }, []);
@@ -147,6 +155,7 @@ export default function BuyCredits() {
     if (!valid) return;
     setSubmitting(true);
     track("payment_started", { amount, method: "cashfree" });
+    trackFunnel("payment_started", { amount, method: "cashfree" });
     const result = await createCashfreeOrder(amount);
     if (!result.ok || !result.orderId || !result.paymentSessionId) {
       setSubmitting(false);
@@ -192,7 +201,7 @@ export default function BuyCredits() {
           <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1"><InfinityIcon className="w-3.5 h-3.5" /> Never expire</span><span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Cashfree secured</span></div>
         </CardContent></Card>
       ) : loaded ? (
-        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-primary/5 to-white"><CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div className="flex items-start gap-3"><Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" /><div><p className="font-bold text-secondary">Get 20 free credits</p><p className="text-sm text-muted-foreground">Create your free account to claim 20 credits and start practising.</p></div></div><Link href={`/login?returnTo=${encodeURIComponent(loginReturnTo)}`}><Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Create free account</Button></Link></CardContent></Card>
+        <Card className="mb-6 border-none shadow-lg bg-gradient-to-br from-primary/5 to-white"><CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"><div className="flex items-start gap-3"><Sparkles className="w-6 h-6 text-primary shrink-0 mt-0.5" /><div><p className="font-bold text-secondary">Get 20 free credits</p><p className="text-sm text-muted-foreground">Create your free account to add 20 credits—enough for about 4 hours of live conversation.</p></div></div><Link href={withAcquisition(`/login?returnTo=${encodeURIComponent(loginReturnTo)}`)}><Button className="font-bold shrink-0"><LogIn className="w-4 h-4 mr-1.5" />Create free account</Button></Link></CardContent></Card>
       ) : <div className="mb-6 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>}
       {loaded && authenticated && stage === "pick" && <Card className="mb-6 border shadow-sm"><CardContent className="py-6">
         <h2 className="font-bold text-secondary mb-4">Choose an amount</h2>

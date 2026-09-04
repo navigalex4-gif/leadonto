@@ -15,6 +15,7 @@ export const TRANSLATION_LANGUAGES = [
 ] as const;
 
 export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
+export type LanguageOperation = "translate" | "explain";
 
 type TranslationPayload = {
   translation?: unknown;
@@ -29,13 +30,14 @@ type TranslationPayload = {
 export async function requestTranslation(
   sourceText: string,
   targetLanguage: TranslationLanguage,
+  operation: LanguageOperation = "translate",
 ): Promise<string> {
   const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
   const response = await fetch(`${base}/api/ai/translate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ sourceText, targetLanguage }),
+    body: JSON.stringify({ sourceText, targetLanguage, operation }),
     signal: AbortSignal.timeout(8_000),
   });
 

@@ -27,7 +27,7 @@ import {
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
 import { useContent } from "@/lib/use-content";
-import { track, trackFunnel } from "@/lib/analytics";
+import { track, trackFunnel, withAcquisition } from "@/lib/analytics";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { PLANS, TESTIMONIALS } from "@/lib/plans";
 import { INDIAN_LANGUAGES } from "@/lib/constants";
@@ -92,7 +92,7 @@ const PRODUCT_SHOWCASE = [
 const FAQS = [
   {
     q: "Is it really free? Do I need to give my card?",
-    a: "Your first 15 minutes are free with no signup and no card — just tap Start and begin talking. Create a free account and you get 20 signup credits. You only enter payment details if you decide to buy more credits or subscribe.",
+    a: "Your first 15 minutes are free with no signup and no card — just tap Start and begin talking. Create a free account and you get 20 credits, enough for about 4 hours of live conversation. You only enter payment details if you decide to buy more credits.",
   },
   {
     q: "My English is very weak. Will I be able to use this?",
@@ -112,15 +112,15 @@ const FAQS = [
   },
   {
     q: "How do credits work?",
-    a: "One credit is ₹1 and covers 12 minutes of live conversation. The minimum top-up is ₹10, credits never expire, and there is no subscription required — but subscriptions unlock unlimited practice.",
+    a: "One credit is ₹1 and covers 12 minutes of live conversation. The minimum top-up is ₹10, credits never expire, and there is no subscription.",
   },
   {
     q: "Is my conversation private?",
     a: "Your sessions and account data are handled according to our Privacy Policy. Sessions are private to your account.",
   },
   {
-    q: "Can I cancel? What if it doesn't work for me?",
-    a: "There is no subscription to cancel on the pay-as-you-go plan. For monthly subscriptions, you can cancel anytime from your profile and keep access until the end of the billing period.",
+    q: "What if it doesn't work for me?",
+    a: "Start with 15 guest minutes before paying. If you buy credits, see our Refund Policy for eligibility.",
   },
 ] as const;
 
@@ -137,15 +137,6 @@ const PROBLEM_QUOTES = [
     quote: "I cannot practise with my friends — they will laugh. And I cannot afford an expensive spoken English course just to find out if it works.",
     label: "nowhere safe to fail",
   }
-];
-
-const COMPARISON_FEATURES = [
-  { label: "Helps in your mother tongue when stuck", others: "Text only", global: "English only", human: "If matched", leadonto: "13 languages" },
-  { label: "Real spoken practice, not typing", others: "No", global: "Yes", human: "Yes", leadonto: "Yes" },
-  { label: "Available at 11pm after your shift", others: "Yes", global: "Yes", human: "Book ahead", leadonto: "Always" },
-  { label: "Understands Indian English habits", others: "No", global: "Marks you wrong", human: "Yes", leadonto: "Built for it" },
-  { label: "Works on patchy 3G", others: "Yes", global: "Video-heavy", human: "No", leadonto: "Audio-light mode" },
-  { label: "Interview & BPO scenarios", others: "Generic", global: "Western context", human: "Yes", leadonto: "Indian job roles" },
 ];
 
 const HABIT_FEATURES = [
@@ -185,7 +176,7 @@ function PrimaryLink({
 }) {
   return (
     <Link
-      href={href}
+      href={withAcquisition(href)}
       onClick={onClick}
       className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-8 text-base font-extrabold text-white shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 hover:bg-[#EA580C] hover:shadow-orange-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-2 ${className}`}
     >
@@ -256,7 +247,7 @@ export default function Home() {
   );
   const ctaPrimary = useContent("home.hero.startCta", "Start 15 Free Minutes");
   
-  const homePlans = PLANS.filter((p) => p.showOnHome);
+  const homePlans = PLANS.filter((p) => p.id === "free" || p.id === "credits");
   const heroTutor = TUTORS.find(t => t.id === "neha") || TUTORS[0]!;
 
   return (
@@ -349,7 +340,7 @@ export default function Home() {
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <MobilePrimaryCTA
             label="Start 15 Free Minutes"
-            href="/english-guru"
+            href={withAcquisition("/english-guru")}
             onClick={() => {
               track("home_cta_clicked", { cta: "start_english_guru", placement: "mobile_primary" });
               trackFunnel("cta_clicked", { cta: "start_english_guru", placement: "mobile_primary" });
@@ -444,10 +435,10 @@ export default function Home() {
             <div className="max-w-3xl mb-16">
               <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-blue-400">Why people stay</p>
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-white">
-                Every other app abandons you at the exact moment you need help.
+                Get a bridge back to English at the moment you get stuck.
               </h2>
               <p className="mt-6 text-lg text-slate-300">
-                When you get stuck, an English-only AI just says the same thing again — slower. That is the moment most learners quit. We built Lead Onto around that exact moment.
+                English-only practice can be hard to continue when you cannot find the next word. Lead Onto can switch to your mother tongue, help you form the sentence, and bring you back to English.
               </p>
             </div>
 
@@ -585,53 +576,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* COMPARISON */}
-        <section className="py-16 sm:py-24 bg-[#FFFDF9] border-y border-border/50 overflow-hidden">
-          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="max-w-2xl mb-12">
-              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Honest comparison</p>
-              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
-                Why not just use what is already out there?
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                All of these are good at something. Here is where each one leaves an Indian learner stranded.
-              </p>
-            </div>
-
-            <div className="overflow-x-auto pb-4">
-              <table className="w-full text-left text-sm min-w-[800px]">
-                <thead>
-                  <tr>
-                    <th className="py-5 px-5 font-extrabold text-secondary w-[30%]">What you need</th>
-                    <th className="py-5 px-5 font-bold text-muted-foreground">Free chatbots</th>
-                    <th className="py-5 px-5 font-bold text-muted-foreground">Global apps</th>
-                    <th className="py-5 px-5 font-bold text-muted-foreground">Live human</th>
-                    <th className="py-5 px-5 font-extrabold text-primary bg-orange-50 rounded-t-2xl border-t border-x border-orange-100">Lead Onto</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {COMPARISON_FEATURES.map((row, i) => (
-                    <tr key={i} className="group hover:bg-muted/30 transition-colors">
-                      <td className="py-5 px-5 font-semibold text-secondary">{row.label}</td>
-                      <td className="py-5 px-5 text-muted-foreground">{row.others}</td>
-                      <td className="py-5 px-5 text-muted-foreground">{row.global}</td>
-                      <td className="py-5 px-5 text-muted-foreground">{row.human}</td>
-                      <td className="py-5 px-5 font-extrabold text-primary bg-orange-50 border-x border-orange-100">{row.leadonto}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td className="py-5 px-5 font-semibold text-secondary">Monthly cost</td>
-                    <td className="py-5 px-5 text-muted-foreground">Free</td>
-                    <td className="py-5 px-5 text-muted-foreground">₹650–₹1,500</td>
-                    <td className="py-5 px-5 text-muted-foreground">₹4,000–₹35,000</td>
-                    <td className="py-5 px-5 font-extrabold text-primary bg-orange-50 rounded-b-2xl border-b border-x border-orange-100">From ₹199</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         {/* PRICING */}
         <section className="py-16 sm:py-24 bg-white" aria-labelledby="pricing-title">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
@@ -686,7 +630,7 @@ export default function Home() {
                       ))}
                     </ul>
                     <Link
-                      href={p.ctaHref}
+                       href={withAcquisition(p.ctaHref)}
                       onClick={() => trackFunnel("cta_clicked", { cta: `pricing_${p.id}`, placement: "home_pricing" })}
                       className={`inline-flex w-full min-h-12 items-center justify-center rounded-xl px-5 text-sm font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
                         isHighlight
@@ -702,7 +646,7 @@ export default function Home() {
             </div>
             
             <p className="mt-12 text-center text-xs font-semibold text-muted-foreground max-w-2xl mx-auto">
-              7-day money-back guarantee. Practise for a week. If you do not feel more confident speaking, reply to any of our emails and we will refund you in full — no forms, no questions.
+              Credit top-ups start at ₹10 and never expire. See our Refund Policy for refund eligibility.
             </p>
           </div>
         </section>
@@ -759,7 +703,7 @@ export default function Home() {
               </PrimaryLink>
             </div>
             <p className="mt-6 text-xs font-semibold text-slate-400">
-              Then ₹199/month if you like it · Cancel anytime
+               Then top up from ₹10 only when you need more practice
             </p>
           </div>
         </section>

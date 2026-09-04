@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight, Check, Coins, ShieldCheck, Infinity as InfinityIcon, Sparkles } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
 import { PLANS, type Plan } from "@/lib/plans";
-import { track, trackFunnel } from "@/lib/analytics";
+import { track, trackFunnel, withAcquisition } from "@/lib/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 
 function PlanCard({ plan }: { plan: Plan }) {
@@ -62,7 +62,7 @@ function PlanCard({ plan }: { plan: Plan }) {
       </ul>
 
       <Link
-        href={plan.ctaHref}
+        href={withAcquisition(plan.ctaHref)}
         onClick={() => {
           track("pricing_cta_clicked", { plan: plan.id });
           trackFunnel("cta_clicked", { cta: "pricing_plan", placement: `pricing_${plan.id}` });
@@ -83,12 +83,12 @@ function PlanCard({ plan }: { plan: Plan }) {
 
 const FAQS = [
   {
-    q: "Can I cancel a subscription anytime?",
-    a: "Yes. Cancel from your profile and you keep access until the end of the billing period.",
+    q: "Do I need a subscription?",
+    a: "No. Top up only when you need more practice. Credits never expire.",
   },
   {
-    q: "What happens to my credits if I subscribe?",
-    a: "Existing credits stay in your account, never expire, and are used automatically once your subscription entitlements are used up.",
+    q: "How do credits work?",
+    a: "One credit is ₹1 and covers 12 minutes of live conversation. The minimum top-up is ₹10.",
   },
   {
     q: "Do you offer refunds?",
@@ -100,16 +100,17 @@ const FAQS = [
   },
   {
     q: "Is there a student or bulk discount?",
-    a: "The ₹1,499 Placement Sprint is designed for final-year students. Bulk college purchases start at ₹299/student/year — see For Colleges.",
+    a: "Bulk college purchases start at ₹299/student/year for 200 or more seats — see For Colleges.",
   },
 ] as const;
 
 export default function Pricing() {
+  const availablePlans = PLANS.filter((plan) => plan.id === "free" || plan.id === "credits");
   return (
     <div className="container mx-auto max-w-6xl px-4 py-10 sm:py-14">
       <PageMeta
         title="Pricing"
-        description="Try free. Subscribe when it works. Lead Onto plans start at ₹0 forever, ₹199/mo Practice, ₹499/mo Career, or ₹1,499 one-time Placement Sprint."
+        description="Start with 15 free guest minutes, then buy credits only when you need them. Credits start at ₹10 and never expire."
         canonicalUrl="https://leadonto.com/pricing"
       />
 
@@ -119,8 +120,8 @@ export default function Pricing() {
           Pick the right pace for your next opportunity.
         </h1>
         <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
-          Start with a real practice win, then choose the plan that matches your interview timeline.
-          No card is needed to try it.
+          Start with 15 minutes of live conversation without signing up or adding a card.
+          Create a free account for 20 credits, then top up only when you need more.
         </p>
       </header>
 
@@ -137,7 +138,7 @@ export default function Pricing() {
           </div>
         </div>
         <Link
-          href="/english-guru"
+          href={withAcquisition("/english-guru")}
           onClick={() => trackFunnel("cta_clicked", { cta: "pricing_try_free", placement: "pricing_trial_banner" })}
           className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-secondary px-4 text-xs font-extrabold text-white hover:bg-secondary/90 sm:mt-0"
         >
@@ -146,21 +147,21 @@ export default function Pricing() {
         </Link>
       </section>
 
-      {/* One comparison makes every consumer path visible at the decision point. */}
+        {/* Show only purchase options supported by the current credit policy. */}
       <section className="mt-10" aria-labelledby="plan-comparison-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">Choose your commitment</p>
             <h2 id="plan-comparison-title" className="mt-2 text-2xl font-extrabold text-secondary">
-              Start small, upgrade when the stakes rise.
+              Start free, then pay only for what you use.
             </h2>
           </div>
           <p className="max-w-xs text-right text-xs leading-5 text-muted-foreground">
-            Practice is the popular starting point. Career is the complete value choice for active job seekers.
+            One credit is ₹1, covers 12 minutes of live conversation, and never expires.
           </p>
         </div>
         <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {PLANS.map((p) => (
+          {availablePlans.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
         </div>

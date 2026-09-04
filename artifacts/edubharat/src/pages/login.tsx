@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useAuth } from "@/lib/use-auth";
 import { Loader2, Mail, ArrowRight, ShieldCheck, AlertTriangle, Copy, CheckCheck, ExternalLink } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
-import { track, trackFunnel } from "@/lib/analytics";
+import { track, trackFunnel, withAcquisition } from "@/lib/analytics";
 
 type AuthConfig = {
   googleConfigured: boolean;
@@ -147,7 +147,7 @@ function LoginContent() {
         email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
         error_reason: result.error.slice(0, 120),
       });
-      trackFunnel("otp_requested", { method: "email", success: true });
+      trackFunnel("otp_requested", { method: "email", success: false });
     } else {
       setStep("otp");
       setDevCode(result.dev);
@@ -156,6 +156,7 @@ function LoginContent() {
         success: true,
         email_domain: email.trim().toLowerCase().split("@")[1] ?? "unknown",
       });
+      trackFunnel("otp_requested", { method: "email", success: true });
     }
   };
 
@@ -185,6 +186,7 @@ function LoginContent() {
       trackFunnel("otp_verified", { method: "email" });
       track("account_created", { auth_method: "email_otp" });
       trackFunnel("account_created", { method: "email_otp" });
+      trackFunnel("signup_completed", { method: "email_otp" });
       const params = new URLSearchParams(search);
       const returnTo = params.get("returnTo");
       navigate(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
@@ -201,7 +203,10 @@ function LoginContent() {
   // Fail open: treat Google as ready until config explicitly says it isn't.
   // This prevents a transient /api/auth/config failure from disabling the button.
   const googleReady = configLoaded ? (config?.googleConfigured ?? true) : true;
-  const externalBrowserUrl = getExternalBrowserUrl(window.location.href, navigator.userAgent);
+  const externalBrowserUrl = getExternalBrowserUrl(
+    new URL(withAcquisition(window.location.pathname + window.location.search), window.location.origin).toString(),
+    navigator.userAgent,
+  );
   const returnToParam = new URLSearchParams(search).get("returnTo");
   const contextualCopy = getContextualCopy(returnToParam);
   const openExternalBrowser = () => {
@@ -306,6 +311,7 @@ function LoginContent() {
                 onClick={googleReady
                    ? () => {
                        trackFunnel("signup_started", { method: "google" });
+                        try { sessionStorage.setItem("leadonto_google_signup_pending", "1"); } catch { /* private browsing */ }
                        loginWithGoogle(
                       localStorage.getItem("edubharat_guest_id") ?? undefined,
                       new URLSearchParams(search).get("returnTo") ?? undefined,
@@ -353,7 +359,7 @@ function LoginContent() {
                   />
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button className="w-full h-12 font-bold" onClick={handleSendOtp} disabled={loading} data-testid="button-send-otp">
+                <Button type="submit" className="w-full h-12 font-bold" disabled={loading} data-testid="button-send-otp">
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowRight className="w-4 h-4 mr-2" />}
                   Send OTP
                 </Button>
@@ -386,11 +392,11 @@ function LoginContent() {
                   data-testid="input-otp"
                 />
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button className="w-full h-12 font-bold" onClick={handleVerifyOtp} disabled={loading || otp.length < 6} data-testid="button-verify-otp">
+                <Button type="submit" className="w-full h-12 font-bold" disabled={loading || otp.length < 6} data-testid="button-verify-otp">
                   {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
                   Verify & Sign In
                 </Button>
-                <Button variant="ghost" size="sm" className="w-full" onClick={() => { setStep("email"); setOtp(""); setError(""); }}>
+                <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => { setStep("email"); setOtp(""); setError(""); }}>
                   ← Use different email
                 </Button>
               </form>

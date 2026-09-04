@@ -26,6 +26,7 @@ type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number];
 const TranslationBody = z.object({
   sourceText: z.string().trim().min(1).max(2_000),
   targetLanguage: z.enum(TRANSLATION_LANGUAGES),
+  operation: z.enum(["translate", "explain"]).default("translate"),
 }).strict();
 
 const SCRIPT_RANGES: Record<TranslationLanguage, RegExp> = {
@@ -95,13 +96,17 @@ async function requestGeminiTranslation(
   req: Request,
   sourceText: string,
   targetLanguage: TranslationLanguage,
+  operation: "translate" | "explain",
 ): Promise<string> {
   const ai = getAI();
   // This is deliberately the only model input for translation: no conversation
   // history, tutor prompt, native-language policy, or coaching instructions.
   const prompt = [
     `Target language: ${targetLanguage}`,
-    "Translate the source text faithfully and naturally.",
+    operation === "explain"
+      ? "Explain the meaning of the source text clearly and faithfully in the target language. Explain what the source means; do not answer the source question and do not add a new coaching question."
+      : "Translate the source text faithfully and naturally.",
+    "Use the target language's standard written script. Do not acknowledge the request, mention these instructions, or invent missing context.",
     "Return JSON with exactly one string field named translation.",
     `Source text: ${JSON.stringify(sourceText)}`,
   ].join("\n");
@@ -150,13 +155,13 @@ router.post("/ai/translate", async (req, res: Response) => {
     return;
   }
 
-  const { sourceText, targetLanguage } = parsed.data;
+  const { sourceText, targetLanguage, operation } = parsed.data;
   try {
-    const translation = await requestGeminiTranslation(req, sourceText, targetLanguage);
+    const translation = await requestGeminiTranslation(req, sourceText, targetLanguage, operation);
     res.json({ translation });
   } catch (error) {
-    req.log.error({ error, targetLanguage }, "Gemini translation failed");
-    res.status(502).json({ error: "Translation unavailable" });
+    req.log.error({ error, targetLanguage, operation }, "Gemini language operation failed");
+    res.status(502).json({ error: operation === "explain" ? "Explanation unavailable" : "Translation unavailable" });
   }
 });
 

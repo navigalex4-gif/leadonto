@@ -13,7 +13,7 @@ import {
   Download, Bookmark, RefreshCw, Target, Zap, Shield,
   BookOpen, Briefcase, GraduationCap, User, AlertCircle,
   ChevronDown, ChevronUp, X,
-  Link2, ExternalLink, MessageCircleQuestion,
+  Link2, ExternalLink, MessageCircleQuestion, ListChecks,
 } from "lucide-react";
 import { PageMeta } from "@/components/page-meta";
 import { formatGeneratedText } from "@/lib/english-tools";
@@ -169,7 +169,7 @@ export default function ResumeIntelligence() {
 }
 
 function ResumeIntelligenceContent() {
-  const { save } = useHistory();
+  const { items: historyItems, save } = useHistory();
   const { track } = useProgress();
   const gam = useGamification(0);
   const { profile, updateProfile, isLoading: profileLoading } = useStudentProfile();
@@ -199,7 +199,7 @@ function ResumeIntelligenceContent() {
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [savedToHistory, setSavedToHistory] = useState(false);
-  const [jobUrl, setJobUrl] = useState("");
+  const [jobUrl, setJobUrl] = useState(() => new URLSearchParams(window.location.search).get("jobUrl") ?? "");
   const [jobMatch, setJobMatch] = useState<JobMatchResult | null>(null);
   const [isMatchingJob, setIsMatchingJob] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -229,6 +229,19 @@ function ResumeIntelligenceContent() {
 
   const overallScore = analysis?.overallScore ?? 0;
   const g = scoreGrade(overallScore);
+  const savedResumeReviews = useMemo(
+    () => historyItems.filter(item => item.tool === "Rozgar Samachar" && item.title.startsWith("Resume Analysis —")),
+    [historyItems],
+  );
+  const priorityActions = useMemo(() => {
+    if (!analysis) return [];
+    const groups = [
+      { source: "Role/keyword gap", items: stringArrayProp(analysis, "atsGaps") },
+      { source: "Formatting fix", items: stringArrayProp(analysis, "formattingIssues") },
+      { source: "Content improvement", items: stringArrayProp(analysis, "suggestions") },
+    ];
+    return groups.flatMap(group => group.items.slice(0, 2).map(item => ({ ...group, item }))).slice(0, 5);
+  }, [analysis]);
 
   const handleFileChange = useCallback(async (file: File) => {
     if (!file) return;
@@ -329,8 +342,6 @@ function ResumeIntelligenceContent() {
       }
       setAnalysis(parsed);
       track("Rozgar Samachar", `Resume analysis — ${targetRoleMeta.label}`, parsed.overallScore);
-      gam.award("resume_analysis", { product: "resume" });
-
       // Sync to local profile state if server sync succeeded
       await updateProfile({
         resumeAnalysis: parsed,
@@ -343,7 +354,7 @@ function ResumeIntelligenceContent() {
     } finally {
       setIsAnalysing(false);
     }
-  }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile, gam.award]);
+  }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile]);
 
   const matchJob = useCallback(async () => {
     if (!jobUrl.trim()) {
@@ -481,7 +492,8 @@ ${paragraphs}
       content: JSON.stringify(analysis, null, 2),
     });
     setSavedToHistory(true);
-  }, [analysis, save, targetRoleMeta]);
+    gam.award("resume_analysis", { product: "resume" });
+  }, [analysis, save, targetRoleMeta, gam.award]);
 
   const downloadReport = useCallback(() => {
     if (!analysis) return;
@@ -675,7 +687,50 @@ ${paragraphs}
                 <div className="flex-1 min-w-[220px]">
                   <div className={`text-xl font-bold ${g.color} mb-2`}>{g.label} Resume</div>
                   <Progress value={overallScore} className="h-3 bg-white/70" />
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    This is an AI review against the selected role, not a guaranteed ATS score or hiring outcome. Verify every suggested claim before using it.
+                  </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-primary/[0.03]">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListChecks className="h-5 w-5 text-primary" />
+                Priority action plan
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Work top to bottom, then re-run the review to compare your next version.</p>
+            </CardHeader>
+            <CardContent>
+              {priorityActions.length > 0 ? (
+                <ol className="space-y-3">
+                  {priorityActions.map((action, index) => (
+                    <li key={`${action.source}-${index}`} className="flex gap-3 rounded-xl border bg-background p-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{index + 1}</span>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">{action.source}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-secondary">{action.item}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-muted-foreground">No specific priority fixes were returned. Review the detailed sections below before changing your resume.</p>
+              )}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">Keep a version trail</p>
+                  <p className="text-xs text-blue-800">
+                    {savedResumeReviews.length > 0
+                      ? `${savedResumeReviews.length} review${savedResumeReviews.length === 1 ? "" : "s"} saved. Latest: ${new Date(savedResumeReviews[0]!.savedAt).toLocaleDateString("en-IN")}.`
+                      : "Save this review before editing so you can compare improvements later."}
+                  </p>
+                </div>
+                <Button variant={savedToHistory ? "secondary" : "default"} size="sm" onClick={handleSave} disabled={savedToHistory}>
+                  {savedToHistory ? <><CheckCircle2 className="mr-2 h-4 w-4" />Plan saved</> : <><Bookmark className="mr-2 h-4 w-4" />Save plan & score</>}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -708,7 +763,7 @@ ${paragraphs}
               <div className="flex flex-wrap items-start gap-5">
                 <div className="text-center">
                   <div className="text-5xl font-display font-extrabold text-primary">{jobMatch.matchScore}</div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">job match /100</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">estimated profile fit /100</div>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold text-secondary">{jobMatch.roleTitle || "Job opportunity"}</h2>
@@ -716,6 +771,7 @@ ${paragraphs}
                     {[jobMatch.company, jobMatch.location, jobMatch.salary].filter(Boolean).join(" · ") || "Details extracted from the posting"}
                   </p>
                   <p className="mt-3 text-sm leading-6 text-secondary">{formatGeneratedText(jobMatch.summary)}</p>
+                   <p className="mt-2 text-xs text-muted-foreground">Based on the public posting and resume text available to this review. This is guidance, not an employer or ATS decision.</p>
                 </div>
               </div>
             </CardContent>

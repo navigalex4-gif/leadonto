@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,13 @@ import { useAuth } from "@/lib/use-auth";
 import { useGeminiStream } from "@/lib/use-gemini-stream";
 import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useHistory } from "@/lib/use-history";
+import { useGamification } from "@/lib/use-gamification";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { downloadText } from "@/lib/export-data";
 import {
   BookOpen, CheckCircle2, RotateCcw, ChevronRight, ChevronUp, ChevronDown,
   Flame, Clock, Star, Brain, Mic, Headphones, Eye, Map, Zap, Loader2,
-  Trophy, Lock, ChevronRight as ArrowRight, Target, Users, Sparkles,
+  Trophy, Lock, ChevronRight as ArrowRight, Target, Sparkles,
   AlertTriangle,
 } from "lucide-react";
 
@@ -142,14 +143,33 @@ function MasteryBadge({ level }: { level: "bronze" | "silver" | "gold" }) {
 
 // ── Daily session psychology helpers ─────────────────────────────────────────
 const DAILY_GOAL = 3;          // lessons that count as "today's goal"
-const XP_PER_LESSON = 20;
 
-// Deterministic-per-day social-proof number so it stays stable across renders
-// but feels alive day to day (FOMO nudge).
-function learnersToday(): number {
-  const d = new Date();
-  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  return 900 + ((seed * 7919) % 1900); // ~900–2800
+// Journey completions pay into the app-wide XP loop. Strong recall earns a
+// larger reward while SM-2 remains the source of truth for review scheduling.
+function journeyReward(score: number): number {
+  if (score >= 90) return 30;
+  if (score >= 70) return 20;
+  return 10;
+}
+
+function reviewDateContext(value: string | null): string {
+  if (!value) return "Your next review will appear here as soon as it is scheduled.";
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return "Your next review is scheduled.";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reviewDay = new Date(date);
+  reviewDay.setHours(0, 0, 0, 0);
+  const days = Math.round((reviewDay.getTime() - today.getTime()) / 86_400_000);
+  const relative = days === 0 ? "today" : days === 1 ? "tomorrow" : days > 1 ? `in ${days} days` : "ready now";
+  return `Next review ${relative} · ${date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+  })}`;
 }
 
 // Circular daily-goal ring (SVG strokeDashoffset for accuracy)
@@ -362,6 +382,7 @@ export default function LearningJourneyPage() {
   const [levelStatus,     setLevelStatus]     = useState<LevelStatus[]>([]);
   const [currentLevelAPI, setCurrentLevelAPI] = useState<string>("A1");
   const [loading,         setLoading]         = useState(true);
+  const [loadError,       setLoadError]       = useState<string | null>(null);
   const [scores,          setScores]          = useState<Record<string, number>>({});
   const [submitting,      setSubmitting]      = useState<Record<string, boolean>>({});
   const [submitted,       setSubmitted]       = useState<Record<string, boolean>>({});
@@ -373,10 +394,14 @@ export default function LearningJourneyPage() {
   // "Practice ahead" mode: everything is done + nothing due, so we show upcoming lessons early.
   const [aheadMode, setAheadMode] = useState(false);
   const [nextDueDate, setNextDueDate] = useState<string | null>(null);
+  const [scheduledReviews, setScheduledReviews] = useState<Record<string, string>>({});
+  const awardedCompletions = useRef<Set<string>>(new Set());
+  const completionsInFlight = useRef<Set<string>>(new Set());
 
   const { profile } = useStudentProfile();
   const synth = useGoogleTTS();
   const { save } = useHistory();
+  const gamification = useGamification(summary?.streak ?? 0);
   const { text: planText, isStreaming: planStreaming, stream: streamPlan } = useGeminiStream();
   const [planSaved, setPlanSaved] = useState(false);
   const level        = mapEnglishLevel(profile.englishLevel);
@@ -445,11 +470,15 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
 
   const loadNext = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [nextRes, progressRes] = await Promise.all([
         fetch(`${BASE}/api/journey/next?userId=${userId}`),
         fetch(`${BASE}/api/journey/progress?userId=${userId}`),
       ]);
+      if (!nextRes.ok || !progressRes.ok) {
+        throw new Error("We couldn't load your learning queue. Please try again.");
+      }
       const nextData = await nextRes.json() as {
         lessons: Lesson[];
         total_due: number;
@@ -477,8 +506,11 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
       setSubmitted({});
       setScores({});
       setSessionXP(0);
-    } catch {
-      /* silently ignore — empty state handles it */
+      setScheduledReviews({});
+      awardedCompletions.current.clear();
+      completionsInFlight.current.clear();
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "We couldn't load your learning queue. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -487,6 +519,8 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
   useEffect(() => { void loadNext(); }, [loadNext]);
 
   const handleSubmit = useCallback(async (lessonId: string) => {
+    if (completionsInFlight.current.has(lessonId)) return;
+    completionsInFlight.current.add(lessonId);
     const score = scores[lessonId] ?? 0;
     const lesson = lessons.find(l => l.id === lessonId);
     setSubmitting(s => ({ ...s, [lessonId]: true }));
@@ -499,11 +533,28 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
       // Only advance the session when the server actually saved the result —
       // otherwise client and backend would silently diverge for the session.
       if (!res.ok) return;
+      const result = await res.json() as { next_review?: string };
       // Advance the focus session in place — no full reload, so the next
       // lesson slides in immediately instead of resetting the whole queue.
       const isReview = lesson?.status === "due for review" || lesson?.status === "practice ahead";
       setSubmitted(s => ({ ...s, [lessonId]: true }));
-      setSessionXP(x => x + XP_PER_LESSON);
+      if (result.next_review) {
+        setScheduledReviews(prev => ({ ...prev, [lessonId]: result.next_review! }));
+      }
+      // React state alone is not a sufficient duplicate guard: two fast clicks
+      // can resolve before the button re-renders. This ref makes one successful
+      // completion pay exactly once while allowing a later queue/review to pay.
+      if (!awardedCompletions.current.has(lessonId)) {
+        awardedCompletions.current.add(lessonId);
+        const reward = journeyReward(score);
+        setSessionXP(x => x + reward);
+        for (let paid = 0; paid < reward; paid += 10) {
+          gamification.award("tool_use", {
+            tool: "learning-journey",
+            product: "learning-journey",
+          });
+        }
+      }
       // Optimistically bump headline stats so the goal ring feels alive.
       // A new lesson moves into "studied"; a review was already counted as
       // studied, so only clear it from the overdue bucket.
@@ -513,9 +564,10 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
         overdue: isReview ? Math.max(0, prev.overdue - 1) : prev.overdue,
       } : prev);
     } finally {
+      completionsInFlight.current.delete(lessonId);
       setSubmitting(s => ({ ...s, [lessonId]: false }));
     }
-  }, [scores, userId, lessons]);
+  }, [scores, userId, lessons, gamification.award]);
 
   // When the entire queue is submitted, refresh level_status from the server
   // so the session-complete card can show accurate pass/fail messaging.
@@ -546,6 +598,12 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
   const total   = summary?.total    ?? 0;
   const overdue = summary?.overdue  ?? 0;
   const pct     = total > 0 ? Math.round((studied / total) * 100) : 0;
+  const nearestScheduledReview = useMemo(() => {
+    const dates = [nextDueDate, ...Object.values(scheduledReviews)].filter(
+      (date): date is string => Boolean(date),
+    );
+    return dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0] ?? null;
+  }, [nextDueDate, scheduledReviews]);
 
   // Use the server-reported current level as the strict gate for locking.
   // Profile-declared level only affects UI labelling, not which levels are
@@ -633,6 +691,26 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
           </div>
         )}
 
+        {/* Shared daily XP momentum — reflects progress earned across Lead Onto. */}
+        <div
+          className="rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5"
+          data-testid="status-daily-momentum"
+        >
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="flex items-center gap-1.5 font-bold text-secondary">
+              <Zap className="h-3.5 w-3.5 fill-primary text-primary" />
+              Daily momentum
+            </span>
+            <span className="font-semibold text-primary">
+              {gamification.dailyXp}/{gamification.dailyGoal} XP · Level {gamification.level}
+            </span>
+          </div>
+          <Progress
+            value={Math.min(100, (gamification.dailyXp / gamification.dailyGoal) * 100)}
+            className="mt-2 h-1.5"
+          />
+        </div>
+
         {/* ── Tabs ── */}
         <div className="flex gap-2 items-center">
           {(["queue", "all", "roadmap"] as const).map(tab => (
@@ -665,20 +743,45 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
                 <div className="h-20 bg-muted rounded-2xl animate-pulse" />
                 <div className="h-72 bg-muted rounded-2xl animate-pulse" />
               </>
+            ) : loadError ? (
+              <Card className="border border-amber-200 shadow-sm">
+                <CardContent className="p-8 text-center space-y-3">
+                  <AlertTriangle className="mx-auto h-8 w-8 text-amber-600" />
+                  <p className="font-semibold text-secondary">Your queue couldn't load</p>
+                  <p className="text-sm text-muted-foreground" data-testid="status-journey-load-error">
+                    {loadError}
+                  </p>
+                  <div className="flex justify-center gap-2">
+                    <Button size="sm" onClick={() => void loadNext()} data-testid="button-retry-journey">
+                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />Try again
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab("roadmap")} data-testid="button-open-roadmap-error">
+                      <Map className="w-3.5 h-3.5 mr-1.5" />View roadmap
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             ) : lessons.length === 0 ? (
               <Card className="border shadow-sm">
                 <CardContent className="p-8 text-center space-y-3">
                   <div className="text-4xl">🎉</div>
                   <p className="font-semibold text-secondary">You're all caught up!</p>
                   <p className="text-sm text-muted-foreground">
-                    No lessons are due right now. Come back tomorrow for your next review —
-                    {summary && summary.streak > 0
-                      ? ` keep your ${summary.streak}-day streak alive!`
-                      : " start a streak tomorrow!"}
+                    No lesson needs attention right now. Keep moving with your personalised plan,
+                    or explore your roadmap while spaced repetition does its work.
                   </p>
-                  <Button variant="outline" size="sm" onClick={() => void loadNext()}>
-                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" />Refresh
-                  </Button>
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary" data-testid="status-next-review-empty">
+                    <Clock className="h-3.5 w-3.5" />
+                    {reviewDateContext(nearestScheduledReview)}
+                  </div>
+                  <div className="flex justify-center gap-2">
+                    <Button size="sm" onClick={() => setActiveTab("roadmap")} data-testid="button-continue-roadmap">
+                      <Map className="w-3.5 h-3.5 mr-1.5" />Continue with my plan
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => void loadNext()} data-testid="button-refresh-empty-queue">
+                      <RotateCcw className="w-3.5 h-3.5 mr-1.5" />Refresh
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (() => {
@@ -696,7 +799,7 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
                       <p className="font-semibold text-secondary">🎯 You're ahead of schedule!</p>
                       <p className="text-muted-foreground">
                         Today's reviews are all done. These are your upcoming lessons — practising early locks them in and keeps your streak alive.
-                        {nextDueDate ? ` Next scheduled review: ${new Date(nextDueDate + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.` : ""}
+                        {" "}{reviewDateContext(nearestScheduledReview)}
                       </p>
                     </div>
                   )}
@@ -711,8 +814,8 @@ Keep every task specific, time-boxed, and India-relevant (job interviews, office
                             : `Today's goal: ${goal} lesson${goal > 1 ? "s" : ""}`}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <Users className="w-3 h-3 text-primary" />
-                          {learnersToday().toLocaleString("en-IN")} learners studied today
+                          <Clock className="w-3 h-3 text-primary" />
+                          {reviewDateContext(nearestScheduledReview)}
                         </p>
                       </div>
                       {sessionXP > 0 && (
@@ -2006,6 +2109,9 @@ function LessonCard({
               <span>50 — Okay</span>
               <span>100 — Perfect</span>
             </div>
+            <p className="text-center text-[10px] font-semibold text-primary" data-testid={`text-lesson-xp-${lesson.id}`}>
+              Complete for +{journeyReward(score)} XP · stronger recall earns more
+            </p>
             <Button size="sm" onClick={onSubmit} disabled={submitting} className="w-full font-bold mt-1">
               {submitting ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving…</> : "Mark Done & Schedule Next Review"}
             </Button>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,59 @@ import { CelebrationOverlay } from "@/components/english/word-power";
 import { useGamification } from "@/lib/use-gamification";
 import {
   Volume2, SpellCheck, PenLine, BookOpen, GraduationCap, Briefcase, Loader2, Users,
+  ArrowRight, CheckCircle2, NotebookPen, Trash2,
 } from "lucide-react";
+
+const IMPROVEMENT_NOTEBOOK_KEY = "edubharat_tools_pro_improvements_v1";
+
+interface ImprovementEntry {
+  id: string;
+  mode: Mode;
+  title: string;
+  before: string;
+  takeaway: string;
+  practice: string;
+  createdAt: string;
+}
+
+interface UsefulGeneration {
+  id: number;
+  mode: Mode;
+  source: string;
+  takeaway: string;
+}
+
+function loadImprovementNotebook(): ImprovementEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(IMPROVEMENT_NOTEBOOK_KEY) || "[]");
+    return Array.isArray(value) ? value.slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+function compactText(value: string, max = 220) {
+  const clean = stripMarkdownForSpeech(value).replace(/\s+/g, " ").trim();
+  return clean.length > max ? `${clean.slice(0, max).trimEnd()}…` : clean;
+}
+
+function deriveTakeaway(value: string) {
+  const lines = stripMarkdownForSpeech(value)
+    .split(/\n+/)
+    .map(line => line.replace(/^\s*(?:\d+[.)]|[-•])\s*/, "").trim())
+    .filter(line => line.length > 18 && !/^(corrections?|improved version|key words|today'?s topic|pronunciation guide)\s*:?\s*$/i.test(line));
+  return compactText(lines[0] || value);
+}
+
+const PRACTICE_PROMPTS: Record<Mode, string> = {
+  grammar: "Rewrite one corrected sentence in your own words. Apply the same grammar rule.",
+  write: "Write one new sentence using one of the improvements from the result.",
+  vocab: "Use at least two of the new words in a sentence about your life or work.",
+  pronounce: "Say the word or phrase three times, then note the syllable or sound you practised.",
+  lesson: "Complete a small part of today's task in one or two sentences.",
+  interview_english: "Use one phrase in a short answer for your target role.",
+};
 
 export default function ToolsPro() {
   return (
@@ -72,6 +124,12 @@ function ToolsProContent() {
   const [pronounceWord, setPronounceWord] = useState("");
   const [result, setResult] = useState("");
   const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
+  const [notebook, setNotebook] = useState<ImprovementEntry[]>(loadImprovementNotebook);
+  const [usefulGeneration, setUsefulGeneration] = useState<UsefulGeneration | null>(null);
+  const [practiceAnswer, setPracticeAnswer] = useState("");
+  const [practiceError, setPracticeError] = useState("");
+  const [practiceCompleted, setPracticeCompleted] = useState(false);
+  const generationId = useRef(0);
 
   const speech = useSpeechRecognition(uiLang);
   const candidateContext = [
@@ -125,8 +183,19 @@ function ToolsProContent() {
   }, [synth, updateProfile]);
 
   const handleStream = useCallback(async (prompt: string, system: string, saveTitle: string) => {
+    const generationMode = mode;
+    const source = generationMode === "grammar" ? grammarInput
+      : generationMode === "write" ? writeInput
+      : generationMode === "vocab" ? vocabTopic
+      : generationMode === "pronounce" ? pronounceWord
+      : generationMode === "lesson" ? `${level} daily lesson`
+      : profile.preferredRole || profile.careerGoal || "Interview English";
     resetAI();
     setResult("");
+    setUsefulGeneration(null);
+    setPracticeAnswer("");
+    setPracticeError("");
+    setPracticeCompleted(false);
     synth.stop();
     const full = await stream(
       `${prompt}\n\nCandidate context (use only to tailor examples; never invent missing facts): ${candidateContext}`,
@@ -135,11 +204,20 @@ function ToolsProContent() {
     setResult(full);
     if (full) {
       track("English Guru", saveTitle);
-      gam.award("tool_use", { tool: mode, product: "tools-pro" });
+      generationId.current += 1;
+      setUsefulGeneration({
+        id: generationId.current,
+        mode: generationMode,
+        source: compactText(source, 180),
+        takeaway: deriveTakeaway(full),
+      });
     }
     // Tool results are NOT auto-spoken — each result panel has its own Speak button.
     return full;
-  }, [candidateContext, stream, resetAI, synth, track, mode, gam.award]);
+  }, [
+    candidateContext, stream, resetAI, synth, track, mode, grammarInput, writeInput,
+    vocabTopic, pronounceWord, level, profile.preferredRole, profile.careerGoal,
+  ]);
 
   const saveResult = useCallback((key: string, title: string, content: string) => {
     save({ tool: "English Guru", title, content });
@@ -158,6 +236,41 @@ function ToolsProContent() {
     if (!displayed) return;
     downloadText(stripMarkdownForSpeech(displayed), `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.txt`);
   }, [displayed]);
+
+  const completePractice = useCallback(() => {
+    if (!usefulGeneration || practiceCompleted) return;
+    const practice = compactText(practiceAnswer, 240);
+    if (practice.length < 12) {
+      setPracticeError("Add a specific sentence or note (at least 12 characters) to complete this practice.");
+      return;
+    }
+    const modeLabel = MODES.find(item => item.value === usefulGeneration.mode)?.label || "English practice";
+    const entry: ImprovementEntry = {
+      id: `${Date.now()}-${usefulGeneration.id}`,
+      mode: usefulGeneration.mode,
+      title: modeLabel,
+      before: usefulGeneration.source,
+      takeaway: usefulGeneration.takeaway,
+      practice,
+      createdAt: new Date().toISOString(),
+    };
+    setNotebook(previous => {
+      const next = [entry, ...previous].slice(0, 8);
+      try { localStorage.setItem(IMPROVEMENT_NOTEBOOK_KEY, JSON.stringify(next)); } catch { /* local storage may be unavailable */ }
+      return next;
+    });
+    setPracticeError("");
+    setPracticeCompleted(true);
+    gam.award("tool_use", { tool: usefulGeneration.mode, product: "tools-pro" });
+  }, [usefulGeneration, practiceCompleted, practiceAnswer, gam.award]);
+
+  const removeNotebookEntry = useCallback((id: string) => {
+    setNotebook(previous => {
+      const next = previous.filter(entry => entry.id !== id);
+      try { localStorage.setItem(IMPROVEMENT_NOTEBOOK_KEY, JSON.stringify(next)); } catch { /* local storage may be unavailable */ }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="container mx-auto px-3 sm:px-4 py-4 max-w-5xl">
@@ -262,7 +375,15 @@ function ToolsProContent() {
               return (
                 <button
                   key={m.value}
-                  onClick={() => { setMode(m.value as Mode); setResult(""); resetAI(); }}
+                  onClick={() => {
+                    setMode(m.value as Mode);
+                    setResult("");
+                    setUsefulGeneration(null);
+                    setPracticeAnswer("");
+                    setPracticeError("");
+                    setPracticeCompleted(false);
+                    resetAI();
+                  }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                     ${active
                       ? "bg-orange-500 text-white border-orange-500 shadow-sm"
@@ -464,6 +585,96 @@ Teach warmly and directly. No markdown at all.`,
                   onSpeak={() => speak(stripMarkdownForSpeech(displayed), "English")} onStop={synth.stop}
                   onSave={() => saveResult("interview_eng", "Interview English Phrases", displayed)} saved={!!savedMap["interview_eng"]}
                   onDownload={() => downloadResult("interview-english")} />}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* A result becomes progress only after the learner applies it. */}
+          {usefulGeneration && usefulGeneration.mode === mode && !isStreaming && result && (
+            <Card className="border-orange-200 bg-orange-50/40">
+              <CardContent className="pt-4 space-y-4">
+                <div className="flex items-start gap-2">
+                  <ArrowRight className="w-4 h-4 mt-0.5 text-orange-600 shrink-0" />
+                  <div>
+                    <h2 className="text-sm font-bold text-secondary">Turn this result into improvement</h2>
+                    <p className="text-xs text-muted-foreground">Review the takeaway, then apply it once. Completed practice is saved to your notebook.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-xl border bg-background p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {mode === "grammar" || mode === "write" ? "Before" : "Your focus"}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed">{usefulGeneration.source}</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Takeaway from this result</p>
+                    <p className="mt-1 text-sm leading-relaxed">{usefulGeneration.takeaway}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="follow-up-practice" className="text-sm font-semibold text-secondary">
+                    One follow-up practice
+                  </label>
+                  <p className="text-xs text-muted-foreground">{PRACTICE_PROMPTS[mode]}</p>
+                  <Textarea
+                    id="follow-up-practice"
+                    value={practiceAnswer}
+                    onChange={event => {
+                      setPracticeAnswer(event.target.value);
+                      if (practiceError) setPracticeError("");
+                    }}
+                    disabled={practiceCompleted}
+                    placeholder="Write your practice answer or specific learning note…"
+                    className="min-h-[72px] bg-background text-sm"
+                  />
+                  {practiceError && <p className="text-xs text-destructive">{practiceError}</p>}
+                  <Button
+                    type="button"
+                    onClick={completePractice}
+                    disabled={practiceCompleted || practiceAnswer.trim().length < 12}
+                    className="font-bold"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    {practiceCompleted ? "Practice completed · +10 XP" : "Complete & save improvement"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    XP is awarded for completing this application step, not for generating results.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {notebook.length > 0 && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <NotebookPen className="w-4 h-4 text-orange-600" />
+                  <div>
+                    <h2 className="text-sm font-bold text-secondary">My improvement notebook</h2>
+                    <p className="text-xs text-muted-foreground">Your latest useful takeaways and completed practice, saved on this device.</p>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {notebook.map(entry => (
+                    <div key={entry.id} className="relative rounded-xl border bg-muted/20 p-3 pr-9">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700">{entry.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{entry.takeaway}</p>
+                      <p className="mt-2 text-sm font-medium line-clamp-2">My practice: {entry.practice}</p>
+                      <button
+                        type="button"
+                        onClick={() => removeNotebookEntry(entry.id)}
+                        className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                        aria-label={`Remove ${entry.title} notebook entry`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

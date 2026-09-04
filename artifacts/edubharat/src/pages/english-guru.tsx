@@ -90,9 +90,44 @@ function requestedHelperLanguage(text: string): string | null {
 
 function isDirectHelperLanguageCommand(text: string): boolean {
   return (
-    /\b(?:speak|talk|help|switch|use|understand|explain|respond|reply)\b/i.test(text)
+    /\b(?:speak|talk|switch|use|respond|reply)\b/i.test(text)
     || /(?:पूरा|पूरी|पूर्ण|सिर्फ|केवल|स्पष्ट|ठीक\s*से|पूर्णपणे|फक्त)?.{0,24}(?:बोलो|बोलिए|बोला|सांगा|उत्तर\s*द्या|समजावून\s*सांगा)|(?:பேசு|பேசுங்கள்|பதில்\s*சொல்லுங்கள்)|(?:మాట్లాడు|మాట్లాడండి|చెప్పండి)|(?:বলুন|বলো)|(?:બોલો|કહો)|(?:ಮಾತನಾಡಿ|ಹೇಳಿ)|(?:സംസാരിക്കൂ|പറയൂ)|(?:ਬੋਲੋ|ਦੱਸੋ)|(?:କୁହନ୍ତୁ|କହନ୍ତୁ)|(?:কওক|কওঁক)|(?:بولیں|بات\s*کریں)/u.test(text)
   );
+}
+
+function isExplanationRequest(text: string): boolean {
+  return (
+    /\b(?:explain|clarify|help\s+me\s+understand|what\s+does.+mean|what\s+is\s+the\s+meaning)\b/i.test(text)
+    || /(?:समझाओ|समझाइए|समजाव|स्पष्ट\s*करा|விளக்க|వివరించ|বোঝাও|বুঝিয়ে|સમજાવ|ವಿವರಿಸಿ|വിശദീകരി|ਸਮਝਾ|ବୁଝା|বুজাই|سمجھائیں)/u.test(text)
+  );
+}
+
+function isNonReferentialTutorMessage(text: string): boolean {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return (
+    isTranslationRecoveryMessage(normalized)
+    || looksLikeGenericNativeAcknowledgement(normalized)
+    || /\b(?:i(?:'m| am)\s+ready|absolutely.{0,30}ready|take\s+your\s+time|are\s+you\s+still\s+there)\b/i.test(normalized)
+    || /\b(?:what|which).{0,50}(?:sentence|question|word|phrase).{0,40}(?:explain|translate|meaning)\b/i.test(normalized)
+  );
+}
+
+function resolveReferencedMessage(
+  history: Array<{ role: "user" | "ai"; text: string }>,
+  requestText: string,
+  fallback: string,
+): string {
+  const wantsQuestion = /\b(?:this|that|the)\s+question\b/i.test(requestText);
+  const candidates = [...history].reverse().filter((item) =>
+    item.text.trim().length > 0
+    && !(item.role === "user" && (isTranslationCommand(item.text) || isExplanationRequest(item.text)))
+    && !(item.role === "ai" && isNonReferentialTutorMessage(item.text)),
+  );
+  if (wantsQuestion) {
+    const latestQuestion = candidates.find((item) => item.role === "ai" && item.text.includes("?"));
+    if (latestQuestion) return latestQuestion.text;
+  }
+  return candidates[0]?.text ?? fallback;
 }
 
 function extractTranslationSource(text: string, previousConversationMessage: string): string {
@@ -100,6 +135,9 @@ function extractTranslationSource(text: string, previousConversationMessage: str
   // “Immediately को Marathi में क्या बोलते हैं?”. Function words are not a
   // translation source; when the learner says “this/that”, use the teacher's
   // latest real English sentence instead.
+  if (/\b(?:this|that|it)(?:\s+(?:word|phrase|sentence|question))?\b/i.test(text)) {
+    return normalizeTranslationSource(previousConversationMessage);
+  }
   const ignored = new Set([
     "a", "an", "the", "can", "could", "please", "you", "i", "me", "my", "is",
     "are", "do", "does", "did", "what", "this", "that", "these", "those",
@@ -220,6 +258,12 @@ function isNativeTranslationRequest(text: string, targetLanguage: string, hasPre
   return Boolean(
     (hasLanguageName && (asksInEnglish || asksWhatIsThis || asksInNativeScript || asksMixedLanguageExplanation))
     || (hasLanguageName && asksForEnglishRendering)
+    || (
+      targetLanguage !== "English"
+      && hasPreviousTeacherMessage
+      && asksInEnglish
+      && hasSourceReference
+    )
     || (hasPreviousTeacherMessage && asksInNativeScript),
   );
 }
@@ -925,6 +969,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   // own voice coming back through the speaker.
   const lastAiSpeechRef = useRef("");
   const lastAiSpeechEndRef = useRef(0);
+  const lastLanguageTaskRef = useRef<{ source: string; language: string } | null>(null);
 
   const cancelActiveTurn = useCallback(() => {
     liveTurnGenerationRef.current += 1;
@@ -1239,14 +1284,11 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         // Walk backward through the actual conversation and use the nearest real
         // sentence from either person, skipping translation commands and recovery
         // messages. This also supports Hindi→Telugu and other native→native turns.
-        const previousReferencedMessage = [...convHistoryRef.current]
-          .reverse()
-          .find((item) =>
-            item.text.trim().length > 0
-            && !isTranslationRecoveryMessage(item.text)
-            && !(item.role === "user" && isTranslationCommand(item.text)),
-          )?.text
-          ?? previousTeacherMessage;
+        const previousReferencedMessage = resolveReferencedMessage(
+          convHistoryRef.current,
+          userMsg,
+          previousTeacherMessage,
+        );
         // Treat "say what you asked in Hindi" as a real translation request.
         // This common learner phrasing is easy for a small live-chat model to
         // mistake for a request to continue coaching, especially when it is
@@ -1262,15 +1304,31 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           // “Speak in Hindi” is a language-setting command. Only classify it
           // as translation when the learner names something to translate.
           && /\b(?:translate|meaning|mean|this|that|sentence|phrase|question|word)\b/i.test(userMsg);
-        const translationLanguage = languageRequest ?? uiLang;
+        const previousUserRequest = [...convHistoryRef.current]
+          .reverse()
+          .find((item) => item.role === "user")?.text ?? "";
+        const priorLanguageTask = lastLanguageTaskRef.current;
+        const continuesPriorLanguageTask = Boolean(
+          priorLanguageTask
+          && !requestedHelperLanguage(userMsg)
+          && isExplanationRequest(userMsg)
+          && /\b(?:this|that|it|question|sentence|phrase|word)\b/i.test(userMsg)
+          && (isTranslationCommand(previousUserRequest) || isExplanationRequest(previousUserRequest)),
+        );
+        const translationLanguage = languageRequest
+          ?? (continuesPriorLanguageTask && priorLanguageTask ? priorLanguageTask.language : uiLang);
         const translationRequested = !isSilenceProbe
           && (
-            isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousReferencedMessage))
+            continuesPriorLanguageTask
+            || isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousReferencedMessage))
             || legacyNativeTranslationDetected
             || legacyDirectTranslationDetected
           );
+        const explanationRequested = translationRequested && isExplanationRequest(userMsg);
         const translationSource = translationRequested
-          ? extractTranslationSource(userMsg, previousReferencedMessage)
+          ? continuesPriorLanguageTask && priorLanguageTask
+            ? priorLanguageTask.source
+            : extractTranslationSource(userMsg, previousReferencedMessage)
           : "";
         const isDirectLanguageRequest = Boolean(
           languageRequest
@@ -1373,6 +1431,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
             response = await requestTranslation(
               translationSource,
               translationLanguage as TranslationLanguage,
+              explanationRequested ? "explain" : "translate",
             );
           } catch (error) {
             console.warn("[English Guru] structured translation failed", error);
@@ -1562,6 +1621,12 @@ Rules for spoken replies:
               cleanSpokenReply(response, replyUsesNativeLanguage, tutor.voiceGender, replyNativeLanguage, !translationRequested),
               replyUsesNativeLanguage,
             );
+          if (translationRequested && translationSource) {
+            lastLanguageTaskRef.current = {
+              source: translationSource,
+              language: translationLanguage,
+            };
+          }
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
           track("English Guru", "Live Conversation");
           setConvFlowState("ai-speaking");

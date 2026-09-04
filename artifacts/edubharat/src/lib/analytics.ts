@@ -26,12 +26,14 @@ export type FunnelEvent =
   | "payment_started"
   | "payment_submitted"
   | "payment_approved"
+  | "payment_succeeded"
   | "payment_rejected"
   | "signup_opened"
   | "signup_started"
   | "otp_requested"
   | "otp_verified"
   | "account_created"
+  | "signup_completed"
   | "oauth_failed"
   | "otp_failed"
   | "otp_expired"
@@ -65,19 +67,44 @@ function getAcquisitionContext(): AcquisitionContext {
       if (value) current[field] = value.slice(0, 180);
     }
     if (Object.keys(current).length) {
-      current.landingPath = window.location.pathname.slice(0, 240);
-      localStorage.setItem(ACQUISITION_KEY, JSON.stringify(current));
-      return current;
+      const saved = readSavedAcquisition();
+      const merged = {
+        ...saved,
+        ...current,
+        landingPath: saved.landingPath ?? window.location.pathname.slice(0, 240),
+      };
+      localStorage.setItem(ACQUISITION_KEY, JSON.stringify(merged));
+      return merged;
     }
-    const saved = localStorage.getItem(ACQUISITION_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as AcquisitionContext;
-      if (parsed && typeof parsed === "object") return parsed;
-    }
+    return readSavedAcquisition();
   } catch {
     // Analytics must never prevent the product from loading.
   }
   return {};
+}
+
+function readSavedAcquisition(): AcquisitionContext {
+  const saved = localStorage.getItem(ACQUISITION_KEY);
+  if (!saved) return {};
+  const parsed = JSON.parse(saved) as AcquisitionContext;
+  return parsed && typeof parsed === "object" ? parsed : {};
+}
+
+/** Keep campaign attribution on same-site funnel links as well as in storage.
+ * This survives browser handoffs where localStorage may not be available. */
+export function withAcquisition(href: string): string {
+  try {
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin) return href;
+    const acquisition = getAcquisitionContext();
+    for (const field of ACQUISITION_FIELDS) {
+      const value = acquisition[field];
+      if (value && !url.searchParams.has(field)) url.searchParams.set(field, value);
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return href;
+  }
 }
 
 export function getConsent(): Consent {

@@ -3,8 +3,8 @@ name: Isolated translation architecture
 description: Provider boundaries for native-language translation in live English practice
 ---
 
-Native-language translation must remain a separate structured operation from live coaching: send only source text and target language to Gemini, validate the returned translation before speech, and keep normal conversation on Claude.
+Native-language translation and explanation must remain separate structured operations from live coaching: send only the exact source text, target language, and operation to Gemini, validate the returned text before speech, and keep normal conversation on Claude.
 
-**Why:** A generic conversation prompt can treat a translation request as coaching context, acknowledge instead of translating, or return malformed native script. Provider fallback makes that failure harder to diagnose and repeatable.
+**Why:** A generic conversation prompt can treat a translation/explanation request as coaching context, acknowledge instead of answering, or return malformed native script. Deictic requests such as “explain this question” also fail unless “this” is resolved before the model call.
 
-**How to apply:** Add translation behavior only behind the dedicated JSON contract. Never route translation through the normal conversation SSE endpoint or pass translation output to TTS until it passes shape, target-script, and fragmentation checks.
+**How to apply:** Use the dedicated JSON contract for both translate and explain. Resolve “this/that/it” to the latest substantive utterance first; immediate follow-ups reuse that source/language. Never send these tasks through conversation SSE or TTS before validation.

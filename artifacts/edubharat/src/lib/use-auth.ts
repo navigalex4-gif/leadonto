@@ -21,6 +21,14 @@ export function useAuth() {
       const res = await fetch(`${BASE}/api/auth/me`, { credentials: "include" });
       const data = (await res.json()) as { user: AuthUser | null };
       setUser(data.user);
+      if (data.user) {
+        try {
+          if (sessionStorage.getItem("leadonto_google_signup_pending")) {
+            sessionStorage.removeItem("leadonto_google_signup_pending");
+            trackFunnel("signup_completed", { method: "google" });
+          }
+        } catch { /* private browsing may block sessionStorage */ }
+      }
     } catch {
       setUser(null);
     } finally {
@@ -83,12 +91,6 @@ export function useAuth() {
       if (!res.ok) return { error: data.error ?? "We couldn't verify that code. Please try again." };
       if (data.success && data.user) {
         setUser(data.user);
-        try {
-          if (!sessionStorage.getItem("leadonto_first_session_tracked")) {
-            sessionStorage.setItem("leadonto_first_session_tracked", "1");
-            trackFunnel("first_session_started", { auth_method: "email_otp" });
-          }
-        } catch { /* private browsing may block sessionStorage */ }
         // Navbar and other layout components have their own useAuth instance.
         // Notify them immediately so email OTP login looks the same as OAuth
         // without requiring a full page reload.

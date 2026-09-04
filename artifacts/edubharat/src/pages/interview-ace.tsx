@@ -22,7 +22,7 @@ import { PageMeta } from "@/components/page-meta";
 import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { formatGeneratedText } from "@/lib/english-tools";
 import { CelebrationOverlay } from "@/components/english/word-power";
-import { useGamification } from "@/lib/use-gamification";
+import { XP_VALUES, useGamification } from "@/lib/use-gamification";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
@@ -509,6 +509,9 @@ function neutralReport(durationMin: number): InterviewReport {
   return {
     ...deriveScores(competencies, durationMin),
     roleFit: "Promising candidate with room to grow.",
+    hiringSummary: "Automated scoring was interrupted, so this report contains only indicative ratings and should not be used as a hiring decision.",
+    evidenceQuality: "Low",
+    evidenceLimitations: ["The transcript could not be scored reliably, so the competency ratings are neutral placeholders rather than observed performance."],
     bestFitRole: "",
     verdictReason: "Automated scoring was interrupted, so this is an indicative result — please review the detailed feedback below.",
     competencies,
@@ -516,6 +519,26 @@ function neutralReport(durationMin: number): InterviewReport {
     concerns: ["The transcript could not be scored reliably; no strengths or weaknesses should be inferred from this report."],
     nextSteps: ["Re-run the interview for a precise assessment", "Answer with one specific example per question", "Book another mock interview after reviewing the transcript"],
   };
+}
+
+/** Always give the candidate one bounded rehearsal they can do next. This is
+ * derived from the lowest observed scorecard area, not from a claim about
+ * hiring likelihood or real-world performance. */
+function nextPracticeActionFor(report: InterviewReport, roleLabel: string): string {
+  const rated = Object.entries(report.competencies ?? {}) as Array<[CompetencyKey, CompetencyRating]>;
+  const lowestKey = rated.sort((a, b) => a[1].rating - b[1].rating)[0]?.[0];
+  const actions: Partial<Record<CompetencyKey, string>> = {
+    communication: "Record a 90-second answer, then replay it once and remove any sentence that does not support your main point.",
+    education: `Practise a 90-second explanation linking one course or project directly to a ${roleLabel} responsibility.`,
+    personality: "Record a 60-second strengths answer with one example of how that strength helped another person or a team.",
+    domainKnowledge: `Choose one common ${roleLabel} scenario and record a two-minute answer naming your first action, the tool or process you would use, and the result you would measure.`,
+    problemSolving: "Redo one scenario answer in 90 seconds using: problem, two options considered, choice made, and measurable result.",
+    adaptability: "Practise a 90-second STAR answer about learning a new process, including what changed after your action.",
+    ownership: "Practise a 90-second STAR answer about a mistake or missed target, stating what you personally fixed and how you prevented a repeat.",
+    collaboration: "Practise a 90-second conflict answer that names the other person's concern, your action, and the shared outcome.",
+    itSkills: `Pick one digital tool used in ${roleLabel} work and record a 90-second example of the task, steps, and safety check you would perform.`,
+  };
+  return actions[lowestKey ?? "communication"] ?? actions.communication!;
 }
 
 function parseReportJson(text: string, durationMin: number): InterviewReport | null {
@@ -903,6 +926,8 @@ function InterviewAceContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const interviewGamAwardedRef = useRef(false);
+  const rewardedAnswerIndexesRef = useRef(new Set<number>());
+  const [completedAnswerRewards, setCompletedAnswerRewards] = useState(0);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // No-reply watchdog: if the candidate says NOTHING for 33 s after a question is
   // asked (never even starts an answer), we conclude the interview and generate
@@ -988,8 +1013,18 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
   const currentQ = questions[currentIdx];
   const answeredCount = questions.filter(q => q.answer).length;
   const interviewCost = interviewCreditCost(duration);
+  const interviewProgress = Math.min(100, Math.round((elapsedSeconds / (duration * 60)) * 100));
 
   useEffect(() => { answerRef.current = answer; }, [answer]);
+
+  const rewardCompletedAnswer = useCallback((questionIndex: number) => {
+    // A question earns once only after non-empty answer evidence is committed.
+    // Mic/button activity alone never pays XP.
+    if (rewardedAnswerIndexesRef.current.has(questionIndex)) return;
+    rewardedAnswerIndexesRef.current.add(questionIndex);
+    setCompletedAnswerRewards(rewardedAnswerIndexesRef.current.size);
+    gam.award("message", { product: "interview-ace" });
+  }, [gam.award]);
 
   const clearAutoSubmitTimer = useCallback(() => {
     if (autoSubmitRef.current) clearTimeout(autoSubmitRef.current);
@@ -1058,11 +1093,12 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     const pending = answerRef.current.trim();
     if (pending) {
       setQuestions(prev => prev.map((q, i) => i === currentIdx && !q.answer ? { ...q, answer: pending } : q));
+      rewardCompletedAnswer(currentIdx);
     }
     const firstName = (profile.name || "there").split(" ")[0];
     speakCoach(`That is all the time we have, ${firstName}. I’ll now prepare your feedback report.`, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
     setTimeout(() => setPhase("report"), 2600);
-  }, [elapsedSeconds, duration, phase, currentIdx, profile.name, coach.gender, speakCoach, speech, resetStream, clearAutoSubmitTimer, isRecording]);
+  }, [elapsedSeconds, duration, phase, currentIdx, profile.name, coach.gender, speakCoach, speech, resetStream, clearAutoSubmitTimer, isRecording, rewardCompletedAnswer]);
 
   // Conclude the interview when the candidate goes completely silent on a new
   // question (the 30 s no-reply watchdog fired). Mirrors the clock-runout path:
@@ -1280,6 +1316,8 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
     setReport(null);
     setSaved(false);
     interviewGamAwardedRef.current = false;
+    rewardedAnswerIndexesRef.current.clear();
+    setCompletedAnswerRewards(0);
     endingRef.current = false;
     windDownRef.current = false;
     beatIdxRef.current = 0;
@@ -1388,6 +1426,7 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       ? { ...q, answer: recordedAnswer }
       : q
     ));
+    rewardCompletedAnswer(currentIdx);
 
     const firstName = (profile.name || "there").split(" ")[0];
 
@@ -1636,7 +1675,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
     speech.blockFor(0);
     const pitchVariation = coach.gender === "male" ? 0.88 + Math.random() * 0.06 : 1.06 + Math.random() * 0.06;
      speakCoach(nextQuestion, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: pitchVariation });
-  }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile]);
+  }, [currentQ, currentIdx, experience, duration, elapsedSeconds, coach, stream, resetStream, synth, typeMeta, interviewRoleLabel, domainExpertise, buildProfileSummary, buildTranscript, clearAutoSubmitTimer, speech, profile, rewardCompletedAnswer]);
 
   /**
    * submitCurrentAnswerRef — always points to the latest submitCurrentAnswer.
@@ -1878,7 +1917,7 @@ ${compJsonKeys}
   "authenticitySignals": ["2-4 observable signals such as specific examples, ownership language, measurable detail, consistency, or thoughtful uncertainty — never call these proof of honesty"],
   "evidenceLimitations": ["1-4 important gaps, untested areas, vague claims, or transcript limitations that reduce decision confidence"],
   "followUpChecks": ["2-4 targeted questions or practical checks for a human next round"],
-  "recommendedNextStep": "one practical next action for the candidate or recruiter",
+  "recommendedNextStep": "one concrete candidate practice action that can be completed in 5-10 minutes, with a clear method and output",
   "roleFit": "one honest sentence about this candidate for the ${interviewRoleLabel} role they interviewed for",
   "bestFitRole": "name the ONE job role or job title that best fits this candidate based on their interests, motivation, strengths and answers — it may be the same as the role they interviewed for or a different one — with a short reason, one sentence",
   "strengths": ["2-3 specific strengths observed in the transcript"],
@@ -2308,6 +2347,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     const avgScore = avgOf(answered.map(q => q.score)) * 10;
     const durationMin = Math.round(elapsedSeconds / 60);
     const g = grade(avgScore); // fallback styling used only when there is no AI report
+    const reportConfidence = report?.evidenceQuality ?? "Medium";
 
     return (
       <div className="interview-workspace min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
@@ -2370,6 +2410,9 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                         <span className="font-semibold">Best-fit role:</span> {report.bestFitRole}
                       </p>
                     )}
+                    <p className="text-xs text-muted-foreground mt-3 max-w-xl mx-auto">
+                      Practice simulation only — this result is not a hiring decision, accuracy claim, or job guarantee.
+                    </p>
                   </div>
                 );
               })()}
@@ -2398,6 +2441,21 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 
         {report && (
           <>
+            <Card className="border-emerald-200 bg-emerald-50/70 shadow-sm">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold text-emerald-900">Completed evidence rewarded</p>
+                  <p className="text-xs text-emerald-800">
+                    {answered.length} completed {answered.length === 1 ? "answer" : "answers"} · +{answered.length * XP_VALUES.message} XP, report completed · +{XP_VALUES.interview_complete} XP
+                    {report.overallScore >= 80 ? `, score milestone · +${XP_VALUES.interview_star} XP` : ""}
+                  </p>
+                </div>
+                <Badge className="w-fit bg-emerald-700 text-white hover:bg-emerald-700">
+                  <Star className="w-3 h-3 mr-1" />Evidence, not taps
+                </Badge>
+              </CardContent>
+            </Card>
+
             <Card className="border-primary/20 bg-primary/[0.03] shadow-sm">
               <CardHeader className="pb-2 pt-5 px-5">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -2412,12 +2470,10 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                 <p className="text-sm leading-relaxed text-secondary">
                   {report.hiringSummary || report.verdictReason || "The report is based only on the answers captured in this practice interview."}
                 </p>
-                {report.recommendedNextStep && (
-                  <div className="rounded-xl border border-primary/15 bg-background/80 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Recommended next step</p>
-                    <p className="text-sm text-secondary">{report.recommendedNextStep}</p>
-                  </div>
-                )}
+                <div className="rounded-xl border border-primary/20 bg-background p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Your next practice — do this once</p>
+                  <p className="text-sm font-semibold text-secondary">{nextPracticeActionFor(report, interviewRoleLabel)}</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -2436,6 +2492,12 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                   <p className="text-xs text-muted-foreground mb-2">
                     Observable answer behaviour only — this is not a lie detector or background check.
                   </p>
+                  <div className="mb-3 rounded-lg border bg-muted/30 px-3 py-2">
+                    <p className="text-xs font-bold text-secondary">Assessment confidence: {reportConfidence}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Based on {answered.length} captured {answered.length === 1 ? "answer" : "answers"} and the limits listed here. This describes transcript coverage, not verified accuracy or hiring likelihood.
+                    </p>
+                  </div>
                   <ul className="space-y-2">
                     {(report.authenticitySignals?.length ? report.authenticitySignals : ["Review specific examples and measurable outcomes in a human interview."]).map((item, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-secondary">
@@ -2602,6 +2664,13 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             {saved ? "Saved" : isSaving ? "Saving..." : "Save Report"}
           </Button>
         </div>
+        {gam.celebration && (
+          <CelebrationOverlay
+            title={gam.celebration.title}
+            subtitle={gam.celebration.subtitle}
+            onDismiss={gam.dismissCelebration}
+          />
+        )}
       </div>
     );
   }
@@ -2639,6 +2708,17 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           className={`h-full transition-all ${elapsedSeconds >= duration * 60 - 30 ? "bg-red-500" : "bg-primary"}`}
           style={{ width: `${Math.min(100, (elapsedSeconds / (duration * 60)) * 100)}%` }}
         />
+      </div>
+      <div className="shrink-0 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-1.5 text-[10px] sm:text-xs z-10">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="font-bold text-slate-700">Interview progress {interviewProgress}%</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-emerald-700 shrink-0" aria-live="polite">
+          <Flame className="w-3.5 h-3.5" />
+          <span className="font-bold">Evidence momentum: {completedAnswerRewards}</span>
+          <span className="hidden sm:inline">completed · +{completedAnswerRewards * XP_VALUES.message} XP</span>
+        </div>
       </div>
 
       {/* ── Main video area — Meet-style stage: the candidate is the main

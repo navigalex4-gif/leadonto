@@ -227,10 +227,39 @@ function scoreColor(score: number): string {
 
 function displayJobSource(source: string | undefined): string {
   const value = (source || "").trim();
-  if (!value) return "Verified job board";
-  if (/adzuna/i.test(value)) return "Verified job board";
+  if (!value) return "Source not supplied";
+  if (/adzuna/i.test(value)) return "Adzuna";
   if (/remotive/i.test(value)) return "Remote job board";
   return value;
+}
+
+function freshnessLabel(publishedAt: string | null | undefined): string {
+  if (!publishedAt) return "Date not supplied";
+  const published = new Date(publishedAt);
+  if (Number.isNaN(published.getTime())) return "Date not supplied";
+  const days = Math.max(0, Math.floor((Date.now() - published.getTime()) / 86_400_000));
+  if (days === 0) return "Posted today";
+  if (days === 1) return "Posted yesterday";
+  if (days < 7) return `Posted ${days} days ago`;
+  return `Posted ${published.toLocaleDateString("en-IN")}`;
+}
+
+function ItemNextActions({ link, title }: { link: string; title: string }) {
+  const resumeHref = `/resume-intelligence?jobUrl=${encodeURIComponent(link)}`;
+  const interviewHref = `/interview-ace?begin=1&role=${encodeURIComponent(title)}`;
+  return (
+    <div className="mt-3 rounded-xl border border-primary/15 bg-primary/[0.03] p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Next step</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <a href={resumeHref}>
+          <Button variant="outline" size="sm" className="h-8 text-xs">Tailor resume</Button>
+        </a>
+        <a href={interviewHref}>
+          <Button variant="outline" size="sm" className="h-8 text-xs">Practice interview</Button>
+        </a>
+      </div>
+    </div>
+  );
 }
 
 // ─── Job card component ────────────────────────────────────────────────────────
@@ -262,7 +291,7 @@ function JobCard({
             <div className="flex items-center gap-2 flex-wrap mb-1">
               {matchScore !== undefined && (
                 <Badge variant="outline" className={`rounded-full text-[10px] font-bold ${scoreColor(matchScore)}`}>
-                  {matchScore}% Match
+                  {matchScore}% Profile fit
                 </Badge>
               )}
               {item.workMode !== "unknown" && (
@@ -280,8 +309,7 @@ function JobCard({
             <p className="text-xs text-muted-foreground mt-1">
               {item.company ? `${item.company} • ` : ""}
               {item.location ? `${item.location} • ` : ""}
-              {displayJobSource(item.source)}
-              {item.publishedAt ? ` • ${new Date(item.publishedAt).toLocaleDateString("en-IN")}` : ""}
+              Source: {displayJobSource(item.source)} • {freshnessLabel(item.publishedAt)}
             </p>
           </div>
         </div>
@@ -300,10 +328,14 @@ function JobCard({
         </div>
         {item.summary && <p className="mt-3 text-xs text-secondary line-clamp-2">{item.summary}</p>}
         {matchReasons && matchReasons.length > 0 && (
-          <p className="mt-2 text-[11px] text-primary">
-            Why it matches: {matchReasons.join(" • ")}
-          </p>
+          <div className="mt-2 rounded-lg bg-blue-50 p-2 text-[11px] text-blue-800">
+            <span className="font-bold">Why this may fit:</span> {matchReasons.join(" • ")}
+          </div>
         )}
+        {matchScore !== undefined && (!matchReasons || matchReasons.length === 0) && (
+          <p className="mt-2 text-[11px] text-muted-foreground">Fit is estimated from your saved profile and listing details; verify requirements at the source.</p>
+        )}
+        {saved && <ItemNextActions link={item.link} title={item.title} />}
       </div>
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 pb-4">
@@ -355,20 +387,35 @@ function JobCard({
 }
 
 function CareerNewsCard({ item }: { item: RozgarLiveItem }) {
+  const { save } = useHistory();
+  const [saved, setSaved] = useState(false);
   return (
     <article className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-colors">
       <div className="flex items-center gap-2 mb-2">
         <Badge variant="outline" className="rounded-full text-[10px] text-blue-700 border-blue-200 bg-blue-50">Career news</Badge>
-        <span className="text-[11px] text-muted-foreground truncate">{displayJobSource(item.source)}</span>
+        <span className="text-[11px] text-muted-foreground truncate">Source: {displayJobSource(item.source)} • {freshnessLabel(item.publishedAt)}</span>
       </div>
       <h3 className="font-semibold text-secondary text-sm leading-snug">{formatGeneratedText(item.title)}</h3>
       {item.summary && <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-3">{formatGeneratedText(item.summary)}</p>}
       <div className="flex items-center justify-between gap-2 mt-3">
-        {item.publishedAt && <span className="text-[11px] text-muted-foreground">{new Date(item.publishedAt).toLocaleDateString("en-IN")}</span>}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs"
+          disabled={saved}
+          onClick={() => {
+            save({ tool: "Rozgar Samachar", title: `Career source — ${item.title}`, content: `${item.summary || item.title}\n\nSource: ${item.link}` });
+            setSaved(true);
+          }}
+        >
+          {saved ? <BookmarkCheck className="mr-1 h-3.5 w-3.5" /> : <Bookmark className="mr-1 h-3.5 w-3.5" />}
+          {saved ? "Saved" : "Save"}
+        </Button>
         <a href={item.link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:underline ml-auto">
           Read source <ExternalLink className="inline w-3 h-3 ml-1" />
         </a>
       </div>
+      {saved && <ItemNextActions link={item.link} title={item.title} />}
     </article>
   );
 }
@@ -769,6 +816,7 @@ function SavedJobCard({ job, onUnsave }: { job: SavedJob; onUnsave: (id: string)
           <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Apply Now
         </Button>
       </a>
+      <ItemNextActions link={job.link} title={job.title} />
     </div>
   );
 }
@@ -1360,7 +1408,7 @@ function RozgarSamacharContent() {
             <div className="rounded-2xl border bg-muted/30 p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Today's brief</p>
               <p className="mt-1 text-sm text-secondary leading-relaxed">
-                A personalized newspaper for {profile.status.toLowerCase()} candidates. It mixes verified opportunities, useful career signals, and small actions you can take next.
+                A personalized newspaper for {profile.status.toLowerCase()} candidates. It mixes sourced opportunities, useful career signals, and small actions you can take next.
               </p>
             </div>
 
@@ -1456,7 +1504,7 @@ function RozgarSamacharContent() {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-semibold text-emerald-700 flex items-center gap-1">
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {allJobs.length} verified listing{allJobs.length !== 1 ? "s" : ""}
+                         {allJobs.length} sourced listing{allJobs.length !== 1 ? "s" : ""}
                       </span>
                       {Object.entries(sourceCounts)
                         .sort((a, b) => b[1] - a[1])
@@ -1581,6 +1629,7 @@ function RozgarSamacharContent() {
                               onHide={handleHide}
                               saved={isJobSaved(job.jobId)}
                               matchScore={job.matchScore}
+                             matchReasons={hasPersonalizationProfile(studentProfile) ? getMatchReasons(job, studentProfile) : undefined}
                             />
                           ))}
                         </div>
