@@ -26,6 +26,8 @@ function Footer() {
     "Helping India's next generation know what to say, how to say it, and how to prepare for the opportunities ahead.",
   );
   const contactEmail = useContent("footer.contact.email", "email@leadonto.com");
+  const contactPhone = useContent("footer.contact.phone", "8009785785");
+  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
 
   return (
     <footer className="mt-auto bg-secondary text-secondary-foreground">
@@ -109,6 +111,11 @@ function Footer() {
                 </a>
               </li>
               <li>
+                <a href={`tel:+91${contactPhone}`} className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
+                  {contactPhone}
+                </a>
+              </li>
+              <li>
                 <Link href="/terms" className="text-sm text-secondary-foreground/70 transition-colors hover:text-primary">
                   Terms &amp; Conditions
                 </Link>
@@ -129,7 +136,7 @@ function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-col items-center justify-between gap-3 border-t border-secondary-foreground/10 pt-6 text-xs text-secondary-foreground/40 sm:flex-row">
-          <p>© {new Date().getFullYear()} Lead Onto. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Lead Onto · Legal owner: {legalOwner}. All rights reserved.</p>
           <p>Built for learners across India</p>
         </div>
       </div>

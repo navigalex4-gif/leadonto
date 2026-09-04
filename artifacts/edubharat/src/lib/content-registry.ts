@@ -48,9 +48,11 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     multiline: true,
   },
   { key: "footer.contact.email", page: "Footer", label: "Contact email shown in footer", defaultValue: "email@leadonto.com" },
+  { key: "footer.contact.phone", page: "Footer", label: "Contact phone shown in footer", defaultValue: "8009785785" },
 
   // ── Legal pages (shared keys) ─────────────────────────────────────────────
   { key: "legal.company.name",   page: "Legal",  label: "Company name",                   defaultValue: "Lead Onto" },
+  { key: "legal.owner.name",     page: "Legal",  label: "Legal owner name",               defaultValue: "Devendra Bahuguna" },
   { key: "legal.jurisdiction",   page: "Legal",  label: "Governing jurisdiction (courts)", defaultValue: "Mumbai, Maharashtra, India" },
   { key: "legal.contact.email",  page: "Legal",  label: "Legal / T&C contact email",      defaultValue: "email@leadonto.com" },
 
@@ -67,6 +69,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
   { key: "contact.email",         page: "Contact Us", label: "General support email",  defaultValue: "email@leadonto.com" },
   { key: "contact.billing.email", page: "Contact Us", label: "Billing / payment email", defaultValue: "email@leadonto.com" },
   { key: "contact.privacy.email", page: "Contact Us", label: "Privacy / data email",   defaultValue: "email@leadonto.com" },
+  { key: "contact.phone",         page: "Contact Us", label: "Business contact phone", defaultValue: "8009785785" },
   { key: "contact.response.time", page: "Contact Us", label: "Response time shown to users", defaultValue: "2–3 business days" },
 ];
 

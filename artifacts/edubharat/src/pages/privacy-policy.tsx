@@ -14,6 +14,8 @@ function UL({ children }: { children: React.ReactNode }) {
 export default function PrivacyPolicy() {
   const email = useContent("contact.privacy.email", "email@leadonto.com");
   const company = useContent("legal.company.name", "Lead Onto");
+  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
+  const phone = useContent("contact.phone", "8009785785");
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
@@ -26,6 +28,12 @@ export default function PrivacyPolicy() {
       <p className="text-xs text-muted-foreground/70 mb-8">
         Compliant with India's Digital Personal Data Protection Act, 2023 (DPDP Act)
       </p>
+      <P>
+        <strong>{company}</strong> is operated by <strong>{legalOwner}</strong>. Our support contact is{" "}
+        <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>
+        {" "}and{" "}
+        <a href={`tel:+91${phone}`} className="text-primary hover:underline">{phone}</a>.
+      </P>
 
       <P>
         This Privacy Policy describes how {company} ("we", "us", or "our") collects, uses, and protects your personal information when you

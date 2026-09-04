@@ -13,6 +13,8 @@ function UL({ children }: { children: React.ReactNode }) {
 
 export default function ShippingRefund() {
   const email = useContent("contact.billing.email", "email@leadonto.com");
+  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
+  const phone = useContent("contact.phone", "8009785785");
 
   return (
     <div className="container mx-auto px-4 max-w-3xl py-10">
@@ -22,6 +24,12 @@ export default function ShippingRefund() {
       />
       <h1 className="text-3xl font-display font-bold text-secondary mb-2">Shipping &amp; Refund Policy</h1>
       <p className="text-sm text-muted-foreground mb-8">Last updated: July 2025</p>
+      <P>
+        Lead Onto is operated by <strong>{legalOwner}</strong>. For payment support, contact{" "}
+        <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>
+        {" "}or{" "}
+        <a href={`tel:+91${phone}`} className="text-primary hover:underline">{phone}</a>.
+      </P>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-8 text-sm text-blue-800">
         Lead Onto is a <strong>100% digital platform</strong>. We do not sell or ship any physical products. There are no shipping fees,

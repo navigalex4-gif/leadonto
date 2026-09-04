@@ -6,6 +6,8 @@ export default function ContactUs() {
   const email = useContent("contact.email", "email@leadonto.com");
   const billingEmail = useContent("contact.billing.email", "email@leadonto.com");
   const privacyEmail = useContent("contact.privacy.email", "email@leadonto.com");
+  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
+  const phone = useContent("contact.phone", "8009785785");
   const responseTime = useContent("contact.response.time", "2–3 business days");
 
   const channels = [
@@ -100,7 +102,13 @@ export default function ContactUs() {
       </section>
 
       <p className="text-xs text-muted-foreground text-center mt-8">
-         Lead Onto is an online platform registered in India. All response times are in Indian Standard Time (IST).
+           Lead Onto is operated by <strong>{legalOwner}</strong>, an online platform registered in India.
+           <br />
+           Phone:{" "}
+           <a href={`tel:+91${phone}`} className="text-primary hover:underline">
+             {phone}
+           </a>
+           {" · "}All response times are in Indian Standard Time (IST).
       </p>
     </div>
   );
