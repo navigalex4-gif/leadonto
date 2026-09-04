@@ -45,6 +45,16 @@ export default function ContactUs() {
         </p>
       </div>
 
+      <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 mb-6 text-center text-sm text-secondary">
+        <strong>Legal owner:</strong> {legalOwner}
+        <span className="mx-2 text-muted-foreground">·</span>
+        <strong>Phone:</strong>{" "}
+        <a href={`tel:+91${phone}`} className="text-primary hover:underline">{phone}</a>
+        <span className="mx-2 text-muted-foreground">·</span>
+        <strong>Email:</strong>{" "}
+        <a href={`mailto:${email}`} className="text-primary hover:underline">{email}</a>
+      </div>
+
       {/* Response time banner */}
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-8 text-sm text-amber-800">
         <Clock className="w-4 h-4 shrink-0" />
