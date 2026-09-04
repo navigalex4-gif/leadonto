@@ -1,4 +1,5 @@
 export const TRANSLATION_LANGUAGES = [
+  "English",
   "Hindi",
   "Bengali",
   "Tamil",

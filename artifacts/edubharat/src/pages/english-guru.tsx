@@ -180,7 +180,6 @@ function isTranslationCommand(text: string): boolean {
 }
 
 function isNativeTranslationRequest(text: string, targetLanguage: string, hasPreviousTeacherMessage: boolean): boolean {
-  if (targetLanguage === "English") return false;
   const hasLanguageName = requestedHelperLanguage(text) === targetLanguage;
   const sourceWords = (text.match(/[A-Za-z][A-Za-z'-]*/g) ?? [])
     .map((word) => word.toLowerCase())
@@ -214,8 +213,13 @@ function isNativeTranslationRequest(text: string, targetLanguage: string, hasPre
       || /(?:समझाओ|समजाव|स्पष्ट\s*करा|விளக்க|వివరించ|বোঝাও|સમજાવ|ವಿವರಿಸಿ|വിശദീകരി|ਸਮਝਾ|ବୁଝାଅ|বুজাই|سمجھائیں)/u.test(text)
     );
   const asksWhatIsThis = /what\s+is\s+(?:this|that)|what\s+does\s+(?:this|that)\s+mean/i.test(text);
+  const asksForEnglishRendering =
+    targetLanguage === "English"
+    && /(?:बोलो|बोलिए|कहो|कहिए|बताओ|बताइए|करो|करिए|translate|say|speak)/iu.test(text)
+    && /(?:sentence|वाक्य|इसको|इसे|यह|जो|पहले|English|अंग्रेज़ी)/iu.test(text);
   return Boolean(
     (hasLanguageName && (asksInEnglish || asksWhatIsThis || asksInNativeScript || asksMixedLanguageExplanation))
+    || (hasLanguageName && asksForEnglishRendering)
     || (hasPreviousTeacherMessage && asksInNativeScript),
   );
 }
@@ -246,7 +250,10 @@ function alignTutorGender(text: string, voiceGender: "male" | "female"): string 
 }
 
 const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> = {
-  Hindi: { male: "समझ गया। चलिए धीरे-धीरे अभ्यास करते हैं।", female: "समझ गई। चलिए धीरे-धीरे अभ्यास करते हैं।" },
+  Hindi: {
+    male: "मैं अभी आपकी बात का सही जवाब नहीं दे पाया। कृपया आख़िरी वाक्य एक बार फिर कहें; मैं उसी का सीधा जवाब दूँगा।",
+    female: "मैं अभी आपकी बात का सही जवाब नहीं दे पाई। कृपया आख़िरी वाक्य एक बार फिर कहें; मैं उसी का सीधा जवाब दूँगी।",
+  },
   Marathi: { male: "समजलं. चला, हळूहळू सराव करूया.", female: "समजलं. चला, हळूहळू सराव करूया." },
   Tamil: { male: "புரிந்தது. மெதுவாகப் பயிற்சி செய்வோம்.", female: "புரிந்தது. மெதுவாகப் பயிற்சி செய்வோம்." },
   Telugu: { male: "అర్థమైంది. నెమ్మదిగా సాధన చేద్దాం.", female: "అర్థమైంది. నెమ్మదిగా సాధన చేద్దాం." },
@@ -261,6 +268,10 @@ const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> =
 };
 
 const NATIVE_TRANSLATION_CLARIFICATIONS: Record<string, { male: string; female: string }> = {
+  English: {
+    male: "कृपया वह हिंदी वाक्य एक बार फिर बोलिए। मैं उसका साफ़ और सही अंग्रेज़ी अनुवाद दूँगा।",
+    female: "कृपया वह हिंदी वाक्य एक बार फिर बोलिए। मैं उसका साफ़ और सही अंग्रेज़ी अनुवाद दूँगी।",
+  },
   Hindi: {
     male: "कृपया वह अंग्रेज़ी वाक्य फिर से बोलिए। मैं उसे हिंदी में साफ़-साफ़ बताऊँगा।",
     female: "कृपया वह अंग्रेज़ी वाक्य फिर से बोलिए। मैं उसे हिंदी में साफ़-साफ़ बताऊँगी।",
@@ -487,6 +498,22 @@ const NATIVE_TURN_FALLBACKS: Record<string, { male: string; female: string }> = 
     female: "آپ کی بات مجھے سمجھ آ رہی ہے۔ کون سا لفظ یا حصہ مشکل لگ رہا ہے بتائیے؛ میں آسان اردو میں سمجھا کر انگریزی کی ایک چھوٹی مثال دوں گی۔",
   },
 };
+
+function contextualNativeTurnFallback(
+  userMessage: string,
+  language: string,
+  voiceGender: "male" | "female",
+): string | undefined {
+  if (
+    language === "Hindi"
+    && /(?:बार\s*बार|एक\s+ही|दोहरा|repeat|same\s+thing)/iu.test(userMessage)
+  ) {
+    return voiceGender === "female"
+      ? "आप सही कह रहे हैं—मैं एक ही जवाब दोहरा रही थी। अब मैं आपकी नई बात का सीधा जवाब दूँगी।"
+      : "आप सही कह रहे हैं—मैं एक ही जवाब दोहरा रहा था। अब मैं आपकी नई बात का सीधा जवाब दूँगा।";
+  }
+  return NATIVE_TURN_FALLBACKS[language]?.[voiceGender];
+}
 
 /**
  * Some live-model responses place a space after every Indic grapheme. That is
@@ -1235,9 +1262,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
           // “Speak in Hindi” is a language-setting command. Only classify it
           // as translation when the learner names something to translate.
           && /\b(?:translate|meaning|mean|this|that|sentence|phrase|question|word)\b/i.test(userMsg);
-        const translationLanguage = languageRequest && languageRequest !== "English"
-          ? languageRequest
-          : uiLang;
+        const translationLanguage = languageRequest ?? uiLang;
         const translationRequested = !isSilenceProbe
           && (
             isNativeTranslationRequest(userMsg, translationLanguage, Boolean(previousReferencedMessage))
@@ -1255,7 +1280,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         );
         const translationInstruction = translationRequested
           ? translationSource
-            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the exact source text "${translationSource}" into natural ${translationLanguage}. The source may be English or another Indian language. Return only the complete translation in ${translationLanguage}'s native script. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an English exercise.]\n`
+            ? `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Translate the exact source text "${translationSource}" into natural ${translationLanguage}. The source may be English or another Indian language. Return only the complete translation in ${translationLanguage}'s standard written form. Do not answer with an acknowledgement, a generic coaching phrase, a new question, or an exercise.]\n`
             : `\n[HIGHEST PRIORITY TRANSLATION REQUEST: Ask the learner to repeat the source sentence in ${translationLanguage}. Do not invent a translation.]\n`
           : "";
         const escapedUiLang = translationLanguage.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1267,7 +1292,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         );
         const explicitTranslationDirective =
           translationRequested && archiveTranslationRequest.test(userMsg)
-             ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the exact source "${translationSource || previousReferencedMessage}" into natural ${translationLanguage} in ${translationLanguage}'s native script. The source may be English or another Indian language. Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
+             ? `\n[TRANSLATION TASK FOR THIS REPLY: Translate the exact source "${translationSource || previousReferencedMessage}" into natural ${translationLanguage} in its standard written form. The source may be English or another Indian language. Do not acknowledge, coach, ask a new question, or invent a practice sentence. Return the full translation.]\n`
             : "";
         const silenceInstruction = isSilenceProbe
           ? `\n[The student has been quiet for a moment. Gently re-engage — ask a warm natural follow-up question or check in based on the conversation so far. 1–2 sentences max.]\n`
@@ -1390,7 +1415,7 @@ Rules for spoken replies:
             {
               endpoint: "/api/ai/conversation",
               maxTokens: nativeInputDetected ? 180 : 100,
-              timeoutMs: nativeInputDetected ? 6000 : 4500,
+               timeoutMs: nativeInputDetected ? 9000 : 4500,
               responseLanguage: responseHelperLanguage,
               nativeInputDetected,
             },
@@ -1412,7 +1437,7 @@ Rules for spoken replies:
             {
               endpoint: "/api/ai/conversation",
               maxTokens: 180,
-              timeoutMs: 6000,
+               timeoutMs: 8000,
               responseLanguage: responseHelperLanguage,
               nativeInputDetected: true,
             },
@@ -1448,7 +1473,7 @@ Rules for spoken replies:
           nativeInputDetected
           && !isUsableNativeResponse(response, responseHelperLanguage)
         ) {
-          response = NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+           response = contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
             ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
             ?? `I want to help you in ${responseHelperLanguage}. Please tell me which word or part needs a clearer explanation.`;
         }
@@ -1460,7 +1485,7 @@ Rules for spoken replies:
           response = translationRequested
             ? `I can help in ${translationLanguage}, but I need the sentence or word you want translated. Please say it once more.`
             : nativeInputDetected
-              ? NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+               ? contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
                 ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
                 ?? variedFallback(userMsg, isSilenceProbe)
               : variedFallback(userMsg, isSilenceProbe);
@@ -1469,7 +1494,7 @@ Rules for spoken replies:
         // fallback is spoken normally, so the mic handoff still completes.
         if (!response.trim() && !translationRequested) {
           response = nativeInputDetected
-            ? NATIVE_TURN_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
+             ? contextualNativeTurnFallback(userMsg, responseHelperLanguage, tutor.voiceGender)
               ?? NATIVE_RETRY_FALLBACKS[responseHelperLanguage]?.[tutor.voiceGender]
               ?? variedFallback(userMsg, isSilenceProbe)
             : variedFallback(userMsg, isSilenceProbe);

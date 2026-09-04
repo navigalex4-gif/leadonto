@@ -722,8 +722,9 @@ router.post("/ai/stream", async (req, res) => {
   }
 });
 
-// Claude-only conversation endpoint. English Guru uses this for coaching turns
-// so a translation request can never fall through to a conversation provider.
+// English Guru conversation endpoint. Translation requests use the isolated
+// /ai/translate contract and never reach this route, so normal coaching turns
+// can safely fall back when Claude is unavailable before emitting any text.
 router.post("/ai/conversation", async (req, res) => {
   const parsed = parseAiRequest(req, res);
   if (!parsed) return;
@@ -732,16 +733,30 @@ router.post("/ai/conversation", async (req, res) => {
   setSseHeaders(res);
   const state = { wrote: false };
 
-  if (!process.env["ANTHROPIC_API_KEY"]) {
-    res.write(`data: ${JSON.stringify({ error: "Conversation provider unavailable" })}\n\n`);
-    res.end();
-    return;
-  }
-
   try {
-    await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+    if (process.env["ANTHROPIC_API_KEY"] && isQualityProviderReady("claude")) {
+      try {
+        await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+        return;
+      } catch (claudeError) {
+        if (state.wrote) throw claudeError;
+        pauseQualityProvider("claude", claudeError);
+        req.log.warn({ err: claudeError }, "Claude conversation failed — falling back to Mistral");
+      }
+    }
+    if (isQualityProviderReady("mistral")) {
+      try {
+        await streamMistral(req, res, prompt, system, maxTokens ?? 8192, state);
+        return;
+      } catch (mistralError) {
+        if (state.wrote) throw mistralError;
+        pauseQualityProvider("mistral", mistralError);
+        req.log.warn({ err: mistralError }, "Mistral conversation fallback failed — falling back to Groq");
+      }
+    }
+    await streamGroq(req, res, prompt, system, maxTokens ?? 8192, state);
   } catch (err) {
-    req.log.error({ err }, "Claude conversation stream failed");
+    req.log.error({ err }, "Conversation provider chain failed");
     if (!state.wrote) {
       res.write(`data: ${JSON.stringify({ error: userFriendlyError(err) })}\n\n`);
     }

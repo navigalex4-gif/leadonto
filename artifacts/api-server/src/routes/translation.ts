@@ -6,6 +6,7 @@ import { getAI } from "./ai.js";
 const router = Router();
 
 export const TRANSLATION_LANGUAGES = [
+  "English",
   "Hindi",
   "Bengali",
   "Tamil",
@@ -28,6 +29,7 @@ const TranslationBody = z.object({
 }).strict();
 
 const SCRIPT_RANGES: Record<TranslationLanguage, RegExp> = {
+  English: /[A-Za-z]/u,
   Hindi: /[\u0900-\u097F]/u,
   Marathi: /[\u0900-\u097F]/u,
   Tamil: /[\u0B80-\u0BFF]/u,
@@ -50,6 +52,11 @@ export function isValidTranslation(translation: string, language: TranslationLan
 
   const scriptCharacters = [...value].filter((character) => SCRIPT_RANGES[language].test(character)).length;
   if (scriptCharacters < 2) return false;
+  if (language === "English") {
+    const letterCount = [...value].filter((character) => /\p{L}/u.test(character)).length;
+    const latinCount = [...value].filter((character) => /[A-Za-z]/u.test(character)).length;
+    return latinCount / Math.max(1, letterCount) >= 0.6;
+  }
 
   const tokens = value.split(/\s+/u).filter(Boolean);
   const scriptTokens = tokens.filter((token) => [...token].some((character) => INDIC_SCRIPT.test(character)));
