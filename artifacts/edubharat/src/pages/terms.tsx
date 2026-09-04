@@ -14,7 +14,7 @@ function UL({ children }: { children: React.ReactNode }) {
 export default function Terms() {
   const email = useContent("legal.contact.email", "email@leadonto.com");
   const company = useContent("legal.company.name", "Lead Onto");
-  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
+  const legalOwner = useContent("legal.owner.name", "LeadOnto.com");
   const phone = useContent("contact.phone", "8009785785");
   const jurisdiction = useContent("legal.jurisdiction", "Mumbai, Maharashtra, India");
 

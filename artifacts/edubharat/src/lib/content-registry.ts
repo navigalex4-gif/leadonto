@@ -52,7 +52,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
 
   // ── Legal pages (shared keys) ─────────────────────────────────────────────
   { key: "legal.company.name",   page: "Legal",  label: "Company name",                   defaultValue: "Lead Onto" },
-  { key: "legal.owner.name",     page: "Legal",  label: "Legal owner name",               defaultValue: "Devendra Bahuguna" },
+  { key: "legal.owner.name",     page: "Legal",  label: "Legal owner / brand name",       defaultValue: "LeadOnto.com" },
   { key: "legal.jurisdiction",   page: "Legal",  label: "Governing jurisdiction (courts)", defaultValue: "Mumbai, Maharashtra, India" },
   { key: "legal.contact.email",  page: "Legal",  label: "Legal / T&C contact email",      defaultValue: "email@leadonto.com" },
 

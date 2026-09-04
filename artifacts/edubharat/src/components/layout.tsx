@@ -27,7 +27,7 @@ function Footer() {
   );
   const contactEmail = useContent("footer.contact.email", "email@leadonto.com");
   const contactPhone = useContent("footer.contact.phone", "8009785785");
-  const legalOwner = useContent("legal.owner.name", "Devendra Bahuguna");
+  const legalOwner = useContent("legal.owner.name", "LeadOnto.com");
 
   return (
     <footer className="mt-auto bg-secondary text-secondary-foreground">
