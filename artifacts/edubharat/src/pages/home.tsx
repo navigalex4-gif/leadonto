@@ -12,6 +12,17 @@ import {
   Newspaper,
   Route,
   Sparkles,
+  Zap,
+  Clock,
+  Shield,
+  Smartphone,
+  Play,
+  X,
+  PhoneCall,
+  Star,
+  HelpCircle,
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
 import { TUTORS } from "@/lib/tutors";
 import { HomeMeta } from "@/components/page-meta";
@@ -21,21 +32,11 @@ import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
 import { PLANS, TESTIMONIALS } from "@/lib/plans";
 import { INDIAN_LANGUAGES } from "@/lib/constants";
 
-const ROLE_EXAMPLES = [
-  "Software Developer",
-  "Sales Executive",
-  "Customer Support",
-  "Marketing",
-  "HR",
-  "Finance",
-  "Fresh Graduate",
-];
-
 const PRODUCT_SHOWCASE = [
   {
     href: "/english-guru",
-    name: "English Guru",
-    description: "Speak with confidence in interviews, meetings, and everyday work.",
+    name: "Office & Meetings",
+    description: "Give a status update, disagree politely, ask for a deadline extension, present to a client on a video call.",
     icon: MessageCircle,
     iconClass: "bg-orange-100 text-orange-700",
     cardClass: "border-orange-200/70 bg-orange-50/60 hover:border-orange-400",
@@ -43,53 +44,44 @@ const PRODUCT_SHOWCASE = [
   },
   {
     href: "/interview-ace",
-    name: "Interview Ace",
-    description: "Practice realistic, role-based mock interviews with instant feedback.",
+    name: "Job Interviews",
+    description: "Mock HR and technical rounds. 'Tell me about yourself', salary negotiation, and follow-up questions.",
     icon: Mic2,
     iconClass: "bg-blue-100 text-blue-700",
     cardClass: "border-blue-200/70 bg-blue-50/60 hover:border-blue-400",
     linkClass: "text-blue-700",
   },
   {
-    href: "/tools-pro",
-    name: "Tools Pro",
-    description: "Fix grammar, write better, build vocabulary, and practise pronunciation.",
-    icon: Sparkles,
+    href: "/english-guru",
+    name: "Customer & BPO Calls",
+    description: "Handle an angry customer, explain a refund policy, de-escalate — with accent clarity.",
+    icon: PhoneCall,
     iconClass: "bg-violet-100 text-violet-700",
     cardClass: "border-violet-200/70 bg-violet-50/60 hover:border-violet-400",
     linkClass: "text-violet-700",
   },
   {
-    href: "/rozgar-samachar",
-    name: "Rozgar Samachar",
-    description: "Find personalised jobs and career opportunities across India.",
-    icon: Newspaper,
+    href: "/english-guru",
+    name: "IELTS & PTE Speaking",
+    description: "Full examiner-format Part 1, 2 and 3 with band-wise feedback on fluency and pronunciation.",
+    icon: GraduationCap,
     iconClass: "bg-teal-100 text-teal-700",
     cardClass: "border-teal-200/70 bg-teal-50/60 hover:border-teal-400",
     linkClass: "text-teal-700",
   },
   {
-    href: "/resume-intelligence",
-    name: "Resume Intelligence",
-    description: "Match your resume to a real job and close your most important skill gaps.",
-    icon: FileText,
+    href: "/tools-pro",
+    name: "College & Campus",
+    description: "Group discussions, viva, presentations, and placement-week interviews.",
+    icon: Building2,
     iconClass: "bg-amber-100 text-amber-700",
     cardClass: "border-amber-200/70 bg-amber-50/60 hover:border-amber-400",
     linkClass: "text-amber-700",
   },
   {
-    href: "/communication-check",
-    name: "Communication Check",
-    description: "Get a fast, free speaking assessment with practical next steps.",
-    icon: BadgeCheck,
-    iconClass: "bg-emerald-100 text-emerald-700",
-    cardClass: "border-emerald-200/70 bg-emerald-50/60 hover:border-emerald-400",
-    linkClass: "text-emerald-700",
-  },
-  {
     href: "/learning-journey",
-    name: "Learning Journey",
-    description: "Follow a personalised A1 to C2 practice path with spaced repetition.",
+    name: "Daily Conversation",
+    description: "Small talk, social events, travel, and conversations where you are expected to have opinions.",
     icon: Route,
     iconClass: "bg-rose-100 text-rose-700",
     cardClass: "border-rose-200/70 bg-rose-50/60 hover:border-rose-400",
@@ -97,9 +89,6 @@ const PRODUCT_SHOWCASE = [
   },
 ] as const;
 
-/** 8 homepage FAQs — copied verbatim from the English Guru page copy that
- * already converts. Kept in one place so the JSON-LD schema in index.html
- * matches what the user reads. */
 const FAQS = [
   {
     q: "Is it really free? Do I need to give my card?",
@@ -107,15 +96,15 @@ const FAQS = [
   },
   {
     q: "My English is very weak. Will I be able to use this?",
-    a: "That's exactly who this is built for. You can speak entirely in Hindi (or Tamil, Telugu, Bengali and 9 others) and your AI coach will help you say it in English, one sentence at a time. Beginners usually start with 3-minute sessions.",
+    a: "That is exactly who this is built for. You can speak entirely in Hindi (or Tamil, Telugu, Bengali and 9 others) and your AI coach will help you say it in English, one sentence at a time. Beginners usually start with 3-minute sessions.",
   },
   {
     q: "How is this different from a free AI chatbot?",
-    a: "Three things. It's spoken, not typed — which is the skill you're actually missing. It switches to your mother tongue at the exact moment you get stuck instead of repeating itself in English. And it tracks a Fluency Score across sessions so you can see whether you're improving.",
+    a: "Three things. It is spoken, not typed — which is the skill you are actually missing. It switches to your mother tongue at the exact moment you get stuck instead of repeating itself in English. And it tracks a Fluency Score across sessions so you can see whether you are improving.",
   },
   {
     q: "Will it work on my phone and my data pack?",
-    a: "Yes. It runs in your phone's browser — nothing to install. There's an audio-light mode built for patchy 3G, and a typical 12-minute session uses far less data than a video call.",
+    a: "Yes. It runs in your phone's browser — nothing to install. There is an audio-light mode built for patchy 3G, and a typical 12-minute session uses far less data than a video call.",
   },
   {
     q: "Can I practise for a specific job or interview?",
@@ -135,6 +124,54 @@ const FAQS = [
   },
 ] as const;
 
+const PROBLEM_QUOTES = [
+  {
+    quote: "In the interview I understood everything. But when they asked me to introduce myself, I just repeated my name twice and stopped.",
+    label: "the interview freeze",
+  },
+  {
+    quote: "On team calls I keep my point ready in my head. By the time I am confident enough to say it, someone else has already said it.",
+    label: "the meeting mute",
+  },
+  {
+    quote: "I cannot practise with my friends — they will laugh. And I cannot afford an expensive spoken English course just to find out if it works.",
+    label: "nowhere safe to fail",
+  }
+];
+
+const COMPARISON_FEATURES = [
+  { label: "Helps in your mother tongue when stuck", others: "Text only", global: "English only", human: "If matched", leadonto: "13 languages" },
+  { label: "Real spoken practice, not typing", others: "No", global: "Yes", human: "Yes", leadonto: "Yes" },
+  { label: "Available at 11pm after your shift", others: "Yes", global: "Yes", human: "Book ahead", leadonto: "Always" },
+  { label: "Understands Indian English habits", others: "No", global: "Marks you wrong", human: "Yes", leadonto: "Built for it" },
+  { label: "Works on patchy 3G", others: "Yes", global: "Video-heavy", human: "No", leadonto: "Audio-light mode" },
+  { label: "Interview & BPO scenarios", others: "Generic", global: "Western context", human: "Yes", leadonto: "Indian job roles" },
+];
+
+const HABIT_FEATURES = [
+  {
+    title: "Short practice that fits your day",
+    desc: "Speak for three minutes or fifteen. Small sessions make it easier to return tomorrow.",
+    icon: Clock,
+  },
+  {
+    title: "Feedback you can act on",
+    desc: "See what went well and what to practise next instead of finishing a session without direction.",
+    icon: Shield,
+  },
+  {
+    title: "Built for your phone",
+    desc: "Open Lead Onto in your browser and practise without installing another heavy app.",
+    icon: Smartphone,
+  },
+  {
+    title: "Take your learning with you",
+    desc: "Save useful conversations and export practice notes when you want to review them later.",
+    icon: FileText,
+  }
+];
+
+
 function PrimaryLink({
   href,
   children,
@@ -150,59 +187,46 @@ function PrimaryLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 text-sm font-extrabold text-white shadow-md shadow-orange-200/40 transition-all hover:-translate-y-0.5 hover:bg-[#C2410C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-2 ${className}`}
+      className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-8 text-base font-extrabold text-white shadow-lg shadow-orange-500/25 transition-all hover:-translate-y-0.5 hover:bg-[#EA580C] hover:shadow-orange-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-2 ${className}`}
     >
       {children}
     </Link>
   );
 }
 
-function QuietLink({
-  href,
-  children,
-  onClick,
-  className = "",
-}: {
-  href: string;
-  children: React.ReactNode;
-  onClick?: () => void;
-  className?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-bold text-secondary transition-colors hover:border-secondary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${className}`}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/** Renders only if there is at least one consented testimonial. */
 function Testimonials() {
   const items = TESTIMONIALS.filter((t) => t.consent);
   if (items.length === 0) return null;
   return (
-    <section className="bg-card/40 border-y border-border/70 py-12 sm:py-14" aria-labelledby="testimonials-title">
+    <section className="bg-card py-16 sm:py-24" aria-labelledby="testimonials-title">
       <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">★ Learners</p>
-        <h2 id="testimonials-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-          Real people. Real practice.
+        <div className="flex items-center gap-2 mb-4 text-primary">
+          <Star className="h-4 w-4 fill-current" />
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.16em]">Learner Stories</span>
+        </div>
+        <h2 id="testimonials-title" className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-secondary sm:text-4xl">
+          From "I'll just email them" to speaking up.
         </h2>
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
           {items.map((t) => (
-            <figure key={t.id} className="rounded-2xl border border-border bg-white p-5">
-              <blockquote className="text-sm leading-6 text-secondary">“{t.quote}”</blockquote>
-              <figcaption className="mt-4 flex items-center gap-3">
+            <figure key={t.id} className="flex flex-col justify-between rounded-3xl border border-border bg-white p-6 shadow-sm">
+              <div>
+                <div className="flex gap-1 mb-4 text-orange-400">
+                  <Star className="h-4 w-4 fill-current" /><Star className="h-4 w-4 fill-current" /><Star className="h-4 w-4 fill-current" /><Star className="h-4 w-4 fill-current" /><Star className="h-4 w-4 fill-current" />
+                </div>
+                <blockquote className="text-base leading-7 text-secondary">"{t.quote}"</blockquote>
+              </div>
+              <figcaption className="mt-8 flex items-center gap-4 border-t border-border pt-6">
                 {t.photo ? (
-                  <img src={t.photo} alt="" width={40} height={40} loading="lazy" className="h-10 w-10 rounded-full object-cover" />
+                  <img src={t.photo} alt="" width={48} height={48} loading="lazy" className="h-12 w-12 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <div className="h-10 w-10 rounded-full bg-muted" />
+                  <div className="h-12 w-12 shrink-0 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground">
+                    {t.name.charAt(0)}
+                  </div>
                 )}
-                <div className="text-sm">
+                <div>
                   <p className="font-extrabold text-secondary">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {t.role} · {t.city}
                   </p>
                 </div>
@@ -216,382 +240,496 @@ function Testimonials() {
 }
 
 export default function Home() {
-  // Preserve admin overrides — same useContent keys as before, better fallbacks.
   const heroEyebrow = useContent(
     "home.hero.eyebrow",
-    "🇮🇳 हिंदी · தமிழ் · తెలుగు · বাংলা · मराठी + 8 more",
+    `IN हिंदी · தமிழ் · తెలుగు · বাংলা · मराठी + ${INDIAN_LANGUAGES.length - 5} MORE`,
   );
+  
   const heroTitle = useContent(
     "home.hero.title",
-    "Stop freezing in English. Start speaking in 10 seconds.",
+    "Know the words but freeze when speaking? Find your flow in 10 seconds.",
   );
+  
   const heroSubtitle = useContent(
     "home.hero.subheadline",
     "Practise real conversations with an AI teacher who switches to your mother tongue the second you get stuck — then brings you right back to English. No classes. No schedule. No judgement.",
   );
-  const ctaPrimary = useContent("home.hero.startCta", "🎙 Start 15 Free Minutes");
-  const ctaSecondary = useContent("home.hero.checkCta", "Try a Mock Interview");
-
+  const ctaPrimary = useContent("home.hero.startCta", "Start 15 Free Minutes");
+  
   const homePlans = PLANS.filter((p) => p.showOnHome);
+  const heroTutor = TUTORS.find(t => t.id === "neha") || TUTORS[0]!;
 
   return (
     <>
       <HomeMeta />
-      <div className="home-shell min-w-0 overflow-hidden">
+      <div className="home-shell min-w-0 overflow-hidden bg-[#FFFDF9]">
+        
         {/* HERO */}
-        <section
-          className="relative isolate overflow-hidden bg-[#FFFDF9] pb-10 pt-8 sm:pb-14 sm:pt-12 lg:pb-16 lg:pt-14"
-          aria-labelledby="hero-title"
-        >
-          <div className="home-grid-paper pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-50" />
-          <div className="pointer-events-none absolute -right-40 top-10 -z-10 h-72 w-72 rounded-full bg-orange-100 blur-3xl" />
-          <div className="container mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:gap-14">
+        <section className="home-hero relative isolate overflow-hidden pb-16 pt-10 sm:pb-24 sm:pt-16 lg:pb-32 lg:pt-20" aria-labelledby="hero-title">
+          <div className="pointer-events-none absolute -right-20 -top-32 -z-10 h-[34rem] w-[34rem] rounded-full bg-orange-500/25 blur-3xl" />
+          <div className="pointer-events-none absolute -left-32 top-8 -z-10 h-[30rem] w-[30rem] rounded-full bg-violet-500/20 blur-3xl" />
+          
+          <div className="container mx-auto grid max-w-7xl items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="home-reveal max-w-2xl">
-              <p className="mb-5 max-w-lg text-xs font-extrabold uppercase tracking-[0.14em] text-[#C2410C] sm:text-sm">
+              <p className="mb-6 inline-flex rounded-full bg-white/10 px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest text-orange-200 ring-1 ring-inset ring-white/20 backdrop-blur">
                 {heroEyebrow}
               </p>
               <h1
                 id="hero-title"
-                className="max-w-2xl text-[clamp(1.6rem,4vw,2.6rem)] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#111827]"
+                className="text-[clamp(2.35rem,5vw,3.75rem)] font-extrabold leading-[1.03] tracking-[-0.04em] text-white"
               >
                 {heroTitle}
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-[#596273] sm:text-lg">{heroSubtitle}</p>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
+                {heroSubtitle}
+              </p>
 
-              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#596273]">
-                <li>✓ 15 minutes free</li>
-                <li>✓ No signup</li>
-                <li>✓ No card</li>
-                <li>📶 Works on 3G</li>
+              <ul className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-3 text-xs font-bold text-white/90 sm:text-sm">
+                <li className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2"><Check className="h-4 w-4 text-emerald-300" /> 15 minutes free</li>
+                <li className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2"><Check className="h-4 w-4 text-emerald-300" /> No signup</li>
+                <li className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2"><Check className="h-4 w-4 text-emerald-300" /> No card</li>
+                <li className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2"><Zap className="h-4 w-4 text-emerald-300" /> Works on 3G</li>
               </ul>
 
-              <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+              <div className="mt-10 hidden flex-col gap-4 sm:flex sm:flex-row">
                 <PrimaryLink
                   href="/english-guru"
                   onClick={() => {
                     track("home_cta_clicked", { cta: "start_english_guru", placement: "hero_primary" });
-                    trackFunnel("cta_clicked", {
-                      cta: "start_english_guru",
-                      placement: "hero_primary",
-                    });
+                    trackFunnel("cta_clicked", { cta: "start_english_guru", placement: "hero_primary" });
                   }}
+                  className="w-full sm:w-auto"
                 >
                   {ctaPrimary}
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-5 w-5" />
                 </PrimaryLink>
-                <QuietLink
-                  href="/interview-ace"
-                  onClick={() =>
-                    trackFunnel("cta_clicked", { cta: "start_interview_ace", placement: "hero_secondary" })
-                  }
-                >
-                  <Mic2 className="h-4 w-4 text-blue-600" />
-                  {ctaSecondary}
-                </QuietLink>
               </div>
-              <p className="mt-3 text-xs font-semibold text-[#596273]">
-                A private practice room for placements, BPO jobs and MNC interviews.
-              </p>
             </div>
 
-            <Link
-              href="/english-guru"
-              onClick={() => {
-                track("home_cta_clicked", { cta: "start_english_guru", placement: "hero_visual" });
-                trackFunnel("cta_clicked", {
-                  cta: "start_english_guru",
-                  placement: "hero_visual",
-                });
-              }}
-              className="home-reveal group relative mx-auto block w-full max-w-md rounded-2xl border border-[#F97316]/35 bg-card p-5 shadow-[0_18px_55px_-30px_rgba(249,115,22,.42)] transition-transform hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-4 sm:p-6"
-              aria-label="Try the mother-tongue bridge demo"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#C2410C]">
-                    Mother-tongue bridge · live demo
-                  </p>
-                  <h2 className="mt-3 max-w-xs text-xl font-extrabold leading-tight tracking-tight text-[#111827] sm:text-2xl">
-                    Get stuck? We switch to your language.
-                  </h2>
+            <div className="home-reveal relative mx-auto w-full max-w-md lg:mx-0 lg:ml-auto">
+              <div className="absolute -top-12 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center">
+                <div className="relative">
+                  <span className="absolute -left-2 -top-2 flex h-6 items-center rounded-full bg-emerald-500 px-2 text-[10px] font-extrabold uppercase tracking-widest text-white shadow-sm ring-2 ring-white">
+                    <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span> Live
+                  </span>
+                  <img src={heroTutor.imageSrc} alt={heroTutor.name} className="h-28 w-28 rounded-full border-4 border-white object-cover object-top shadow-2xl" />
                 </div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F97316] text-white">
-                  <Languages className="h-5 w-5" />
-                </span>
-              </div>
-              <div className="mt-6 space-y-3">
-                <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-orange-700">AI Coach</p>
-                  <p className="mt-1 text-sm text-secondary">“Tell me about a challenge you faced at work.”</p>
-                </div>
-                <div className="rounded-xl border border-neutral-200 bg-white p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-neutral-500">You</p>
-                  <p className="mt-1 text-sm text-secondary">“I… it was… sorry, I don't know the word.”</p>
-                </div>
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-700">
-                    AI Coach · switches to Hindi
-                  </p>
-                  <p className="mt-1 text-sm text-secondary">
-                    “Aap kehna chahte ho: <strong>Our team had a coordination problem.</strong> Bolo mere saath.”
-                  </p>
+                <div className="mt-2 whitespace-nowrap rounded-full bg-white/90 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-secondary shadow-sm backdrop-blur-sm">
+                  {heroTutor.name}
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="inline-flex items-center gap-1 font-semibold text-orange-700">
-                  <BadgeCheck className="h-4 w-4" /> Real Lead Onto flow
-                </span>
-                <span className="inline-flex items-center gap-1 font-extrabold text-orange-700">
-                  Try it free <ArrowRight className="h-3.5 w-3.5" />
-                </span>
+
+              <div className="relative rounded-3xl border border-border bg-white/60 p-5 pt-24 shadow-2xl backdrop-blur-xl sm:p-6 sm:pt-24">
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1 rounded-2xl rounded-tl-sm bg-muted p-4 text-sm leading-relaxed text-secondary shadow-sm">
+                      "Tell me about your last job. What did you do there?"
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end">
+                    <div className="flex-1 rounded-2xl rounded-tr-sm bg-primary/10 p-4 text-sm leading-relaxed text-secondary shadow-sm ml-8">
+                      "I was working in... uh... sorry, I don't know how to say it."
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-1 rounded-2xl rounded-tl-sm bg-emerald-50 border border-emerald-100 p-4 text-sm leading-relaxed text-emerald-900 shadow-sm">
+                      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-600">
+                        <Languages className="h-3 w-3" /> Switched to Hindi
+                      </div>
+                      "Koi baat nahi! Aap kehna chahte ho <strong>I handled customer complaints.</strong> Bolo mere saath."
+                    </div>
+                  </div>
+                </div>
               </div>
-            </Link>
+            </div>
           </div>
         </section>
 
         {/* MOBILE PRIMARY CTA (in-flow, per-page) */}
         <div className="container mx-auto max-w-6xl px-5 sm:px-8">
           <MobilePrimaryCTA
-            label="🎙 Start 15 Free Minutes"
+            label="Start 15 Free Minutes"
             href="/english-guru"
             onClick={() => {
               track("home_cta_clicked", { cta: "start_english_guru", placement: "mobile_primary" });
-              trackFunnel("cta_clicked", {
-                cta: "start_english_guru",
-                placement: "mobile_primary",
-              });
+              trackFunnel("cta_clicked", { cta: "start_english_guru", placement: "mobile_primary" });
             }}
           />
         </div>
 
-        {/* TRUST BAR — surface the ETS stat + languages count instead of burying them */}
-        <section className="border-y border-orange-200/70 bg-[#FFF8F0] py-6 sm:py-8" aria-label="Trust bar">
-          <div className="container mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 text-center sm:grid-cols-4 sm:px-8">
+        {/* TRUST BAR */}
+        <section className="border-y border-border/50 bg-white py-10" aria-label="Trust metrics">
+          <div className="container mx-auto grid max-w-5xl grid-cols-2 gap-8 px-5 text-center sm:grid-cols-4 sm:px-8">
             <div>
-              <p className="text-2xl font-extrabold text-secondary">{INDIAN_LANGUAGES.length}+</p>
-              <p className="mt-1 text-xs text-muted-foreground">Indian languages supported</p>
+              <p className="text-3xl font-extrabold text-secondary">{INDIAN_LANGUAGES.length}</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Indian Languages</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-secondary">15 min</p>
-              <p className="mt-1 text-xs text-muted-foreground">Free guest practice (no signup)</p>
+              <p className="text-3xl font-extrabold text-secondary">0</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Signup Required</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-secondary">2 interviews</p>
-              <p className="mt-1 text-xs text-muted-foreground">Free mock interviews as guest</p>
+              <p className="text-3xl font-extrabold text-secondary">15</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">Free Minutes</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-secondary">97%</p>
-              <p className="mt-1 text-xs leading-4 text-muted-foreground">
-                of HR decision-makers in India say English matters more today.
-                <br />
-                <span className="text-[10px]">Source: ETS TOEIC Global English 2026</span>
-              </p>
+              <p className="text-3xl font-extrabold text-secondary">10s</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">To First Word</p>
             </div>
           </div>
         </section>
 
-        {/* COMPLETE PRODUCT SUITE */}
-        <section className="py-12 sm:py-14" aria-labelledby="products-title">
-          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="max-w-xl">
-              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">One ecosystem, every next step</p>
-              <h2 id="products-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-                Everything you need to move forward.
+        {/* THE PROBLEM */}
+        <section className="py-16 sm:py-24 bg-[#FFFDF9]">
+          <div className="container mx-auto max-w-5xl px-5 sm:px-8">
+            <div className="text-center mb-16 max-w-3xl mx-auto">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Sound familiar?</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                You know the words.<br/>Your mouth just... stops.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-                Build communication skills, prepare for interviews, improve your resume, find opportunities, and keep your progress moving.
+              <p className="mt-6 text-lg text-muted-foreground">
+                Twelve years of English in school. You can read it, write it, understand every word in a movie. But the moment someone asks you a question out loud, your mind goes blank. That is not a vocabulary problem. It is a practice problem.
               </p>
             </div>
-
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {PRODUCT_SHOWCASE.map(({ href, name, description, icon: Icon, iconClass, cardClass, linkClass }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`group flex min-h-52 flex-col rounded-2xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-6 ${cardClass}`}
-                  onClick={() => trackFunnel("cta_clicked", { cta: `product_${href.slice(1).replaceAll("-", "_")}`, placement: "home_products" })}
-                >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClass}`}>
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <h3 className="mt-5 text-xl font-extrabold leading-tight tracking-tight text-secondary">{name}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-                  <span className={`mt-auto inline-flex items-center gap-2 pt-5 text-sm font-extrabold ${linkClass}`}>
-                    Explore {name} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              <p className="text-xs font-semibold text-muted-foreground w-full">
-                Role-based practice for:
-              </p>
-              {ROLE_EXAMPLES.map((role) => (
-                <span key={role} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800">
-                  {role}
-                </span>
+            <div className="grid gap-6 md:grid-cols-3">
+              {PROBLEM_QUOTES.map((item, idx) => (
+                <div key={idx} className="rounded-3xl border border-border bg-white p-8 shadow-sm">
+                  <p className="text-sm leading-relaxed text-secondary mb-6">"{item.quote}"</p>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">— {item.label}</p>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* TESTIMONIALS — only renders when TESTIMONIALS array has consented entries */}
-        <Testimonials />
-
-        {/* COACHES — with AI Coach badge */}
-        <section className="border-y border-border/70 bg-card/40 py-12 sm:py-14" aria-labelledby="coaches-title">
+        {/* HOW IT WORKS */}
+        <section className="py-16 sm:py-24 bg-white border-y border-border/50">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-xl">
-                <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">Practice with perspective</p>
-                <h2 id="coaches-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-                  Meet Your AI English Coaches
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-                  Choose the AI coach that matches what you want to improve. Every coach is an AI persona built on Lead Onto's Indian-English models.
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                Three taps to your first English conversation.
+              </h2>
+            </div>
+            <div className="grid gap-8 md:grid-cols-3 relative">
+                <div className="absolute left-[16.666%] right-[16.666%] top-12 -z-10 hidden h-0.5 bg-gradient-to-r from-transparent via-border to-transparent md:block" />
+              <div className="text-center bg-white px-4">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 text-2xl font-extrabold text-orange-700 shadow-sm mb-6">1</div>
+                <h3 className="text-xl font-extrabold text-secondary">Pick a teacher</h3>
+                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                  Neha Ma'am for pronunciation. Maya Ma'am for business English. Arjun Sir for interviews. Each one speaks English plus Indian languages.
                 </p>
               </div>
-              <Link href="/english-guru" className="inline-flex items-center gap-2 text-sm font-extrabold text-primary">
-                Meet the full coaching team <ArrowRight className="h-4 w-4" />
-              </Link>
+              <div className="text-center bg-white px-4">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-extrabold text-blue-700 shadow-sm mb-6">2</div>
+                <h3 className="text-xl font-extrabold text-secondary">Just start talking</h3>
+                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                  Press the mic and speak — in English, in Hindi, or a mix. No script to follow, no lesson to finish. It is a conversation, not a test.
+                </p>
+              </div>
+              <div className="text-center bg-white px-4">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-2xl font-extrabold text-emerald-700 shadow-sm mb-6">3</div>
+                <h3 className="text-xl font-extrabold text-secondary">Get your score</h3>
+                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                  After every session: what you said well, the exact words you stumbled on, and three sentences to practise tomorrow. Your score moves.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* MOTHER TONGUE BRIDGE (Why people stay) */}
+        <section className="py-16 sm:py-24 bg-slate-900 text-white overflow-hidden relative">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-900 pointer-events-none" />
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8 relative z-10">
+            <div className="max-w-3xl mb-16">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-blue-400">Why people stay</p>
+              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-white">
+                Every other app abandons you at the exact moment you need help.
+              </h2>
+              <p className="mt-6 text-lg text-slate-300">
+                When you get stuck, an English-only AI just says the same thing again — slower. That is the moment most learners quit. We built Lead Onto around that exact moment.
+              </p>
             </div>
 
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {TUTORS.map((tutor, index) => (
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <div className="rounded-3xl border border-slate-700 bg-slate-800/50 p-6 sm:p-8 backdrop-blur-sm opacity-60">
+                <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-8 flex items-center gap-2">
+                  <X className="h-4 w-4" /> English-Only AI Apps
+                </h3>
+                <div className="space-y-4">
+                  <div className="bg-slate-700/50 p-4 rounded-2xl rounded-tl-sm text-sm text-slate-200">"Tell me about a challenge you faced at work."</div>
+                  <div className="bg-blue-500/10 p-4 rounded-2xl rounded-tr-sm text-sm text-slate-200 ml-8">"I... it was... sorry, I don't know the word."</div>
+                  <div className="bg-slate-700/50 p-4 rounded-2xl rounded-tl-sm text-sm text-slate-200">"No problem! Tell me about a challenge you faced at work."</div>
+                  <div className="p-4 text-sm font-semibold text-slate-400 ml-8 italic flex items-center gap-2">
+                     User closes the app in frustration
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-orange-500/30 bg-slate-800/80 p-6 sm:p-8 shadow-2xl shadow-orange-500/10 backdrop-blur-sm relative">
+                <div className="absolute -top-4 right-6 bg-gradient-to-r from-orange-500 to-orange-400 text-white text-[10px] font-extrabold uppercase tracking-widest px-4 py-1.5 rounded-full shadow-lg">
+                  Lead Onto
+                </div>
+                <h3 className="text-xs font-extrabold uppercase tracking-widest text-orange-400 mb-8 flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4" /> The Mother-Tongue Bridge
+                </h3>
+                <div className="space-y-4">
+                  <div className="bg-slate-700/50 p-4 rounded-2xl rounded-tl-sm text-sm text-slate-200">"Tell me about a challenge you faced at work."</div>
+                  <div className="bg-blue-500/20 p-4 rounded-2xl rounded-tr-sm text-sm text-slate-200 ml-8">"I... it was... sorry, I don't know the word."</div>
+                  <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-2xl rounded-tl-sm text-sm text-orange-50">
+                    <div className="text-[10px] font-extrabold uppercase tracking-widest text-orange-400 mb-2 flex items-center gap-1.5">
+                      <Languages className="h-3 w-3" /> AI Switches to Hindi
+                    </div>
+                    "Aap kehna chahte ho ki team mein coordination ki problem thi. English mein bolo: <strong>Our team had a coordination problem.</strong>"
+                  </div>
+                  <div className="bg-blue-500/20 p-4 rounded-2xl rounded-tr-sm text-sm text-slate-200 ml-8">"Our team had a coordination problem."</div>
+                  <div className="bg-slate-700/50 p-4 rounded-2xl rounded-tl-sm text-sm text-slate-200">"Exactly right. So how did you fix it?"</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* TEACHERS */}
+        <section className="py-16 sm:py-24 bg-white border-b border-border/50">
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="text-center mb-16 max-w-2xl mx-auto">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Your Teachers</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                  Not just a chatbot. Choose the coach who fits your goal.
+              </h2>
+              <p className="mt-6 text-lg text-muted-foreground">
+                  Each AI coach has a different speciality, teaching style, and mix of Indian languages, so your practice feels relevant from the first conversation.
+              </p>
+            </div>
+            
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {TUTORS.slice(0, 6).map((tutor) => (
+                <div key={tutor.id} className="group flex flex-col rounded-3xl border border-border bg-[#FFFDF9] p-6 transition-all hover:-translate-y-1 hover:shadow-lg">
+                  <div className="flex items-center gap-4 mb-5">
+                    <img src={tutor.imageSrc} alt={tutor.name} className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-white shadow-sm" />
+                    <div>
+                      <h4 className="font-extrabold text-secondary text-lg">{tutor.name}</h4>
+                      <p className="text-xs font-bold uppercase tracking-widest text-primary mt-0.5">{tutor.role.replace(" Specialist", " Coach")}</p>
+                    </div>
+                  </div>
+                  <div className="mb-4 inline-flex self-start rounded-full bg-muted px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                    Speaks {tutor.languages.slice(1).join(" + ")}
+                  </div>
+                  <p className="text-sm leading-relaxed text-secondary flex-1">"{tutor.intro}"</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* USE CASES */}
+        <section className="py-16 sm:py-24 bg-muted/20">
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="max-w-2xl mb-12">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">What are you practising for?</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                Real situations, not textbook chapters.
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                Every session is a rehearsal for something you will actually have to do.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {PRODUCT_SHOWCASE.map(({ href, name, description, icon: Icon, iconClass, cardClass, linkClass }) => (
                 <Link
-                  key={tutor.id}
-                  href="/english-guru"
-                  className="group relative rounded-xl border border-border bg-card p-3 text-center transition-colors hover:border-primary/40"
+                  key={name}
+                  href={href}
+                  className={`group flex min-h-[14rem] flex-col rounded-3xl border p-6 transition-all hover:-translate-y-1 hover:shadow-lg bg-white`}
+                  onClick={() => trackFunnel("cta_clicked", { cta: `product_${name.toLowerCase().replace(/ /g, '_')}`, placement: "home_usecases" })}
                 >
-                  <span className="absolute right-2 top-2 rounded-full bg-secondary/90 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-widest text-white">
-                    AI
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl mb-5 ${iconClass}`}>
+                    <Icon className="h-6 w-6" />
                   </span>
-                  <img
-                    src={tutor.imageSrc}
-                    alt={tutor.name}
-                    width={80}
-                    height={80}
-                    loading={index < 3 ? "eager" : "lazy"}
-                    className="mx-auto aspect-square w-16 rounded-full object-cover object-top sm:w-20"
-                  />
-                  <p className="mt-3 text-xs font-extrabold leading-tight text-secondary">{tutor.name}</p>
-                  <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted-foreground">
-                    {tutor.role.replace("Pronunciation Specialist", "Pronunciation Coach")}
-                  </p>
+                  <h3 className="text-xl font-extrabold leading-tight tracking-tight text-secondary">{name}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{description}</p>
+                  <span className={`mt-auto inline-flex items-center gap-2 pt-6 text-sm font-extrabold ${linkClass}`}>
+                    Practise {name} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
                 </Link>
               ))}
             </div>
           </div>
         </section>
 
-        {/* PRICING TEASER — reads from PLANS single source of truth */}
-        <section className="py-12 sm:py-14" aria-labelledby="pricing-teaser-title">
+        {/* WHY IT STICKS (Habit) */}
+        <section className="py-16 sm:py-24 bg-white border-t border-border/50">
           <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="max-w-xl">
-              <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">₹ Choose your pace</p>
-              <h2 id="pricing-teaser-title" className="text-2xl font-extrabold leading-tight tracking-tight text-secondary sm:text-3xl">
-                Start free. Upgrade when your interview is on the calendar.
+            <div className="text-center mb-16 max-w-2xl mx-auto">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Why it sticks</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                Five minutes a day beats a weekend course.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-                Try 15 guest minutes with no card, then choose the everyday plan or the complete job-search stack.
+              <p className="mt-6 text-lg text-muted-foreground">
+                Fluency is a muscle. It does not come from a 40-hour class you finish once — it comes from speaking a little, often, with useful feedback.
               </p>
             </div>
 
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {HABIT_FEATURES.map((feature, idx) => (
+                <div key={idx} className="text-center sm:text-left">
+                  <div className="mx-auto sm:mx-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 mb-5">
+                    <feature.icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-secondary mb-2">{feature.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* COMPARISON */}
+        <section className="py-16 sm:py-24 bg-[#FFFDF9] border-y border-border/50 overflow-hidden">
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="max-w-2xl mb-12">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Honest comparison</p>
+              <h2 className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                Why not just use what is already out there?
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                All of these are good at something. Here is where each one leaves an Indian learner stranded.
+              </p>
+            </div>
+
+            <div className="overflow-x-auto pb-4">
+              <table className="w-full text-left text-sm min-w-[800px]">
+                <thead>
+                  <tr>
+                    <th className="py-5 px-5 font-extrabold text-secondary w-[30%]">What you need</th>
+                    <th className="py-5 px-5 font-bold text-muted-foreground">Free chatbots</th>
+                    <th className="py-5 px-5 font-bold text-muted-foreground">Global apps</th>
+                    <th className="py-5 px-5 font-bold text-muted-foreground">Live human</th>
+                    <th className="py-5 px-5 font-extrabold text-primary bg-orange-50 rounded-t-2xl border-t border-x border-orange-100">Lead Onto</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {COMPARISON_FEATURES.map((row, i) => (
+                    <tr key={i} className="group hover:bg-muted/30 transition-colors">
+                      <td className="py-5 px-5 font-semibold text-secondary">{row.label}</td>
+                      <td className="py-5 px-5 text-muted-foreground">{row.others}</td>
+                      <td className="py-5 px-5 text-muted-foreground">{row.global}</td>
+                      <td className="py-5 px-5 text-muted-foreground">{row.human}</td>
+                      <td className="py-5 px-5 font-extrabold text-primary bg-orange-50 border-x border-orange-100">{row.leadonto}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className="py-5 px-5 font-semibold text-secondary">Monthly cost</td>
+                    <td className="py-5 px-5 text-muted-foreground">Free</td>
+                    <td className="py-5 px-5 text-muted-foreground">₹650–₹1,500</td>
+                    <td className="py-5 px-5 text-muted-foreground">₹4,000–₹35,000</td>
+                    <td className="py-5 px-5 font-extrabold text-primary bg-orange-50 rounded-b-2xl border-b border-x border-orange-100">From ₹199</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING */}
+        <section className="py-16 sm:py-24 bg-white" aria-labelledby="pricing-title">
+          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
+            <div className="text-center mb-16 max-w-2xl mx-auto">
+              <p className="mb-4 text-[10px] font-extrabold uppercase tracking-widest text-primary">Simple Pricing</p>
+              <h2 id="pricing-title" className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
+                Less than one cup of chai a day.
+              </h2>
+              <p className="mt-6 text-lg text-muted-foreground">
+                Start free. Upgrade only when you can hear the difference in your own voice.
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
               {homePlans.map((p) => {
                 const isHighlight = !!p.highlight;
                 const isBestValue = p.id === "career";
                 return (
                   <div
                     key={p.id}
-                    className={
-                      "rounded-2xl p-6 " +
-                      (isHighlight
-                        ? "border-2 border-[#F97316] bg-white shadow-md"
+                    className={`relative flex flex-col rounded-3xl p-8 transition-transform hover:-translate-y-1 ${
+                      isHighlight
+                        ? "border-2 border-orange-500 bg-white shadow-xl shadow-orange-500/10 z-10 scale-100 md:scale-105"
                         : isBestValue
-                          ? "border-2 border-emerald-500/70 bg-emerald-50/20 shadow-md"
-                        : "border border-border bg-card/60")
-                    }
+                          ? "border-2 border-emerald-500/50 bg-emerald-50/20 shadow-lg"
+                        : "border border-border bg-card/60"
+                    }`}
                   >
                     {p.pricingBadge && (
-                      <span className={`mb-3 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest ${
-                        isHighlight ? "bg-orange-500 text-white" : isBestValue ? "bg-emerald-100 text-emerald-800" : "bg-secondary/10 text-secondary"
+                      <span className={`absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-sm ${
+                        isHighlight ? "bg-orange-500 text-white" : isBestValue ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-white"
                       }`}>
                         {p.pricingBadge}
                       </span>
                     )}
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{p.name}</p>
-                    <p className="mt-1 text-3xl font-extrabold text-secondary">
-                      {p.priceLabel}
-                      {p.cadence && p.cadence !== "once" && (
-                        <span className="ml-1 text-sm font-semibold text-muted-foreground">/{p.cadence}</span>
-                      )}
-                    </p>
-                    <ul className="mt-4 space-y-1.5 text-sm text-secondary">
+                    <h3 className="text-xl font-extrabold text-secondary mt-2">{p.name}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground min-h-[2.5rem]">{p.tagline}</p>
+                    <div className="my-6 border-b border-border/50 pb-6">
+                      <p className="text-4xl font-extrabold text-secondary">
+                        {p.priceLabel}
+                        {p.cadence && p.cadence !== "once" && (
+                          <span className="text-base font-semibold text-muted-foreground">/{p.cadence}</span>
+                        )}
+                      </p>
+                    </div>
+                    <ul className="mb-8 space-y-3 text-sm text-secondary flex-1">
                       {p.homeBullets.map((b) => (
-                        <li key={b} className="flex items-start gap-2">
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <li key={b} className="flex items-start gap-3 leading-relaxed">
+                          <Check className={`mt-0.5 h-5 w-5 shrink-0 ${isHighlight ? "text-orange-500" : "text-emerald-500"}`} />
                           <span>{b}</span>
                         </li>
                       ))}
                     </ul>
+                    <Link
+                      href={p.ctaHref}
+                      onClick={() => trackFunnel("cta_clicked", { cta: `pricing_${p.id}`, placement: "home_pricing" })}
+                      className={`inline-flex w-full min-h-12 items-center justify-center rounded-xl px-5 text-sm font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                        isHighlight
+                          ? "bg-orange-500 text-white hover:bg-orange-600 focus-visible:ring-orange-500 shadow-md"
+                          : "bg-secondary text-white hover:bg-secondary/90 focus-visible:ring-secondary"
+                      }`}
+                    >
+                      {p.ctaLabel}
+                    </Link>
                   </div>
                 );
               })}
             </div>
-
-            <div className="mt-6">
-              <Link
-                href="/pricing"
-                onClick={() => trackFunnel("cta_clicked", { cta: "see_all_plans", placement: "home_pricing" })}
-                className="inline-flex items-center gap-2 text-sm font-extrabold text-primary"
-              >
-                Compare all 5 paths <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            
+            <p className="mt-12 text-center text-xs font-semibold text-muted-foreground max-w-2xl mx-auto">
+              7-day money-back guarantee. Practise for a week. If you do not feel more confident speaking, reply to any of our emails and we will refund you in full — no forms, no questions.
+            </p>
           </div>
         </section>
 
-        {/* COLLEGES TEASER */}
-        <section className="py-12 sm:py-14" aria-labelledby="colleges-title">
-          <div className="container mx-auto max-w-6xl px-5 sm:px-8">
-            <div className="rounded-3xl bg-gradient-to-br from-indigo-950 to-secondary p-8 text-secondary-foreground sm:p-12">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-200">🎓 For placement cells</p>
-              <h2 id="colleges-title" className="mt-3 max-w-2xl text-2xl font-extrabold tracking-tight sm:text-3xl">
-                Give every final-year student unlimited interview practice.
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-secondary-foreground/70 sm:text-base">
-                Branded portal for your college, cohort analytics for the TPO, and mother-tongue support so no student is left behind.
-                From <strong className="text-white">₹299/student/year</strong> for 200+ seats.
-              </p>
-              <Link
-                href="/for-colleges"
-                onClick={() => trackFunnel("cta_clicked", { cta: "colleges_teaser", placement: "home_colleges" })}
-                className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-extrabold text-secondary hover:bg-orange-50"
-              >
-                <Building2 className="h-4 w-4" /> Book a free 100-seat pilot
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/* TESTIMONIALS */}
+        <Testimonials />
 
         {/* FAQ */}
-        <section className="py-12 sm:py-14" aria-labelledby="faq-title">
+        <section className="py-16 sm:py-24 bg-[#FFFDF9] border-t border-border/50" aria-labelledby="faq-title">
           <div className="container mx-auto max-w-3xl px-5 sm:px-8">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-primary">? Questions</p>
-            <h2 id="faq-title" className="mt-3 text-2xl font-extrabold tracking-tight text-secondary sm:text-3xl">
+            <div className="flex items-center gap-2 mb-4 text-primary">
+              <HelpCircle className="h-4 w-4" />
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.16em]">Questions</span>
+            </div>
+            <h2 id="faq-title" className="text-3xl font-extrabold tracking-tight text-secondary sm:text-4xl">
               Everything you're wondering
             </h2>
-            <dl className="mt-6 divide-y divide-border">
+            <dl className="mt-10 divide-y divide-border/60 border-t border-border/60">
               {FAQS.map((f) => (
-                <details key={f.q} className="group py-4">
-                  <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-secondary sm:text-base">
+                <details key={f.q} className="group py-6">
+                  <summary className="flex cursor-pointer list-none items-center justify-between text-base font-bold text-secondary outline-none">
                     {f.q}
-                    <span className="ml-4 text-muted-foreground transition-transform group-open:rotate-45">+</span>
+                    <span className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-transform group-open:rotate-45 group-open:bg-primary/10 group-open:text-primary">
+                      <X className="h-4 w-4 rotate-45" />
+                    </span>
                   </summary>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{f.a}</p>
+                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground pr-10">{f.a}</p>
                 </details>
               ))}
             </dl>
@@ -599,29 +737,30 @@ export default function Home() {
         </section>
 
         {/* FINAL CTA */}
-        <section className="bg-secondary py-12 text-secondary-foreground sm:py-14" aria-labelledby="final-title">
-          <div className="container mx-auto max-w-3xl px-5 text-center sm:px-8">
-            <Sparkles className="mx-auto h-5 w-5 text-orange-300" />
-            <h2 id="final-title" className="mt-4 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
-              Be ready when your next opportunity comes.
+        <section className="bg-slate-900 py-20 sm:py-32 text-white relative overflow-hidden text-center" aria-labelledby="final-title">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-900 to-slate-900 pointer-events-none" />
+          <div className="container mx-auto max-w-3xl px-5 sm:px-8 relative z-10">
+            <h2 id="final-title" className="text-[clamp(2rem,4vw,3rem)] font-extrabold leading-tight tracking-tight">
+              Ready to hear yourself<br/>speak with confidence?
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-secondary-foreground/70 sm:text-base">
-              Start with one real conversation. Find the right words. Build from there.
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
+              No signup. No card. Start with a private AI practice session.<br/>The only way to stop freezing is to start speaking.
             </p>
-            <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
               <PrimaryLink
                 href="/english-guru"
-                onClick={() => track("home_cta_clicked", { cta: "start_english_guru", placement: "final_cta" })}
+                onClick={() => {
+                  track("home_cta_clicked", { cta: "start_english_guru", placement: "footer" });
+                  trackFunnel("cta_clicked", { cta: "start_english_guru", placement: "footer" });
+                }}
+                className="w-full sm:w-auto"
               >
-                🎙 Start 15 Free Minutes <ArrowRight className="h-4 w-4" />
+                Start Speaking Free — 15 Minutes <ArrowRight className="h-5 w-5" />
               </PrimaryLink>
-              <QuietLink
-                href="/pricing"
-                className="!bg-transparent !text-secondary-foreground/80 !border-secondary-foreground/20"
-              >
-                <GraduationCap className="h-4 w-4" /> See pricing
-              </QuietLink>
             </div>
+            <p className="mt-6 text-xs font-semibold text-slate-400">
+              Then ₹199/month if you like it · Cancel anytime
+            </p>
           </div>
         </section>
       </div>
