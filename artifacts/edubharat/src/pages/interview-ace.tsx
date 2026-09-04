@@ -875,11 +875,11 @@ function InterviewAceContent() {
   // Experience is an explicit candidate choice. Role selection must never
   // infer seniority because the same role can be appropriate at many levels.
   const [experience, setExperience] = useState("");
-  const defaultCoach = INTERVIEW_COACHES.find(c => c.id === "ananya") ?? INTERVIEW_COACHES[0]!;
+  const defaultCoach = recommendedCoachFor(type);
   const [coachHasBeenRematched, setCoachHasBeenRematched] = useState(false);
   const [coach, setCoach] = useState<Coach>(() => {
     // B2B invites lock the interviewer to the recruiter's choice; otherwise
-    // Ananya Ma'am is the welcoming default for a new candidate.
+    // start with the domain specialist for the selected interview type.
     if (b2bParams.coach) {
       return INTERVIEW_COACHES.find(c => c.id === b2bParams.coach) ?? INTERVIEW_COACHES[0]!;
     }
