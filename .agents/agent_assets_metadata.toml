@@ -69,3 +69,17 @@ mtime_ms = 1788493597247
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:253b1260-26a5-43db-965d-8bf7a47f04a8/0ef47333-27cd-4484-809f-c639982f0cfa/92b4efb0-1d53-46eb-ac9d-45d2f3e64baa"
 storage_version_token = "1788493607150252"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "T5dE749cIhweNugo7pW3l"
+uri = "file://reports/leadonto-complete-product-audit.md"
+type = "text"
+title = "LeadOnto Complete Product Audit"
+description = "A 967-line evidence-based audit covering live journeys, AI authenticity, mobile UX, conversion, service scorecards, priorities, before/after recommendations, and a 12-week implementation roadmap."
+logical_id = "21bfac89-316f-4078-a85d-fbfe1cd58139"
+content_hash = "sha256:a58f65c41665fcf93f4d83172c2b323eee5e379bbc8b6923940dc1b6d6b9bd9d"
+size = 48672
+mtime_ms = 1788551106371
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:253b1260-26a5-43db-965d-8bf7a47f04a8/21bfac89-316f-4078-a85d-fbfe1cd58139/26eda05c-8a07-4d57-bbfc-b0bb3bf5b235"
+storage_version_token = "1788551136951385"
+content_type = "text/markdown"

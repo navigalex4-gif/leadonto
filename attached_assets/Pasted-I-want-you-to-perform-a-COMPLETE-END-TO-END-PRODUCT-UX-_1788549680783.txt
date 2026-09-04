@@ -1,0 +1,832 @@
+I want you to perform a COMPLETE END-TO-END PRODUCT, UX, AI OUTPUT, ENGAGEMENT, CONVERSION, AND MOBILE AUDIT of my website:
+
+https://leadonto.com
+
+Do NOT perform a superficial UI review. Act as a real prospective LeadOnto user and test the actual product.
+
+PRIMARY OBJECTIVE
+
+Determine whether LeadOnto is genuinely useful and intelligent for users, or whether parts of the experience are producing generic, templated, repetitive, fake-looking, or low-value outputs.
+
+I want to know:
+
+1. Does every service actually work end-to-end?
+2. Are outputs genuinely based on the user's inputs, profile, answers, conversation and context?
+3. Are outputs personalized or merely templates/prompts?
+4. Are AI responses intelligent, natural and context-aware?
+5. Are the products engaging enough to make users return?
+6. Why would a user sign up?
+7. Why would a user pay?
+8. What prevents users from reaching the "aha moment"?
+9. What should be changed to significantly increase signup, engagement, retention and paid conversion?
+10. Is the experience excellent on MOBILE, since most users access LeadOnto through mobile?
+
+IMPORTANT:
+Do not assume that something is working simply because the UI displays a result.
+
+Actually use the features and test their outputs.
+
+==================================================
+PART 1 — AUDIT THE ENTIRE LEADONTO PRODUCT
+==================================================
+
+Explore the complete website as a new user.
+
+Audit ALL major services, including:
+
+- English Guru
+- Interview Ace
+- Communication Check
+- Rojgar Samachar
+- Resume Intelligence
+- Tools Pro
+- Learning Journey
+- Any other service/product currently visible
+- All landing pages
+- All service-specific landing pages
+- Pricing
+- Sign-up/login
+- Free user journey
+- Paid user journey
+- Dashboard
+- Progress
+- Saved items
+- Navigation
+- All CTAs
+
+Do not audit only the homepage.
+
+Follow every important CTA from:
+Landing page → product → action → result → next action → signup → upgrade/payment where applicable.
+
+Record where the journey breaks, becomes confusing, becomes repetitive, or loses motivation.
+
+==================================================
+PART 2 — TEST WHETHER AI OUTPUTS ARE REAL OR TEMPLATED
+==================================================
+
+This is extremely important.
+
+For every AI-powered service, deliberately provide different user inputs.
+
+Test at least:
+
+- Short answers
+- Long answers
+- Good answers
+- Poor answers
+- Different careers
+- Different education backgrounds
+- Different locations
+- Different experience levels
+- Different English levels
+- Different personalities
+- Different mistakes
+- Different goals
+
+Then compare the outputs.
+
+Determine:
+
+A. Is the output genuinely responding to the user's actual input?
+B. Does it remember relevant context?
+C. Does it identify specific weaknesses from the user's response?
+D. Does it generate different feedback for different users?
+E. Does it contain generic phrases that could be shown to anyone?
+F. Are scores meaningful or arbitrary?
+G. Are recommendations actually derived from the user's performance?
+H. Does the AI hallucinate?
+I. Does it claim something about the user that wasn't actually demonstrated?
+J. Does the system produce the same/similar response repeatedly?
+
+Give examples of suspicious templating or generic responses.
+
+Create a table:
+
+| Service | Test Performed | Output Quality | Personalized? | Templated/G​​eneric? | Evidence | Severity |
+
+==================================================
+PART 3 — ENGLISH GURU
+==================================================
+
+Test English Guru deeply.
+
+I want it to feel significantly smarter than a basic AI chatbot.
+
+Test:
+
+- Normal conversation
+- English correction
+- Grammar mistakes
+- Vocabulary improvement
+- Pronunciation-related interactions if available
+- Native-language help
+- Hindi
+- Bengali
+- Tamil
+- Telugu
+- Other supported Indian languages
+- Follow-up questions
+- Context retention
+- User mistakes
+- Beginner users
+- Intermediate users
+- Advanced users
+
+Check whether the AI:
+
+- Understands what the user actually said
+- Corrects the right mistake
+- Explains why something is wrong
+- Gives a better natural sentence
+- Remembers previous conversation
+- Adjusts difficulty
+- Avoids repeating the same advice
+- Helps the user improve instead of merely chatting
+
+IMPORTANT:
+
+Check the native-language functionality carefully.
+
+For example:
+
+User:
+"Explain this in Hindi."
+
+The system should translate/explain the relevant English content in Hindi.
+
+It must NOT invent an unrelated Hindi response.
+
+Test similar requests in multiple Indian languages.
+
+Find the technical/root cause if the native-language response is incorrect.
+
+==================================================
+PART 4 — MAKE LIVE CONVERSATION EXTREMELY ENGAGING
+==================================================
+
+Evaluate Live Conversation as a product, not merely as a chatbot.
+
+The AI should feel:
+
+- Intelligent
+- Human
+- Funny when appropriate
+- Witty
+- Fast
+- Context-aware
+- Encouraging
+- Slightly playful
+- Interesting
+- Addictive enough to encourage repeat usage
+
+But do NOT make it childish or gimmicky.
+
+It should know when to be serious.
+
+Test whether the AI can:
+
+- Remember what the user just said
+- Ask intelligent follow-up questions
+- Challenge the user
+- Detect hesitation/confusion
+- Adapt difficulty
+- Introduce useful vocabulary
+- Correct mistakes naturally
+- Create mini challenges
+- Keep conversations moving
+- Avoid boring repetitive questions
+- Avoid generic "That's great!" responses
+- Give the user a reason to continue for another 5 minutes
+
+Evaluate:
+
+"What would make a user come back tomorrow?"
+
+Give concrete recommendations.
+
+==================================================
+PART 5 — INTERVIEW ACE
+==================================================
+
+Audit Interview Ace extremely deeply.
+
+Test multiple interview scenarios:
+
+- Fresher
+- Experienced candidate
+- Sales
+- Banking/BFSI
+- Customer service
+- IT
+- HR
+- Operations
+- Data/analytics
+- Different education backgrounds
+
+Check:
+
+- Interview question quality
+- Relevance to job role
+- Difficulty progression
+- Follow-up questions
+- Whether interviewer reacts to the candidate's actual answer
+- Whether interviewer challenges weak answers
+- Whether interviewer asks clarification questions
+- Whether it remembers previous answers
+- Whether interview feels like a real interview
+- Whether questions are repetitive
+- Whether feedback is generic
+- Whether scores are meaningful
+
+CRITICAL:
+
+Check whether interviewer feedback is AUTHENTIC.
+
+For example, if the user gives a poor answer, does the feedback identify exactly what was poor?
+
+If the user gives a strong answer, does the system recognize the actual strengths?
+
+Check whether feedback contains generic statements such as:
+
+"Good communication skills."
+"Improve confidence."
+"Work on clarity."
+"Good answer but can be improved."
+
+If these appear without evidence, flag them.
+
+Feedback should reference the candidate's actual response.
+
+For example:
+
+"You said X, but the answer did not explain Y."
+
+That is useful.
+
+"Improve your communication."
+
+That is generic.
+
+Evaluate this difference carefully.
+
+==================================================
+PART 6 — INTERVIEW WINDOW UX
+==================================================
+
+Optimize Interview Ace for BOTH desktop and mobile.
+
+Most LeadOnto users are on mobile.
+
+Check:
+
+- Interview window size
+- Question visibility
+- Answer area
+- Microphone controls
+- Recording controls
+- Timer
+- Submit/next controls
+- Feedback
+- Scrolling
+- Keyboard behavior
+- Touch targets
+- Bottom controls
+- Fixed/sticky elements
+- Screen space
+- Orientation
+- Browser compatibility
+- Loading states
+- Error states
+
+Make sure the user never has to fight the interface.
+
+The interview experience should feel like a professional mobile interview simulator.
+
+==================================================
+PART 7 — MOBILE-FIRST AUDIT OF EVERY SERVICE
+==================================================
+
+Assume the primary user is on a mobile phone.
+
+Audit EVERY product and every important page at mobile dimensions.
+
+Do not simply check whether the page technically becomes responsive.
+
+Check actual usability.
+
+Specifically inspect:
+
+- Header
+- Navigation
+- All Products menu
+- CTAs
+- Cards
+- Forms
+- Inputs
+- Buttons
+- Dropdowns
+- Tabs
+- Modals
+- AI conversation area
+- Bottom action areas
+- Sticky controls
+- Save/share/download controls
+- PDF/Word buttons
+- Progress indicators
+- Payment CTA
+- Upgrade CTA
+- Feedback screens
+- Results pages
+- Job cards
+- Resume tools
+- Interview controls
+
+The screenshots show that some important actions/options can appear at the bottom of large content areas.
+
+Determine whether users can easily discover and use these controls on mobile.
+
+Pay special attention to:
+
+- Live Conversation bottom controls
+- Interview Ace bottom controls
+- Communication Check controls
+- Any service where the user has to scroll to find the next action
+- Controls hidden below the fold
+- Horizontal scrolling
+- Clipped content
+- Tiny buttons
+- Overlapping elements
+
+For EVERY major mobile problem provide:
+
+Problem → Why it matters → Recommended UX → Expected impact.
+
+==================================================
+PART 8 — LANDING PAGES + CTA AUDIT
+==================================================
+
+Visit every service landing page.
+
+For each one determine:
+
+1. What does the product promise?
+2. Is the promise immediately understandable?
+3. Does the page demonstrate the product?
+4. Is there a strong reason to try it?
+5. Is the CTA clear?
+6. Does the CTA lead directly to value?
+7. Is signup required too early?
+8. Does the user understand what they will get?
+9. Is there a strong reason to create an account?
+10. Is there a strong reason to pay?
+
+Audit every CTA.
+
+Create:
+
+| Page | CTA | Current Destination | Problem | Recommended CTA | Expected Effect |
+
+Look specifically for:
+
+- Too many CTAs
+- Weak CTAs
+- Generic "Get Started"
+- CTAs without a clear benefit
+- Signup before value
+- Dead ends
+- Confusing navigation
+- Pages that explain features but don't demonstrate value
+
+==================================================
+PART 9 — SIGNUP CONVERSION
+==================================================
+
+Determine why a visitor would NOT sign up.
+
+Think like a first-time Indian college student/fresher.
+
+Ask:
+
+"Why should I create an account right now?"
+
+Identify the exact moment where LeadOnto should demonstrate value BEFORE asking for signup.
+
+Recommend the ideal funnel.
+
+For example, evaluate whether this type of flow would work:
+
+Visitor
+→ Try a 2–3 minute experience
+→ Immediate personalized result
+→ Show score + weaknesses + recommendations
+→ Signup to save progress/report
+→ Daily practice
+→ Job-readiness improvement
+→ Paid upgrade
+
+Do NOT blindly implement this example. Determine the best funnel based on the actual product.
+
+==================================================
+PART 10 — ENGAGEMENT + RETENTION
+==================================================
+
+Determine why users may use LeadOnto once and leave.
+
+Audit:
+
+- First-session experience
+- Time to first value
+- Number of interactions
+- Personalization
+- Progress
+- Scores
+- Goals
+- Streaks
+- Challenges
+- Daily tasks
+- Notifications/reminders if available
+- Achievement mechanisms
+- Return triggers
+- Saved progress
+- Career relevance
+- Job relevance
+
+Answer:
+
+"What would make a user return tomorrow?"
+
+"What would make them return next week?"
+
+"What would make them tell a friend?"
+
+Recommend concrete mechanisms, not generic advice.
+
+==================================================
+PART 11 — ROZGAR SAMACHAR
+==================================================
+
+Audit Rojgar Samachar as if you were an actual job seeker.
+
+Check whether the jobs/news/output are:
+
+- Real
+- Current
+- Relevant
+- Useful
+- Personalized
+- Actionable
+- Correctly matched to the user
+- Not merely scraped listings
+- Not repetitive
+- Not irrelevant
+
+Check:
+
+- Job freshness
+- Source quality
+- Company authenticity
+- Location relevance
+- Qualification relevance
+- Salary information
+- Role relevance
+- Profile matching
+- "Why this may fit" explanations
+- Career-feed usefulness
+- Personalized newspaper/brief
+
+Most importantly:
+
+Determine whether the output actually helps the user make a career decision or take an action.
+
+A list of 20 jobs is not necessarily useful.
+
+Determine whether LeadOnto is providing:
+
+"Here are jobs."
+
+or:
+
+"Here are the 3 opportunities you should seriously consider and here's why."
+
+Check for hallucinated or questionable information.
+
+Flag anything that cannot be verified from the displayed source/data.
+
+==================================================
+PART 12 — RESUME INTELLIGENCE
+==================================================
+
+Test resume functionality.
+
+Determine whether analysis is genuinely based on the uploaded resume.
+
+Test different resumes if possible.
+
+Check:
+
+- Skills extraction
+- Experience interpretation
+- Job matching
+- Missing skills
+- Recommendations
+- ATS-related feedback
+- Role recommendations
+- Personalization
+- Generic feedback
+- Hallucinations
+
+Determine whether the result actually helps a candidate improve their chances of getting hired.
+
+==================================================
+PART 13 — COMMUNICATION CHECK
+==================================================
+
+Test the entire Communication Check flow.
+
+Determine whether:
+
+- Questions are meaningful
+- User answers are actually analyzed
+- Scores reflect performance
+- Feedback references actual answers
+- Communication weaknesses are real
+- Recommendations are personalized
+- Results lead naturally to practice
+
+Check whether the product provides a strong "aha moment."
+
+==================================================
+PART 14 — ALL OTHER SERVICES
+==================================================
+
+Audit every remaining service.
+
+For each service:
+
+- What problem does it solve?
+- Does it actually solve it?
+- Is the output personalized?
+- Is the AI genuinely useful?
+- Is the output repetitive?
+- Is it differentiated from ChatGPT/Gemini/Claude?
+- Why would someone use this instead of a general AI chatbot?
+- Why would they pay for it?
+
+==================================================
+PART 15 — COMPETITIVE DIFFERENTIATION
+==================================================
+
+Do NOT recommend making LeadOnto "another AI English app."
+
+Determine what LeadOnto can uniquely own.
+
+Evaluate the possibility of positioning around:
+
+AI English + communication + interview preparation + career readiness + real jobs.
+
+Determine whether the product can create a connected user journey:
+
+Assess me
+→ Identify weaknesses
+→ Practice
+→ Improve
+→ Interview
+→ Build resume
+→ Find relevant jobs
+→ Track job readiness
+
+Determine what the strongest product loop should be.
+
+==================================================
+PART 16 — MONETIZATION
+==================================================
+
+Audit the complete free-to-paid journey.
+
+Determine:
+
+- What is free?
+- What is paid?
+- When does the user see the upgrade?
+- Does the user understand the value of paying?
+- Is the paywall too early?
+- Is the paywall too late?
+- Is the paid product materially better?
+- Does the paid product solve an urgent problem?
+- Does pricing communicate value?
+- Is there enough reason to upgrade?
+
+Recommend a stronger monetization model.
+
+Do not recommend discounts as the first solution.
+
+First improve perceived and demonstrated value.
+
+==================================================
+PART 17 — PRODUCT QUALITY SCORE
+==================================================
+
+Score every major service from 1–10 on:
+
+- Actual usefulness
+- AI intelligence
+- Personalization
+- Authenticity
+- Output quality
+- Engagement
+- UX
+- Mobile UX
+- Differentiation
+- Signup potential
+- Retention potential
+- Paid conversion potential
+
+Then provide an overall LeadOnto score.
+
+==================================================
+PART 18 — PRIORITY MATRIX
+==================================================
+
+Create:
+
+| Priority | Problem | Recommended Change | Why | Expected Impact | Difficulty |
+
+Use:
+
+P0 = Critical
+P1 = Very High
+P2 = High
+P3 = Medium
+P4 = Low
+
+Prioritize changes that can produce the biggest improvement in:
+
+1. User value
+2. Signup
+3. Engagement
+4. Retention
+5. Paid conversion
+
+==================================================
+PART 19 — BEFORE VS AFTER
+==================================================
+
+Create a detailed table:
+
+| Current LeadOnto | Problem | Recommended New Experience | Why It Is Better | Expected User Behavior |
+
+Cover:
+
+- Homepage
+- Service landing pages
+- English Guru
+- Live Conversation
+- Interview Ace
+- Communication Check
+- Rojgar Samachar
+- Resume Intelligence
+- Tools Pro
+- Learning Journey
+- Signup
+- Progress
+- Pricing
+- Mobile navigation
+- CTAs
+- AI feedback
+- Paid conversion
+
+==================================================
+PART 20 — DO NOT CONFUSE UI WITH PRODUCT QUALITY
+==================================================
+
+A beautiful interface is not enough.
+
+If an AI output is generic, repetitive, irrelevant or fake-looking, flag it even if the UI looks excellent.
+
+If a feature looks impressive but provides little user value, flag it.
+
+If a simple feature provides substantial value, identify it as a strength.
+
+==================================================
+PART 21 — TECHNICAL INVESTIGATION
+==================================================
+
+Where possible, inspect the actual implementation/API behavior behind the features.
+
+Identify:
+
+- AI models being used
+- Prompt architecture
+- Context handling
+- Translation architecture
+- TTS architecture
+- Data flow
+- Personalization logic
+- Scoring logic
+- Job matching logic
+- Authentication
+- Analytics
+- Event tracking
+- Payment flow
+- API failures
+- Loading/error states
+- Mobile-specific implementation
+
+Do not assume an AI response is generated dynamically merely because the UI says "AI."
+
+Determine whether there are hard-coded/template responses where possible.
+
+==================================================
+PART 22 — FINAL RECOMMENDATION
+==================================================
+
+At the end give me:
+
+A. TOP 10 problems hurting LeadOnto
+
+B. TOP 10 changes most likely to increase engagement
+
+C. TOP 10 changes most likely to increase signup
+
+D. TOP 10 changes most likely to increase paid conversion
+
+E. TOP 10 changes most likely to make the AI feel dramatically smarter
+
+F. TOP 10 mobile UX fixes
+
+G. TOP 10 Interview Ace improvements
+
+H. TOP 10 Rojgar Samachar improvements
+
+I. TOP 10 Live Conversation improvements
+
+J. The single strongest LeadOnto product strategy
+
+K. The ideal user journey from first visit → first value → signup → repeated use → payment
+
+L. What should be removed because it adds complexity but little value
+
+M. What should be built next
+
+==================================================
+IMPORTANT TESTING RULES
+==================================================
+
+Do not give me generic startup advice.
+
+Do not say:
+
+"Improve UX."
+"Use better AI."
+"Add personalization."
+"Improve engagement."
+
+Explain EXACTLY:
+
+WHAT is wrong
+WHERE it happens
+WHY it happens
+WHAT should replace it
+HOW it should work
+WHY users will respond better
+EXPECTED BUSINESS IMPACT
+
+If you can test something, TEST IT.
+
+If you cannot verify something, clearly label it as "not verified."
+
+Do not claim something is real/authentic unless you have evidence.
+
+Do not assume outputs are personalized. Test them.
+
+Do not assume mobile responsiveness means good mobile UX. Actually evaluate usability.
+
+Do not focus only on visual design.
+
+The goal is to make LeadOnto a product that users genuinely find useful, return to repeatedly, recommend to others, and eventually pay for.
+
+FINAL DELIVERABLE:
+
+Give me a comprehensive audit report with:
+
+1. End-to-end findings
+2. Service-by-service findings
+3. Real vs templated AI assessment
+4. Authenticity assessment
+5. Mobile UX audit
+6. CTA/landing-page audit
+7. Signup analysis
+8. Engagement/retention analysis
+9. Paid conversion analysis
+10. Interview Ace audit
+11. Live Conversation audit
+12. Rojgar Samachar audit
+13. Interview feedback authenticity audit
+14. Technical/root-cause findings
+15. Before/after comparison table
+16. Priority matrix
+17. Recommended product strategy
+18. Exact implementation roadmap
+
+Do not stop at surface-level observations. Try to break the product like a real user and identify what would prevent LeadOnto from becoming a highly engaging, trustworthy and commercially successful product.
