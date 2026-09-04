@@ -91,6 +91,14 @@ export default function BuyCredits() {
     // Report one Google Ads conversion per server-confirmed order only.
     if (stage !== "paid" || !orderId || trackedPurchaseRef.current === orderId) return;
     if (trackGoogleAdsPurchase(orderId, orderCredits)) trackedPurchaseRef.current = orderId;
+    track("payment_approved", { orderId, amount: orderCredits, method: "cashfree" });
+    trackFunnel("payment_approved", { amount: orderCredits });
+  }, [orderCredits, orderId, stage]);
+
+  useEffect(() => {
+    if (stage !== "failed" || !orderId) return;
+    track("payment_rejected", { orderId, amount: orderCredits, method: "cashfree" });
+    trackFunnel("payment_rejected", { amount: orderCredits });
   }, [orderCredits, orderId, stage]);
 
   const reconcile = useCallback(async (id: string) => {
@@ -154,6 +162,9 @@ export default function BuyCredits() {
        try { sessionStorage.setItem(CASHFREE_MODE_KEY, mode); } catch { /* private browsing */ }
        const checkout = await loadCashfree(mode);
       await checkout({ paymentSessionId: result.paymentSessionId, redirectTarget: "_self" });
+       // Checkout opened — the closest client-side signal to "submitted".
+       track("payment_submitted", { orderId: result.orderId, amount: result.credits ?? amount, method: "cashfree" });
+       trackFunnel("payment_submitted", { amount: result.credits ?? amount });
     } catch {
       toast({ title: "Checkout could not open", description: "Your order is saved. You can retry from this page.", variant: "destructive" });
       setStage("pending");

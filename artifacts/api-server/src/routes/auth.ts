@@ -157,7 +157,12 @@ console.log(`[auth] To fix redirect_uri_mismatch, add this URL to Google Cloud C
 console.log(`[auth]   → APIs & Services → Credentials → OAuth 2.0 Client → Authorized redirect URIs`);
 console.log(`[auth] Or set the GOOGLE_CALLBACK_URL secret to lock it to a stable URL.`);
 
+let googleStrategyRegistered = false;
+
 function setupPassport() {
+  // Track whether the Google strategy was actually registered. The
+  // /auth/google route checks this so a misconfigured deployment redirects
+  // the learner to a tracked, recoverable login page instead of a raw 500.
   // Support both underscore and space variants of secret names
   const clientID = process.env["GOOGLE_CLIENT_ID"] ?? process.env["GOOGLE CLIENT ID"];
   const clientSecret = process.env["GOOGLE_CLIENT_SECRET"] ?? process.env["GOOGLE CLIENT SECRET"];
@@ -165,6 +170,7 @@ function setupPassport() {
     console.warn("[auth] GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not set — Google login disabled");
     return;
   }
+  googleStrategyRegistered = true;
 
   // Diagnostic: log first 8 chars + length so you can verify this matches
   // the Client ID in Google Cloud Console → APIs & Services → Credentials.
@@ -272,6 +278,14 @@ router.get("/auth/config", (_req, res) => {
 // Pass callbackURL dynamically so both dev-preview and production domains work
 // without requiring a server restart when REPLIT_DOMAINS changes.
 router.get("/auth/google", (req, res, next) => {
+  // Guard: if the Google strategy was never registered (missing/invalid env),
+  // passport.authenticate("google") throws "Unknown authentication strategy"
+  // and the learner lands on a raw 500 with no way back and no tracking.
+  // Redirect to the login page with a tracked, user-friendly error instead.
+  if (!googleStrategyRegistered) {
+    res.redirect("/login?error=google_unavailable");
+    return;
+  }
   const callbackURL = getCallbackURL();
   // Stash any guest ID so we can merge progress after OAuth completes.
   const guestId = req.query["guestId"] as string | undefined;

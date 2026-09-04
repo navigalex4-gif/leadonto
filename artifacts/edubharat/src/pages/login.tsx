@@ -87,6 +87,7 @@ function LoginContent() {
     const params = new URLSearchParams(search);
     const e = params.get("error");
     if (e === "google_failed") return "Google Sign-In failed. Please try again or use Email OTP below.";
+    if (e === "google_unavailable") return "Google Sign-In is temporarily unavailable. Email OTP below works instantly.";
     return "";
   });
   const [devCode, setDevCode] = useState<string | undefined>();

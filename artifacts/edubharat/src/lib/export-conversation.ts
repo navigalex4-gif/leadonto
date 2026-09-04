@@ -80,6 +80,16 @@ export async function exportConversationPdf(
     context.clearRect(0, 0, width, canvas.height);
     context.fillText(line, 2, 18);
     doc.addImage(canvas.toDataURL("image/png"), "PNG", x, baseline - 13, Math.min(width, maxW), 18);
+    // Canvas images render the glyphs but are invisible to PDF
+    // text extraction/search/accessibility. Add an invisible real-text layer
+    // for ASCII lines; Indic glyphs remain image-rendered because jsPDF's
+    // standard fonts cannot encode them. This is guarded and never fatal.
+    try {
+      if ([...line].every((character) => character.charCodeAt(0) <= 0x7f)) {
+        (doc as unknown as { text: (t: string, xx: number, yy: number, o?: object) => void })
+          .text(line, x, baseline, { renderingMode: "invisible" });
+      }
+    } catch { /* older jsPDF without renderingMode — image layer already drawn */ }
   };
   for (const turn of history) {
     const speaker = turn.role === "user" ? userName : aiName;
