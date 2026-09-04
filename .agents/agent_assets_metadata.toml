@@ -55,3 +55,17 @@ mtime_ms = 1788493459246
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:253b1260-26a5-43db-965d-8bf7a47f04a8/3cc5e51a-1bc2-4705-b228-5c7f2561a90b/fef6d640-c914-4ec4-9ec8-2068d7982046"
 storage_version_token = "1788493468631636"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "KIjxliWmOnQgH-t24p72Q"
+uri = "file://exports/lead-onto-complete-clean-source-v2.zip"
+type = "unspecified"
+title = "Lead Onto Complete Clean Source v2"
+description = "Final deduplicated app source archive. Includes web, API, Expo mobile, database migrations, shared libraries, assets, Replit configuration, and the latest STT/native-language fixes. Excludes dependencies, compiled builds, caches, logs, old exports, reports, screenshots, docs, mockup-only files, and empty duplicate placeholders. Archive size: 6.60 MB."
+logical_id = "0ef47333-27cd-4484-809f-c639982f0cfa"
+content_hash = "sha256:4bc69ac48f379f1e38ff86a1d1a9637b2ea331485df3c0508c039bcecfc9bb06"
+size = 6924658
+mtime_ms = 1788493597247
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:253b1260-26a5-43db-965d-8bf7a47f04a8/0ef47333-27cd-4484-809f-c639982f0cfa/92b4efb0-1d53-46eb-ac9d-45d2f3e64baa"
+storage_version_token = "1788493607150252"
+content_type = "application/octet-stream"
