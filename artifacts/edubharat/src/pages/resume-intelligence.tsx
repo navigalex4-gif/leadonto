@@ -1,0 +1,836 @@
+import { useState, useCallback, useEffect, useRef, useMemo, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { useHistory } from "@/lib/use-history";
+import { useProgress } from "@/lib/use-progress";
+import { useStudentProfile, type ResumeAnalysis } from "@/lib/use-student-profile";
+import {
+  FileText, Loader2, Sparkles, CheckCircle2, Upload,
+  Download, Bookmark, RefreshCw, Target, Zap, Shield,
+  BookOpen, Briefcase, GraduationCap, User, AlertCircle,
+  ChevronDown, ChevronUp, X,
+  Link2, ExternalLink, MessageCircleQuestion, ListChecks,
+} from "lucide-react";
+import { PageMeta } from "@/components/page-meta";
+import { formatGeneratedText } from "@/lib/english-tools";
+import { MobilePrimaryCTA } from "@/components/mobile-primary-cta";
+import { CelebrationOverlay } from "@/components/english/word-power";
+import { useGamification } from "@/lib/use-gamification";
+import { useAuth } from "@/lib/use-auth";
+import { trackFirstValue, withAcquisition } from "@/lib/analytics";
+import { Link } from "wouter";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TARGET_ROLES = [
+  { value: "software_engineer", label: "Software Engineer / Developer" },
+  { value: "data_analyst", label: "Data Analyst / Data Scientist" },
+  { value: "hr_professional", label: "HR / People Operations" },
+  { value: "sales_executive", label: "Sales Executive" },
+  { value: "marketing_manager", label: "Marketing Manager" },
+  { value: "finance_accountant", label: "Finance / Accountant / CA" },
+  { value: "banking_bfsi", label: "Banking / BFSI" },
+  { value: "operations_manager", label: "Operations Manager" },
+  { value: "government_services", label: "Government / Civil Services" },
+  { value: "fresher_general", label: "Fresher (Any Domain)" },
+  { value: "product_manager", label: "Product Manager" },
+  { value: "content_writer", label: "Content Writer / Editor" },
+  { value: "customer_service", label: "Customer Service" },
+  { value: "mechanical_engineer", label: "Mechanical / Civil Engineer" },
+  { value: "teacher_education", label: "Teacher / Education Sector" },
+  { value: "healthcare_nursing", label: "Healthcare / Nursing / Paramedic" },
+  { value: "mba_management", label: "MBA / Management Trainee" },
+  { value: "legal_professional", label: "Legal / Law / Compliance" },
+];
+
+const EXPERIENCE_LEVELS = [
+  "Fresher (0 years)",
+  "Junior (1-3 years)",
+  "Mid-level (3-6 years)",
+  "Senior (6-10 years)",
+  "Expert (10+ years)",
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ACCEPT_TYPES = ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+type JobMatchResult = {
+  matchScore: number;
+  roleTitle: string;
+  company: string;
+  location: string;
+  salary: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  resumeChanges: string[];
+  interviewQuestions: string[];
+  practicePrompt: string;
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function scoreGrade(score: number): { label: string; color: string; bg: string } {
+  if (score >= 85) return { label: "Excellent", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" };
+  if (score >= 70) return { label: "Good", color: "text-blue-700", bg: "bg-blue-50 border-blue-200" };
+  if (score >= 55) return { label: "Average", color: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200" };
+  return { label: "Needs Work", color: "text-red-700", bg: "bg-red-50 border-red-200" };
+}
+
+function stringArrayProp(analysis: ResumeAnalysis, key: keyof ResumeAnalysis): string[] {
+  const value = analysis[key];
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+function parseSSE(response: Response): AsyncGenerator<string> {
+  return (async function* () {
+    const reader = response.body?.getReader();
+    if (!reader) return;
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const data = JSON.parse(line.slice(6)) as { content?: string; done?: boolean; error?: string };
+          if (data.error) throw new Error(data.error);
+          if (data.done) return;
+          if (data.content) yield data.content;
+        } catch (e) {
+          if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
+        }
+      }
+    }
+  })();
+}
+
+// ─── Section card ──────────────────────────────────────────────────────────────
+
+type SectionDef = { id: keyof ResumeAnalysis; title: string; icon: React.ElementType; color: string };
+
+const SECTIONS: SectionDef[] = [
+  { id: "skills", title: "Skills", icon: Zap, color: "text-orange-600" },
+  { id: "education", title: "Education", icon: GraduationCap, color: "text-teal-600" },
+  { id: "atsGaps", title: "ATS Gaps", icon: Shield, color: "text-red-600" },
+  { id: "formattingIssues", title: "Formatting Issues", icon: BookOpen, color: "text-amber-600" },
+  { id: "suggestions", title: "Suggestions", icon: Target, color: "text-blue-600" },
+];
+
+function SectionCard({ sec, items }: { sec: SectionDef; items: string[] }) {
+  const [open, setOpen] = useState(true);
+  if (!items || items.length === 0) return null;
+  return (
+    <Card className="border shadow-sm overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/40 transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <div className="flex items-center gap-3">
+          <sec.icon className={`w-4 h-4 ${sec.color}`} />
+          <span className="font-semibold text-sm text-secondary">{sec.title}</span>
+          <span className="text-xs text-muted-foreground">({items.length})</span>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+      {open && (
+        <div className="border-t px-5 pb-4 pt-3 bg-muted/20 space-y-2">
+          {items.map((item, i) => (
+            <p key={i} className="text-sm text-secondary leading-relaxed flex items-start gap-2">
+              <span className="text-primary mt-0.5">•</span>
+              <span>{item}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
+
+export default function ResumeIntelligence() {
+  return (
+    <>
+      <PageMeta
+        title="Resume Intelligence"
+        description="Get an AI resume review, ATS score, keyword gaps, and targeted improvements for Indian jobs."
+        ogUrl="https://leadonto.com/resume-intelligence"
+        canonicalUrl="https://leadonto.com/resume-intelligence"
+      />
+      <ResumeIntelligenceContent />
+    </>
+  );
+}
+
+function ResumeIntelligenceContent() {
+  const { user } = useAuth();
+  const { items: historyItems, save } = useHistory();
+  const { track } = useProgress();
+  const gam = useGamification(0);
+  const { profile, updateProfile, isLoading: profileLoading } = useStudentProfile();
+  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+
+  const [targetRole, setTargetRole] = useState(
+    () => TARGET_ROLES.find(r =>
+      r.label.toLowerCase().includes((profile.preferredRole ?? "").toLowerCase())
+    )?.value ?? "fresher_general"
+  );
+  const [experienceLevel, setExperienceLevel] = useState(() => {
+    const lvl = profile.experienceLevel ?? "";
+    if (/senior|6|7|8|9|10/i.test(lvl)) return "Senior (6-10 years)";
+    if (/mid|3|4|5/i.test(lvl)) return "Mid-level (3-6 years)";
+    if (/junior|1|2/i.test(lvl)) return "Junior (1-3 years)";
+    return "Fresher (0 years)";
+  });
+  const [resumeText, setResumeText] = useState("");
+  const [fileName, setFileName] = useState(profile.resumeFileName || "");
+  const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(profile.resumeAnalysis);
+  const [hasResume, setHasResume] = useState(!!profile.resumeFileName || !!profile.resumeAnalysis);
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [isAnalysing, setIsAnalysing] = useState(false);
+  const [isDownloadingImproved, setIsDownloadingImproved] = useState(false);
+  const [isDownloadingWord, setIsDownloadingWord] = useState(false);
+  const [streamText, setStreamText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [savedToHistory, setSavedToHistory] = useState(false);
+  const [jobUrl, setJobUrl] = useState(() => new URLSearchParams(window.location.search).get("jobUrl") ?? "");
+  const [jobMatch, setJobMatch] = useState<JobMatchResult | null>(null);
+  const [isMatchingJob, setIsMatchingJob] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const targetRoleMeta = TARGET_ROLES.find(r => r.value === targetRole)!;
+
+  // Fetch current resume from server on mount
+  useEffect(() => {
+    fetch(`${base}/api/resume/current`, { credentials: "include" })
+      .then(r => r.json())
+      .then((data: {
+        hasResume: boolean;
+        fileName?: string;
+        resumeText?: string;
+        analysis?: ResumeAnalysis;
+        experienceSummary?: string;
+      }) => {
+        if (data.hasResume) {
+          setFileName(data.fileName || "");
+          setResumeText(data.resumeText || "");
+          setAnalysis(data.analysis || null);
+          setHasResume(true);
+        }
+      })
+      .catch(() => { /* ignore */ });
+  }, [base]);
+
+  const overallScore = analysis?.overallScore ?? 0;
+  const g = scoreGrade(overallScore);
+  const savedResumeReviews = useMemo(
+    () => historyItems.filter(item => item.tool === "Rozgar Samachar" && item.title.startsWith("Resume Analysis —")),
+    [historyItems],
+  );
+  const priorityActions = useMemo(() => {
+    if (!analysis) return [];
+    const groups = [
+      { source: "Role/keyword gap", items: stringArrayProp(analysis, "atsGaps") },
+      { source: "Formatting fix", items: stringArrayProp(analysis, "formattingIssues") },
+      { source: "Content improvement", items: stringArrayProp(analysis, "suggestions") },
+    ];
+    return groups.flatMap(group => group.items.slice(0, 2).map(item => ({ ...group, item }))).slice(0, 5);
+  }, [analysis]);
+
+  const handleFileChange = useCallback(async (file: File) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setError("File is too large. Maximum size is 5 MB.");
+      return;
+    }
+    setError(null);
+    setIsUploading(true);
+    setIsAnalysing(false);
+    setStreamText("");
+    setAnalysis(null);
+    setSavedToHistory(false);
+
+    const form = new FormData();
+    form.append("resume", file);
+
+    try {
+      const res = await fetch(`${base}/api/resume/upload`, {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+      const data = await res.json() as { success?: boolean; error?: string; wordCount?: number; charCount?: number; extractedText?: string };
+      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+      setFileName(file.name);
+      setHasResume(true);
+      // For guests, server returns extracted text so analysis works without DB persistence
+      if (data.extractedText) {
+        setResumeText(data.extractedText);
+      } else {
+        setResumeText("");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [base]);
+
+  const analyse = useCallback(async () => {
+    if (!hasResume && !resumeText.trim()) return;
+    setIsAnalysing(true);
+    setStreamText("");
+    setError(null);
+    setSavedToHistory(false);
+    abortRef.current = new AbortController();
+
+    try {
+      // If user pasted text without uploading a file, save it first (best-effort for auth users)
+      if (!hasResume && resumeText.trim()) {
+        const saveRes = await fetch(`${base}/api/resume/text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: resumeText.trim() }),
+          credentials: "include",
+        });
+        if (saveRes.ok) setHasResume(true);
+        // For guests, save may fail — that's OK, we'll pass text directly below
+      }
+
+      // Pass guestText so the server can analyse without auth if user isn't signed in
+      const body: Record<string, string> = { targetRole: targetRoleMeta.label, experienceLevel };
+      if (resumeText.trim()) body.guestText = resumeText.trim();
+
+      const res = await fetch(`${base}/api/resume/analyse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+        signal: abortRef.current.signal,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(errData.error ?? "Analysis request failed");
+      }
+
+      let fullText = "";
+      for await (const chunk of parseSSE(res)) {
+        fullText += chunk;
+        setStreamText(fullText);
+      }
+
+      // Try to parse final JSON from the accumulated text. The model occasionally
+      // wraps JSON in prose or markdown fences, so isolate the {...} object before
+      // parsing — this prevents the "Unexpected end of JSON input" failure.
+      const stripped = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const firstBrace = stripped.indexOf("{");
+      const lastBrace = stripped.lastIndexOf("}");
+      const candidate = firstBrace !== -1 && lastBrace > firstBrace
+        ? stripped.slice(firstBrace, lastBrace + 1)
+        : stripped;
+      let parsed: ResumeAnalysis;
+      try {
+        parsed = JSON.parse(candidate);
+      } catch {
+        throw new Error("The analysis came back incomplete. Please tap Analyse again.");
+      }
+      setAnalysis(parsed);
+      track("Rozgar Samachar", `Resume analysis — ${targetRoleMeta.label}`, parsed.overallScore);
+      trackFirstValue("resume_analysis", { score: parsed.overallScore });
+      // Sync to local profile state if server sync succeeded
+      await updateProfile({
+        resumeAnalysis: parsed,
+        experienceSummary: parsed.experienceSummary,
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setError(err instanceof Error ? err.message : "Analysis failed");
+      }
+    } finally {
+      setIsAnalysing(false);
+    }
+  }, [hasResume, resumeText, base, targetRoleMeta, experienceLevel, track, updateProfile]);
+
+  const matchJob = useCallback(async () => {
+    if (!jobUrl.trim()) {
+      setError("Paste a public job posting URL first.");
+      return;
+    }
+    if (!hasResume && !resumeText.trim()) {
+      setError("Upload or paste your resume before matching it to a job.");
+      return;
+    }
+    setIsMatchingJob(true);
+    setJobMatch(null);
+    setError(null);
+    try {
+      const response = await fetch(`${base}/api/resume/job-match`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobUrl: jobUrl.trim(), guestText: resumeText.trim() || undefined }),
+      });
+      const data = await response.json() as { result?: JobMatchResult; error?: string };
+      if (!response.ok || !data.result) throw new Error(data.error || "Job match failed");
+      setJobMatch(data.result);
+      track("Rozgar Samachar", `Job match — ${data.result.roleTitle || targetRoleMeta.label}`, data.result.matchScore);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not analyse this job posting.");
+    } finally {
+      setIsMatchingJob(false);
+    }
+  }, [base, hasResume, jobUrl, resumeText, targetRoleMeta.label, track]);
+
+  /** Shared API call — fetch the AI-improved resume text */
+  const fetchImprovedText = useCallback(async (): Promise<string> => {
+    const res = await fetch(`${base}/api/resume/improved`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resumeText: resumeText || "",
+        targetRole: targetRoleMeta.label,
+        experienceLevel,
+        guestText: resumeText || "",
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to generate improved resume" }));
+      throw new Error((err as { error: string }).error || "Failed to generate improved resume");
+    }
+    const { improvedText } = await res.json() as { improvedText: string };
+    return improvedText || "";
+  }, [base, resumeText, targetRoleMeta.label, experienceLevel]);
+
+  /** Download the improved resume as a real PDF */
+  const downloadImprovedResumePdf = useCallback(async () => {
+    if (!resumeText && !analysis) return;
+    setIsDownloadingImproved(true);
+    try {
+      const text = await fetchImprovedText();
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 48;
+      const maxW = pageW - margin * 2;
+      let y = margin;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(17);
+      doc.setTextColor(234, 88, 12);
+      doc.text(`Improved Resume — ${targetRoleMeta.label}`, margin, y);
+      y += 18;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(140, 140, 140);
+      doc.text("Generated by Lead Onto Resume Intelligence", margin, y);
+      y += 24;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.setTextColor(40, 40, 40);
+      for (const para of text.split("\n")) {
+        const lines = doc.splitTextToSize(para || " ", maxW) as string[];
+        for (const line of lines) {
+          if (y + 15 > pageH - margin) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += 15;
+        }
+        y += 4;
+      }
+      doc.save(`improved-resume-${targetRole}-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate PDF. Please try again.");
+    } finally {
+      setIsDownloadingImproved(false);
+    }
+  }, [resumeText, analysis, fetchImprovedText, targetRoleMeta.label, targetRole]);
+
+  /** Download the improved resume as a Word (.doc) file */
+  const downloadImprovedResumeWord = useCallback(async () => {
+    if (!resumeText && !analysis) return;
+    setIsDownloadingWord(true);
+    try {
+      const text = await fetchImprovedText();
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const paragraphs = text
+        .split("\n")
+        .map(p => `<p style="margin:0 0 6px 0;font-size:11pt;">${esc(p) || "&nbsp;"}</p>`)
+        .join("");
+      const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Improved Resume — ${esc(targetRoleMeta.label)}</title></head>
+<body style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#282828;">
+<h1 style="color:#ea580c;font-size:18pt;margin:0 0 4px 0;">Improved Resume — ${esc(targetRoleMeta.label)}</h1>
+<p style="color:#787878;font-size:9pt;margin:0 0 16px 0;">Generated by Lead Onto Resume Intelligence</p>
+${paragraphs}
+</body></html>`;
+      const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `improved-resume-${targetRole}-${new Date().toISOString().slice(0, 10)}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not generate Word file. Please try again.");
+    } finally {
+      setIsDownloadingWord(false);
+    }
+  }, [resumeText, analysis, fetchImprovedText, targetRoleMeta.label, targetRole]);
+
+  const handleSave = useCallback(() => {
+    if (!analysis) return;
+    save({
+      tool: "Rozgar Samachar",
+      title: `Resume Analysis — ${targetRoleMeta.label} (${analysis.overallScore ?? "?"}/100)`,
+      content: JSON.stringify(analysis, null, 2),
+    });
+    setSavedToHistory(true);
+    gam.award("resume_analysis", { product: "resume" });
+  }, [analysis, save, targetRoleMeta, gam.award]);
+
+  const downloadReport = useCallback(() => {
+    if (!analysis) return;
+    const content = [
+      "LEAD ONTO — RESUME INTELLIGENCE REPORT",
+      `Target Role: ${targetRoleMeta.label}`,
+      `Experience Level: ${experienceLevel}`,
+      `Date: ${new Date().toLocaleDateString("en-IN")}`,
+      `Overall Score: ${analysis.overallScore ?? "N/A"}/100`,
+      "",
+      JSON.stringify(analysis, null, 2),
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `resume-analysis-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [analysis, targetRoleMeta, experienceLevel]);
+
+  // ── Upload / analyse input view ───────────────────────────────────────────────
+  return (
+    <div className="min-h-full overflow-y-auto container mx-auto px-4 py-8 max-w-4xl space-y-6">
+      {gam.celebration && (
+        <CelebrationOverlay
+          title={gam.celebration.title}
+          subtitle={gam.celebration.subtitle}
+          onDismiss={gam.dismissCelebration}
+        />
+      )}
+      <div className="text-center mb-5">
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+          <FileText className="w-5 h-5 text-primary" />
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-secondary mb-1">Resume Intelligence</h1>
+        <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+          Upload your resume (PDF or DOCX) and get a clear score, skill gaps, ATS tips, and improvement suggestions.
+        </p>
+      </div>
+       <MobilePrimaryCTA label="Scan My Resume Free" href="#resume-upload" />
+
+      <Card className="border-primary/20 bg-primary/[0.03]">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Target className="h-5 w-5 text-primary" />
+            Match your resume to a real job
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Paste a public job link to see your fit, missing skills, truthful resume changes, and interview questions.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={jobUrl}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setJobUrl(e.target.value)}
+                placeholder="https://company.com/careers/job-posting"
+                className="pl-9"
+                disabled={isMatchingJob || isAnalysing}
+                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") void matchJob(); }}
+              />
+            </div>
+            <Button onClick={matchJob} disabled={isMatchingJob || isAnalysing || (!hasResume && !resumeText.trim())}>
+              {isMatchingJob ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Reading job…</> : <><Sparkles className="mr-2 h-4 w-4" />Match this job</>}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">The page must be publicly accessible. Your resume stays in Lead Onto.</p>
+        </CardContent>
+      </Card>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <label className="block space-y-2">
+          <span className="text-sm font-semibold">Target Role</span>
+          <Select value={targetRole} onValueChange={setTargetRole} disabled={isAnalysing}>
+            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TARGET_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-semibold">Experience Level</span>
+          <Select value={experienceLevel} onValueChange={setExperienceLevel} disabled={isAnalysing}>
+            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {EXPERIENCE_LEVELS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </label>
+      </div>
+
+      {/* Upload zone */}
+       <Card id="resume-upload" className="border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+        <CardContent className="p-6">
+          <label className="flex flex-col items-center justify-center cursor-pointer gap-3">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+              {isUploading ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : <Upload className="w-6 h-6 text-primary" />}
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-secondary">{isUploading ? "Uploading…" : "Click or drop your resume here"}</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF or DOCX, up to 5 MB</p>
+            </div>
+            <input
+              type="file"
+              accept={ACCEPT_TYPES}
+              className="hidden"
+              disabled={isUploading || isAnalysing}
+              onChange={e => e.target.files?.[0] && handleFileChange(e.target.files[0])}
+            />
+          </label>
+        </CardContent>
+      </Card>
+
+      {/* Text input — always available, file upload or paste */}
+      <div className="space-y-3">
+        {fileName && (
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl text-sm">
+            <FileText className="w-4 h-4 text-primary" />
+            <span className="font-medium text-secondary">{fileName}</span>
+            {hasResume && <CheckCircle2 className="w-4 h-4 text-green-600 ml-auto" />}
+          </div>
+        )}
+        <label className="block space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground">Or paste resume text directly</span>
+          <Textarea
+            placeholder="Paste your resume text here if you don't have a file..."
+            className="min-h-[160px] text-sm font-mono"
+            value={resumeText}
+            onChange={e => setResumeText(e.target.value)}
+            disabled={isAnalysing}
+          />
+          <p className="text-xs text-muted-foreground text-right">{resumeText.split(/\s+/).filter(Boolean).length} words</p>
+        </label>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-800">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {error}
+          <Button variant="ghost" size="sm" className="ml-auto h-6 px-2" onClick={() => setError(null)}><X className="w-3 h-3" /></Button>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <Button
+          className="font-bold"
+          onClick={analyse}
+          disabled={(!hasResume && !resumeText.trim()) || isAnalysing || isUploading}
+        >
+          {isAnalysing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analysing…</> : <><Sparkles className="w-4 h-4 mr-2" />Analyse Resume</>}
+        </Button>
+        {analysis && (
+          <>
+            <Button variant="outline" onClick={downloadReport}><Download className="w-4 h-4 mr-2" />Download Report</Button>
+            <Button variant="outline" onClick={downloadImprovedResumePdf} disabled={isDownloadingImproved || isDownloadingWord}>
+              {isDownloadingImproved ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</> : <><Download className="w-4 h-4 mr-2" />Improved PDF</>}
+            </Button>
+            <Button variant="outline" onClick={downloadImprovedResumeWord} disabled={isDownloadingImproved || isDownloadingWord}>
+              {isDownloadingWord ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</> : <><Download className="w-4 h-4 mr-2" />Improved Word</>}
+            </Button>
+            <Button variant={savedToHistory ? "secondary" : "outline"} onClick={handleSave} disabled={savedToHistory}>
+              {savedToHistory ? <><CheckCircle2 className="w-4 h-4 mr-2" />Saved</> : <><Bookmark className="w-4 h-4 mr-2" />Save</>}
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Streaming preview */}
+      {isAnalysing && streamText && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-4">
+            <p className="text-sm font-semibold text-primary mb-2">Analysing your resume…</p>
+            <div className="text-sm text-secondary whitespace-pre-wrap leading-relaxed line-clamp-10">{formatGeneratedText(streamText)}</div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results scorecard */}
+      {analysis && !isAnalysing && (
+        <div className="space-y-6">
+          {!user && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold text-blue-950">Keep this score and action plan</p>
+                  <p className="text-sm text-blue-800">Create a free account to sync this review and compare your next resume version across devices.</p>
+                </div>
+                <Link href={withAcquisition("/login?returnTo=%2Fresume-intelligence")}>
+                  <Button className="w-full whitespace-nowrap sm:w-auto">Save my progress</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+          <Card className={`border-2 ${g.bg}`}>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-6 flex-wrap">
+                <div className="text-center min-w-[100px]">
+                  <div className={`text-6xl font-display font-extrabold ${g.color}`}>{overallScore}</div>
+                  <div className={`text-xs font-bold uppercase tracking-wider ${g.color}`}>/100</div>
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <div className={`text-xl font-bold ${g.color} mb-2`}>{g.label} Resume</div>
+                  <Progress value={overallScore} className="h-3 bg-white/70" />
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    This is an AI review against the selected role, not a guaranteed ATS score or hiring outcome. Verify every suggested claim before using it.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-primary/[0.03]">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ListChecks className="h-5 w-5 text-primary" />
+                Priority action plan
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Work top to bottom, then re-run the review to compare your next version.</p>
+            </CardHeader>
+            <CardContent>
+              {priorityActions.length > 0 ? (
+                <ol className="space-y-3">
+                  {priorityActions.map((action, index) => (
+                    <li key={`${action.source}-${index}`} className="flex gap-3 rounded-xl border bg-background p-3">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{index + 1}</span>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">{action.source}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-secondary">{action.item}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-muted-foreground">No specific priority fixes were returned. Review the detailed sections below before changing your resume.</p>
+              )}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">Keep a version trail</p>
+                  <p className="text-xs text-blue-800">
+                    {savedResumeReviews.length > 0
+                      ? `${savedResumeReviews.length} review${savedResumeReviews.length === 1 ? "" : "s"} saved. Latest: ${new Date(savedResumeReviews[0]!.savedAt).toLocaleDateString("en-IN")}.`
+                      : "Save this review before editing so you can compare improvements later."}
+                  </p>
+                </div>
+                <Button variant={savedToHistory ? "secondary" : "default"} size="sm" onClick={handleSave} disabled={savedToHistory}>
+                  {savedToHistory ? <><CheckCircle2 className="mr-2 h-4 w-4" />Plan saved</> : <><Bookmark className="mr-2 h-4 w-4" />Save plan & score</>}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {analysis.experienceSummary && (
+            <Card className="border bg-blue-50 border-blue-200">
+              <CardContent className="p-4 flex items-start gap-3">
+                <Briefcase className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-blue-800 mb-1">Experience Summary</p>
+                  <p className="text-sm text-blue-900 leading-relaxed">{formatGeneratedText(analysis.experienceSummary)}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-3">
+            {SECTIONS.map(sec => {
+              const items = stringArrayProp(analysis, sec.id);
+              return items.length > 0 ? <SectionCard key={sec.id} sec={sec} items={items} /> : null;
+            })}
+          </div>
+        </div>
+      )}
+
+      {jobMatch && !isMatchingJob && (
+        <div className="space-y-4">
+          <Card className="border-2 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex flex-wrap items-start gap-5">
+                <div className="text-center">
+                  <div className="text-5xl font-display font-extrabold text-primary">{jobMatch.matchScore}</div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">estimated profile fit /100</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-bold text-secondary">{jobMatch.roleTitle || "Job opportunity"}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {[jobMatch.company, jobMatch.location, jobMatch.salary].filter(Boolean).join(" · ") || "Details extracted from the posting"}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-secondary">{formatGeneratedText(jobMatch.summary)}</p>
+                   <p className="mt-2 text-xs text-muted-foreground">Based on the public posting and resume text available to this review. This is guidance, not an employer or ATS decision.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <JobMatchList title="Your strengths for this role" items={jobMatch.strengths} tone="green" />
+            <JobMatchList title="Gaps to close" items={jobMatch.gaps} tone="amber" />
+            <JobMatchList title="Resume changes" items={jobMatch.resumeChanges} tone="blue" />
+            <JobMatchList title="Likely interview questions" items={jobMatch.interviewQuestions} tone="purple" icon={<MessageCircleQuestion className="h-4 w-4" />} />
+          </div>
+          {jobMatch.practicePrompt && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-5">
+                <p className="flex items-center gap-2 text-sm font-bold text-blue-800"><MessageCircleQuestion className="h-4 w-4" />Practice this answer out loud</p>
+                <p className="mt-2 text-sm leading-6 text-blue-950">{jobMatch.practicePrompt}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JobMatchList({ title, items, tone, icon }: { title: string; items: string[]; tone: "green" | "amber" | "blue" | "purple"; icon?: ReactNode }) {
+  const styles = {
+    green: "border-green-200 bg-green-50 text-green-900",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    blue: "border-blue-200 bg-blue-50 text-blue-950",
+    purple: "border-violet-200 bg-violet-50 text-violet-950",
+  }[tone];
+  return (
+    <Card className={styles}>
+      <CardContent className="p-5">
+        <h3 className="flex items-center gap-2 text-sm font-bold">{icon ?? <CheckCircle2 className="h-4 w-4" />}{title}</h3>
+        {items.length ? (
+          <ul className="mt-3 space-y-2 text-sm leading-5">
+            {items.map((item, index) => <li key={`${title}-${index}`} className="flex gap-2"><span aria-hidden="true">•</span><span>{item}</span></li>)}
+          </ul>
+        ) : <p className="mt-3 text-sm opacity-80">No specific items found.</p>}
+      </CardContent>
+    </Card>
+  );
+}

@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login
+Disallow: /profile
+Disallow: /progress
+Disallow: /history
+Disallow: /credits
+Disallow: /b2b/
+Disallow: /b2b-interview/
+Disallow: /interview-ace
+Disallow: /resume-intelligence
+Disallow: /learning-journey
+Disallow: /english-guru/app
+Disallow: /english-guru/embed
+Sitemap: https://leadonto.com/sitemap.xml

@@ -1,0 +1,31 @@
+# The format of this file is identical to `.dockerignore`.
+# It is used to reduce the size of deployed images to make the process of publishing faster.
+
+# No need to store the pnpm store twice.
+.local
+
+# Replit/deployment can reinstall dependencies and rebuild these outputs.
+.git
+node_modules
+.cache
+**/dist
+**/.expo
+**/.vite
+**/static-build
+
+# These generated outputs are required by artifact production services after
+# the publish build finishes: the web artifact is served from dist/public and
+# the mobile artifact's production server reads static-build/.
+!artifacts/edubharat/dist/
+!artifacts/edubharat/dist/public/
+!artifacts/edubharat/dist/public/**
+!artifacts/edubharat-mobile/static-build/
+!artifacts/edubharat-mobile/static-build/**
+!artifacts/api-server/dist/
+!artifacts/api-server/dist/**
+
+# Temporary exports, uploads, screenshots, and agent-rendered evidence are not runtime inputs.
+exports/
+attached_assets/
+screenshots/
+.agents/outputs/

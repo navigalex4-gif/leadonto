@@ -1,0 +1,647 @@
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import multer from "multer";
+// Import the inner parser to avoid v1.1.1's debug-mode test-PDF loader at import time
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import mammoth from "mammoth";
+import { db, usersTable, resumeVersionsTable } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
+import { generateTextWithFallback } from "./ai.js";
+
+export const router: IRouter = Router();
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const FIRECRAWL_TIMEOUT_MS = 25_000;
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+    ];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  next();
+}
+
+async function recordResumeReplacement(
+  userId: number,
+  nextText: string,
+  nextFileName: string,
+) {
+  const [current] = await db
+    .select({
+      resumeText: usersTable.resumeText,
+      resumeFileName: usersTable.resumeFileName,
+      resumeAnalysis: usersTable.resumeAnalysis,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+
+  if (current?.resumeText?.trim()) {
+    await db.insert(resumeVersionsTable).values({
+      userId,
+      versionType: "previous",
+      fileName: current.resumeFileName,
+      resumeText: current.resumeText,
+      resumeAnalysis: current.resumeAnalysis,
+    });
+  }
+
+  await db.insert(resumeVersionsTable).values({
+    userId,
+    versionType: "original",
+    fileName: nextFileName,
+    resumeText: nextText,
+  });
+}
+
+async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
+  if (mimetype === "application/pdf") {
+    const data = await pdfParse(buffer);
+    return data.text ?? "";
+  }
+  // DOCX / DOC
+  const result = await mammoth.extractRawText({ buffer });
+  return result.value ?? "";
+}
+
+type JobMatchResult = {
+  matchScore: number;
+  roleTitle: string;
+  company: string;
+  location: string;
+  salary: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  resumeChanges: string[];
+  interviewQuestions: string[];
+  practicePrompt: string;
+};
+
+function isSafePublicUrl(rawUrl: string): URL | null {
+  try {
+    const url = new URL(rawUrl);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+    const host = url.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "::1" ||
+      host === "0.0.0.0" ||
+      host.startsWith("127.") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal")
+    ) return null;
+    url.username = "";
+    url.password = "";
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function scrapeJobUrl(url: URL): Promise<{ markdown: string; title?: string; sourceUrl: string }> {
+  const apiKey = process.env["FIRECRAWL_API_KEY"];
+  if (!apiKey) throw new Error("Firecrawl is not configured yet. Please try again later.");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FIRECRAWL_TIMEOUT_MS);
+  try {
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: url.toString(),
+        formats: ["markdown"],
+        onlyMainContent: true,
+      }),
+    });
+    const payload = await response.json().catch(() => null) as {
+      success?: boolean;
+      error?: string;
+      data?: { markdown?: string; metadata?: { title?: string; sourceURL?: string } };
+    } | null;
+    if (!response.ok || !payload?.data?.markdown?.trim()) {
+      throw new Error(payload?.error || "Could not read that job posting.");
+    }
+    return {
+      markdown: payload.data.markdown.slice(0, 40_000),
+      title: payload.data.metadata?.title,
+      sourceUrl: payload.data.metadata?.sourceURL || url.toString(),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// POST /api/resume/job-match — extract a public job posting and compare it with the resume
+router.post("/resume/job-match", async (req, res) => {
+  try {
+    const { jobUrl, guestText } = req.body as Record<string, unknown>;
+    if (typeof jobUrl !== "string" || !jobUrl.trim()) {
+      res.status(400).json({ error: "Paste a public job posting URL first." });
+      return;
+    }
+    const safeUrl = isSafePublicUrl(jobUrl.trim());
+    if (!safeUrl) {
+      res.status(400).json({ error: "Please use a valid public http or https job URL." });
+      return;
+    }
+
+    let resumeTextToAnalyse = "";
+    if (req.session.userId) {
+      const [user] = await db
+        .select({ resumeText: usersTable.resumeText })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+      resumeTextToAnalyse = user?.resumeText || (typeof guestText === "string" ? guestText : "");
+    } else if (typeof guestText === "string") {
+      resumeTextToAnalyse = guestText;
+    }
+    if (!resumeTextToAnalyse.trim()) {
+      res.status(400).json({ error: "Upload or paste your resume before matching it to a job." });
+      return;
+    }
+
+    const scraped = await scrapeJobUrl(safeUrl);
+    const prompt = `Compare this candidate's resume with the public job posting and return valid JSON only.
+
+JOB POSTING URL: ${scraped.sourceUrl}
+JOB POSTING:
+${scraped.markdown}
+
+CANDIDATE RESUME:
+${resumeTextToAnalyse.slice(0, 24_000)}
+
+Return exactly this shape:
+{
+  "matchScore": 0-100,
+  "roleTitle": "role title",
+  "company": "company or empty string",
+  "location": "location or empty string",
+  "salary": "salary or empty string",
+  "summary": "2 concise sentences explaining fit for this role",
+  "strengths": ["specific matching strength"],
+  "gaps": ["specific missing skill or experience"],
+  "resumeChanges": ["specific truthful change to make"],
+  "interviewQuestions": ["role-specific question"],
+  "practicePrompt": "one spoken answer prompt for the candidate"
+}
+
+Rules:
+- Never invent experience, qualifications, employers, salary, or company facts.
+- Keep every list to at most 6 useful items.
+- Use plain, direct English suitable for an Indian job seeker.
+- Return JSON only, with no markdown fences.`;
+
+    const fullText = await generateTextWithFallback({
+      prompt,
+      system: "You are an expert Indian career coach and ATS reviewer. Return valid JSON only.",
+      maxTokens: 3000,
+      log: req.log,
+    });
+    const stripped = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const start = stripped.indexOf("{");
+    const end = stripped.lastIndexOf("}");
+    const parsedText = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+    let result: JobMatchResult;
+    try {
+      result = JSON.parse(parsedText) as JobMatchResult;
+    } catch {
+      res.status(502).json({ error: "The job match was incomplete. Please try again." });
+      return;
+    }
+
+    res.json({
+      success: true,
+      sourceUrl: scraped.sourceUrl,
+      scrapedTitle: scraped.title || "",
+      result: {
+        ...result,
+        matchScore: Math.max(0, Math.min(100, Number(result.matchScore) || 0)),
+        strengths: Array.isArray(result.strengths) ? result.strengths.slice(0, 6) : [],
+        gaps: Array.isArray(result.gaps) ? result.gaps.slice(0, 6) : [],
+        resumeChanges: Array.isArray(result.resumeChanges) ? result.resumeChanges.slice(0, 6) : [],
+        interviewQuestions: Array.isArray(result.interviewQuestions) ? result.interviewQuestions.slice(0, 6) : [],
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Job URL match error");
+    const message = err instanceof Error && /configured|public|valid|posting|read/i.test(err.message)
+      ? err.message
+      : "Could not analyse that job posting. Check that the URL is public and try again.";
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/resume/upload — works for guests AND authenticated users
+// Guests: text is extracted and returned in the response (not saved to DB)
+// Auth users: text is extracted, saved to DB, and returned
+router.post("/resume/upload", upload.single("resume"), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "No file uploaded. Please upload a PDF or DOCX file." });
+      return;
+    }
+
+    const text = await extractText(file.buffer, file.mimetype);
+    if (!text.trim()) {
+      res.status(400).json({ error: "Could not extract text from the uploaded file." });
+      return;
+    }
+
+    // For authenticated users, persist to DB
+    if (req.session.userId) {
+      await recordResumeReplacement(req.session.userId, text, file.originalname);
+      await db
+        .update(usersTable)
+        .set({
+          resumeText: text,
+          resumeFileName: file.originalname,
+          resumeAnalysis: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, req.session.userId));
+    }
+
+    res.json({
+      success: true,
+      fileName: file.originalname,
+      wordCount: text.split(/\s+/).filter(Boolean).length,
+      charCount: text.length,
+      // Return extracted text so guests can use it for analysis without saving to DB
+      extractedText: !req.session.userId ? text : undefined,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Resume upload error");
+    res.status(500).json({ error: "Failed to process resume. Please try again." });
+  }
+});
+
+// POST /api/resume/text — fallback for users who paste resume text directly
+// Works for both guests and authenticated users
+router.post("/resume/text", async (req, res) => {
+  try {
+    const { text } = req.body as Record<string, unknown>;
+    if (typeof text !== "string" || !text.trim()) {
+      res.status(400).json({ error: "Resume text is required" });
+      return;
+    }
+    // For authenticated users, persist to DB; guests get a simple ack
+    if (req.session.userId) {
+      await recordResumeReplacement(req.session.userId, text.trim(), "Pasted resume");
+      await db
+        .update(usersTable)
+        .set({
+          resumeText: text.trim(),
+          resumeFileName: "Pasted resume",
+          resumeAnalysis: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, req.session.userId));
+    }
+    res.json({ success: true, wordCount: text.trim().split(/\s+/).filter(Boolean).length });
+  } catch (err) {
+    req.log.error({ err }, "Resume text save error");
+    res.status(500).json({ error: "Failed to save resume text" });
+  }
+});
+
+// GET /api/resume/current — no auth required; guests get empty response
+router.get("/resume/current", async (req, res) => {
+  try {
+    if (!req.session.userId) {
+      res.json({ hasResume: false });
+      return;
+    }
+    const users = await db
+      .select({
+        resumeText: usersTable.resumeText,
+        resumeFileName: usersTable.resumeFileName,
+        resumeAnalysis: usersTable.resumeAnalysis,
+        experienceSummary: usersTable.experienceSummary,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.session.userId))
+      .limit(1);
+
+    const user = users[0];
+    if (!user || !user.resumeText) {
+      res.json({ hasResume: false });
+      return;
+    }
+
+    let analysis: unknown = null;
+    if (user.resumeAnalysis) {
+      try { analysis = JSON.parse(user.resumeAnalysis); } catch { /* ignore */ }
+    }
+
+    res.json({
+      hasResume: true,
+      fileName: user.resumeFileName,
+      resumeText: user.resumeText,
+      analysis,
+      experienceSummary: user.experienceSummary,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Resume fetch error");
+    res.status(500).json({ error: "Failed to fetch resume" });
+  }
+});
+
+// GET /api/resume/download — download resume analysis as plain text file
+router.get("/resume/download", requireAuth, async (req, res) => {
+  try {
+    const users = await db
+      .select({
+        resumeFileName: usersTable.resumeFileName,
+        resumeAnalysis: usersTable.resumeAnalysis,
+        experienceSummary: usersTable.experienceSummary,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.session.userId!))
+      .limit(1);
+
+    const user = users[0];
+    if (!user?.resumeAnalysis) {
+      res.status(404).json({ error: "No resume analysis found. Please analyse your resume first." });
+      return;
+    }
+
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(user.resumeAnalysis) as Record<string, unknown>; } catch { /* ignore */ }
+
+    const fileName = (user.resumeFileName ?? "resume").replace(/\.[^.]+$/, "");
+    const lines: string[] = [
+      "══════════════════════════════════════════════════════",
+      "          Lead Onto — Resume Intelligence Report",
+      "══════════════════════════════════════════════════════",
+      `File: ${user.resumeFileName ?? "N/A"}`,
+      `Generated: ${new Date().toLocaleString("en-IN")}`,
+      "",
+      `Overall ATS Score: ${parsed.overallScore ?? "N/A"} / 100`,
+      "",
+      "── Experience Summary ──────────────────────────────",
+      user.experienceSummary ?? parsed.experienceSummary as string ?? "Not available",
+      "",
+      "── Skills Identified ───────────────────────────────",
+      ...(Array.isArray(parsed.skills) ? (parsed.skills as string[]).map((s, i) => `  ${i + 1}. ${s}`) : ["  None identified"]),
+      "",
+      "── Education ────────────────────────────────────────",
+      ...(Array.isArray(parsed.education) ? (parsed.education as string[]).map((e, i) => `  ${i + 1}. ${e}`) : ["  None identified"]),
+      "",
+      "── ATS Keyword Gaps ─────────────────────────────────",
+      ...(Array.isArray(parsed.atsGaps) ? (parsed.atsGaps as string[]).map((g, i) => `  ${i + 1}. ${g}`) : ["  None identified"]),
+      "",
+      "── Formatting Issues ────────────────────────────────",
+      ...(Array.isArray(parsed.formattingIssues) ? (parsed.formattingIssues as string[]).map((f, i) => `  ${i + 1}. ${f}`) : ["  None identified"]),
+      "",
+      "── Actionable Suggestions ───────────────────────────",
+      ...(Array.isArray(parsed.suggestions) ? (parsed.suggestions as string[]).map((s, i) => `  ${i + 1}. ${s}`) : ["  None available"]),
+      "",
+      "══════════════════════════════════════════════════════",
+      "    Lead Onto — India's AI Career Intelligence Platform",
+      "══════════════════════════════════════════════════════",
+    ];
+
+    const content = lines.join("\n");
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}_leadonto_analysis.txt"`);
+    res.send(content);
+  } catch (err) {
+    req.log.error({ err }, "Resume download error");
+    res.status(500).json({ error: "Failed to generate download" });
+  }
+});
+
+// POST /api/resume/analyse — SSE stream (works for guests too)
+router.post("/resume/analyse", async (req, res) => {
+  try {
+    const { targetRole, experienceLevel, guestText } = req.body as Record<string, string>;
+
+    let resumeTextToAnalyse: string;
+    let preferredRole = "General";
+
+    if (req.session.userId) {
+      // Authenticated user — load from DB
+      const users = await db
+        .select({
+          resumeText: usersTable.resumeText,
+          preferredRole: usersTable.preferredRole,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+
+      const user = users[0];
+      // Use DB text or fall back to guestText if passed alongside
+      resumeTextToAnalyse = user?.resumeText || guestText || "";
+      preferredRole = user?.preferredRole || "General";
+    } else {
+      // Guest — require text in request body
+      if (!guestText?.trim()) {
+        res.status(400).json({ error: "Please paste your resume text to analyse without signing in." });
+        return;
+      }
+      resumeTextToAnalyse = guestText.trim();
+    }
+
+    if (!resumeTextToAnalyse.trim()) {
+      res.status(400).json({ error: "No resume text found. Please upload a file or paste your resume text." });
+      return;
+    }
+
+    const role = targetRole || preferredRole || "General";
+    const experience = experienceLevel || "Fresher";
+
+    const prompt = `Analyse the following resume for a candidate targeting a "${role}" role in India with ${experience} experience.
+
+RESUME TEXT:
+${resumeTextToAnalyse}
+
+Return a structured JSON analysis with exactly this shape (no markdown, no extra text, valid JSON only):
+
+{
+  "overallScore": 0-100,
+  "skills": ["skill 1", "skill 2", ...],
+  "education": ["degree 1", "degree 2", ...],
+  "experienceSummary": "2-3 sentence summary of work experience",
+  "atsGaps": ["missing keyword 1", "missing keyword 2", ...],
+  "formattingIssues": ["issue 1", "issue 2", ...],
+  "suggestions": ["specific actionable suggestion 1", "specific actionable suggestion 2", ...]
+}
+
+Ensure the response is valid JSON and can be parsed with JSON.parse().`;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Generate with full provider fallback (Gemini chain → Claude). This is what
+    // fixes "Unexpected end of JSON input"/empty output: the Gemini free tier is
+    // frequently 429-quota-exhausted, so without a Claude fallback the analysis
+    // returned nothing. maxTokens is generous so JSON is never truncated.
+    const fullText = await generateTextWithFallback({
+      prompt,
+      system: "You are an expert Indian resume reviewer with 15 years of experience. Respond with valid JSON only.",
+      maxTokens: 4096,
+      onDelta: (t) => res.write(`data: ${JSON.stringify({ content: t })}\n\n`),
+      log: req.log,
+    });
+
+    // Try to parse final JSON and sync to profile (authenticated users only)
+    try {
+      const stripped = fullText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const a = stripped.indexOf("{");
+      const b = stripped.lastIndexOf("}");
+      const cleaned = a !== -1 && b > a ? stripped.slice(a, b + 1) : stripped;
+      const parsed = JSON.parse(cleaned) as {
+        overallScore?: number;
+        skills?: string[];
+        education?: string[];
+        experienceSummary?: string;
+        atsGaps?: string[];
+        formattingIssues?: string[];
+        suggestions?: string[];
+      };
+
+      if (req.session.userId) {
+        const [latestOriginal] = await db
+          .select({ id: resumeVersionsTable.id })
+          .from(resumeVersionsTable)
+          .where(and(
+            eq(resumeVersionsTable.userId, req.session.userId),
+            eq(resumeVersionsTable.versionType, "original"),
+          ))
+          .orderBy(desc(resumeVersionsTable.createdAt))
+          .limit(1);
+        await db
+          .update(usersTable)
+          .set({
+            resumeAnalysis: JSON.stringify(parsed),
+            experienceSummary: parsed.experienceSummary ?? "",
+            skills: JSON.stringify(parsed.skills ?? []),
+            education: JSON.stringify(parsed.education ?? []),
+            updatedAt: new Date(),
+          })
+          .where(eq(usersTable.id, req.session.userId));
+        if (latestOriginal) {
+          await db
+            .update(resumeVersionsTable)
+            .set({
+              resumeAnalysis: JSON.stringify(parsed),
+            })
+            .where(eq(resumeVersionsTable.id, latestOriginal.id));
+        }
+      }
+    } catch (err) {
+      req.log.error({ err, fullText }, "Failed to parse resume analysis JSON");
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true }) }\n\n`);
+    res.end();
+  } catch (err) {
+    req.log.error({ err }, "Resume analysis error");
+    res.write(`data: ${JSON.stringify({ error: "Failed to analyse resume" }) }\n\n`);
+    res.end();
+  }
+});
+
+// POST /api/resume/improved — generate ATS-optimised improved resume text
+router.post("/resume/improved", async (req, res) => {
+  try {
+    const { targetRole, experienceLevel, guestText } = req.body as Record<string, string>;
+
+    let resumeTextToImprove = "";
+    if (req.session.userId) {
+      const users = await db
+        .select({ resumeText: usersTable.resumeText })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+      resumeTextToImprove = users[0]?.resumeText || guestText || "";
+    } else {
+      resumeTextToImprove = guestText?.trim() || "";
+    }
+
+    if (!resumeTextToImprove.trim()) {
+      res.status(400).json({ error: "No resume text found. Please upload or paste your resume first." });
+      return;
+    }
+
+    const prompt = `You are a warm, experienced career coach rewriting a resume for an Indian job-seeker targeting a "${targetRole || "General"}" role at the ${experienceLevel || "Fresher"} level.
+
+ORIGINAL RESUME:
+${resumeTextToImprove}
+
+Write the improved resume as a polished, human document — not a template. Guidelines:
+- Write the professional summary in first person ("I bring…", "I led…") with a natural, confident voice — not robotic HR-speak like "dynamic professional" or "results-driven individual"
+- Vary sentence rhythm: mix short punchy achievements with slightly longer contextual ones
+- Where the original mentions numbers or outcomes, keep and sharpen them (e.g. "increased sales" → "grew monthly sales by 23%"). Never invent new numbers.
+- Keep ALL real information — do not fabricate experience, qualifications, or credentials
+- Fix grammar and phrasing naturally, like an editor, not a keyword-stuffer
+- Add relevant keywords for "${targetRole || "General"}" woven naturally into the text — not dumped in a wall of comma-separated skills
+- Structure: Contact → Summary → Skills → Experience → Education → Certifications (only sections that exist in the original)
+- Achievement bullets: start with a strong verb, include impact wherever stated in the original
+- Remove irrelevant personal info (religion, caste, date of birth, photo note, marital status)
+- Write only plain text — no markdown, no *, no #, no ---
+
+Return ONLY the improved resume text. Nothing else.`;
+
+    // Gemini chain → Claude fallback so a quota-exhausted Gemini key never
+    // blocks the improved-resume generation.
+    const improvedText = (await generateTextWithFallback({
+      prompt,
+      maxTokens: 2048,
+      log: req.log,
+    })).trim();
+
+    if (!improvedText.trim()) {
+      res.status(500).json({ error: "Could not generate improved resume. Please try again." });
+      return;
+    }
+
+    if (req.session.userId) {
+      const users = await db
+        .select({ resumeAnalysis: usersTable.resumeAnalysis, resumeFileName: usersTable.resumeFileName })
+        .from(usersTable)
+        .where(eq(usersTable.id, req.session.userId))
+        .limit(1);
+      await db.insert(resumeVersionsTable).values({
+        userId: req.session.userId,
+        versionType: "improved",
+        fileName: users[0]?.resumeFileName ? `Improved — ${users[0].resumeFileName}` : "Improved resume",
+        resumeText: improvedText,
+        resumeAnalysis: users[0]?.resumeAnalysis ?? null,
+        targetRole: targetRole || null,
+        experienceLevel: experienceLevel || null,
+      });
+    }
+
+    res.json({ improvedText });
+  } catch (err) {
+    req.log.error({ err }, "Improved resume error");
+    res.status(500).json({ error: "Failed to generate improved resume" });
+  }
+});
+
+export default router;

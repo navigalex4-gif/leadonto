@@ -1,0 +1,416 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Structured interview format — Assessment Scorecard
+//
+// Mock interviews are conducted and scored against a weighted, nine-parameter
+// hiring scorecard modelled on a real BFSI (Banking / Financial Services /
+// Insurance) interview assessment form. EVERY parameter is assessed in EVERY
+// interview — the interview covers the whole scorecard, not just one area:
+//
+//   1. Functional Knowledge              25%  — the role-specific core
+//   2. Communication Skills              15%  — judged from delivery
+//   3. Problem-Solving & Analytical      12%
+//   4. Adaptability & Learning Agility   10%
+//   5. Ownership & Work Ethic            10%
+//   6. Collaboration & Cultural Fit      10%
+//   7. Personality & Disposition          8%  — judged from delivery/energy
+//   8. Educational Background             5%  — covered by the opening question
+//   9. IT Skills                          5%
+//
+// (weights sum to 1.0). Each parameter is rated 1–5, calibrated to the
+// candidate's experience level. Interview LENGTH no longer removes parameters
+// from the scorecard — a longer interview simply asks MORE questions (more
+// breadth and depth); every parameter is still scored, inferring conservatively
+// for any only lightly probed in a short interview.
+//
+// Communication is scored from HOW the candidate expresses every answer (tone,
+// energy, clarity), so it has no dedicated question stage. Personality &
+// Disposition is likewise read from delivery, but also gets a warm, one-time
+// "getting to know you" opening early on (hobbies, a hobbies follow-up,
+// motivation for the role, and strengths / best-fit role) to relax the candidate
+// and surface motivation and role fit. Educational Background is covered by the
+// opening question. The live question rotation then targets the remaining
+// parameters, breadth-first, with Functional Knowledge as the recurring — but
+// never dominating — core.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CompetencyKey =
+  | "domainKnowledge"
+  | "communication"
+  | "problemSolving"
+  | "adaptability"
+  | "ownership"
+  | "collaboration"
+  | "personality"
+  | "education"
+  | "itSkills";
+
+export type CompetencyDef = {
+  key: CompetencyKey;
+  label: string;
+  /** Scorecard weight (0–1). */
+  weight: number;
+  /** Minimum interview length (minutes) that unlocks this competency. 0 = always
+   *  assessed (every parameter is scored in every interview). */
+  minMinutes: number;
+  /** What the interviewer probes / the evaluator scores for this competency. */
+  focus: string;
+};
+
+/** The weighted scorecard, in display order. Weights sum to 1.0 across all nine.
+ *  Every parameter is assessed in every interview (minMinutes 0). */
+export const COMPETENCIES: CompetencyDef[] = [
+  {
+    key: "domainKnowledge",
+    label: "Functional Knowledge",
+    weight: 0.25,
+    minMinutes: 0,
+    focus:
+      "role-specific functional and domain knowledge — the core of the interview (practical, product-level and concept questions a real panel would ask)",
+  },
+  {
+    key: "communication",
+    label: "Communication Skills",
+    weight: 0.15,
+    minMinutes: 0,
+    focus:
+      "communicates clearly and confidently, expresses ideas logically and in sequence, listens attentively and comprehends the question, and is competent in basic English",
+  },
+  {
+    key: "problemSolving",
+    label: "Problem-Solving & Analytical Thinking",
+    weight: 0.12,
+    minMinutes: 0,
+    focus:
+      "breaks a problem down logically, asks clarifying questions, weighs options, and arrives at sound, practical conclusions",
+  },
+  {
+    key: "adaptability",
+    label: "Adaptability & Learning Agility",
+    weight: 0.1,
+    minMinutes: 0,
+    focus:
+      "comfort with ambiguity and change, openness to working at different locations, industries and roles, willingness to pick up new tools, and how they take feedback",
+  },
+  {
+    key: "ownership",
+    label: "Ownership & Work Ethic",
+    weight: 0.1,
+    minMinutes: 0,
+    focus:
+      "takes accountability and follows through, shows integrity between words and actions, and demonstrates conviction and commitment toward accomplishing the task",
+  },
+  {
+    key: "collaboration",
+    label: "Collaboration & Cultural Fit",
+    weight: 0.1,
+    minMinutes: 0,
+    focus:
+      "works as a team player — coordinates, cooperates and collaborates with others — and aligns with organisational values and a collaborative culture",
+  },
+  {
+    key: "personality",
+    label: "Personality & Disposition",
+    weight: 0.08,
+    minMinutes: 0,
+    focus:
+      "overall disposition conveyed through the conversation — energy and enthusiasm, honesty and integrity, professional conduct, and self-awareness (assessed from vocal energy, tone and content; visual cues such as body language, eye contact and appearance are not observable in a voice interview)",
+  },
+  {
+    key: "education",
+    label: "Educational Background",
+    weight: 0.05,
+    minMinutes: 0,
+    focus:
+      "academic background and achievements, including relevant curricular and extra-curricular involvement",
+  },
+  {
+    key: "itSkills",
+    label: "IT Skills",
+    weight: 0.05,
+    minMinutes: 0,
+    focus:
+      "comfort with everyday technology — office and email applications, smartphones and handheld devices, and awareness of basic data-security practices",
+  },
+];
+
+/** The competencies a given interview length covers. Every parameter is assessed
+ *  in every interview (minMinutes is 0 across the board), so this returns the
+ *  full scorecard; the param is kept for call-site stability. */
+export function coveredCompetencies(durationMin: number): CompetencyDef[] {
+  return COMPETENCIES.filter((c) => durationMin >= c.minMinutes);
+}
+
+/**
+ * Total Weighted Score (1–5) over ONLY the competencies covered by this
+ * interview length. Weights are renormalised across the competencies that
+ * actually received a rating so the result always stays on the 1–5 scale.
+ * Returns 0 if nothing was scored.
+ */
+export function weightedScoreFor(
+  ratings: Partial<Record<CompetencyKey, number>>,
+  durationMin: number,
+): number {
+  let weightSum = 0;
+  let ratingSum = 0;
+  for (const c of coveredCompetencies(durationMin)) {
+    const r = ratings[c.key];
+    if (typeof r === "number" && r > 0) {
+      weightSum += c.weight;
+      ratingSum += c.weight * r;
+    }
+  }
+  if (weightSum === 0) return 0;
+  return Math.round((ratingSum / weightSum) * 10) / 10; // one decimal
+}
+
+/**
+ * Experience-level calibration. The 1–5 scale ("meets expectations" = 3) means
+ * something different at each level, so the bar moves with experience.
+ */
+const CALIBRATION: Record<string, string> = {
+  Fresher:
+    "This is a FRESHER. Calibrate the bar to fundamentals and potential — sound basics, clear thinking and willingness to learn matter more than deep experience. 'Meets expectations' (3) = solid fundamentals for an entry-level hire.",
+  "1-2 years":
+    "This candidate has 1-2 years' experience. Calibrate to INDEPENDENT EXECUTION — they should handle routine work on their own with light guidance. 'Meets expectations' (3) = reliably delivers standard tasks independently.",
+  "3-5 years":
+    "This candidate has 3-5 years' experience. Calibrate to OWNERSHIP & JUDGEMENT — they should own outcomes, make sound calls, and handle ambiguity. 'Meets expectations' (3) = owns their area with good judgement.",
+  "5+ years":
+    "This candidate has 5+ years' experience. Calibrate to STRATEGIC & LEADERSHIP depth — they should show influence, mentoring and strategic thinking. 'Meets expectations' (3) = a strong senior contributor who elevates the team.",
+};
+
+/** Calibration guidance for the given experience level (falls back to Fresher). */
+export function calibrationFor(experience: string): string {
+  return CALIBRATION[experience] ?? CALIBRATION["Fresher"]!;
+}
+
+/**
+ * Role-specific domain-knowledge focus. Banking and Insurance mirror the sample
+ * assessment format exactly; every other role applies the same idea with
+ * domain-appropriate, practical topics a real panel would probe.
+ */
+const FUNCTIONAL_KNOWLEDGE: Record<string, string> = {
+  banking:
+    "Banking concepts — Retail Assets & Liabilities products (savings/current accounts, loans, credit cards), KYC norms, and basic Underwriting (UW). Ask practical, product-level questions.",
+  insurance:
+    "Insurance concepts — the concept of Risk & Insurance, the difference between Life and General insurance, retail insurance products, distribution channels, and KYC. Ask practical, product-level questions.",
+  finance:
+    "Core finance & accounting — financial statements, key ratios, taxation basics, budgeting/forecasting, and compliance. Ask applied, numerical-reasoning questions.",
+  software:
+    "Software fundamentals — programming basics, data structures, a real project the candidate built, their debugging approach, and relevant frameworks/tools. Ask concrete, example-driven questions.",
+  data_analytics:
+    "Data & analytics — data cleaning and analysis, Excel/SQL, interpreting results, dashboards/visualisation tools, and turning data into business insight.",
+  sales:
+    "Sales fundamentals — the sales process, lead generation, handling objections, negotiation and closing, and meeting targets. Ask for real scenarios.",
+  sales_manager:
+    "Sales leadership — territory and account strategy, forecasting, pipeline health, coaching representatives, negotiation, target ownership, and measurable revenue outcomes. Ask senior, scenario-based questions.",
+  business_analyst:
+    "Business analysis — requirements elicitation, stakeholder management, process mapping, SQL or data analysis, prioritisation, acceptance criteria, and measurable business outcomes. Ask for assumptions and trade-offs.",
+  marketing:
+    "Marketing fundamentals — campaign planning, digital and offline channels, key metrics/ROI, segmentation, and brand positioning.",
+  customer_service:
+    "Customer service — handling difficult customers, complaint resolution, CRM tools, staying composed under pressure, and service-quality metrics.",
+  bpo:
+    "BPO and call-centre operations — customer handling, active listening, process adherence, quality scores, escalation, productivity metrics, and staying composed under pressure. Ask realistic customer scenarios.",
+  operations:
+    "Operations — process management and efficiency, quality control, cross-team coordination, SLAs, and practical problem-solving.",
+  hr: "HR & behavioural depth — situational judgement, people-handling, and the candidate's own domain knowledge relevant to the role they are applying for.",
+  freshers:
+    "Fundamentals for a fresher — core concepts from their degree, academic/internship projects, and basic aptitude. Keep it encouraging but substantive.",
+  government:
+    "Exam-relevant knowledge — general awareness and current affairs, reasoning, quantitative aptitude, and the specific service/domain the candidate is targeting.",
+};
+
+/** Functional-knowledge guidance for a given interview type. Falls back to a
+ *  generic, role-appropriate prompt for any unmapped type. */
+export function functionalKnowledgeFor(type: string, roleLabel: string): string {
+  return (
+    FUNCTIONAL_KNOWLEDGE[type] ??
+    `Core functional and domain knowledge directly relevant to a ${roleLabel} role — ask practical, applied questions a real interview panel would ask.`
+  );
+}
+
+/**
+ * Question-generation framework for the live interviewer. This is deliberately
+ * separate from the scorecard: the scorecard says what to assess, while this
+ * framework says what that work actually looks like for the selected role.
+ *
+ * Keep candidate experience out of the role definition. Experience is supplied
+ * separately as a calibration lens, so a role never silently becomes a senior
+ * or industry-specific interview.
+ */
+export function questionFrameworkFor(
+  type: string,
+  roleLabel: string,
+  experience: string,
+  industry: string,
+): string {
+  const frameworks: Record<string, string> = {
+    sales: [
+      "ROLE FRAMEWORK — Sales Executive: prioritise prospecting, lead generation, customer discovery, product pitching, objection handling, negotiation, closing, target achievement, follow-up, customer relationship management, sales discipline, CRM usage, communication and persuasion.",
+      "Use practical scenarios such as finding prospects, qualifying a lead, discovering a customer's need, responding to an objection, and progressing a deal. Do not introduce banking, operations or another industry unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+    sales_manager: [
+      "ROLE FRAMEWORK — Sales Manager: prioritise sales leadership, coaching, target ownership, pipeline health, forecasting, territory or account strategy, performance management, negotiation and sales strategy.",
+      "Use manager-level scenarios such as a missed target, weak pipeline quality, inconsistent representative performance, forecast accuracy, coaching a team member and balancing short-term revenue with long-term customer relationships. Do not assume the candidate has managed a team; ask about individual-contributor or project leadership evidence when management experience is not confirmed.",
+    ].join(" "),
+    operations: [
+      "ROLE FRAMEWORK — Operations Executive: prioritise process management, accuracy, coordination, SLA/KPI handling, quality control, workflow improvement and operational problem-solving.",
+      "Use practical scenarios involving an error, backlog, missed SLA, handoff between teams, competing priorities or a process that needs improvement. Do not assume banking, logistics, call-centre or any other operations domain unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+    customer_service: [
+      "ROLE FRAMEWORK — Customer Service Executive: prioritise customer discovery through listening, issue diagnosis, complaint handling, empathy, resolution, escalation judgement, follow-up, CRM usage and service-quality metrics.",
+      "Use realistic customer scenarios. Do not assume banking, insurance, BPO or a specific product unless the selected industry or job description explicitly requires it.",
+    ].join(" "),
+  };
+
+  const framework =
+    frameworks[type] ??
+    `ROLE FRAMEWORK — ${roleLabel}: prioritise the real day-to-day responsibilities, tools, decisions, risks and success measures of this exact role. Ask applied questions rather than generic HR prompts.`;
+
+  return `${framework}
+Candidate-selected experience level: ${experience || "Not specified"}.
+Selected industry preference (not verified employment): ${industry || "Not specified"}.
+Experience calibration: for Fresher focus on fundamentals, projects, potential and willingness to learn; for 1-2 years focus on independent routine execution; for 3-5 years focus on ownership and judgement; for 5+ years focus on strategic depth, influence and leadership.
+Evidence rule: candidate-provided experience is only what the candidate explicitly confirms in the profile or a previous answer. A career goal, preferred industry, listed skill, job requirement, or recruiter-selected domain is NOT proof that the candidate worked there. Never ask "in your [industry] experience" unless the candidate explicitly said they worked in that industry. If experience is unclear, ask a neutral question that lets the candidate provide evidence.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live question rotation
+//
+// Dedicated questions target the assessable parameters EXCEPT Communication and
+// Personality (both judged from delivery) and Educational Background (covered by
+// the opening question). Functional Knowledge is the recurring core, but it is
+// deliberately interleaved with every other parameter so it never dominates and
+// no two consecutive questions target the same area. The interview keeps cycling
+// through this rotation until time runs out, so a longer interview naturally
+// reaches more areas and probes them more deeply — while even a short interview
+// spans functional knowledge, problem-solving, ownership and adaptability rather
+// than drilling one topic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InterviewArea = {
+  key: string;
+  label: string;
+  /** Fully-composed guidance for what to probe — roughly one question's worth. */
+  focus: string;
+  /** "warmup" marks early conversational beats that should flow naturally
+   *  rather than being framed as a switch to a "different area". Standard
+   *  rotation beats leave this undefined. */
+  kind?: "warmup";
+};
+
+export type BeatContext = {
+  durationMin: number;
+  experience: string;
+  /** Interview type value (e.g. "banking") for role-specific domain topics. */
+  type: string;
+  roleLabel: string;
+};
+
+/** Parameters that get a DEDICATED question in the RECURRING rotation, in
+ *  priority order. Communication (delivery-judged) and Educational Background
+ *  (the opening) are absent. Personality is absent from the recurring rotation
+ *  too; the opening uses role motivation and practical job context instead.
+ *  Motivation for the role is covered once there. */
+const DEDICATED_AREAS: CompetencyKey[] = [
+  "problemSolving",
+  "ownership",
+  "adaptability",
+  "collaboration",
+  "itSkills",
+];
+
+/** A recurring rotation slot: either one of the scored competencies, or the
+ *  special "aiImpact" beat — a forward-looking Technology & AI awareness question
+ *  (how AI/automation is reshaping this role now and in the near future). It is
+ *  scored under Adaptability & Learning Agility but framed to the candidate as
+ *  its own topic. */
+export type RotationSlot = CompetencyKey | "aiImpact";
+
+/** Breadth-first question rotation: the functional core recurs (never
+ *  back-to-back) but does NOT dominate — the functional core is revisited only
+ *  after every couple of other areas, so every assessable parameter gets its own
+ *  question and the interview never becomes a single-topic drill. A Technology &
+ *  AI awareness question sits near the front so every interview (even a short
+ *  one) reaches it early, and it recurs once per cycle in longer interviews. */
+function questionRotation(): RotationSlot[] {
+  const rotation: RotationSlot[] = ["domainKnowledge", "aiImpact"];
+  DEDICATED_AREAS.forEach((key, i) => {
+    rotation.push(key);
+    // Revisit the functional core after every second other area (but not right
+    // at the very end), keeping functional roughly one question in three.
+    if (i % 2 === 1 && i < DEDICATED_AREAS.length - 1) rotation.push("domainKnowledge");
+  });
+  return rotation;
+}
+
+/**
+ * The competency area a given beat targets. Beat 0 is the opening introduction +
+ * educational background. The next turns move directly into role motivation,
+ * functional knowledge, a realistic problem, and role tools. This makes short
+ * interviews useful: candidates get job-relevant questions before time expires.
+ * Beat 5 onward cycles through the breadth-first competency rotation.
+ */
+export function areaForBeat(index: number, ctx: BeatContext): InterviewArea {
+  if (index <= 0) {
+    return {
+      key: "education",
+      label: "Introduction & Educational Background",
+      focus: `a brief self-introduction and their educational background relevant to the ${ctx.roleLabel} role — qualifications, key subjects or skills, and notable curricular or extra-curricular achievements`,
+    };
+  }
+  // The early beats remain friendly, but each one is relevant to the selected
+  // role. Generic hobby questions are poor use of a short timed interview.
+  if (index === 1) {
+    return {
+      key: "adaptability",
+      label: "Motivation for the Role",
+      kind: "warmup",
+      focus:
+        `why the candidate wants the ${ctx.roleLabel} role, what part of the work appeals to them, and one strength, project or experience that they think would help them succeed. Keep it warm and natural, but make the answer relevant to the job.`,
+    };
+  }
+  if (index === 2) {
+    return {
+      key: "domainKnowledge",
+      label: "Role Fundamentals",
+      focus:
+        `${functionalKnowledgeFor(ctx.type, ctx.roleLabel)} Ask one entry-level but practical question that a real hiring manager would use to test whether the candidate understands the work.`,
+    };
+  }
+  if (index === 3) {
+    return {
+      key: "problemSolving",
+      label: "Role Scenario",
+      focus:
+        `a realistic, day-to-day ${ctx.roleLabel} scenario. Ask the candidate to explain their first steps, the information they would need, and how they would judge a good outcome. Keep it suited to their selected experience level.`,
+    };
+  }
+  if (index === 4) {
+    return {
+      key: "itSkills",
+      label: "Role Tools & Organisation",
+      focus:
+        `the practical tools, records, digital systems or organised work habits a ${ctx.roleLabel} needs. Ask how they would use a relevant tool accurately, protect customer or company data, or keep work visible for a teammate.`,
+    };
+  }
+  const rotation = questionRotation();
+  const slot = rotation[(index - 5) % rotation.length]!;
+  // Forward-looking Technology & AI awareness beat — how AI and automation are
+  // changing THIS role now and in the near future. Scored under Adaptability &
+  // Learning Agility, but surfaced to the candidate as its own topic.
+  if (slot === "aiImpact") {
+    return {
+      key: "adaptability",
+      label: "Technology & AI Awareness",
+      focus:
+        `how new technology — especially AI and automation — is changing the ${ctx.roleLabel} field, both today and over the next few years, and how well the candidate keeps up. Ask ONE practical, forward-looking question: for example which parts of a ${ctx.roleLabel} role AI is likely to automate, change or newly create; which AI or digital tools they already use (or would use) to work smarter in this role; or how they plan to stay relevant and reskill as the field evolves. Keep it concrete and grounded in real day-to-day work, not science fiction.`,
+    };
+  }
+  const def = COMPETENCIES.find((c) => c.key === slot)!;
+  let focus = def.focus;
+  if (slot === "domainKnowledge") {
+    focus = `${def.focus} — ${functionalKnowledgeFor(ctx.type, ctx.roleLabel)}`;
+  }
+  return { key: slot, label: def.label, focus };
+}
