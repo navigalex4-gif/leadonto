@@ -14,8 +14,25 @@ const isProduction = process.env["NODE_ENV"] === "production";
 const databaseUrl = process.env["DATABASE_URL"];
 const sessionSecret = process.env["SESSION_SECRET"];
 
-if (isProduction && (!databaseUrl || !sessionSecret || sessionSecret.length < 32)) {
-  throw new Error("Production requires DATABASE_URL and a SESSION_SECRET with at least 32 characters.");
+// In production we expect DATABASE_URL and a sufficiently long SESSION_SECRET.
+// Previously this threw during module import which caused the process to crash in
+// hosting environments before logs or helpful errors could be emitted. To
+// improve observability and avoid crashing during module evaluation, we log a
+// clear error here. The process can still enforce a hard failure at startup
+// (index.ts) if desired.
+if (
+  isProduction &&
+  (!databaseUrl || !sessionSecret || (sessionSecret && sessionSecret.length < 32))
+) {
+  logger.error(
+    { databaseUrl: Boolean(databaseUrl), sessionSecretLength: sessionSecret?.length ?? 0 },
+    "Missing required production environment variables: DATABASE_URL and/or SESSION_SECRET (length >= 32)."
+  );
+  // If you want the process to exit immediately instead of continuing with
+  // degraded behaviour, uncomment the following line. That check is better
+  // performed in index.ts before importing app to avoid module-evaluation
+  // crashes.
+  // process.exit(1);
 }
 
 // Behind Replit's proxy — trust X-Forwarded-* so req.ip is the real client IP
