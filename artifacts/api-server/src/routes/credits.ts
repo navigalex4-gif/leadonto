@@ -57,7 +57,7 @@ router.get("/credits/transactions", requireAuth, async (req: Request, res: Respo
 // forgeable by the client. `interview.id` is a server-minted token used as the
 // idempotent ledger reference for every block, so a full session costs at most
 // INTERVIEW_MAX_BLOCKS credits no matter how (or how often) the client calls.
-// POST /api/credits/interview/charge { durationMinutes } — charges block 1.
+// POST /api/credits/interview/charge { durationMinutes } — starts the meter; block 1 is charged only after completion.
 router.post("/credits/interview/charge", requireAuth, async (req: Request, res: Response) => {
   const userId = req.session.userId!;
   const durationMinutes = Number((req.body as { durationMinutes?: number }).durationMinutes);
@@ -65,48 +65,30 @@ router.post("/credits/interview/charge", requireAuth, async (req: Request, res: 
     res.status(400).json({ error: "durationMinutes required" });
     return;
   }
-  // One interview per session at a time. If a meter is still active (not expired),
-  // reject rather than overwrite — overwriting would let a second concurrent
-  // interview (e.g. another browser tab) collapse onto this meter's block
-  // references and be under-charged. An expired meter (abandoned interview) is
-  // safe to replace so the user is never locked out.
   const active = req.session.interview;
   if (active && Date.now() < active.expiresAt) {
     res.status(409).json({ error: "interview_in_progress" });
     return;
   }
-  // Concurrent start requests loaded from the same session calculate the same
-  // server-minted generation ID. Their ledger references therefore deduplicate
-  // instead of charging twice, while a later completed/ended session increments
-  // the generation and receives a fresh reference.
-  const id = nextMeterId(req, "interview");
-  const result = isAdminSession(req)
-    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
-    : await spendCredits({
-    userId,
-    amount: INTERVIEW_BLOCK_COST,
-    type: "spend_interview",
-    description: `Interview (block 1 · ${durationMinutes} min session)`,
-    reference: `interview:${id}:1`,
-    idempotent: true,
-      });
-  if (!result.ok) {
-    req.session.interview = undefined;
-    res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: INTERVIEW_BLOCK_COST });
+  const balance = isAdminSession(req) ? ADMIN_UNLIMITED_BALANCE : await getBalance(userId);
+  if (balance < INTERVIEW_BLOCK_COST) {
+    res.status(402).json({ error: "insufficient_credits", balance, required: INTERVIEW_BLOCK_COST });
     return;
   }
-  // Start a fresh authoritative meter. expiresAt covers the whole session plus a
-  // buffer so an abandoned interview auto-frees the slot instead of locking out.
+  const id = nextMeterId(req, "interview");
   const now = Date.now();
-  const expiresAt = now + interviewBlockSeconds(durationMinutes) * 1000 * INTERVIEW_MAX_BLOCKS + 5 * 60_000;
-  req.session.interview = { id, blocksCharged: 1, startedAt: now, expiresAt };
+  const blockSeconds = interviewBlockSeconds(durationMinutes);
+  const expiresAt = now + blockSeconds * 1000 * INTERVIEW_MAX_BLOCKS + 5 * 60_000;
+  // No upfront debit. Block 1 is charged only after the student completes it.
+  req.session.interview = { id, blocksCharged: 0, startedAt: now, expiresAt };
   res.json({
     ok: true,
     interviewId: id,
-    balance: result.balance,
-    charged: result.already ? 0 : INTERVIEW_BLOCK_COST,
+    balance,
+    charged: 0,
+    blocksCharged: 0,
     startedAt: now,
-    blockSeconds: interviewBlockSeconds(durationMinutes),
+    blockSeconds,
     maxBlocks: INTERVIEW_MAX_BLOCKS,
   });
 });
@@ -134,7 +116,7 @@ router.post("/credits/interview/tick", requireAuth, async (req: Request, res: Re
     return;
   }
   const block = Number(body.block);
-  if (!Number.isInteger(block) || block < 2 || block > INTERVIEW_MAX_BLOCKS) {
+  if (!Number.isInteger(block) || block < 1 || block > INTERVIEW_MAX_BLOCKS) {
     res.status(400).json({ error: "invalid_block" });
     return;
   }
@@ -188,33 +170,21 @@ router.post("/credits/live/start", requireAuth, async (req: Request, res: Respon
     res.json({ ok: true, balance: isAdminSession(req) ? ADMIN_UNLIMITED_BALANCE : await getBalance(userId), liveId: active.id, startedAt: active.startedAt, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: active.blocksCharged });
     return;
   }
-  // See the interview start path above: this deterministic per-generation ID
-  // makes overlapping retries share one ledger reference and one active meter.
-  const id = nextMeterId(req, "live");
-  const result = isAdminSession(req)
-    ? { ok: true, balance: ADMIN_UNLIMITED_BALANCE, already: true }
-    : await spendCredits({
-    userId,
-    amount: LIVE_BLOCK_COST,
-    type: "spend_live",
-    description: "Live conversation (block 1 · 12 minutes)",
-    reference: `live:${id}:1`,
-    idempotent: true,
-      });
-  if (!result.ok) {
-    res.status(402).json({ error: "insufficient_credits", balance: result.balance, required: LIVE_BLOCK_COST });
+  const balance = isAdminSession(req) ? ADMIN_UNLIMITED_BALANCE : await getBalance(userId);
+  if (balance < LIVE_BLOCK_COST) {
+    res.status(402).json({ error: "insufficient_credits", balance, required: LIVE_BLOCK_COST });
     return;
   }
+  const id = nextMeterId(req, "live");
   const now = Date.now();
+  // No upfront debit. The first credit is charged only after 12 full minutes.
   req.session.live = {
     id,
-    blocksCharged: 1,
+    blocksCharged: 0,
     startedAt: now,
-    // Keep the meter available for long conversations; the explicit /end call
-    // normally clears it, while this expiry only recovers abandoned sessions.
     expiresAt: now + 24 * 60 * 60_000,
   };
-  res.json({ ok: true, balance: result.balance, liveId: id, startedAt: now, blockSeconds: LIVE_BLOCK_SECONDS, charged: result.already ? 0 : LIVE_BLOCK_COST, blocksCharged: 1 });
+  res.json({ ok: true, balance, liveId: id, startedAt: now, blockSeconds: LIVE_BLOCK_SECONDS, charged: 0, blocksCharged: 0 });
 });
 
 router.post("/credits/live/tick", requireAuth, async (req: Request, res: Response) => {
