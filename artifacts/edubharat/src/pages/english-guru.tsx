@@ -36,7 +36,7 @@ import { wordOfTheDay, type WordPowerEntry } from "@/lib/word-power";
 const TUTOR_SPEAKING_STYLES: Record<string, string> = {
   priya: 'Speak like a warm Mumbai schoolteacher. Use simple words, lots of encouragement, and occasional natural words like "haan", "bilkul", or "thoda practice karo". Never use jargon.',
   rohit: 'Speak like a no-nonsense Delhi corporate trainer. Be direct and structured. Use phrases like "listen carefully" and "this is what HR expects". Keep it efficient and avoid fluff.',
-  maya: "Speak like a senior Bengaluru business consultant. Be precise and polished, with examples from Indian MNC culture, client calls, and boardroom communication.",
+  maya: "Speak like a friendly, experienced English coach. Be relaxed, clear, and conversational. Use familiar everyday examples from Indian life when useful; avoid corporate jargon and scripted-sounding advice.",
   arjun: 'Speak like an energetic Hyderabad interview coach. Be fast-paced and positive. Use phrases like "absolutely nail it", "practice this 10 times", and "you\'ve got this yaar".',
   neha: 'Speak like a patient Kolkata pronunciation teacher. Slow down for demonstrations, break words into syllables, and say "now repeat after me" or "stress the second syllable".',
   rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
@@ -54,7 +54,7 @@ const LIVE_OPENINGS = [
   (name: string) => `Good to see you, ${name}! What would make this practice useful for you today?`,
 ];
 const ENERGETIC_TUTOR_DIRECTION =
-  "Be energetic, engaging and encouraging without sounding fake. Keep the learner curious with warm reactions, clear momentum, varied short questions and practical examples. Make the conversation feel rewarding so they want to continue.";
+  "Sound like a real person having a thoughtful conversation, not a presenter or scripted chatbot. Listen to the exact point the learner made and respond to it directly. Use natural contractions, varied sentence lengths, and plain everyday language. Show warmth through relevant responses, not exaggerated praise or forced excitement. Avoid stock openings, repeated acknowledgements, corporate jargon, and unnecessary follow-up questions.";
 
 function formatLiveTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -831,6 +831,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
+  const convUserHasScrolledRef = useRef(false);
 
   // Realtime STT uses Deepgram Nova-3 multilingual code-switching, so the
   // learner can move between English and their helper language in one turn.
@@ -917,8 +918,15 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     const el = convScrollRef.current;
     if (!el) return;
-    // Keep the conversation in natural reading order and reveal the newest turn.
-    el.scrollTop = el.scrollHeight;
+    // A fresh conversation always opens at the top. Only auto-follow new
+    // content after the learner has scrolled down and is already near the end.
+    if (convHistory.length === 0 || !convUserHasScrolledRef.current) {
+      convUserHasScrolledRef.current = false;
+      el.scrollTop = 0;
+      return;
+    }
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 120) el.scrollTop = el.scrollHeight;
   }, [convHistory, aiText, isStreaming]);
 
   useEffect(() => {
@@ -1449,7 +1457,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         const isEnglishNative = responseHelperLanguage === "English";
         const nativeInputDetected = Boolean(nativeInputLanguage);
         const languageGuidance = isEnglishNative
-           ? `Speak in clear, simple, natural English throughout. Start with the substance of your reply rather than a repeated acknowledgement or filler. Use one light, natural Gen-Z phrase such as "that's legit", "honestly", "nice", "totally", or "you've got this" only when it genuinely fits — never force slang or sound like a meme.`
+           ? `Speak in clear, simple, natural English throughout. Start with the substance of your reply rather than a repeated acknowledgement or filler. Use ordinary everyday language and natural contractions. Never force slang, motivational phrases, or artificial enthusiasm.`
            : nativeInputDetected
              ? `The learner's selected helper language is ${responseHelperLanguage}. This is the only Indian language you may use for help, even if speech recognition transcribes the learner's words in another Indian script. Understand and answer the actual message, not a vague acknowledgement or an unrelated question. Reply FIRST in two complete, natural ${responseHelperLanguage} sentences using its standard native script. Address the learner's meaning, explain the difficulty simply, and give one concrete next step. You may add one short English practice sentence after the ${responseHelperLanguage} explanation, but do not make English the main reply.`
            : `The student's ONLY helper language is ${uiLang} — do NOT use any other Indian language (not Hindi, not Kannada, not Tamil, not any other — ONLY ${uiLang} when needed). English is the goal, so speak MOSTLY in simple, clear English and keep them practicing. But use ${uiLang} as a warm helping hand whenever they need it: if the student replies in ${uiLang}, tells you (in any language) that they didn't understand, or clearly seems confused, briefly explain the tricky word or idea in ${uiLang}, then continue in English. You may give a short ${uiLang} explanation when it genuinely helps, but never put it in quotation marks or brackets. When the student asks you to speak, say, or translate an English sentence in ${uiLang} — including phrases like "say this in ${uiLang}" or "can you speak this in ${uiLang}" — translate that exact sentence into natural ${uiLang} immediately and say the translation. Do not answer that request with a generic recovery phrase or an English practice prompt. When the student explicitly asks what an English word or sentence MEANS in ${uiLang} (or asks you to translate or explain it in ${uiLang}), immediately give that meaning written MOSTLY in ${uiLang} — keep English down to just the word being explained — so it is spoken aloud in a natural ${uiLang} accent; keep that reply short and focused on the meaning, then switch straight back to English in your very next reply. Never guess, reinterpret, or expand an unclear or possibly misheard word or acronym. Never discuss transcription errors or invent meanings unless the student clearly said them. If you are unsure, ask one short clarification in ${uiLang} without quoting the unclear phrase. Never leave them stuck or embarrassed — slow down, simplify, and lean on ${uiLang} to unblock them, then gently guide them back to English. When they're managing fine in English, keep your whole reply in English.`;
@@ -2413,7 +2421,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} onScroll={() => { convUserHasScrolledRef.current = true; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
