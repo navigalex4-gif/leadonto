@@ -831,7 +831,6 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
-  const convUserHasScrolledRef = useRef(false);
 
   // Realtime STT uses Deepgram Nova-3 multilingual code-switching, so the
   // learner can move between English and their helper language in one turn.
@@ -918,15 +917,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     const el = convScrollRef.current;
     if (!el) return;
-    // A fresh conversation always opens at the top. Only auto-follow new
-    // content after the learner has scrolled down and is already near the end.
-    if (convHistory.length === 0 || !convUserHasScrolledRef.current) {
-      convUserHasScrolledRef.current = false;
-      el.scrollTop = 0;
-      return;
-    }
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (distanceFromBottom < 120) el.scrollTop = el.scrollHeight;
+    // Keep the newest learner/tutor turn pinned to the top.
+    el.scrollTop = 0;
   }, [convHistory, aiText, isStreaming]);
 
   useEffect(() => {
@@ -1523,7 +1515,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
            `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${coachStudentName} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
-This is an ONGOING conversation. NEVER introduce yourself or say "Hello, I'm ${teacherShort}" — just continue naturally as a human teacher would mid-conversation. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
+IDENTITY INTRODUCTION RULE: If this is your first reply in this conversation (there is no earlier tutor message), introduce yourself clearly by name in the first sentence: "Hi, I'm ${teacherShort}, your English teacher." Do not omit or bury your name. After that first introduction, never repeat it; continue naturally as the same teacher. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
 
 Rules for spoken replies:
@@ -1794,8 +1786,8 @@ Rules for spoken replies:
     const firstName = /^(?:admin|user|test|guest)$/i.test(profile.name.trim())
       ? "there"
       : profile.name?.trim().split(/\s+/)[0] || "there";
-    const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
-      const greeting = `${opening} I’m ${tutor.name.replace(/\s+(Ma'am|Sir)$/i, "")}.`;
+    const teacherName = tutor.name.replace(/\s+(Ma'am|Sir)$/i, "");
+    const greeting = `Hi ${firstName}, I’m ${teacherName}, your English teacher. ${LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName)}`;
     aiBusyRef.current = true;
     speechRef.current.pause();
     lastAiSpeechRef.current = greeting;
@@ -2421,7 +2413,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} onWheel={() => { convUserHasScrolledRef.current = true; }} onTouchMove={() => { convUserHasScrolledRef.current = true; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
@@ -2448,7 +2440,7 @@ Rules for spoken replies:
                       </div>
                     </div>
                   )}
-                  {convHistory.map((msg, i) => (
+                  {[...convHistory].reverse().map((msg, i) => (
                     <div key={i} className={`flex min-w-0 gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
                          {msg.role === "user"
