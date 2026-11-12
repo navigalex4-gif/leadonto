@@ -697,15 +697,25 @@ router.post("/ai/conversation", async (req, res) => {
   const state = { wrote: false };
 
   try {
-    if (process.env["ANTHROPIC_API_KEY"] && isQualityProviderReady("claude")) {
+    // Start with low-latency providers for live speech. Each provider is
+    // attempted only when configured and healthy; failures before the first
+    // token fall through to the next provider.
+    if (isQualityProviderReady("groq")) {
       try {
-        await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+        await streamGroq(req, res, prompt, system, maxTokens ?? 8192, state);
         return;
-      } catch (claudeError) {
-        if (state.wrote) throw claudeError;
-        pauseQualityProvider("claude", claudeError);
-        req.log.warn({ err: claudeError }, "Claude conversation failed  -  falling back to Mistral");
+      } catch (groqError) {
+        if (state.wrote) throw groqError;
+        pauseQualityProvider("groq", groqError);
+        req.log.warn({ err: groqError }, "Fast Groq conversation failed - trying Gemini");
       }
+    }
+    try {
+      await streamGemini(req, res, prompt, system, maxTokens ?? 8192, state);
+      return;
+    } catch (geminiError) {
+      if (state.wrote) throw geminiError;
+      req.log.warn({ err: geminiError }, "Gemini conversation failed - trying Mistral");
     }
     if (isQualityProviderReady("mistral")) {
       try {
@@ -714,20 +724,14 @@ router.post("/ai/conversation", async (req, res) => {
       } catch (mistralError) {
         if (state.wrote) throw mistralError;
         pauseQualityProvider("mistral", mistralError);
-        req.log.warn({ err: mistralError }, "Mistral conversation fallback failed  -  falling back to Groq");
+        req.log.warn({ err: mistralError }, "Mistral conversation failed - trying Claude");
       }
     }
-    if (isQualityProviderReady("groq")) {
-      try {
-        await streamGroq(req, res, prompt, system, maxTokens ?? 8192, state);
-        return;
-      } catch (groqError) {
-        if (state.wrote) throw groqError;
-        pauseQualityProvider("groq", groqError);
-        req.log.warn({ err: groqError }, "Groq conversation failed  -  falling back to Gemini");
-      }
+    if (process.env["ANTHROPIC_API_KEY"] && isQualityProviderReady("claude")) {
+      await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+      return;
     }
-    await streamGemini(req, res, prompt, system, maxTokens ?? 8192, state);
+    throw new Error("All conversation AI providers are unavailable");
   } catch (err) {
     req.log.error({ err }, "Conversation provider chain failed");
     if (!state.wrote) {
