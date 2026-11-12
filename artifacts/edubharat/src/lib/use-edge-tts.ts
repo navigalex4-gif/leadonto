@@ -24,6 +24,8 @@ export type GoogleSpeakOptions = {
    * API server maps this permanently to the character's Google Cloud voice.
    */
   voiceStyle?: string;
+  /** Sustained delivery direction sent separately as Gemini speech_metadata.style. */
+  speechStyle?: string;
   /**
    * Native/helper language name (e.g. "Malayalam"). When supplied, the API
    * server splits a mixed reply into native-script and English runs and voices
@@ -545,6 +547,7 @@ function playChunkChain(
     body: JSON.stringify({
       text: chunkText, language, gender,
       voiceStyle: options.voiceStyle, nativeLanguage: options.nativeLanguage,
+      speechStyle: options.speechStyle,
     }),
     signal: ctrl.signal,
   })
