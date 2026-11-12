@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-2.5-flash-preview-tts"] as const; const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
+const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const; const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
