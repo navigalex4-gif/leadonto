@@ -1050,7 +1050,7 @@ function InterviewAceContent() {
   // fallback ordering so two candidates with the same role and answer path do
   // not receive the same short script.
   const questionVariationRef = useRef("");
-  // Interview credits are metered per block (1 credit each). The first block is
+  // Interview credits are metered per completed block (1 credit each). No block is
   // charged at start; this counts blocks charged so the meter stops at the max
   // (a full session costs at most INTERVIEW_MAX_BLOCKS credits).
   const interviewBlocksChargedRef = useRef(1);
@@ -1846,12 +1846,12 @@ Next: <the interview question only, may start with a short natural bridge>`,
   useEffect(() => () => { if (activeUserRef.current) void endInterview(interviewIdRef.current ?? undefined); }, []);
 
   // Meter interview credits by ACTUAL usage: 1 credit per block entered, with the
-  // first block already charged at start, so leaving early costs less and a full
+  // block is charged until its full duration elapses, so leaving early costs less and a full
   // session costs at most INTERVIEW_MAX_BLOCKS credits. If the balance runs out
   // mid-interview, end gracefully to the report. Guests use free trials, not credits.
   useEffect(() => {
     if (phase !== "interview" || !user) return;
-    interviewBlocksChargedRef.current = 1; // block 1 was charged at start
+    interviewBlocksChargedRef.current = 0; // no block is charged until it completes
     const blockMs = interviewBlockSeconds(duration) * 1000;
     const chargeDueBlocks = async () => {
       if (interviewTickInFlightRef.current || !interviewMeterStartedAtRef.current) return;
