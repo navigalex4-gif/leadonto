@@ -200,7 +200,7 @@ router.post("/credits/live/tick", requireAuth, async (req: Request, res: Respons
     return;
   }
   const block = Number(body.block);
-  if (!Number.isInteger(block) || block < 2) {
+  if (!Number.isInteger(block) || block < 1) {
     res.status(400).json({ error: "invalid_block" });
     return;
   }
