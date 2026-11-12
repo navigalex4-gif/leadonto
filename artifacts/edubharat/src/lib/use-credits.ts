@@ -6,11 +6,11 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 export const CREDIT_MIN_PURCHASE = 10;
 export const CREDIT_QUICK_PICKS = [10, 49, 99, 199, 499, 999];
 
-/** Live conversation: 1 credit per 12-minute block = 5 credits/hour. */
+/** Live conversation: 1 credit per completed 12-minute block = 5 credits/hour. */
 export const LIVE_BLOCK_SECONDS = 12 * 60;
 export const LIVE_HOURLY_COST = 5;
 
-/** Interviews are metered per block: 1 credit each, first block charged at start. */
+/** Interviews are metered per completed block: 1 credit each, no upfront charge. */
 export const INTERVIEW_BLOCK_COST = 1;
 /** A full interview is 5 blocks, so it costs at most 5 credits (the old flat price). */
 export const INTERVIEW_MAX_BLOCKS = 5;
