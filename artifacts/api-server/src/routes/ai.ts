@@ -675,7 +675,6 @@ router.post("/ai/stream", async (req, res) => {
         return;
       }
       throw new Error("All AI providers unavailable");
-    }
   } catch (err) {
     req.log.error({ err }, "AI streaming error");
     if (!state.wrote) {
