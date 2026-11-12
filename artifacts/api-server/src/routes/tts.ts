@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-const GEMINI_MODEL = "gemini-2.5-flash-preview-tts";
+const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-2.5-flash-preview-tts"] as const; const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
@@ -63,7 +63,7 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
 
 function cleanForTTS(text: string): string {
   return text
-    .replace(/^[A-Za-zÀ-ÿ'\s]{2,30}:\s*/m, "")
+    .replace(/^[A-Za-zÃ€-Ã¿'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
@@ -82,7 +82,7 @@ function cleanForTTS(text: string): string {
     .replace(/\bMBA\b/gi, "M B A")
     .replace(/\bHR\b/gi, "H R")
     .replace(/\bAI\b/gi, "A I")
-    .replace(/(हाँ|हां)(?![,\u0964।!?])/gu, "$1,")
+    .replace(/(à¤¹à¤¾à¤|à¤¹à¤¾à¤‚)(?![,\u0964à¥¤!?])/gu, "$1,")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -213,7 +213,7 @@ router.post("/tts", async (req, res) => {
   for (const provider of providers) {
     try {
       if (provider === "gemini") {
-        const audio = await generateGemini(cleaned, geminiVoice);
+        const audio = await generateGemini(cleaned, geminiVoice, language);
         req.log.info({ provider, model: GEMINI_MODEL, bytes: audio.length }, "TTS generated");
         sendAudio(res, audio, "audio/wav", provider); return;
       }
@@ -266,3 +266,4 @@ router.get("/tts/voices", (_req, res) => {
 });
 
 export default router;
+
