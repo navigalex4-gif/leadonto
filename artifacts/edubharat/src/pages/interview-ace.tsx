@@ -1053,7 +1053,7 @@ function InterviewAceContent() {
   // Interview credits are metered per completed block (1 credit each). No block is
   // charged at start; this counts blocks charged so the meter stops at the max
   // (a full session costs at most INTERVIEW_MAX_BLOCKS credits).
-  const interviewBlocksChargedRef = useRef(1);
+  const interviewBlocksChargedRef = useRef(0);
   const interviewMeterStartedAtRef = useRef<number | null>(null);
   const interviewTickInFlightRef = useRef(false);
   // Server-minted token for THIS tab's interview (from /charge); presented on
