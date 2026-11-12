@@ -34,12 +34,12 @@ import { useGamification } from "@/lib/use-gamification";
 import { wordOfTheDay, type WordPowerEntry } from "@/lib/word-power";
 
 const TUTOR_SPEAKING_STYLES: Record<string, string> = {
-  priya: 'Speak like a warm Mumbai schoolteacher. Use simple words, lots of encouragement, and occasional natural words like "haan", "bilkul", or "thoda practice karo". Never use jargon.',
-  rohit: 'Speak like a no-nonsense Delhi corporate trainer. Be direct and structured. Use phrases like "listen carefully" and "this is what HR expects". Keep it efficient and avoid fluff.',
-  maya: "Speak like a friendly, experienced English coach. Be relaxed, clear, and conversational. Use familiar everyday examples from Indian life when useful; avoid corporate jargon and scripted-sounding advice.",
-  arjun: 'Speak like an energetic Hyderabad interview coach. Be fast-paced and positive. Use phrases like "absolutely nail it", "practice this 10 times", and "you\'ve got this yaar".',
-  neha: 'Speak like a patient Kolkata pronunciation teacher. Slow down for demonstrations, break words into syllables, and say "now repeat after me" or "stress the second syllable".',
-  rahul: 'Speak like a methodical Pune grammar teacher. Explain rules step by step with Indian examples about chai, cricket, and festivals. Say "the rule here is" and "a common mistake Indians make is".',
+  priya: "Be warm, patient, and approachable. Explain things simply and use a little Hindi naturally only when it genuinely helps the learner.",
+  rohit: "Be direct and practical without sounding strict. Give clear advice and realistic workplace examples when they fit the learner's question.",
+  maya: "Be relaxed, thoughtful, and conversational. Use familiar everyday examples from Indian life when useful; avoid corporate jargon.",
+  arjun: "Be lively and confident without overdoing enthusiasm. Keep examples practical, especially for interviews and everyday communication.",
+  neha: "Be calm and attentive to pronunciation. Explain sounds clearly and at a comfortable pace without turning every reply into a drill.",
+  rahul: "Be clear and logical when explaining grammar. Use short, relatable examples and explain the reason rather than reciting rules.",
 };
 // Brisk but natural classroom pace. Fast enough to feel responsive without
 // sounding rushed; the live turn timing is unchanged.
@@ -2421,7 +2421,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} onScroll={() => { convUserHasScrolledRef.current = true; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} onWheel={() => { convUserHasScrolledRef.current = true; }} onTouchMove={() => { convUserHasScrolledRef.current = true; }} onScroll={() => { if (convUserHasScrolledRef.current) return; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
