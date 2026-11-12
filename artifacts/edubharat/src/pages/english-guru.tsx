@@ -2421,7 +2421,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} onWheel={() => { convUserHasScrolledRef.current = true; }} onTouchMove={() => { convUserHasScrolledRef.current = true; }} onScroll={() => { if (convUserHasScrolledRef.current) return; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} onWheel={() => { convUserHasScrolledRef.current = true; }} onTouchMove={() => { convUserHasScrolledRef.current = true; }} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
