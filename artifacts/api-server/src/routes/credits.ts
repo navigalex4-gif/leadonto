@@ -51,8 +51,8 @@ router.get("/credits/transactions", requireAuth, async (req: Request, res: Respo
   res.json({ transactions });
 });
 
-// Interviews are metered by actual usage: 1 credit per block, first block at
-// start, the rest as the session continues (see /interview/tick below). The meter
+// Interviews are metered by completed usage: 1 credit per completed block.
+// No upfront debit is made; the meter
 // lives in the server session (req.session.interview) — authoritative and not
 // forgeable by the client. `interview.id` is a server-minted token used as the
 // idempotent ledger reference for every block, so a full session costs at most
@@ -94,7 +94,7 @@ router.post("/credits/interview/charge", requireAuth, async (req: Request, res: 
 });
 
 // POST /api/credits/interview/tick { block } — charges 1 credit for the next
-// block (2..INTERVIEW_MAX_BLOCKS). Charges are idempotent per (interview id,
+// completed block (1..INTERVIEW_MAX_BLOCKS). Charges are idempotent per (interview id,
 // block): mutate() serialises on the user row and dedups by (type, reference), so
 // concurrent or retried ticks for the same block charge at most once. Combined
 // with the capped block range this hard-guarantees a full session costs at most
