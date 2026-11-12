@@ -849,7 +849,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const convHistoryRef = useRef(convHistory);
   const liveChatRef = useRef(liveChat);
   const liveIdRef = useRef<string | null>(null);
-  const liveBlocksChargedRef = useRef(1);
+  const liveBlocksChargedRef = useRef(0);
   const liveStartedAtRef = useRef<number | null>(null);
   const liveTickInFlightRef = useRef(false);
   const livePausedRef = useRef(false);
@@ -1891,7 +1891,7 @@ Rules for spoken replies:
         return;
       }
       liveIdRef.current = charge.liveId ?? null;
-      liveBlocksChargedRef.current = charge.blocksCharged ?? 1;
+      liveBlocksChargedRef.current = charge.blocksCharged ?? 0;
       liveStartedAtRef.current = charge.startedAt ?? Date.now();
     }
     trackFunnel("first_session_started", { feature: "english_guru_live", authenticated: Boolean(user), guest: !user });
@@ -2299,7 +2299,7 @@ Rules for spoken replies:
               {!liveChat && (
                 <p className="text-xs text-muted-foreground">
                   {user ? (
-                    <>Uses <span className="font-semibold text-secondary">1 credit per 12 minutes</span> (5 credits/hour) · first block charged at start · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
+                    <>Uses <span className="font-semibold text-secondary">1 credit per completed 12 minutes</span> (5 credits/hour) · no upfront charge · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
                   ) : guestLiveLeft > 0 ? (
                     <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Create a free account</Link> for 20 free credits</>
                   ) : (
