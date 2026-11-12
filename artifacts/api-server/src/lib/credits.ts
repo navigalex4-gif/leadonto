@@ -6,14 +6,14 @@ import { normalizeEmailForAbuseCheck } from "./normalize-email";
 /** Free credits granted once per account on first sign-in. */
 export const SIGNUP_GRANT = 20;
 
-/** Live conversation is metered in 12-minute blocks → 1 credit each = 5 credits/hour. */
+/** Live conversation is charged 1 credit only after each completed 12-minute block = 5 credits/hour. */
 export const LIVE_BLOCK_SECONDS = 12 * 60;
 export const LIVE_BLOCK_COST = 1;
 
 /**
  * Interviews are metered by actual usage: each session is split into 5 equal
- * blocks and 1 credit is charged per block entered (the first block upfront).
- * Leaving early costs only for the blocks used; a full session still costs at
+ * blocks and 1 credit is charged only after each block is completed.
+ * Leaving before a block completes costs nothing for that block; a full session still costs at
  * most 5 credits — the previous flat price.
  */
 export const INTERVIEW_BLOCK_COST = 1;
