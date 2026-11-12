@@ -1051,7 +1051,7 @@ function InterviewAceContent() {
   // not receive the same short script.
   const questionVariationRef = useRef("");
   // Interview credits are metered per completed block (1 credit each). No block is
-  // charged at start; this counts blocks charged so the meter stops at the max
+  // charged only after completion; this counts completed blocks up to the max
   // (a full session costs at most INTERVIEW_MAX_BLOCKS credits).
   const interviewBlocksChargedRef = useRef(0);
   const interviewMeterStartedAtRef = useRef<number | null>(null);
@@ -2401,7 +2401,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {user ? (
-                <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · 1 credit per {Math.max(1, Math.round(duration / INTERVIEW_MAX_BLOCKS))} minutes of this interview · early exit only charges blocks entered · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
+                <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · 1 credit per {Math.max(1, Math.round(duration / INTERVIEW_MAX_BLOCKS))} minutes of this interview · early exit charges only completed blocks · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
               ) : guestInterviewsRemaining > 0 ? (
                 <><span className="font-semibold text-green-700">{guestInterviewsRemaining} free {guestInterviewsRemaining === 1 ? "interview" : "interviews"}</span> left · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
               ) : (
