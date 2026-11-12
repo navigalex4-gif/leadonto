@@ -4,11 +4,14 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const; const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
+const GEMINI_TTS_MODELS = ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"] as const;
+const configuredGeminiModel = process.env["GEMINI_TTS_MODEL"]?.trim();
+const GEMINI_MODEL = configuredGeminiModel && GEMINI_TTS_MODELS.includes(configuredGeminiModel as typeof GEMINI_TTS_MODELS[number])
+  ? configuredGeminiModel
+  : GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
@@ -69,7 +72,6 @@ function cleanForTTS(text: string): string {
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
-    .replace(/\([^)]{1,30}\)/g, "")
     .replace(/\bBFSI\b/gi, "B F S I")
     .replace(/\bCEFR\b/gi, "C E F R")
     .replace(/\bRBI\b/gi, "R B I")
@@ -118,21 +120,55 @@ function extractGeminiAudio(response: any): string | null {
   return audio?.inlineData?.data ?? parts.find((part: any) => part?.inlineData?.data)?.inlineData?.data ?? null;
 }
 
-async function generateGemini(text: string, voice: string): Promise<Buffer> {
+async function generateGemini(
+  text: string,
+  voice: string,
+  language: string,
+  requestedStyle?: string,
+): Promise<Buffer> {
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-  const client = new GoogleGenAI({ apiKey });
-  const response = await client.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [{ role: "user", parts: [{ text }] }],
-    config: {
-      responseModalities: ["AUDIO"],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
-      },
+
+  // Gemini 3.8 treats content as a verbatim transcript. Delivery instructions
+  // belong in speech_metadata.style, never in the transcript itself.
+  const baseStyle = styleForLanguage(language);
+  const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
     },
+    body: JSON.stringify({
+      model: GEMINI_MODEL,
+    availableModels: [...GEMINI_TTS_MODELS],
+      input: [{
+        type: "user_input",
+        content: [{
+          type: "text",
+          text,
+          annotations: [{
+            type: "speech_metadata",
+            style,
+          }],
+        }],
+      }],
+      response_format: { type: "audio" },
+      generation_config: {
+        speech_config: [{ voice }],
+      },
+    }),
+    signal: AbortSignal.timeout(90_000),
   });
-  const audioBase64 = extractGeminiAudio(response);
+
+  const payload = await response.json().catch(() => null) as {
+    output_audio?: { data?: string };
+    error?: { message?: string };
+  } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error?.message ?? `Gemini Interactions API returned HTTP ${response.status}`);
+  }
+  const audioBase64 = payload?.output_audio?.data;
   if (!audioBase64) throw new Error("Gemini returned no audio data");
   const audio = pcmToWav(Buffer.from(audioBase64, "base64"));
   if (audio.length < 100) throw new Error("Gemini returned an empty audio file");
@@ -185,8 +221,8 @@ function sendAudio(res: any, audio: Buffer, contentType: string, provider: strin
 }
 
 router.post("/tts", async (req, res) => {
-  const { text, language = "English", voiceStyle, gender } = req.body as {
-    text?: string; language?: string; voiceStyle?: string; gender?: "male" | "female";
+  const { text, language = "English", voiceStyle, gender, speechStyle } = req.body as {
+    text?: string; language?: string; voiceStyle?: string; gender?: "male" | "female"; speechStyle?: string;
   };
   if (typeof text !== "string" || !text.trim()) {
     res.status(400).json({ error: "Missing 'text' field" }); return;
@@ -213,7 +249,7 @@ router.post("/tts", async (req, res) => {
   for (const provider of providers) {
     try {
       if (provider === "gemini") {
-        const audio = await generateGemini(cleaned, geminiVoice, language);
+        const audio = await generateGemini(cleaned, geminiVoice, language, typeof speechStyle === "string" ? speechStyle : undefined);
         req.log.info({ provider, model: GEMINI_MODEL, bytes: audio.length }, "TTS generated");
         sendAudio(res, audio, "audio/wav", provider); return;
       }
