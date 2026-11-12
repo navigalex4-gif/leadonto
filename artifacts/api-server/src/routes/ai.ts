@@ -73,18 +73,18 @@ const NATIVE_SCRIPT_RANGES: Record<SupportedNativeLanguage, RegExp> = {
 };
 
 const SYSTEM_LANGUAGE_HINTS: Record<SupportedNativeLanguage, RegExp> = {
-  Hindi: /\bhindi\b|à¤¹à¤¿à¤‚à¤¦à¥€|à¤¹à¤¿à¤¨à¥à¤¦à¥€/iu,
-  Bengali: /\bbengali\b|à¦¬à¦¾à¦‚à¦²à¦¾|à¦¬à¦¾à¦™à¦²à¦¾/iu,
-  Telugu: /\btelugu\b|à°¤à±†à°²à±à°—à±/iu,
-  Marathi: /\bmarathi\b|à¤®à¤°à¤¾à¤ à¥€/iu,
-  Tamil: /\btamil\b|à®¤à®®à®¿à®´à¯/iu,
-  Gujarati: /\bgujarati\b|àª—à«àªœàª°àª¾àª¤à«€/iu,
-  Kannada: /\bkannada\b|à²•à²¨à³à²¨à²¡/iu,
-  Malayalam: /\bmalayalam\b|à´®à´²à´¯à´¾à´³à´‚/iu,
-  Punjabi: /\bpunjabi\b|à¨ªà©°à¨œà¨¾à¨¬à©€/iu,
-  Odia: /\b(?:odia|oriya)\b|à¬“à¬¡à¬¼à¬¿à¬†|à¬“à¬¡à¬¿à¬†/iu,
-  Urdu: /\burdu\b|Ø§Ø±Ø¯Ùˆ/iu,
-  Assamese: /\bassamese\b|à¦…à¦¸à¦®à§€à¦¯à¦¼à¦¾|à¦…à¦¸à¦®à¦¿à§Ÿà¦¾/iu,
+  Hindi: /\bhindi\b| - | - /iu,
+  Bengali: /\bbengali\b| - | - /iu,
+  Telugu: /\btelugu\b| - /iu,
+  Marathi: /\bmarathi\b| - /iu,
+  Tamil: /\btamil\b| - /iu,
+  Gujarati: /\bgujarati\b| - /iu,
+  Kannada: /\bkannada\b| - /iu,
+  Malayalam: /\bmalayalam\b| - /iu,
+  Punjabi: /\bpunjabi\b| - /iu,
+  Odia: /\b(?:odia|oriya)\b| - | - /iu,
+  Urdu: /\burdu\b| - /iu,
+  Assamese: /\bassamese\b| - | - /iu,
 };
 
 function latestStudentText(prompt: string): string {
@@ -150,7 +150,7 @@ function applyLanguageQuality(
     && effectiveNativeInputDetected
       ? `Highest-priority response contract: The selected helper-language response must be in ${effectiveResponseLanguage}. Use this language even if speech recognition transcribes the learner's words in a different Indian script. Reply first in two complete, useful sentences in natural ${effectiveResponseLanguage} using its standard native script. Address the learner's actual message and meaning. Do not reply in English first, do not give a generic acknowledgement, and do not invent a new question. You may add one short English practice sentence only after the ${effectiveResponseLanguage} explanation.`
       : null;
-  if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu|à¤¹à¤¿à¤‚à¤¦à¥€|à¤¹à¤¿à¤¨à¥à¤¦à¥€|à¤®à¤°à¤¾à¤ à¥€|à¤¦à¥‡à¤µà¤¨à¤¾à¤—à¤°à¥€|matra|à¤®à¤¾à¤¤à¥à¤°à¤¾|à¦¬à¦¾à¦‚à¦²à¦¾|à°¤à±†à°²à±à°—à±|à®¤à®®à®¿à®´à¯|àª—à«àªœàª°àª¾àª¤à«€|à²•à²¨à³à²¨à²¡|à´®à´²à´¯à´¾à´³à´‚|à¨ªà©°à¨œà¨¾à¨¬à©€|à¬“à¬¡à¬¼à¬¿à¬†|Ø§Ø±Ø¯Ùˆ|à¦…à¦¸à¦®à§€à¦¯à¦¼à¦¾)/iu.test(requestedText)) {
+  if (!/(?:Hindi|Marathi|Tamil|Telugu|Bengali|Gujarati|Kannada|Malayalam|Punjabi|Odia|Assamese|Urdu| - | - | - | - |matra| - | - | - | - | - | - | - | - | - | - | - )/iu.test(requestedText)) {
     return [COMMERCIAL_OUTPUT_QUALITY_RULE, nativePolicy, explicitLanguagePolicy].filter(Boolean).join("\n\n") || undefined;
   }
   return [
@@ -314,10 +314,10 @@ function userFriendlyError(err: unknown): string {
   if (e?.status === 429) {
     const match = e.message?.match(/retry in ([\d.]+)s/i);
     const secs = match ? Math.ceil(parseFloat(match[1])) : 30;
-    return `AI quota reached â€” please wait ${secs} seconds and try again.`;
+    return `AI quota reached  -  please wait ${secs} seconds and try again.`;
   }
-  if (e?.status === 503) return "AI is temporarily busy â€” please try again in a moment.";
-  return "AI request failed â€” please try again.";
+  if (e?.status === 503) return "AI is temporarily busy  -  please try again in a moment.";
+  return "AI request failed  -  please try again.";
 }
 
 async function streamGemini(
@@ -347,7 +347,7 @@ async function streamGemini(
         const text = response.text?.trim();
         if (!text) {
           if (i < GEMINI_MODEL_CHAIN.length - 1) {
-            req.log.warn({ model }, "Vertex Gemini returned an empty response â€” trying next model");
+            req.log.warn({ model }, "Vertex Gemini returned an empty response  -  trying next model");
             continue;
           }
           throw new Error(`${model} returned an empty response`);
@@ -360,7 +360,7 @@ async function streamGemini(
       } catch (err) {
         const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
         if ((isRateLimit(err) || isAuthError(err)) && !isLast) {
-          req.log.warn({ model, err }, "Vertex Gemini issue â€” trying next model");
+          req.log.warn({ model, err }, "Vertex Gemini issue  -  trying next model");
           continue;
         }
         throw err;
@@ -396,7 +396,7 @@ async function streamGemini(
           state.wrote = true;
           res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         } else if (i < GEMINI_MODEL_CHAIN.length - 1) {
-          req.log.warn({ model }, "Gemini returned an empty streaming and non-streaming response â€” trying next model");
+          req.log.warn({ model }, "Gemini returned an empty streaming and non-streaming response  -  trying next model");
           continue;
         } else {
           throw new Error(`${model} returned an empty response`);
@@ -408,7 +408,7 @@ async function streamGemini(
     } catch (err) {
       const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
       if (isRateLimit(err) && !isLast) {
-        req.log.warn({ model, err }, "Rate limited â€” trying fallback model");
+        req.log.warn({ model, err }, "Rate limited  -  trying fallback model");
         const delay = retryDelayMs(err);
         if (delay < 5000) await new Promise((r) => setTimeout(r, delay));
         continue;
@@ -459,7 +459,7 @@ async function streamAnthropic(
     } catch (err) {
       const isLast = i === modelChain.length - 1;
       if ((isRateLimit(err) || isAuthError(err)) && !isLast) {
-        req.log.warn({ model, err }, "Claude issue â€” trying fallback model");
+        req.log.warn({ model, err }, "Claude issue  -  trying fallback model");
         continue;
       }
       throw err;
@@ -654,7 +654,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (claudeErr) {
           if (state.wrote) throw claudeErr;
           pauseQualityProvider("claude", claudeErr);
-          req.log.warn({ err: claudeErr }, "Claude quality stream failed â€” falling back to Mistral");
+          req.log.warn({ err: claudeErr }, "Claude quality stream failed  -  falling back to Mistral");
         }
       }
       if (isQualityProviderReady("mistral")) {
@@ -664,7 +664,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (mistralErr) {
           if (state.wrote) throw mistralErr;
           pauseQualityProvider("mistral", mistralErr);
-          req.log.warn({ err: mistralErr }, "Mistral quality fallback failed â€” falling back to Groq");
+          req.log.warn({ err: mistralErr }, "Mistral quality fallback failed  -  falling back to Groq");
         }
       }
       if (isQualityProviderReady("groq")) {
@@ -674,7 +674,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (groqErr) {
           if (state.wrote) throw groqErr;
           pauseQualityProvider("groq", groqErr);
-          req.log.warn({ err: groqErr }, "Groq quality stream failed â€” trying Gemini");
+          req.log.warn({ err: groqErr }, "Groq quality stream failed  -  trying Gemini");
         }
       }
       await streamGemini(req, res, prompt, system, tokens, state);
@@ -690,7 +690,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (groqErr) {
           if (state.wrote) throw groqErr;
           pauseQualityProvider("groq", groqErr);
-          req.log.warn({ err: groqErr }, "Groq live stream failed â€” falling back to Mistral");
+          req.log.warn({ err: groqErr }, "Groq live stream failed  -  falling back to Mistral");
         }
       }
       if (isQualityProviderReady("mistral")) {
@@ -700,7 +700,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (mistralErr) {
           if (state.wrote) throw mistralErr;
           pauseQualityProvider("mistral", mistralErr);
-          req.log.warn({ err: mistralErr }, "Mistral live stream failed â€” trying Gemini");
+          req.log.warn({ err: mistralErr }, "Mistral live stream failed  -  trying Gemini");
         }
       }
       await streamGemini(req, res, prompt, system, tokens, state);
@@ -717,17 +717,17 @@ router.post("/ai/stream", async (req, res) => {
         return;
       } catch (claudeErr) {
         if (state.wrote) throw claudeErr;
-        req.log.warn({ err: claudeErr }, "Claude streaming failed â€” falling back to Gemini");
+        req.log.warn({ err: claudeErr }, "Claude streaming failed  -  falling back to Gemini");
          try {
            await streamGemini(req, res, prompt, system, tokens, state);
          } catch (geminiErr) {
            if (state.wrote) throw geminiErr;
-            req.log.warn({ err: geminiErr }, "Gemini streaming failed â€” falling back to Groq");
+            req.log.warn({ err: geminiErr }, "Gemini streaming failed  -  falling back to Groq");
             try {
               await streamGroq(req, res, prompt, system, tokens, state);
             } catch (groqErr) {
               if (state.wrote) throw groqErr;
-              req.log.warn({ err: groqErr }, "Groq streaming failed â€” falling back to Mistral");
+              req.log.warn({ err: groqErr }, "Groq streaming failed  -  falling back to Mistral");
               await streamMistral(req, res, prompt, system, tokens, state);
             }
          }
@@ -737,12 +737,12 @@ router.post("/ai/stream", async (req, res) => {
          await streamGemini(req, res, prompt, system, tokens, state);
        } catch (geminiErr) {
          if (state.wrote) throw geminiErr;
-          req.log.warn({ err: geminiErr }, "Gemini streaming failed â€” falling back to Groq");
+          req.log.warn({ err: geminiErr }, "Gemini streaming failed  -  falling back to Groq");
           try {
             await streamGroq(req, res, prompt, system, tokens, state);
           } catch (groqErr) {
             if (state.wrote) throw groqErr;
-            req.log.warn({ err: groqErr }, "Groq streaming failed â€” falling back to Mistral");
+            req.log.warn({ err: groqErr }, "Groq streaming failed  -  falling back to Mistral");
             await streamMistral(req, res, prompt, system, tokens, state);
           }
        }
@@ -775,7 +775,7 @@ router.post("/ai/conversation", async (req, res) => {
       } catch (claudeError) {
         if (state.wrote) throw claudeError;
         pauseQualityProvider("claude", claudeError);
-        req.log.warn({ err: claudeError }, "Claude conversation failed â€” falling back to Mistral");
+        req.log.warn({ err: claudeError }, "Claude conversation failed  -  falling back to Mistral");
       }
     }
     if (isQualityProviderReady("mistral")) {
@@ -785,7 +785,7 @@ router.post("/ai/conversation", async (req, res) => {
       } catch (mistralError) {
         if (state.wrote) throw mistralError;
         pauseQualityProvider("mistral", mistralError);
-        req.log.warn({ err: mistralError }, "Mistral conversation fallback failed â€” falling back to Groq");
+        req.log.warn({ err: mistralError }, "Mistral conversation fallback failed  -  falling back to Groq");
       }
     }
     if (isQualityProviderReady("groq")) {
@@ -795,7 +795,7 @@ router.post("/ai/conversation", async (req, res) => {
       } catch (groqError) {
         if (state.wrote) throw groqError;
         pauseQualityProvider("groq", groqError);
-        req.log.warn({ err: groqError }, "Groq conversation failed â€” falling back to Gemini");
+        req.log.warn({ err: groqError }, "Groq conversation failed  -  falling back to Gemini");
       }
     }
     await streamGemini(req, res, prompt, system, maxTokens ?? 8192, state);
@@ -907,11 +907,11 @@ router.post("/ai/chat", async (req, res) => {
         } catch (err) {
           const isLast = i === modelChain.length - 1;
           if ((isRateLimit(err) || isAuthError(err)) && !isLast) {
-            req.log.warn({ model, err }, "Claude issue â€” trying fallback model");
+            req.log.warn({ model, err }, "Claude issue  -  trying fallback model");
             continue;
           }
           if (isLast) {
-            req.log.warn({ model, err }, "Claude chain exhausted â€” falling back to Gemini");
+            req.log.warn({ model, err }, "Claude chain exhausted  -  falling back to Gemini");
             claudeFailed = true;
             break;
           }
@@ -944,7 +944,7 @@ router.post("/ai/chat", async (req, res) => {
         } catch (err) {
           const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
           if (isRateLimit(err) && !isLast) {
-            req.log.warn({ model, err }, "Rate limited â€” trying fallback model");
+            req.log.warn({ model, err }, "Rate limited  -  trying fallback model");
             continue;
           }
           throw err;
@@ -952,14 +952,14 @@ router.post("/ai/chat", async (req, res) => {
       }
     }
   } catch (err) {
-    req.log.warn({ err }, "Claude/Gemini chat providers unavailable â€” trying Groq");
+    req.log.warn({ err }, "Claude/Gemini chat providers unavailable  -  trying Groq");
     try {
       const text = await requestGroqStream(prompt, system, maxTokens ?? 8192, () => {});
       if (!text.trim()) throw new Error("Groq returned an empty response", { cause: err });
       res.json({ text });
       return;
     } catch (groqErr) {
-      req.log.warn({ err: groqErr }, "Groq chat provider unavailable â€” trying Mistral");
+      req.log.warn({ err: groqErr }, "Groq chat provider unavailable  -  trying Mistral");
     }
     try {
       const text = await requestMistralStream(prompt, system, maxTokens ?? 8192, () => {});
@@ -993,7 +993,7 @@ export async function generateTextWithFallback(opts: {
   const system = applyLanguageQuality(prompt, rawSystem);
   let full = "";
 
-  // â”€â”€ Anthropic / Claude chain (reliable primary) â”€â”€
+  //  -  Anthropic / Claude chain (reliable primary)  - 
   const anthropic = getAnthropic();
   if (anthropic && (!qualityFirst || isQualityProviderReady("claude"))) {
     const modelChain = getAnthropicModelChain(maxTokens, qualityFirst);
@@ -1056,7 +1056,7 @@ export async function generateTextWithFallback(opts: {
     return full;
   }
 
-  // â”€â”€ Gemini fallback (free tier often 429/404) â”€â”€
+  //  -  Gemini fallback (free tier often 429/404)  - 
   try {
     const ai = getAI();
     const contents = buildContents(prompt, system);
@@ -1083,7 +1083,7 @@ export async function generateTextWithFallback(opts: {
   } catch (err) {
     log?.warn({ err }, "Gemini provider unavailable");
   }
-  // â”€â”€ Groq fallback (fast OpenAI-compatible API) â”€â”€
+  //  -  Groq fallback (fast OpenAI-compatible API)  - 
   try {
     full = "";
     const groqText = await requestGroqStream(prompt, system, maxTokens, (text) => {
@@ -1094,7 +1094,7 @@ export async function generateTextWithFallback(opts: {
   } catch (err) {
     log?.warn({ err }, "Groq provider unavailable");
   }
-  // â”€â”€ Mistral fallback (OpenAI-compatible streaming API) â”€â”€
+  //  -  Mistral fallback (OpenAI-compatible streaming API)  - 
   try {
     full = "";
     const mistralText = await requestMistralStream(prompt, system, maxTokens, (text) => {
@@ -1147,14 +1147,14 @@ router.get("/ai/health", (_req, res) => {
 // GET /ai/web-context?q=<query>
 // Fetches a brief web context snippet from DuckDuckGo Instant Answer API
 // for news/current-event queries in Live Conversation. Free, no API key.
-// Returns { context: string } â€” empty string when nothing useful is found.
+// Returns { context: string }  -  empty string when nothing useful is found.
 // ---------------------------------------------------------------------------
 router.get("/ai/web-context", async (req: Request, res: Response) => {
   const q = ((req.query["q"] as string) || "").slice(0, 200).trim();
   if (!q) { res.json({ context: "" }); return; }
 
   try {
-    // DuckDuckGo Instant Answer API â€” no key required, returns structured JSON
+    // DuckDuckGo Instant Answer API  -  no key required, returns structured JSON
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`;
     const ddgRes = await fetch(url, { signal: AbortSignal.timeout(3500) });
 
