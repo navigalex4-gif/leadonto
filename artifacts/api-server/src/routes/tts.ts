@@ -114,12 +114,6 @@ function pcmToWav(pcm: Buffer): Buffer {
   return Buffer.concat([header, pcm]);
 }
 
-function extractGeminiAudio(response: any): string | null {
-  const parts = response?.candidates?.[0]?.content?.parts ?? [];
-  const audio = parts.find((part: any) => part?.inlineData?.data && String(part.inlineData.mimeType ?? "").startsWith("audio/"));
-  return audio?.inlineData?.data ?? parts.find((part: any) => part?.inlineData?.data)?.inlineData?.data ?? null;
-}
-
 async function generateGemini(
   text: string,
   voice: string,
@@ -141,7 +135,6 @@ async function generateGemini(
     },
     body: JSON.stringify({
       model: GEMINI_MODEL,
-    availableModels: [...GEMINI_TTS_MODELS],
       input: [{
         type: "user_input",
         content: [{
@@ -286,6 +279,7 @@ router.get("/tts/voices", (_req, res) => {
     provider: process.env["TTS_PROVIDER"] ?? "auto",
     fallbackOrder: ["google-gemini", "microsoft-edge-tts", "kokoro-82m"],
     model: GEMINI_MODEL,
+    availableModels: [...GEMINI_TTS_MODELS],
     configured: {
       gemini: Boolean(apiKey),
       edge: true,
