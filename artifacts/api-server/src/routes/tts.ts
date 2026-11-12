@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -63,7 +63,7 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
 
 function cleanForTTS(text: string): string {
   return text
-    .replace(/^[A-Za-zÃ€-Ã¿'\s]{2,30}:\s*/m, "")
+    .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
@@ -82,7 +82,7 @@ function cleanForTTS(text: string): string {
     .replace(/\bMBA\b/gi, "M B A")
     .replace(/\bHR\b/gi, "H R")
     .replace(/\bAI\b/gi, "A I")
-    .replace(/(à¤¹à¤¾à¤|à¤¹à¤¾à¤‚)(?![,\u0964à¥¤!?])/gu, "$1,")
+    .replace(/(\u0939\u093E\u0901|\u0939\u093E\u0902)(?![,\u0964!?])/gu, "$1,")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
