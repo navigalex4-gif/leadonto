@@ -1985,7 +1985,7 @@ Rules for spoken replies:
         if (liveTickInFlightRef.current || !liveStartedAtRef.current || !liveIdRef.current) return;
         liveTickInFlightRef.current = true;
         try {
-          const elapsedBlocks = Math.floor((Date.now() - liveStartedAtRef.current) / (LIVE_BLOCK_SECONDS * 1000)) + 1;
+          const elapsedBlocks = Math.floor((Date.now() - liveStartedAtRef.current) / (LIVE_BLOCK_SECONDS * 1000));
           while (liveBlocksChargedRef.current < elapsedBlocks && liveChatRef.current) {
             const nextBlock = liveBlocksChargedRef.current + 1;
             const r = await tickLiveBlock(nextBlock, liveIdRef.current);
