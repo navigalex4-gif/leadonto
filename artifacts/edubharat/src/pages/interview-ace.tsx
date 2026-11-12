@@ -1858,7 +1858,7 @@ Next: <the interview question only, may start with a short natural bridge>`,
       if (phaseRef.current !== "interview" || endingRef.current) return;
       interviewTickInFlightRef.current = true;
       try {
-        const elapsedBlocks = Math.floor((Date.now() - interviewMeterStartedAtRef.current) / blockMs) + 1;
+        const elapsedBlocks = Math.floor((Date.now() - interviewMeterStartedAtRef.current) / blockMs);
         while (interviewBlocksChargedRef.current < Math.min(elapsedBlocks, INTERVIEW_MAX_BLOCKS) && phaseRef.current === "interview" && !endingRef.current) {
           const nextBlock = interviewBlocksChargedRef.current + 1;
           const r = await tickInterview(nextBlock, interviewIdRef.current ?? undefined);
