@@ -639,32 +639,15 @@ router.post("/ai/stream", async (req, res) => {
   const preferGroq = req.query.provider === "groq";
   const preferQuality = req.query.provider === "quality";
 
-  try {
-    // Quality live turns prioritise Claude Sonnet, then Claude Haiku. Gemini is
-    // intentionally skipped here: this project has repeatedly seen its quota
-    // fail before any bytes stream, which adds dead air to voice interactions.
-    // Mistral is tried before Groq because it remains available when Groq's
-    // daily allowance is exhausted. Short provider cooldowns avoid retrying a
-    // known unavailable service on every spoken turn.
-    if (preferQuality) {
-      if (hasClaudeKey && isQualityProviderReady("claude")) {
+    try {
+      if (isQualityProviderReady("gemini")) {
         try {
-          await streamAnthropic(req, res, prompt, system, tokens, state, true);
+          await streamGemini(req, res, prompt, system, tokens, state);
           return;
-        } catch (claudeErr) {
-          if (state.wrote) throw claudeErr;
-          pauseQualityProvider("claude", claudeErr);
-          req.log.warn({ err: claudeErr }, "Claude quality stream failed  -  falling back to Mistral");
-        }
-      }
-      if (isQualityProviderReady("mistral")) {
-        try {
-          await streamMistral(req, res, prompt, system, tokens, state);
-          return;
-        } catch (mistralErr) {
-          if (state.wrote) throw mistralErr;
-          pauseQualityProvider("mistral", mistralErr);
-          req.log.warn({ err: mistralErr }, "Mistral quality fallback failed  -  falling back to Groq");
+        } catch (geminiErr) {
+          if (state.wrote) throw geminiErr;
+          pauseQualityProvider("gemini", geminiErr);
+          req.log.warn({ err: geminiErr }, "Gemini stream failed - falling back to Groq");
         }
       }
       if (isQualityProviderReady("groq")) {
@@ -674,23 +657,7 @@ router.post("/ai/stream", async (req, res) => {
         } catch (groqErr) {
           if (state.wrote) throw groqErr;
           pauseQualityProvider("groq", groqErr);
-          req.log.warn({ err: groqErr }, "Groq quality stream failed  -  trying Gemini");
-        }
-      }
-      await streamGemini(req, res, prompt, system, tokens, state);
-      return;
-    }
-    // Live Conversation opts into Groq directly so unavailable Claude/Gemini
-    // providers cannot consume the browser's short live-turn timeout first.
-    if (preferGroq) {
-      if (isQualityProviderReady("groq")) {
-        try {
-          await streamGroq(req, res, prompt, system, tokens, state);
-          return;
-        } catch (groqErr) {
-          if (state.wrote) throw groqErr;
-          pauseQualityProvider("groq", groqErr);
-          req.log.warn({ err: groqErr }, "Groq live stream failed  -  falling back to Mistral");
+          req.log.warn({ err: groqErr }, "Groq stream failed - falling back to Mistral");
         }
       }
       if (isQualityProviderReady("mistral")) {
@@ -700,52 +667,14 @@ router.post("/ai/stream", async (req, res) => {
         } catch (mistralErr) {
           if (state.wrote) throw mistralErr;
           pauseQualityProvider("mistral", mistralErr);
-          req.log.warn({ err: mistralErr }, "Mistral live stream failed  -  trying Gemini");
+          req.log.warn({ err: mistralErr }, "Mistral stream failed - falling back to Claude");
         }
       }
-      await streamGemini(req, res, prompt, system, tokens, state);
-      return;
-    }
-    // Claude is the reliable primary. Gemini's free tier is frequently quota-
-    // exhausted (429) or 404s on unavailable models, which adds a multi-second
-    // dead delay before every answer and makes live chat feel broken. Try Claude
-    // first when a key is present; fall back to Gemini only if Claude fails
-    // BEFORE any bytes were streamed (we can't safely restart a live stream).
-    if (hasClaudeKey) {
-      try {
-        await streamAnthropic(req, res, prompt, system, tokens, state);
+      if (hasClaudeKey) {
+        await streamAnthropic(req, res, prompt, system, tokens, state, preferQuality);
         return;
-      } catch (claudeErr) {
-        if (state.wrote) throw claudeErr;
-        req.log.warn({ err: claudeErr }, "Claude streaming failed  -  falling back to Gemini");
-         try {
-           await streamGemini(req, res, prompt, system, tokens, state);
-         } catch (geminiErr) {
-           if (state.wrote) throw geminiErr;
-            req.log.warn({ err: geminiErr }, "Gemini streaming failed  -  falling back to Groq");
-            try {
-              await streamGroq(req, res, prompt, system, tokens, state);
-            } catch (groqErr) {
-              if (state.wrote) throw groqErr;
-              req.log.warn({ err: groqErr }, "Groq streaming failed  -  falling back to Mistral");
-              await streamMistral(req, res, prompt, system, tokens, state);
-            }
-         }
       }
-    } else {
-       try {
-         await streamGemini(req, res, prompt, system, tokens, state);
-       } catch (geminiErr) {
-         if (state.wrote) throw geminiErr;
-          req.log.warn({ err: geminiErr }, "Gemini streaming failed  -  falling back to Groq");
-          try {
-            await streamGroq(req, res, prompt, system, tokens, state);
-          } catch (groqErr) {
-            if (state.wrote) throw groqErr;
-            req.log.warn({ err: groqErr }, "Groq streaming failed  -  falling back to Mistral");
-            await streamMistral(req, res, prompt, system, tokens, state);
-          }
-       }
+      throw new Error("All AI providers unavailable");
     }
   } catch (err) {
     req.log.error({ err }, "AI streaming error");
