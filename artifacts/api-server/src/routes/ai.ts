@@ -715,7 +715,6 @@ router.post("/ai/conversation", async (req, res) => {
       return;
     } catch (geminiError) {
       if (state.wrote) throw geminiError;
-      pauseQualityProvider("gemini", geminiError);
       req.log.warn({ err: geminiError }, "Gemini conversation failed - trying Mistral");
     }
     if (isQualityProviderReady("mistral")) {
