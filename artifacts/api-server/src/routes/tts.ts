@@ -7,9 +7,8 @@ import path from "node:path";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-// Use the flagship 3.8 voice model first. Fallback stays within Gemini 3.8;
-// never silently drop back to the legacy 2.5 model.
-const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"] as const;
+// Try Gemini 3.8 first, then 3.8 Flash-Lite, with Gemini 2.5 as the third fallback.
+const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
@@ -127,8 +126,8 @@ async function generateGemini(
   const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
   const failures: string[] = [];
 
-  // Keep the spoken transcript verbatim and pass performance direction as
-  // speech_metadata. Both attempts use Gemini 3.8 TTS; no legacy 2.5 fallback.
+  // Keep the spoken transcript verbatim and pass performance direction separately
+  // as speech_metadata. Try all three Gemini TTS models in the configured order.
   for (const model of GEMINI_TTS_MODELS) {
     try {
       const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
@@ -170,7 +169,7 @@ async function generateGemini(
     }
   }
 
-  throw new Error(`Gemini 3.8 TTS model chain exhausted: ${failures.join(" | ")}`);
+  throw new Error(`Gemini TTS model chain exhausted: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(text: string, language: string, gender: "male" | "female"): Promise<Buffer> {
@@ -286,7 +285,7 @@ router.get("/tts/voices", (_req, res) => {
     fallbackOrder: ["google-gemini", "microsoft-edge-tts", "kokoro-82m"],
     model: GEMINI_MODEL,
     availableModels: [...GEMINI_TTS_MODELS],
-    legacyGeminiTtsFallbackDisabled: true,
+    legacyGeminiTtsFallbackDisabled: false,
     configured: {
       gemini: Boolean(apiKey),
       edge: true,
