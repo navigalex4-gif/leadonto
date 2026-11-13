@@ -7,11 +7,8 @@ import path from "node:path";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-const GEMINI_TTS_MODELS = ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"] as const;
-const configuredGeminiModel = process.env["GEMINI_TTS_MODEL"]?.trim();
-const GEMINI_MODEL = configuredGeminiModel && GEMINI_TTS_MODELS.includes(configuredGeminiModel as typeof GEMINI_TTS_MODELS[number])
-  ? configuredGeminiModel
-  : GEMINI_TTS_MODELS[0];
+const GEMINI_TTS_MODELS = ["gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"] as const;
+const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
@@ -123,49 +120,86 @@ async function generateGemini(
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
-  // Gemini 3.8 treats content as a verbatim transcript. Delivery instructions
-  // belong in speech_metadata.style, never in the transcript itself.
   const baseStyle = styleForLanguage(language);
   const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      model: GEMINI_MODEL,
-      input: [{
-        type: "user_input",
-        content: [{
-          type: "text",
-          text,
-          annotations: [{
-            type: "speech_metadata",
-            style,
+  const failures: string[] = [];
+
+  // New Interactions API: transcript stays verbatim; delivery direction is
+  // supplied separately as speech metadata.
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        model: GEMINI_TTS_MODELS[0],
+        input: [{
+          type: "user_input",
+          content: [{
+            type: "text",
+            text,
+            annotations: [{ type: "speech_metadata", style }],
           }],
         }],
-      }],
-      response_format: { type: "audio" },
-      generation_config: {
-        speech_config: [{ voice }],
-      },
-    }),
-    signal: AbortSignal.timeout(90_000),
-  });
-
-  const payload = await response.json().catch(() => null) as {
-    output_audio?: { data?: string };
-    error?: { message?: string };
-  } | null;
-  if (!response.ok) {
-    throw new Error(payload?.error?.message ?? `Gemini Interactions API returned HTTP ${response.status}`);
+        response_format: { type: "audio" },
+        generation_config: { speech_config: [{ voice }] },
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    const payload = await response.json().catch(() => null) as {
+      output_audio?: { data?: string };
+      error?: { message?: string };
+    } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error?.message ?? `Gemini 3.8 TTS returned HTTP ${response.status}`);
+    }
+    const encoded = payload?.output_audio?.data;
+    if (!encoded) throw new Error("Gemini 3.8 TTS returned no audio data");
+    const audio = pcmToWav(Buffer.from(encoded, "base64"));
+    if (audio.length < 100) throw new Error("Gemini 3.8 TTS returned empty audio");
+    return audio;
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "Gemini 3.8 TTS failed");
   }
-  const audioBase64 = payload?.output_audio?.data;
-  if (!audioBase64) throw new Error("Gemini returned no audio data");
-  const audio = pcmToWav(Buffer.from(audioBase64, "base64"));
-  if (audio.length < 100) throw new Error("Gemini returned an empty audio file");
-  return audio;
+
+  // Compatibility fallback for the Gemini 2.5 preview TTS model. Its
+  // generateContent response carries audio in candidates[].content.parts[].
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODELS[1]}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: style }] },
+          contents: [{ role: "user", parts: [{ text }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(90_000),
+      },
+    );
+    const payload = await response.json().catch(() => null) as {
+      candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
+      error?: { message?: string };
+    } | null;
+    if (!response.ok) {
+      throw new Error(payload?.error?.message ?? `Gemini 2.5 TTS returned HTTP ${response.status}`);
+    }
+    const encoded = payload?.candidates?.[0]?.content?.parts
+      ?.find((part) => typeof part.inlineData?.data === "string")?.inlineData?.data;
+    if (!encoded) throw new Error("Gemini 2.5 TTS returned no audio data");
+    const audio = pcmToWav(Buffer.from(encoded, "base64"));
+    if (audio.length < 100) throw new Error("Gemini 2.5 TTS returned empty audio");
+    return audio;
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "Gemini 2.5 TTS failed");
+  }
+
+  throw new Error(`Gemini TTS model chain exhausted: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(text: string, language: string, gender: "male" | "female"): Promise<Buffer> {
