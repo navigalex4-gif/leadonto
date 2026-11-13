@@ -7,7 +7,9 @@ import path from "node:path";
 
 const router = Router();
 const execFileAsync = promisify(execFile);
-const GEMINI_TTS_MODELS = ["gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"] as const;
+// Use the flagship 3.8 voice model first. Fallback stays within Gemini 3.8;
+// never silently drop back to the legacy 2.5 model.
+const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
@@ -87,9 +89,10 @@ function cleanForTTS(text: string): string {
 }
 
 function styleForLanguage(language: string): string {
-  if (language === "English") return "Speak in natural Indian English, with clear pronunciation, a warm professional tone and conversational pacing.";
-  if (language === "Hindi") return "Speak in natural conversational Hindi with standard Indian pronunciation, a warm professional tone and natural pacing.";
-  return `Speak naturally in ${language}, with fluent pronunciation, clear diction and conversational pacing.`;
+  const pace = "Use a natural, moderately brisk conversational pace (about 1.12x standard narration). Keep pauses short and purposeful; do not stretch words or speak slowly.";
+  if (language === "English") return `Speak in natural Indian English, with clear pronunciation, a warm professional tone. ${pace}`;
+  if (language === "Hindi") return `Speak in natural conversational Hindi with standard Indian pronunciation and a warm professional tone. ${pace}`;
+  return `Speak naturally in ${language}, with fluent pronunciation and clear diction. ${pace}`;
 }
 
 function pcmToWav(pcm: Buffer): Buffer {
@@ -116,7 +119,7 @@ async function generateGemini(
   voice: string,
   language: string,
   requestedStyle?: string,
-): Promise<Buffer> {
+): Promise<{ audio: Buffer; model: string }> {
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
@@ -124,89 +127,50 @@ async function generateGemini(
   const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
   const failures: string[] = [];
 
-  // New Interactions API: transcript stays verbatim; delivery direction is
-  // supplied separately as speech metadata.
-  try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        model: GEMINI_TTS_MODELS[0],
-        input: [{
-          type: "user_input",
-          content: [{
-            type: "text",
-            text,
-            annotations: [{ type: "speech_metadata", style }],
-          }],
-        }],
-        response_format: { type: "audio" },
-        generation_config: { speech_config: [{ voice }] },
-      }),
-      signal: AbortSignal.timeout(90_000),
-    });
-    const payload = await response.json().catch(() => null) as {
-      output_audio?: { data?: string };
-      steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string; audio?: string }> }>;
-      error?: { message?: string };
-    } | null;
-    if (!response.ok) {
-      throw new Error(payload?.error?.message ?? `Gemini 3.8 TTS returned HTTP ${response.status}`);
-    }
-    // Current Interactions API responses use steps[].content[]; retain the
-    // legacy output_audio field only for older response versions.
-    const encoded = payload?.steps
-      ?.filter((step) => step.type === "model_output")
-      .flatMap((step) => step.content ?? [])
-      .find((part) => part.type === "audio" && typeof part.data === "string")?.data
-      ?? payload?.output_audio?.data;
-    if (!encoded) throw new Error("Gemini 3.8 TTS returned no audio data");
-    const audio = pcmToWav(Buffer.from(encoded, "base64"));
-    if (audio.length < 100) throw new Error("Gemini 3.8 TTS returned empty audio");
-    return audio;
-  } catch (error) {
-    failures.push(error instanceof Error ? error.message : "Gemini 3.8 TTS failed");
-  }
-
-  // Compatibility fallback for the Gemini 2.5 preview TTS model. Its
-  // generateContent response carries audio in candidates[].content.parts[].
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODELS[1]}:generateContent`,
-      {
+  // Keep the spoken transcript verbatim and pass performance direction as
+  // speech_metadata. Both attempts use Gemini 3.8 TTS; no legacy 2.5 fallback.
+  for (const model of GEMINI_TTS_MODELS) {
+    try {
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: style }] },
-          contents: [{ role: "user", parts: [{ text }] }],
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
-            },
-          },
+          model,
+          input: [{
+            type: "user_input",
+            content: [{
+              type: "text",
+              text,
+              annotations: [{ type: "speech_metadata", style }],
+            }],
+          }],
+          response_format: { type: "audio" },
+          generation_config: { speech_config: [{ voice }] },
         }),
         signal: AbortSignal.timeout(90_000),
-      },
-    );
-    const payload = await response.json().catch(() => null) as {
-      candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string; mimeType?: string } }> } }>;
-      error?: { message?: string };
-    } | null;
-    if (!response.ok) {
-      throw new Error(payload?.error?.message ?? `Gemini 2.5 TTS returned HTTP ${response.status}`);
+      });
+      const payload = await response.json().catch(() => null) as {
+        steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }>;
+        error?: { message?: string };
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? `${model} returned HTTP ${response.status}`);
+      }
+      const encoded = payload?.steps
+        ?.filter((step) => step.type === "model_output")
+        .flatMap((step) => step.content ?? [])
+        .find((part) => part.type === "audio" && typeof part.data === "string")?.data;
+      if (!encoded) throw new Error(`${model} returned no audio data`);
+      const audio = pcmToWav(Buffer.from(encoded, "base64"));
+      if (audio.length < 100) throw new Error(`${model} returned empty audio`);
+      return { audio, model };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown Gemini TTS error";
+      failures.push(`${model}: ${message}`);
     }
-    const encoded = payload?.candidates?.[0]?.content?.parts
-      ?.find((part) => typeof part.inlineData?.data === "string")?.inlineData?.data;
-    if (!encoded) throw new Error("Gemini 2.5 TTS returned no audio data");
-    const audio = pcmToWav(Buffer.from(encoded, "base64"));
-    if (audio.length < 100) throw new Error("Gemini 2.5 TTS returned empty audio");
-    return audio;
-  } catch (error) {
-    failures.push(error instanceof Error ? error.message : "Gemini 2.5 TTS failed");
   }
 
-  throw new Error(`Gemini TTS model chain exhausted: ${failures.join(" | ")}`);
+  throw new Error(`Gemini 3.8 TTS model chain exhausted: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(text: string, language: string, gender: "male" | "female"): Promise<Buffer> {
@@ -246,11 +210,12 @@ async function generateKokoro(text: string, language: string, gender: "male" | "
   return audio;
 }
 
-function sendAudio(res: any, audio: Buffer, contentType: string, provider: string) {
+function sendAudio(res: any, audio: Buffer, contentType: string, provider: string, model?: string) {
   res.setHeader("Content-Type", contentType);
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Length", audio.length);
   res.setHeader("X-TTS-Provider", provider);
+  if (model) res.setHeader("X-TTS-Model", model);
   res.end(audio);
 }
 
@@ -283,9 +248,9 @@ router.post("/tts", async (req, res) => {
   for (const provider of providers) {
     try {
       if (provider === "gemini") {
-        const audio = await generateGemini(cleaned, geminiVoice, language, typeof speechStyle === "string" ? speechStyle : undefined);
-        req.log.info({ provider, model: GEMINI_MODEL, bytes: audio.length }, "TTS generated");
-        sendAudio(res, audio, "audio/wav", provider); return;
+        const generated = await generateGemini(cleaned, geminiVoice, language, typeof speechStyle === "string" ? speechStyle : undefined);
+        req.log.info({ provider, model: generated.model, bytes: generated.audio.length }, "TTS generated");
+        sendAudio(res, generated.audio, "audio/wav", provider, generated.model); return;
       }
       if (provider === "edge") {
         const audio = await generateEdge(cleaned, language, voiceGender);
@@ -321,6 +286,7 @@ router.get("/tts/voices", (_req, res) => {
     fallbackOrder: ["google-gemini", "microsoft-edge-tts", "kokoro-82m"],
     model: GEMINI_MODEL,
     availableModels: [...GEMINI_TTS_MODELS],
+    legacyGeminiTtsFallbackDisabled: true,
     configured: {
       gemini: Boolean(apiKey),
       edge: true,
