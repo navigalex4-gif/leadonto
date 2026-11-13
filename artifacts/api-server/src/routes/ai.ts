@@ -280,7 +280,7 @@ function retryDelayMs(err: unknown): number {
   return 3000;
 }
 
-type QualityProvider = "claude" | "groq" | "mistral";
+type QualityProvider = "claude" | "groq" | "mistral" | "gemini";
 const qualityProviderBackoffUntil = new Map<QualityProvider, number>();
 
 function isQualityProviderConfigured(provider: QualityProvider): boolean {
@@ -288,7 +288,14 @@ function isQualityProviderConfigured(provider: QualityProvider): boolean {
   if (provider === "mistral") {
     return Boolean(process.env["MISTRAL_API_KEY"] ?? process.env["MISTRAL API KEY"]);
   }
-  return Boolean(process.env["GROQ_API_KEY"] ?? process.env["GROQ API KEY"]);
+  if (provider === "groq") {
+    return Boolean(process.env["GROQ_API_KEY"] ?? process.env["GROQ API KEY"]);
+  }
+  return Boolean(
+    process.env["GEMINI_API_KEY"]
+    ?? process.env["GEMINI API KEY"]
+    ?? process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"],
+  );
 }
 
 function isQualityProviderReady(provider: QualityProvider): boolean {
