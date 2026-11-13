@@ -147,12 +147,19 @@ async function generateGemini(
     });
     const payload = await response.json().catch(() => null) as {
       output_audio?: { data?: string };
+      steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string; audio?: string }> }>;
       error?: { message?: string };
     } | null;
     if (!response.ok) {
       throw new Error(payload?.error?.message ?? `Gemini 3.8 TTS returned HTTP ${response.status}`);
     }
-    const encoded = payload?.output_audio?.data;
+    // Current Interactions API responses use steps[].content[]; retain the
+    // legacy output_audio field only for older response versions.
+    const encoded = payload?.steps
+      ?.filter((step) => step.type === "model_output")
+      .flatMap((step) => step.content ?? [])
+      .find((part) => part.type === "audio" && typeof part.data === "string")?.data
+      ?? payload?.output_audio?.data;
     if (!encoded) throw new Error("Gemini 3.8 TTS returned no audio data");
     const audio = pcmToWav(Buffer.from(encoded, "base64"));
     if (audio.length < 100) throw new Error("Gemini 3.8 TTS returned empty audio");
