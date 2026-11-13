@@ -15,7 +15,7 @@ export type VoiceGender = "male" | "female" | "auto";
 
 export type GoogleSpeakOptions = {
   voiceGender?: VoiceGender;
-  /** playbackRate multiplier — default 0.94 for calm, clear speech */
+  /** playbackRate multiplier — defaults to a natural, moderately brisk 1.15x */
   rate?: number;
   /** retained for caller compatibility; Google controls natural pitch */
   pitch?: number;
@@ -454,7 +454,7 @@ function speakWithBrowserFallback(
     const languageCode = BROWSER_LANGUAGE_CODES[language] ?? "en-IN";
     utterance.lang = languageCode;
     utterance.voice = chooseBrowserVoice(language, gender);
-    utterance.rate = Math.max(0.75, Math.min(options.rate ?? 0.94, 1.35));
+    utterance.rate = Math.max(1.12, Math.min(options.rate ?? 1.15, 1.35));
     utterance.pitch = Math.max(0.5, Math.min(options.pitch ?? (gender === "female" ? 1.05 : 0.92), 2));
     const generation = _speakGen;
     let completed = false;
@@ -620,8 +620,9 @@ function playChunkChain(
       // Keep all AI voices calm by default. Product-specific callers can use
       // an even slower cap, but should not make teachers/interviewers sound
       // rushed unless they explicitly opt into it.
-      const rate = options.rate ?? 0.94;
-      if (rate !== 1.0) audio.playbackRate = Math.max(0.8, Math.min(rate, 2.0));
+      // Keep generated Gemini audio at a natural, brisk conversational speed.
+      const rate = Math.max(1.12, Math.min(options.rate ?? 1.15, 1.35));
+      audio.playbackRate = rate;
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this
       // never blocks or touches the playback graph, so it can't affect the
