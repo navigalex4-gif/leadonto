@@ -44,7 +44,7 @@ function parseAiRequest(req: Request, res: Response): {
 // These stable model IDs are available through Vertex AI and are billed to the
 // Google Cloud project attached to the service account. The API-key path is
 // retained only as a compatibility fallback for environments without Vertex.
-const GEMINI_MODEL_CHAIN = ["gemini-2.5-flash-lite", "gemini-2.5-flash"] as const;
+const GEMINI_MODEL_CHAIN = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
@@ -359,7 +359,7 @@ async function streamGemini(
         return;
       } catch (err) {
         const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
-        if ((isRateLimit(err) || isAuthError(err)) && !isLast) {
+        if (!isLast) {
           req.log.warn({ model, err }, "Vertex Gemini issue  -  trying next model");
           continue;
         }
@@ -407,7 +407,7 @@ async function streamGemini(
       return;
     } catch (err) {
       const isLast = i === GEMINI_MODEL_CHAIN.length - 1;
-      if (isRateLimit(err) && !isLast) {
+      if (!isLast) {
         req.log.warn({ model, err }, "Rate limited  -  trying fallback model");
         const delay = retryDelayMs(err);
         if (delay < 5000) await new Promise((r) => setTimeout(r, delay));
