@@ -706,9 +706,9 @@ router.post("/ai/conversation", async (req, res) => {
     // Start with low-latency providers for live speech. Each provider is
     // attempted only when configured and healthy; failures before the first
     // token fall through to the next provider.
-    if(isQualityProviderReady("gemini")){try{await streamGemini(req,res,prompt,system,maxTokens??8192,state);return;}catch(geminiError){if(state.wrote)throw geminiError;pauseQualityProvider("gemini",geminiError);}}if(isQualityProviderReady("groq")){try{await streamGroq(req,res,prompt,system,maxTokens??8192,state);return;}catch(groqError){if(state.wrote)throw groqError;pauseQualityProvider("groq",groqError);}}, "Gemini conversation failed - trying Mistral");
-    }
-    if (isQualityProviderReady("mistral")) {
+    if(isQualityProviderReady("gemini")){try{await streamGemini(req,res,prompt,system,maxTokens??8192,state);return;}catch(geminiError){if(state.wrote)throw geminiError;pauseQualityProvider("gemini",geminiError);req.log.warn({err:geminiError},"Gemini conversation failed - trying Groq");}}
+      if(isQualityProviderReady("groq")){try{await streamGroq(req,res,prompt,system,maxTokens??8192,state);return;}catch(groqError){if(state.wrote)throw groqError;pauseQualityProvider("groq",groqError);req.log.warn({err:groqError},"Groq conversation failed - trying Mistral");}}
+      if (isQualityProviderReady("mistral")) {
       try {
         await streamMistral(req, res, prompt, system, maxTokens ?? 8192, state);
         return;
