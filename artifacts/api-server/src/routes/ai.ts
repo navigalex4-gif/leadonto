@@ -144,7 +144,7 @@ function applyLanguageQuality(
   const resolved = resolveLanguageMetadata(prompt, system, responseLanguage, nativeInputDetected);
   const effectiveResponseLanguage = resolved.responseLanguage;
   const effectiveNativeInputDetected = resolved.nativeInputDetected;
-  const requestedText = `${prompt}\n${system ?? ""}`;
+  const requestedText = `${latestStudentText(prompt)}\n${system ?? ""}`;
   const nativePolicy = applyNativeLanguagePolicy(latestStudentText(prompt), system);
   const explicitLanguagePolicy =
     effectiveResponseLanguage
