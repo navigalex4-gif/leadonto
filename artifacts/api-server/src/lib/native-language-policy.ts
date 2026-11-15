@@ -1,6 +1,6 @@
 function extractLatestTurn(r: string): string {
   const m = [...r.matchAll(/(?:^|\n)\s*(?:Student|User|Learner|mohan|Mohan|[A-Za-z]+):\s*([^\n]*)/g)];
-  if (m.length > 0) return m.at(-1)[1].trim();
+  if (m.length > 0) return m.at(-1)?.[1]?.trim() ?? r;
   return r.split(/\r?\n/).map(l => l.trim()).filter(Boolean).at(-1) ?? r;
 }
 export const SUPPORTED_NATIVE_LANGUAGES = [

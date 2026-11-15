@@ -23,6 +23,24 @@ const CHARACTER_VOICE: Record<string, string> = {
   raj: "Fenrir", vikram: "Alnilam", meera_coach: "Despina",
   kabir: "Rasalgethi", sanjay: "Sadaltager", aryan: "Laomedeia",
 };
+const EDGE_PERSONA_VOICES: Record<string, string> = {
+  // Keep fallback voices one-to-one across tutor personas; gender-only fallback
+  // made every male teacher and every female teacher sound identical.
+  priya: "en-IN-NeerjaNeural",
+  rohit: "en-IN-PrabhatNeural",
+  maya: "hi-IN-SwaraNeural",
+  arjun: "hi-IN-MadhurNeural",
+  neha: "bn-IN-TanishaaNeural",
+  rahul: "bn-IN-BashkarNeural",
+  ananya: "kn-IN-SapnaNeural",
+  priya_coach: "mr-IN-AarohiNeural",
+  raj: "kn-IN-GaganNeural",
+  vikram: "mr-IN-ManoharNeural",
+  meera_coach: "gu-IN-DhwaniNeural",
+  kabir: "gu-IN-NiranjanNeural",
+  sanjay: "ta-IN-ValluvarNeural",
+  aryan: "te-IN-MohanNeural",
+};
 const GEMINI_LANGUAGES = new Set([
   "English", "Hindi", "Bangla", "Bengali", "Gujarati", "Filipino", "Finnish",
   "Dutch", "Galician", "Georgian", "French", "Greek", "German", "Haitian Creole",
@@ -82,16 +100,19 @@ function cleanForTTS(text: string): string {
     .replace(/\bMBA\b/gi, "M B A")
     .replace(/\bHR\b/gi, "H R")
     .replace(/\bAI\b/gi, "A I")
-    .replace(/(\u0939\u093E\u0901|\u0939\u093E\u0902)(?![,\u0964!?])/gu, "$1,")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-function styleForLanguage(language: string): string {
-  const pace = "Use a natural, moderately brisk conversational pace (about 1.12x standard narration). Keep pauses short and purposeful; do not stretch words or speak slowly.";
-  if (language === "English") return `Speak in natural Indian English, with clear pronunciation, a warm professional tone. ${pace}`;
-  if (language === "Hindi") return `Speak in natural conversational Hindi with standard Indian pronunciation and a warm professional tone. ${pace}`;
-  return `Speak naturally in ${language}, with fluent pronunciation and clear diction. ${pace}`;
+function styleForLanguage(language: string, nativeLanguage?: string): string {
+  const cadence = "Speak in a natural live conversation, not as a narrator reading prepared text. Use a moderately brisk, connected rhythm. Commas should have almost no pause; use only a short natural breath at sentence endings. Vary pitch and emphasis subtly, and avoid exaggerated enunciation or long silences.";
+  if (nativeLanguage && nativeLanguage !== "English") {
+    const mainLanguage = language === nativeLanguage ? nativeLanguage : language;
+    return `The learner's helper language is ${nativeLanguage}; English is also being practised. The primary spoken language for this audio is ${mainLanguage}. Only use both languages when the transcript itself contains both. Move naturally between English and ${nativeLanguage} in the same conversational flow, with the same speaker identity and rhythm. Do not insert, translate, repeat or announce either language. ${cadence}`;
+  }
+  if (language === "English") return `Speak in natural Indian English with a warm, personal teacher tone. ${cadence}`;
+  if (language === "Hindi") return `Speak in natural conversational Hindi with standard Indian pronunciation and a warm, personal teacher tone. ${cadence}`;
+  return `Speak naturally in ${language}, with fluent pronunciation and a warm, personal tone. ${cadence}`;
 }
 
 function pcmToWav(pcm: Buffer): Buffer {
@@ -117,12 +138,13 @@ async function generateGemini(
   text: string,
   voice: string,
   language: string,
+  nativeLanguage?: string,
   requestedStyle?: string,
 ): Promise<{ audio: Buffer; model: string }> {
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
-  const baseStyle = styleForLanguage(language);
+  const baseStyle = styleForLanguage(language, nativeLanguage);
   const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
   const failures: string[] = [];
 
@@ -172,19 +194,22 @@ async function generateGemini(
   throw new Error(`Gemini TTS model chain exhausted: ${failures.join(" | ")}`);
 }
 
-async function generateEdge(text: string, language: string, gender: "male" | "female"): Promise<Buffer> {
+async function generateEdge(text: string, language: string, gender: "male" | "female", character: string): Promise<{ audio: Buffer; voice: string }> {
   const voices = EDGE_VOICES[language];
-  if (!voices) throw new Error(`Edge TTS has no configured voice for ${language}`);
+  const voice = language === "English"
+    ? EDGE_PERSONA_VOICES[character] ?? voices?.[gender]
+    : voices?.[gender];
+  if (!voice) throw new Error(`Edge TTS has no configured voice for ${language}`);
   const directory = await mkdtemp(path.join(tmpdir(), "leadonto-tts-"));
   const output = path.join(directory, "speech.mp3");
   const python = process.env["EDGE_TTS_PYTHON"] || "python3";
   try {
     await execFileAsync(python, [
-      "-m", "edge_tts", "--voice", voices[gender], "--text", text, "--write-media", output,
+      "-m", "edge_tts", "--voice", voice, "--text", text, "--write-media", output,
     ], { timeout: 45_000, maxBuffer: 2 * 1024 * 1024 });
     const audio = await readFile(output);
     if (audio.length < 100) throw new Error("Edge TTS returned an empty audio file");
-    return audio;
+    return { audio, voice };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -214,13 +239,16 @@ function sendAudio(res: any, audio: Buffer, contentType: string, provider: strin
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Length", audio.length);
   res.setHeader("X-TTS-Provider", provider);
-  if (model) res.setHeader("X-TTS-Model", model);
+  if (model) {
+    res.setHeader("X-TTS-Model", model);
+    res.setHeader("X-TTS-Voice", model);
+  }
   res.end(audio);
 }
 
 router.post("/tts", async (req, res) => {
-  const { text, language = "English", voiceStyle, gender, speechStyle } = req.body as {
-    text?: string; language?: string; voiceStyle?: string; gender?: "male" | "female"; speechStyle?: string;
+  const { text, language = "English", voiceStyle, gender, speechStyle, nativeLanguage } = req.body as {
+    text?: string; language?: string; voiceStyle?: string; gender?: "male" | "female"; speechStyle?: string; nativeLanguage?: string;
   };
   if (typeof text !== "string" || !text.trim()) {
     res.status(400).json({ error: "Missing 'text' field" }); return;
@@ -247,14 +275,14 @@ router.post("/tts", async (req, res) => {
   for (const provider of providers) {
     try {
       if (provider === "gemini") {
-        const generated = await generateGemini(cleaned, geminiVoice, language, typeof speechStyle === "string" ? speechStyle : undefined);
-        req.log.info({ provider, model: generated.model, bytes: generated.audio.length }, "TTS generated");
-        sendAudio(res, generated.audio, "audio/wav", provider, generated.model); return;
+        const generated = await generateGemini(cleaned, geminiVoice, language, typeof nativeLanguage === "string" ? nativeLanguage : undefined, typeof speechStyle === "string" ? speechStyle : undefined);
+        req.log.info({ provider, model: generated.model, voice: geminiVoice, bytes: generated.audio.length }, "TTS generated");
+        sendAudio(res, generated.audio, "audio/wav", provider, `${generated.model}:${geminiVoice}`); return;
       }
       if (provider === "edge") {
-        const audio = await generateEdge(cleaned, language, voiceGender);
-        req.log.info({ provider, bytes: audio.length }, "TTS generated");
-        sendAudio(res, audio, "audio/mpeg", provider); return;
+        const generated = await generateEdge(cleaned, language, voiceGender, character);
+        req.log.info({ provider, voice: generated.voice, bytes: generated.audio.length }, "TTS generated");
+        sendAudio(res, generated.audio, "audio/mpeg", provider, generated.voice); return;
       }
       if (provider === "kokoro") {
         const audio = await generateKokoro(cleaned, language, voiceGender);
@@ -295,6 +323,7 @@ router.get("/tts/voices", (_req, res) => {
     languages: [...GEMINI_LANGUAGES],
     englishVoices: { female: "Kore / en-IN-NeerjaNeural", male: "Puck / en-IN-PrabhatNeural" },
     characters: CHARACTER_VOICE,
+    edgeFallbackCharacters: EDGE_PERSONA_VOICES,
     googleCloudBillingRequired: false,
     edgeApiKeyRequired: false,
     kokoroRequiresSelfHostedService: true,

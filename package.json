@@ -18,7 +18,8 @@
       "@google/genai",
       "protobufjs",
       "@google-cloud/speech",
-      "@google-cloud/text-to-speech"
+      "@google-cloud/text-to-speech",
+      "core-js"
     ]
   },
   "devDependencies": {
