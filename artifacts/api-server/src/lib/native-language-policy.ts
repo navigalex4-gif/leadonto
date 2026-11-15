@@ -1,3 +1,8 @@
+function extractLatestTurn(r: string): string {
+  const m = [...r.matchAll(/(?:^|\n)\s*(?:Student|User|Learner|mohan|Mohan|[A-Za-z]+):\s*([^\n]*)/g)];
+  if (m.length > 0) return m.at(-1)[1].trim();
+  return r.split(/\r?\n/).map(l => l.trim()).filter(Boolean).at(-1) ?? r;
+}
 export const SUPPORTED_NATIVE_LANGUAGES = [
   "Hindi",
   "Bengali",
@@ -132,7 +137,8 @@ export type NativeLanguageIntent = {
   translationOrExplanation: boolean;
 };
 
-export function detectNativeLanguageIntent(prompt: string, system?: string | null): NativeLanguageIntent | null {
+export function detectNativeLanguageIntent(rawPrompt: string, system?: string | null): NativeLanguageIntent | null {
+  const prompt = extractLatestTurn(rawPrompt);
   const text = `${prompt}\n${system ?? ""}`;
   for (const language of SUPPORTED_NATIVE_LANGUAGES) {
     const definition = LANGUAGE_DEFINITIONS[language];
@@ -158,7 +164,8 @@ export function detectNativeLanguageIntent(prompt: string, system?: string | nul
   return null;
 }
 
-export function isDeterministicLanguageSwitch(prompt: string): SupportedNativeLanguage | null {
+export function isDeterministicLanguageSwitch(rawPrompt: string): SupportedNativeLanguage | null {
+  const prompt = extractLatestTurn(rawPrompt);
   const intent = detectNativeLanguageIntent(prompt);
   if (!intent || intent.translationOrExplanation) return null;
   const definition = LANGUAGE_DEFINITIONS[intent.language];

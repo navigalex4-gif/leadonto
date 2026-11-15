@@ -70,7 +70,7 @@ export function attachDeepgramLive(server: Server): void {
           // Live practice intentionally allows English/native-language
           // code-switching. A fixed en-IN model turns a Hindi sentence into
           // phonetic English gibberish before the AI ever sees it.
-          language: "multi",
+          language: "hi",
           interim_results: "true",
           smart_format: "true",
           punctuate: "true",
