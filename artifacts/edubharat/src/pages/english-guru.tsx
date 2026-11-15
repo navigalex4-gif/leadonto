@@ -982,7 +982,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     if (preferred && preferred.id !== tutorId) setTutorId(preferred.id);
   }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
 
-  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean; speechStyle?: string } = {}) => {
+  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean; speechStyle?: string; voiceGender?: "male" | "female" } = {}) => {
     const t = stripMarkdownForSpeech(text)
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
