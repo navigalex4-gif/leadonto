@@ -295,18 +295,43 @@ async function computeEnvelope(blob: Blob): Promise<Envelope | null> {
 function splitSentenceChunks(text: string): string[] {
   const clean = text.trim();
   if (!clean) return [];
-  const raw = clean.split(/(?<=[.!?।॥])\s+/u).map((s) => s.trim()).filter(Boolean);
-  if (raw.length <= 1) return [clean];
-  const merged: string[] = [];
-  for (const part of raw) {
-    const last = merged[merged.length - 1];
-    if (last !== undefined && last.length < 40) {
-      merged[merged.length - 1] = `${last} ${part}`;
+
+  // Keep normal conversational replies in one audio generation. Splitting
+  // every sentence forces a new network TTS request after each full stop,
+  // which creates the unnatural pauses users hear between clauses.
+  const maxChunkChars = 2_600;
+  const sentences = clean.split(/(?<=[.!?।॥])\s+/u).map((part) => part.trim()).filter(Boolean);
+  const parts: string[] = [];
+
+  for (const sentence of sentences) {
+    if (sentence.length <= maxChunkChars) {
+      parts.push(sentence);
+      continue;
+    }
+    let current = "";
+    for (const word of sentence.split(/\s+/u)) {
+      if (current && current.length + word.length + 1 > maxChunkChars) {
+        parts.push(current);
+        current = word;
+      } else {
+        current = current ? `${current} ${word}` : word;
+      }
+    }
+    if (current) parts.push(current);
+  }
+
+  const chunks: string[] = [];
+  let current = "";
+  for (const part of parts) {
+    if (current && current.length + part.length + 1 > maxChunkChars) {
+      chunks.push(current);
+      current = part;
     } else {
-      merged.push(part);
+      current = current ? `${current} ${part}` : part;
     }
   }
-  return merged.length > 0 ? merged : [clean];
+  if (current) chunks.push(current);
+  return chunks;
 }
 
 const SCRIPT_LANGUAGE_RANGES: Array<{ language: string; re: RegExp }> = [
@@ -358,7 +383,7 @@ function splitIntoSpeechChunks(
   const nativeRatio = nativeCharacters / Math.max(1, scriptCharacters.length);
   const language = nativeLanguage
     && nativeLanguage !== baseLanguage
-    && (forceNativeLanguage || nativeRatio >= 0.25)
+    && nativeRatio >= (forceNativeLanguage ? 0.65 : 0.8)
     ? nativeLanguage
     : baseLanguage;
 
@@ -370,7 +395,7 @@ function splitIntoSpeechChunks(
 // sounds like separate thoughts rather than one flowing reply.
 // Keep a small human breath between sentence clips. Ten milliseconds made
 // Indic full stops sound clipped; this is still much faster than a real pause.
-const CHUNK_GAP_MS = 90;
+const CHUNK_GAP_MS = 20;
 
 
 function globalStop() {
@@ -581,6 +606,11 @@ function playChunkChain(
         return;
       }
 
+      const selectedVoice = res.headers.get("X-TTS-Voice") ?? res.headers.get("X-TTS-Model");
+      console.info("[TTS] selected voice", {
+        provider: res.headers.get("X-TTS-Provider"),
+        voice: selectedVoice,
+      });
       const blob = await res.blob();
       if (myGen !== _speakGen) return;
       if (!blob.type.startsWith("audio/")) {

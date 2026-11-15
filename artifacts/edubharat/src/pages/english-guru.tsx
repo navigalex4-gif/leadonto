@@ -44,6 +44,14 @@ const TUTOR_SPEAKING_STYLES: Record<string, string> = {
 // Brisk but natural classroom pace. Fast enough to feel responsive without
 // sounding rushed; the live turn timing is unchanged.
 const ENGLISH_GURU_SPEECH_RATE = 1.08;
+const TUTOR_TTS_DELIVERY: Record<string, string> = {
+  priya: "Warm, gently upbeat and reassuring. Speak like a patient teacher beside one learner; use expressive but subtle pitch changes.",
+  rohit: "Confident, grounded Indian English with a crisp professional rhythm. Sound direct and approachable, not formal or announcer-like.",
+  maya: "Calm, polished and thoughtful. Use smooth connected phrasing and restrained emphasis, like a relaxed business communication mentor.",
+  arjun: "Energetic and encouraging with a lively conversational rhythm. Keep the delivery natural, never like a motivational speech.",
+  neha: "Clear, gentle and precise. Keep pronunciation crisp while sounding like a person speaking naturally, not a pronunciation recording.",
+  rahul: "Measured, clear and analytical. Use natural emphasis on key words, with no exaggerated pauses or classroom narration.",
+};
 const LIVE_OPENINGS = [
   (name: string) => `Hi ${name}! I’m happy you’re here. How are you feeling today?`,
   (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,
@@ -941,8 +949,8 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     }
   }, [speech.interimTranscript, liveChat]);
 
-  // Silence re-engagement: if user hasn't spoken for 10 s during live chat,
-  // the AI gently re-engages — but only up to 2 consecutive nudges.
+  // Silence re-engagement: one gentle prompt after a longer quiet spell.
+  // Frequent automatic nudges make a live teacher sound scripted.
   useEffect(() => {
     if (!liveChat || convFlowState !== "user-speaking") {
       silenceProbeActiveRef.current = false;
@@ -953,9 +961,9 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     silenceProbeActiveRef.current = false;
     const id = setInterval(() => {
       if (aiBusyRef.current || !liveChatRef.current || silenceProbeActiveRef.current) return;
-      if (silenceProbeCountRef.current >= 2) return; // already nudged twice — don't nag
+      if (silenceProbeCountRef.current >= 1) return; // one nudge per quiet stretch only
       const silentMs = Date.now() - lastUserSpeechRef.current;
-      if (silentMs > 10_000) {
+      if (silentMs > 25_000) {
         silenceProbeActiveRef.current = true;
         silenceProbeCountRef.current += 1;
         lastUserSpeechRef.current = Date.now();
@@ -974,7 +982,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     if (preferred && preferred.id !== tutorId) setTutorId(preferred.id);
   }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
 
-  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean } = {}) => {
+  const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean; speechStyle?: string } = {}) => {
     const t = stripMarkdownForSpeech(text)
       .replace(/^(?:Teacher|AI|Assistant|System):\s*/i, "")
       .replace(/\b(?:Student|User):\s*/gi, "")
@@ -987,6 +995,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       ...opts,
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
+      speechStyle: opts.speechStyle ?? `Live spoken conversation. ${TUTOR_TTS_DELIVERY[tutor.id] ?? "Natural, warm and attentive."} Speak briskly but comfortably, with flowing phrasing, subtle pitch variation and natural emphasis. Keep comma pauses extremely short and use only a brief breath at sentence ends. Do not sound like you are reading, narrating or presenting.`,
       rate: Math.min(opts.rate ?? ENGLISH_GURU_SPEECH_RATE, ENGLISH_GURU_SPEECH_RATE),
     });
   }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
@@ -1083,6 +1092,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       synth.speak(stripMarkdownForSpeech(greeting), "English", releaseGreeting, {
         voiceGender: t.voiceGender,
         voiceStyle: t.voiceStyle,
+        speechStyle: `Live spoken conversation. ${TUTOR_TTS_DELIVERY[t.id] ?? "Natural, warm and attentive."} Keep the delivery connected and conversational, with very short comma pauses.`,
         rate: ENGLISH_GURU_SPEECH_RATE,
       });
     }
@@ -1657,7 +1667,6 @@ Rules for spoken replies:
             // a tiny 450ms suppression window for decoder/speaker-tail noise;
             // substantive echoes are filtered by the content guard in the phrase handler.
             lastAiSpeechEndRef.current = Date.now();
-            speechRef.current.suppressUntil(Date.now() + 450);
             speechRef.current.blockFor(0);
              // Re-arm the single recognition loop immediately. blockFor()
              // handles the short speaker-tail delay and prevents duplicate
@@ -1816,6 +1825,7 @@ Rules for spoken replies:
     synth.speak(greeting, "English", releaseGreeting, {
       voiceGender: tutor.voiceGender,
       voiceStyle: tutor.voiceStyle,
+      speechStyle: `Live spoken conversation. ${TUTOR_TTS_DELIVERY[tutor.id] ?? "Natural, warm and attentive."} Keep the delivery connected and conversational, with very short comma pauses.`,
       rate: ENGLISH_GURU_SPEECH_RATE,
     });
   }, [

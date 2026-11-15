@@ -74,7 +74,9 @@ export function attachDeepgramLive(server: Server): void {
           interim_results: "true",
           smart_format: "true",
           punctuate: "true",
-          endpointing: "100",
+          // 250ms catches a real end-of-speech pause quickly without the
+          // 100ms setting treating tiny intra-sentence gaps as a finished turn.
+          endpointing: "250",
           utterance_end_ms: "1000",
           vad_events: "true",
           filler_words: "true",
