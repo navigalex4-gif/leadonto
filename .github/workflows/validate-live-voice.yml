@@ -9,6 +9,8 @@ on:
       - "artifacts/edubharat/src/lib/use-edge-tts.ts"
       - "artifacts/edubharat/src/pages/english-guru.tsx"
       - ".github/workflows/validate-live-voice.yml"
+      - "package.json"
+      - "pnpm-workspace.yaml"
 
 permissions:
   contents: read
