@@ -684,7 +684,7 @@ function cleanSpokenReply(
     // Quotes, dashes, brackets, emoji and markdown are visual notation, not
     // words the tutor should read aloud. Keep only sentence punctuation.
     cleaned = cleaned
-      .replace(/[^\p{L}\p{M}\p{N}\s.,?!।॥]/gu, " ")
+      .replace(/[^\p{L}\p{M}\p{N}\s.,?!।॥'’]/gu, " ")
       .replace(/\s+([.,?!])/g, "$1")
       .replace(/\s{2,}/g, " ")
       .trim();
