@@ -33,6 +33,8 @@ jobs:
           node-version: 22
       - name: Install locked dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Build shared TypeScript declarations
+        run: pnpm run typecheck:libs
       - name: Type-check API server
         run: pnpm --filter "./artifacts/api-server" run typecheck
       - name: Type-check English Guru frontend
