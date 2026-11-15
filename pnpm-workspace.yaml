@@ -68,10 +68,9 @@ catalog:
 
 autoInstallPeers: false
 
-# Allow ALL postinstall build scripts (esbuild, @google/genai, protobufjs,
-# core-js, etc.) so pnpm install never fails with ERR_PNPM_IGNORED_BUILDS.
-# Required on Railway/CI where interactive `pnpm approve-builds` is impossible.
-dangerouslyAllowAllBuilds: true
+# Keep dependency install scripts explicitly allow-listed in root package.json
+# under pnpm.onlyBuiltDependencies. Do not enable dangerouslyAllowAllBuilds here:
+# it conflicts with that explicit allowlist in current pnpm 10 releases.
 
 # pnpm 10.x no longer reads onlyBuiltDependencies from here — but keep it for
 # older pnpm versions and as documentation.
