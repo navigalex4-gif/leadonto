@@ -998,7 +998,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
       speechStyle: opts.speechStyle ?? `Live spoken conversation. ${TUTOR_TTS_DELIVERY[tutor.id] ?? "Natural, warm and attentive."} Speak briskly but comfortably, with flowing phrasing, subtle pitch variation and natural emphasis. Keep comma pauses extremely short and use only a brief breath at sentence ends. Do not sound like you are reading, narrating or presenting.`,
       rate: Math.min(opts.rate ?? ENGLISH_GURU_SPEECH_RATE, ENGLISH_GURU_SPEECH_RATE),
     });
-  }, [synth, uiLang, tutor.voiceGender, tutor.voiceStyle]);
+  }, [synth, uiLang, tutor.id, tutor.voiceGender, tutor.voiceStyle]);
 
   /**
    * speakRef — always-current speak function so handleConvPhrase doesn't need
