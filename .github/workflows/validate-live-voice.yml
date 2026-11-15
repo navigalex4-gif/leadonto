@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "artifacts/api-server/src/lib/deepgram-live.ts"
+      - "artifacts/api-server/src/lib/native-language-policy.ts"
       - "artifacts/api-server/src/routes/tts.ts"
       - "artifacts/edubharat/src/lib/use-edge-tts.ts"
       - "artifacts/edubharat/src/pages/english-guru.tsx"
