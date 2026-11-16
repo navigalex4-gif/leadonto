@@ -346,8 +346,8 @@ const NATIVE_RETRY_FALLBACKS: Record<string, { male: string; female: string }> =
 
 const NATIVE_TRANSLATION_CLARIFICATIONS: Record<string, { male: string; female: string }> = {
   English: {
-    male: "कृपया वह हिंदी वाक्य एक बार फिर बोलिए। मैं उसका साफ़ और सही अंग्रेज़ी अनुवाद दूँगा।",
-    female: "कृपया वह हिंदी वाक्य एक बार फिर बोलिए। मैं उसका साफ़ और सही अंग्रेज़ी अनुवाद दूँगी।",
+    male: "Could you say that once more? I am listening.",
+    female: "Could you say that once more? I am listening.",
   },
   Hindi: {
     male: "कृपया वह अंग्रेज़ी वाक्य फिर से बोलिए। मैं उसे हिंदी में साफ़-साफ़ बताऊँगा।",

@@ -295,43 +295,7 @@ async function computeEnvelope(blob: Blob): Promise<Envelope | null> {
 function splitSentenceChunks(text: string): string[] {
   const clean = text.trim();
   if (!clean) return [];
-
-  // Keep normal conversational replies in one audio generation. Splitting
-  // every sentence forces a new network TTS request after each full stop,
-  // which creates the unnatural pauses users hear between clauses.
-  const maxChunkChars = 2_600;
-  const sentences = clean.split(/(?<=[.!?।॥])\s+/u).map((part) => part.trim()).filter(Boolean);
-  const parts: string[] = [];
-
-  for (const sentence of sentences) {
-    if (sentence.length <= maxChunkChars) {
-      parts.push(sentence);
-      continue;
-    }
-    let current = "";
-    for (const word of sentence.split(/\s+/u)) {
-      if (current && current.length + word.length + 1 > maxChunkChars) {
-        parts.push(current);
-        current = word;
-      } else {
-        current = current ? `${current} ${word}` : word;
-      }
-    }
-    if (current) parts.push(current);
-  }
-
-  const chunks: string[] = [];
-  let current = "";
-  for (const part of parts) {
-    if (current && current.length + part.length + 1 > maxChunkChars) {
-      chunks.push(current);
-      current = part;
-    } else {
-      current = current ? `${current} ${part}` : part;
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
+  return [clean];
 }
 
 const SCRIPT_LANGUAGE_RANGES: Array<{ language: string; re: RegExp }> = [
@@ -651,7 +615,7 @@ function playChunkChain(
       // an even slower cap, but should not make teachers/interviewers sound
       // rushed unless they explicitly opt into it.
       // Keep generated Gemini audio at a natural, brisk conversational speed.
-      const rate = Math.max(1.12, Math.min(options.rate ?? 1.15, 1.35));
+      const rate = Math.max(1.0, Math.min(options.rate ?? 1.06, 1.25));
       audio.playbackRate = rate;
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this

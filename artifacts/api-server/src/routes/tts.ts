@@ -1,24 +1,4 @@
 
-function resolvePersonaVoiceConfig(rawStyle?: string, rawVoice?: string, rawLang?: string): { geminiVoice: string; isMale: boolean; edgeVoice: string } {
-  const key = ((rawStyle || "") + " " + (rawVoice || "")).toLowerCase();
-  const isHindi = /hindi|hi/i.test(rawLang || "");
-  if (/raj|arjun|rohit|vikram|kabir|aryan|sanjay|male|man|sir/.test(key)) {
-    const geminiMale = /arjun|vikram/.test(key) ? "Charon" : /rohit|kabir/.test(key) ? "Fenrir" : /aryan|sanjay/.test(key) ? "Orus" : "Puck";
-    return { geminiVoice: geminiMale, isMale: true, edgeVoice: isHindi ? "hi-IN-MadhurNeural" : "en-IN-PrabhatNeural" };
-  }
-  const geminiFemale = /priya|meera/.test(key) ? "Aoede" : /maya/.test(key) ? "Leda" : "Kore";
-  return { geminiVoice: geminiFemale, isMale: false, edgeVoice: isHindi ? "hi-IN-SwaraNeural" : "en-IN-NeerjaNeural" };
-}
-
-function normalizeTextForSmoothTts(text: string): string {
-  return text
-    .replace(/["“”'‘’`*#_~]/g, "")
-    .replace(/\s*[।.]\s+/g, ", ")
-    .replace(/\s*[,;:]\s*/g, ", ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 import { Router } from "express";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -29,7 +9,7 @@ import path from "node:path";
 const router = Router();
 const execFileAsync = promisify(execFile);
 // Try Gemini 3.8 first, then 3.8 Flash-Lite, with Gemini 2.5 as the third fallback.
-const GEMINI_TTS_MODELS = ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"] as const;
+const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
@@ -109,6 +89,11 @@ function cleanForTTS(text: string): string {
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
+    .replace(/["“”‘’`~]/g, "")
+    .replace(/\s*[।|]\s*/g, ", ")
+    .replace(/\s*\.\s+(?=[A-Za-z\u0900-\u097F])/g, ", ")
+    .replace(/\s*[;:—–-]+\s*/g, ", ")
+    .replace(/(,\s*){2,}/g, ", ")
     .replace(/\bBFSI\b/gi, "B F S I")
     .replace(/\bCEFR\b/gi, "C E F R")
     .replace(/\bRBI\b/gi, "R B I")
@@ -165,44 +150,44 @@ async function generateGemini(
   const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
-  const baseStyle = styleForLanguage(language, nativeLanguage);
-  const style = [baseStyle, requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
   const failures: string[] = [];
 
-  // Keep the spoken transcript verbatim and pass performance direction separately
-  // as speech_metadata. Try all three Gemini TTS models in the configured order.
   for (const model of GEMINI_TTS_MODELS) {
     try {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model,
-          input: [{
-            type: "user_input",
-            content: [{
-              type: "text",
-              text,
-              annotations: [{ type: "speech_metadata", style }],
+          contents: [{
+            parts: [{
+              text: `Say this naturally in a warm, brisk, connected Indian teacher voice with zero pause between Hindi and English words: ${text}`,
             }],
           }],
-          response_format: { type: "audio" },
-          generation_config: { speech_config: [{ voice }] },
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voice,
+                },
+              },
+            },
+          },
         }),
-        signal: AbortSignal.timeout(90_000),
+        signal: AbortSignal.timeout(25_000),
       });
-      const payload = await response.json().catch(() => null) as {
-        steps?: Array<{ type?: string; content?: Array<{ type?: string; data?: string }> }>;
-        error?: { message?: string };
-      } | null;
+
+      const payload = await response.json().catch(() => null) as any;
       if (!response.ok) {
         throw new Error(payload?.error?.message ?? `${model} returned HTTP ${response.status}`);
       }
-      const encoded = payload?.steps
-        ?.filter((step) => step.type === "model_output")
-        .flatMap((step) => step.content ?? [])
-        .find((part) => part.type === "audio" && typeof part.data === "string")?.data;
-      if (!encoded) throw new Error(`${model} returned no audio data`);
+
+      const parts = payload?.candidates?.[0]?.content?.parts ?? [];
+      const audioPart = parts.find((p: any) => p?.inlineData?.data);
+      const encoded = audioPart?.inlineData?.data;
+      if (!encoded) throw new Error(`${model} returned no inlineData audio`);
+
       const audio = pcmToWav(Buffer.from(encoded, "base64"));
       if (audio.length < 100) throw new Error(`${model} returned empty audio`);
       return { audio, model };
@@ -217,9 +202,7 @@ async function generateGemini(
 
 async function generateEdge(text: string, language: string, gender: "male" | "female", character: string): Promise<{ audio: Buffer; voice: string }> {
   const voices = EDGE_VOICES[language];
-  const voice = language === "English"
-    ? EDGE_PERSONA_VOICES[character] ?? voices?.[gender]
-    : voices?.[gender];
+  const voice = EDGE_PERSONA_VOICES[character] ?? voices?.[gender] ?? (gender === "male" ? "en-IN-PrabhatNeural" : "en-IN-NeerjaNeural");
   if (!voice) throw new Error(`Edge TTS has no configured voice for ${language}`);
   const directory = await mkdtemp(path.join(tmpdir(), "leadonto-tts-"));
   const output = path.join(directory, "speech.mp3");
