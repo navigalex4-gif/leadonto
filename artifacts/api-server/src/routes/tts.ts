@@ -147,57 +147,67 @@ async function generateGemini(
   nativeLanguage?: string,
   requestedStyle?: string,
 ): Promise<{ audio: Buffer; model: string }> {
-  const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
+  const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"] ?? process.env["GOOGLE_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
   const failures: string[] = [];
 
-  for (const model of GEMINI_TTS_MODELS) {
+  // 1. Standard v1beta generateContent AUDIO endpoint with pure verbatim text
+  for (const model of ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Say this naturally in a warm, brisk, connected Indian teacher voice with zero pause between Hindi and English words: ${text}`,
-            }],
-          }],
+          contents: [{ parts: [{ text }] }],
           generationConfig: {
             responseModalities: ["AUDIO"],
             speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: voice,
-                },
-              },
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
             },
           },
         }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(20_000),
       });
-
       const payload = await response.json().catch(() => null) as any;
-      if (!response.ok) {
-        throw new Error(payload?.error?.message ?? `${model} returned HTTP ${response.status}`);
-      }
-
-      const parts = payload?.candidates?.[0]?.content?.parts ?? [];
-      const audioPart = parts.find((p: any) => p?.inlineData?.data);
-      const encoded = audioPart?.inlineData?.data;
-      if (!encoded) throw new Error(`${model} returned no inlineData audio`);
-
+      if (!response.ok) throw new Error(payload?.error?.message ?? `${model} HTTP ${response.status}`);
+      const encoded = payload?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data)?.inlineData?.data;
+      if (!encoded) throw new Error(`${model} returned no inlineData`);
       const audio = pcmToWav(Buffer.from(encoded, "base64"));
-      if (audio.length < 100) throw new Error(`${model} returned empty audio`);
-      return { audio, model };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown Gemini TTS error";
-      failures.push(`${model}: ${message}`);
+      if (audio.length > 100) return { audio, model };
+    } catch (err) {
+      failures.push(`${model}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  throw new Error(`Gemini TTS model chain exhausted: ${failures.join(" | ")}`);
+  // 2. v1beta/interactions endpoint for gemini-3.8-flash-tts / gemini-3.8-flash-lite-tts
+  const style = [styleForLanguage(language, nativeLanguage), requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
+  for (const model of ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"]) {
+    try {
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          model,
+          input: [{ type: "user_input", content: [{ type: "text", text, annotations: [{ type: "speech_metadata", style }] }] }],
+          response_format: { type: "audio" },
+          generation_config: { speech_config: [{ voice }] },
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      const payload = await response.json().catch(() => null) as any;
+      if (!response.ok) throw new Error(payload?.error?.message ?? `${model} HTTP ${response.status}`);
+      const encoded = payload?.steps?.filter((st: any) => st.type === "model_output").flatMap((st: any) => st.content ?? []).find((p: any) => p.type === "audio" && typeof p.data === "string")?.data;
+      if (!encoded) throw new Error(`${model} returned no audio`);
+      const audio = pcmToWav(Buffer.from(encoded, "base64"));
+      if (audio.length > 100) return { audio, model };
+    } catch (err) {
+      failures.push(`${model}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  throw new Error(`Gemini TTS chain failed: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(text: string, language: string, gender: "male" | "female", character: string): Promise<{ audio: Buffer; voice: string }> {
@@ -286,6 +296,7 @@ router.post("/tts", async (req, res) => {
       if (provider === "edge") {
         const generated = await generateEdge(cleaned, language, voiceGender, character);
         req.log.info({ provider, voice: generated.voice, bytes: generated.audio.length }, "TTS generated");
+        if (failures.length > 0) res.setHeader("X-TTS-Fallback-Reason", failures.join(" ; ").replace(/[^\x20-\x7E]+/g, " ").slice(0, 500));
         sendAudio(res, generated.audio, "audio/mpeg", provider, generated.voice); return;
       }
       if (provider === "kokoro") {
