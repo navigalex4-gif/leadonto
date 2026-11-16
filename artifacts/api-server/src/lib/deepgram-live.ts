@@ -66,7 +66,7 @@ export function attachDeepgramLive(server: Server): void {
         if (!isStartMessage(message) || started) return;
         started = true;
         const params = new URLSearchParams({
-          model: "nova-3",
+          model: "nova-2",
           // Live practice intentionally allows English/native-language
           // code-switching. A fixed en-IN model turns a Hindi sentence into
           // phonetic English gibberish before the AI ever sees it.

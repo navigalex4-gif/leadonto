@@ -1,3 +1,11 @@
+
+function extractLatestUserTurn(raw: string): string {
+  const matches = [...raw.matchAll(/(?:^|\n)\s*(?:Student|User|Learner|mohan|Mohan|[A-Za-z]+):\s*([^\n]*)/g)];
+  if (matches.length > 0) return matches.at(-1)[1].trim();
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  return lines.at(-1) ?? raw;
+}
+
 function extractLatestTurn(r: string): string {
   const m = [...r.matchAll(/(?:^|\n)\s*(?:Student|User|Learner|mohan|Mohan|[A-Za-z]+):\s*([^\n]*)/g)];
   if (m.length > 0) return m.at(-1)?.[1]?.trim() ?? r;
@@ -138,6 +146,7 @@ export type NativeLanguageIntent = {
 };
 
 export function detectNativeLanguageIntent(rawPrompt: string, system?: string | null): NativeLanguageIntent | null {
+  const prompt = extractLatestUserTurn(rawPrompt);
   const prompt = extractLatestTurn(rawPrompt);
   const text = `${prompt}\n${system ?? ""}`;
   for (const language of SUPPORTED_NATIVE_LANGUAGES) {

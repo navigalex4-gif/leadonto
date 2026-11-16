@@ -173,9 +173,6 @@ importers:
       '@google-cloud/speech':
         specifier: ^8.0.1
         version: 8.0.1(supports-color@8.1.1)
-      '@google-cloud/text-to-speech':
-        specifier: ^7.0.0
-        version: 7.0.0(supports-color@8.1.1)
       '@google/genai':
         specifier: ^2.8.0
         version: 2.8.0(supports-color@8.1.1)
@@ -1759,10 +1756,6 @@ packages:
 
   '@google-cloud/speech@8.0.1':
     resolution: {integrity: sha512-qeRpcu7x9zEVTyS8KJo3OVMqcB+ew6pe5D3KiUVfUUhhve7ScfmSIdPNdL6a9Z5oz/ygkRpvY033K0Y1X96whQ==}
-    engines: {node: '>=22'}
-
-  '@google-cloud/text-to-speech@7.0.0':
-    resolution: {integrity: sha512-OJlRTkIm3AnG/SGpjSiUE7+ez12v46JVSKdan9E5QV5w3QnYKix1bCNKSlLyIMHXcuGIiD711+hmXQu0CIo6TA==}
     engines: {node: '>=22'}
 
   '@google/genai@2.8.0':
@@ -8634,12 +8627,6 @@ snapshots:
       google-gax: 6.0.2(supports-color@8.1.1)
       pumpify: 2.0.1
       stream-events: 1.0.5
-    transitivePeerDependencies:
-      - supports-color
-
-  '@google-cloud/text-to-speech@7.0.0(supports-color@8.1.1)':
-    dependencies:
-      google-gax: 6.0.2(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 

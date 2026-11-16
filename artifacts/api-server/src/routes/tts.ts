@@ -1,3 +1,24 @@
+
+function resolvePersonaVoiceConfig(rawStyle?: string, rawVoice?: string, rawLang?: string): { geminiVoice: string; isMale: boolean; edgeVoice: string } {
+  const key = ((rawStyle || "") + " " + (rawVoice || "")).toLowerCase();
+  const isHindi = /hindi|hi/i.test(rawLang || "");
+  if (/raj|arjun|rohit|vikram|kabir|aryan|sanjay|male|man|sir/.test(key)) {
+    const geminiMale = /arjun|vikram/.test(key) ? "Charon" : /rohit|kabir/.test(key) ? "Fenrir" : /aryan|sanjay/.test(key) ? "Orus" : "Puck";
+    return { geminiVoice: geminiMale, isMale: true, edgeVoice: isHindi ? "hi-IN-MadhurNeural" : "en-IN-PrabhatNeural" };
+  }
+  const geminiFemale = /priya|meera/.test(key) ? "Aoede" : /maya/.test(key) ? "Leda" : "Kore";
+  return { geminiVoice: geminiFemale, isMale: false, edgeVoice: isHindi ? "hi-IN-SwaraNeural" : "en-IN-NeerjaNeural" };
+}
+
+function normalizeTextForSmoothTts(text: string): string {
+  return text
+    .replace(/["“”'‘’`*#_~]/g, "")
+    .replace(/\s*[।.]\s+/g, ", ")
+    .replace(/\s*[,;:]\s*/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 import { Router } from "express";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
