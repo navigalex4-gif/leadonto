@@ -44,7 +44,7 @@ function parseAiRequest(req: Request, res: Response): {
 // These stable model IDs are available through Vertex AI and are billed to the
 // Google Cloud project attached to the service account. The API-key path is
 // retained only as a compatibility fallback for environments without Vertex.
-const GEMINI_MODEL_CHAIN = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"] as const;
+const GEMINI_MODEL_CHAIN = ["gemini-2.5-flash", "gemini-2.5-flash-lite"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
@@ -240,7 +240,7 @@ export function getAI() {
   if (process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"]) return getVertexAI();
 
   // Support both underscore and space variants (Replit sometimes stores secrets with spaces)
-  const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"];
+  const apiKey = (process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"] ?? "").replace(/^["'\s]+|["'\s]+$/g, "");
   if (!apiKey) {
     throw new Error("Neither Vertex AI service account nor GEMINI_API_KEY is configured");
   }

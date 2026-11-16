@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 
 import { Router } from "express";
 import { execFile } from "node:child_process";
@@ -147,67 +148,93 @@ async function generateGemini(
   nativeLanguage?: string,
   requestedStyle?: string,
 ): Promise<{ audio: Buffer; model: string }> {
-  const apiKey = process.env["GEMINI_API_KEY"] ?? process.env["GEMINI API KEY"] ?? process.env["GOOGLE_API_KEY"];
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-
   const failures: string[] = [];
+  const rawKey = (
+    process.env["GEMINI_API_KEY"] ??
+    process.env["GEMINI API KEY"] ??
+    process.env["GOOGLE_API_KEY"] ??
+    process.env["AI_INTEGRATIONS_GEMINI_API_KEY"] ??
+    ""
+  ).replace(/^["'\s]+|["'\s]+$/g, "");
 
-  // 1. Standard v1beta generateContent AUDIO endpoint with pure verbatim text
-  for (const model of ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]) {
+  const rawSa = process.env["GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON"];
+
+  // Helper to extract inlineData audio from @google/genai response
+  const extractAudio = (resp: any, label: string): Buffer => {
+    const parts = resp?.candidates?.[0]?.content?.parts ?? [];
+    const inline = parts.find((p: any) => p?.inlineData?.data)?.inlineData?.data;
+    if (!inline) throw new Error(`${label} returned no inlineData`);
+    const wav = pcmToWav(Buffer.from(inline, "base64"));
+    if (wav.length < 100) throw new Error(`${label} returned empty audio`);
+    return wav;
+  };
+
+  // A. Try Vertex AI Service Account first (since GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON is active on Railway)
+  if (rawSa) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text }] }],
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
-            },
+      const creds = JSON.parse(rawSa);
+      for (const loc of ["us-central1", process.env["GOOGLE_VERTEX_LOCATION"] || "global"]) {
+        const vertexClient = new GoogleGenAI({
+          vertexai: true,
+          project: creds.project_id,
+          location: loc,
+          googleAuthOptions: {
+            credentials: creds,
+            scopes: ["https://www.googleapis.com/auth/cloud-platform"],
           },
-        }),
-        signal: AbortSignal.timeout(20_000),
-      });
-      const payload = await response.json().catch(() => null) as any;
-      if (!response.ok) throw new Error(payload?.error?.message ?? `${model} HTTP ${response.status}`);
-      const encoded = payload?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data)?.inlineData?.data;
-      if (!encoded) throw new Error(`${model} returned no inlineData`);
-      const audio = pcmToWav(Buffer.from(encoded, "base64"));
-      if (audio.length > 100) return { audio, model };
-    } catch (err) {
-      failures.push(`${model}: ${err instanceof Error ? err.message : String(err)}`);
+        });
+        for (const model of ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash"]) {
+          try {
+            const resp = await vertexClient.models.generateContent({
+              model,
+              contents: text,
+              config: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+                },
+              },
+            });
+            return { audio: extractAudio(resp, `vertex-${loc}-${model}`), model: `vertex:${model}` };
+          } catch (vErr) {
+            failures.push(`vertex(${loc}/${model}): ${vErr instanceof Error ? vErr.message : String(vErr)}`);
+          }
+        }
+      }
+    } catch (saErr) {
+      failures.push(`vertex-init: ${saErr instanceof Error ? saErr.message : String(saErr)}`);
     }
   }
 
-  // 2. v1beta/interactions endpoint for gemini-3.8-flash-tts / gemini-3.8-flash-lite-tts
-  const style = [styleForLanguage(language, nativeLanguage), requestedStyle?.trim()].filter(Boolean).join("; ").slice(0, 700);
-  for (const model of ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"]) {
-    try {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          model,
-          input: [{ type: "user_input", content: [{ type: "text", text, annotations: [{ type: "speech_metadata", style }] }] }],
-          response_format: { type: "audio" },
-          generation_config: { speech_config: [{ voice }] },
-        }),
-        signal: AbortSignal.timeout(20_000),
-      });
-      const payload = await response.json().catch(() => null) as any;
-      if (!response.ok) throw new Error(payload?.error?.message ?? `${model} HTTP ${response.status}`);
-      const encoded = payload?.steps?.filter((st: any) => st.type === "model_output").flatMap((st: any) => st.content ?? []).find((p: any) => p.type === "audio" && typeof p.data === "string")?.data;
-      if (!encoded) throw new Error(`${model} returned no audio`);
-      const audio = pcmToWav(Buffer.from(encoded, "base64"));
-      if (audio.length > 100) return { audio, model };
-    } catch (err) {
-      failures.push(`${model}: ${err instanceof Error ? err.message : String(err)}`);
+  // B. Try Google AI Studio API Key if present and valid AIza* format
+  if (rawKey) {
+    for (const model of ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(rawKey)}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+              },
+            },
+          }),
+          signal: AbortSignal.timeout(20_000),
+        });
+        const payload = await response.json().catch(() => null) as any;
+        if (!response.ok) throw new Error(payload?.error?.message ?? `${model} HTTP ${response.status}`);
+        return { audio: extractAudio(payload, model), model };
+      } catch (err) {
+        failures.push(`apikey(${model}): ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 
-  throw new Error(`Gemini TTS chain failed: ${failures.join(" | ")}`);
+  throw new Error(`Gemini TTS failed: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(text: string, language: string, gender: "male" | "female", character: string): Promise<{ audio: Buffer; voice: string }> {
