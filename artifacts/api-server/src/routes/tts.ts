@@ -215,7 +215,7 @@ async function generateGemini(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text }] }],
+            contents: [{ parts: [{ text: `Read the following transcript aloud verbatim with natural Indian pronunciation and no extra words:\n\n${text}` }] }],
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: {
