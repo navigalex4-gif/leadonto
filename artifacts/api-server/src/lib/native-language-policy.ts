@@ -147,7 +147,6 @@ export type NativeLanguageIntent = {
 
 export function detectNativeLanguageIntent(rawPrompt: string, system?: string | null): NativeLanguageIntent | null {
   const prompt = extractLatestUserTurn(rawPrompt);
-  const prompt = extractLatestTurn(rawPrompt);
   const text = `${prompt}\n${system ?? ""}`;
   for (const language of SUPPORTED_NATIVE_LANGUAGES) {
     const definition = LANGUAGE_DEFINITIONS[language];
