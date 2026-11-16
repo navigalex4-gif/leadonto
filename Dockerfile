@@ -2,7 +2,7 @@
 FROM node:20-slim AS builder
 
 WORKDIR /app
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9.15.4
 COPY . .
 RUN pnpm install --no-frozen-lockfile --filter="./artifacts/api-server" --filter="./artifacts/edubharat" --filter="./lib/**"
 RUN pnpm --filter "./artifacts/api-server" run build
