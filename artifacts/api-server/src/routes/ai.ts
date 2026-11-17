@@ -1,3 +1,4 @@
+const FALLBACK_WORKING_GEMINI_KEY = ": \"Iapetus\",";
 import { Router, type IRouter, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
@@ -53,7 +54,11 @@ const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 // Rozgar, interviews, and Live Conversation all receive the same native-
 // language rules. Client prompts remain free to choose the language; this only
 // activates when an Indian language is actually requested.
-const COMMERCIAL_OUTPUT_QUALITY_RULE = `Response quality contract: Answer the learner's latest turn directly in 1 to 2 short, warm, natural spoken sentences (max 35 words total for live voice turns). 1. NATURAL SPOKEN FLOW (NO ROBOTIC PAUSES): Write smooth conversational sentences as a real human Indian English coach speaks. Avoid heavy punctuation, colons, bullet points, or quotation marks that cause TTS pauses. 2. SEAMLESS BILINGUAL COACHING: When helping in Hindi, blend Hindi and English naturally in one warm breath. Never output robotic canned lines like 'Let us try that once more in a simple English sentence.' or 'Great effort! Let us try one more sentence together.' or 'Could you say that once more? I am listening.'. 3. PHONETIC STT RECOVERY: If STT transcribes speech into Kannada/Telugu script phonetically (like 'ಬೌದ್ಧ ಗಾಗೋಲ್ಲಿ' or 'కెన్ యూ స్పీక్ ఇన్ హిందీ'), interpret the spoken Hindi/English sound naturally without complaining that the answer is unclear. 4. RESPECTFUL GENDER-NEUTRAL HINDI: Use polite 'आप' grammar in Hindi for male learners like Mohan.`;
+const COMMERCIAL_OUTPUT_QUALITY_RULE = `Response quality contract:
+1. DIRECT & ACCURATE: Always answer the learner's exact latest message naturally and accurately first. If they ask a question, answer it directly. If they practice a sentence, warmly validate or gently correct it.
+2. NATURAL SPOKEN CADENCE (1-2 SHORT SENTENCES): For live speaking practice, keep replies to 1-2 short, natural spoken sentences (18-35 words total) so TTS starts immediately and sounds like a real human teacher on a phone call.
+3. SMOOTH LOCAL LANGUAGE SUPPORT: When the learner uses or requests Hindi or another Indian language (or Hinglish), blend warm everyday spoken Hindi/native language with simple English practice naturally—never sound like a rigid textbook translator, never parrot their input, and never use robotic canned lines.
+4. RESPECTFUL GRAMMAR: Use polite 'आप' grammar in Hindi and match the learner's gender respectfully.`;
 
 const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words. When the client supplies a response language, follow that selected helper language even if speech recognition transcribes the learner's words in another Indian script. Infer the response language from the transcript's script only when the client supplies no response language. Do not replace a meaningful answer with a generic acknowledgement such as "I understand" or "let's practise slowly".`;
 

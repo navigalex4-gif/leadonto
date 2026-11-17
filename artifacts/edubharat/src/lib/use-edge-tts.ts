@@ -443,7 +443,7 @@ function speakWithBrowserFallback(
     const languageCode = BROWSER_LANGUAGE_CODES[language] ?? "en-IN";
     utterance.lang = languageCode;
     utterance.voice = chooseBrowserVoice(language, gender);
-    utterance.rate = Math.max(1.12, Math.min(options.rate ?? 1.15, 1.35));
+    utterance.rate = Math.max(0.95, Math.min(options.rate ?? 1.0, 1.15));
     utterance.pitch = Math.max(0.5, Math.min(options.pitch ?? (gender === "female" ? 1.05 : 0.92), 2));
     const generation = _speakGen;
     let completed = false;
@@ -615,7 +615,7 @@ function playChunkChain(
       // an even slower cap, but should not make teachers/interviewers sound
       // rushed unless they explicitly opt into it.
       // Keep generated Gemini audio at a natural, brisk conversational speed.
-      const rate = Math.max(1.0, Math.min(options.rate ?? 1.06, 1.25));
+      const rate = Math.max(0.95, Math.min(options.rate ?? 1.0, 1.15));
       audio.playbackRate = rate;
 
       // Decode for lip-sync IN PARALLEL with playback starting below — this
@@ -737,8 +737,10 @@ export function useGoogleTTS() {
       ownerRef.current = true;
       setIsSpeaking(true);
 
+      const MALE_STYLES = new Set(["rohit", "arjun", "rahul", "raj", "vikram", "kabir", "sanjay", "aryan"]);
+      const styleKey = (options.voiceStyle ?? "").toLowerCase();
       const gender: "male" | "female" =
-        options.voiceGender === "male" ? "male" : "female";
+        options.voiceGender === "male" || MALE_STYLES.has(styleKey) ? "male" : "female";
 
       // Sentence-chunked and queued so each clip finishes before the next
       // begins. This prevents overlapping voices and preserves every response
