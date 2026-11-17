@@ -1045,7 +1045,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     // from the previous tutor, so it cannot speak with the wrong identity.
     aiBusyRef.current = false;
     setTutorId(id);
-    updateProfile({ voiceStyle: t.voiceStyle as typeof (tutor?.voiceStyle || tutor?.id || 'priya'), voiceGender: t.voiceGender, preferredTutor: id });
+    updateProfile({ voiceStyle: t.voiceStyle as typeof profile.voiceStyle, voiceGender: t.voiceGender, preferredTutor: id });
     // If live conversation is running, resume it with the new tutor's voice.
     // Use a natural transition — not a scripted introduction — so the handoff
     // feels like a real person stepping in mid-conversation.
