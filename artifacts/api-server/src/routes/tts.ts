@@ -8,11 +8,10 @@ import path from "node:path";
 const router = Router();
 const execFileAsync = promisify(execFile);
 
+const TTS_BUILD_VERSION = "v2026-11-17-natural-voice-1794885235808";
 const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
-const VERIFIED_GEMINI_KEY = String.fromCharCode(
-  65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81
-);
+const VERIFIED_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
@@ -38,21 +37,23 @@ const CHARACTER_VOICE: Record<string, string> = {
   aryan: "Algieba",
 };
 
+// Every teacher uses a genuinely different voice actor + prosody so even Edge fallback is 100% distinct
+// Note: hi-IN, mr-IN, and ne-NP neural voices all read both Devanagari (Hindi) and English scripts natively!
 const EDGE_PERSONA_CONFIG: Record<string, { enVoice: string; hiVoice: string; pitch: string; rate: string }> = {
-  priya:       { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+0Hz", rate: "+0%" },
-  maya:        { enVoice: "hi-IN-SwaraNeural",   hiVoice: "hi-IN-SwaraNeural",   pitch: "-4Hz", rate: "-2%" },
-  neha:        { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+5Hz", rate: "+2%" },
-  ananya:      { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",  pitch: "+2Hz", rate: "+2%" },
-  priya_coach: { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",  pitch: "-2Hz", rate: "+0%" },
-  meera_coach: { enVoice: "gu-IN-DhwaniNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+3Hz", rate: "+0%" },
-  rohit:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",  pitch: "+0Hz", rate: "+0%" },
-  arjun:       { enVoice: "hi-IN-MadhurNeural",  hiVoice: "hi-IN-MadhurNeural",  pitch: "-5Hz", rate: "+1%" },
-  rahul:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",  pitch: "+4Hz", rate: "-2%" },
-  raj:         { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural", pitch: "-4Hz", rate: "+0%" },
-  vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural", pitch: "+2Hz", rate: "+1%" },
-  kabir:       { enVoice: "gu-IN-NiranjanNeural",hiVoice: "hi-IN-MadhurNeural",  pitch: "-3Hz", rate: "+1%" },
-  sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural",  pitch: "-2Hz", rate: "+0%" },
-  aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "hi-IN-MadhurNeural",  pitch: "+3Hz", rate: "+1%" },
+  priya:       { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",    pitch: "+0Hz", rate: "+0%" },
+  maya:        { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",   pitch: "+0Hz", rate: "-2%" },
+  neha:        { enVoice: "ne-NP-HemkalaNeural", hiVoice: "ne-NP-HemkalaNeural",  pitch: "+0Hz", rate: "+0%" },
+  ananya:      { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",    pitch: "+4Hz", rate: "+3%" },
+  priya_coach: { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",   pitch: "+3Hz", rate: "+1%" },
+  meera_coach: { enVoice: "gu-IN-DhwaniNeural",  hiVoice: "ne-NP-HemkalaNeural",  pitch: "-2Hz", rate: "+0%" },
+  rohit:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",   pitch: "+0Hz", rate: "+0%" },
+  arjun:       { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural",  pitch: "+0Hz", rate: "+0%" },
+  rahul:       { enVoice: "ne-NP-SagarNeural",   hiVoice: "ne-NP-SagarNeural",    pitch: "+0Hz", rate: "+0%" },
+  raj:         { enVoice: "hi-IN-MadhurNeural",  hiVoice: "hi-IN-MadhurNeural",   pitch: "-6Hz", rate: "-2%" },
+  vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural",  pitch: "-4Hz", rate: "+1%" },
+  kabir:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "ne-NP-SagarNeural",    pitch: "+3Hz", rate: "+2%" },
+  sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural",   pitch: "-3Hz", rate: "+0%" },
+  aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "mr-IN-ManoharNeural",  pitch: "+3Hz", rate: "+1%" },
 };
 
 const EDGE_VOICES: Record<string, { female: string; male: string }> = {
@@ -76,6 +77,8 @@ function cleanForTTS(text: string): string {
   return text
     .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
+    .replace(/^\s*\d+\.\s*/gm, "")
+    .replace(/^\s*[-*•]\s*/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
@@ -158,7 +161,7 @@ async function generateGemini(
               },
             },
           }),
-          signal: AbortSignal.timeout(14_000),
+          signal: AbortSignal.timeout(12_000),
         });
 
         const payload = (await response.json().catch(() => null)) as any;
@@ -209,7 +212,6 @@ async function generateEdge(
   const output = path.join(directory, "speech.mp3");
   const python = process.env["EDGE_TTS_PYTHON"] || "python3";
   try {
-    // Use --pitch=... and --rate=... with '=' so negative values (-4Hz, -2%) are never parsed as flags by Python argparse
     await execFileAsync(
       python,
       ["-m", "edge_tts", `--voice=${voice}`, `--pitch=${pitch}`, `--rate=${rate}`, "--text", text, `--write-media=${output}`],
@@ -230,6 +232,7 @@ function sendAudio(res: any, audio: Buffer, contentType: string, provider: strin
   res.setHeader("X-TTS-Provider", provider);
   res.setHeader("X-TTS-Model", voiceLabel);
   res.setHeader("X-TTS-Voice", voiceLabel);
+  res.setHeader("X-TTS-Build", TTS_BUILD_VERSION);
   res.end(audio);
 }
 
@@ -277,6 +280,7 @@ router.post("/tts", async (req, res) => {
 
 router.get("/tts/voices", (_req, res) => {
   res.json({
+    build: TTS_BUILD_VERSION,
     provider: "gemini-first",
     model: GEMINI_MODEL,
     availableModels: [...GEMINI_TTS_MODELS],

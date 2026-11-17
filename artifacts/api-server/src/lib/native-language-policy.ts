@@ -190,19 +190,30 @@ export function nativeLanguageConfirmation(language: SupportedNativeLanguage): s
   return LANGUAGE_DEFINITIONS[language].confirmation;
 }
 
-export function applyNativeLanguagePolicy(prompt: string, system?: string | null): string | null | undefined {
-  const intent = detectNativeLanguageIntent(prompt, system);
-  if (!intent) return system;
+export function applyNativeLanguagePolicy(
+  rawPrompt: string,
+  systemPrompt?: string,
+): string {
+  const base = (systemPrompt ?? "").trim();
+  const latest = extractLatestUserTurn(rawPrompt);
+  const detected = detectNativeLanguageIntent(latest);
 
-  const language = intent.language;
-  const translationInstruction = intent.translationOrExplanation
-    ? `This is a ${language} translation/explanation request. Answer the exact requested word, phrase, or sentence in natural ${language} using ${language}'s standard native script. Do not answer in English, Hindi, or another Indian language. Do not acknowledge the request, invent a new practice question, or give a generic coaching reply. Preserve the meaning and return a complete answer.`
-    : `This is a direct request to use ${language}. Acknowledge it in clear, natural ${language} and then follow the user's request. Do not silently substitute Hindi, English, or another Indian language.`;
-  const policy = `Native-language routing policy: The named helper language is ${language}. ${translationInstruction} If the request is ambiguous or the source text is missing, ask for the missing source briefly in ${language}; never emit malformed, transliterated, over-spaced, or mixed-language script.`;
-  return `${system ? `${system}\n\n` : ""}${policy}`;
-}
+  const spokenFormatRule = [
+    "CRITICAL SPOKEN COACHING RULES (MANDATORY):",
+    "1. Write ONLY 1 to 2 short, warm, natural spoken sentences (maximum 35 words total).",
+    "2. NEVER output numbered lists (1., 2., 3.), bullet points, bold markdown (**), or headings. Write pure spoken dialogue that sounds natural when read aloud by TTS.",
+    "3. Directly and accurately answer what the learner just asked or said.",
+  ].join("\n");
 
-export function hasExpectedNativeScript(text: string, language: SupportedNativeLanguage): boolean {
-  const script = LANGUAGE_DEFINITIONS[language].script;
-  return [...text].filter((character) => script.test(character)).length >= 2;
+  if (!detected) {
+    return [base, spokenFormatRule].filter(Boolean).join("\n\n");
+  }
+
+  const bilingualRule = [
+    spokenFormatRule,
+    `4. SMOOTH ${detected.toUpperCase()} + ENGLISH COACHING: The learner wants help in ${detected}. Explain or encourage briefly in warm, natural everyday spoken ${detected} (avoid stiff textbook/formal words), and ALWAYS include the target practice sentence in simple, natural ENGLISH so the learner practices speaking English.`,
+    `5. Never translate the English practice sentence into pure ${detected}; keep the explanation in ${detected} and the practice line in English in one smooth, natural breath.`,
+  ].join("\n");
+
+  return [base, bilingualRule].filter(Boolean).join("\n\n");
 }
