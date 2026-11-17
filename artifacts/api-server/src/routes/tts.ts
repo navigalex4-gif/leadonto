@@ -15,7 +15,7 @@ const FALLBACK_GEMINI_KEY = ": \"Iapetus\",";
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
   neha: "female", rahul: "male", ananya: "female", priya_coach: "female",
-  raj: "male", vikram: "male", meera_coach: "female", kabir: "male",
+  raj: "male", vikram: "male", meera_coach: "female", kabir: "Iapetus",
   sanjay: "male", aryan: "male",
 };
 
@@ -32,7 +32,8 @@ const CHARACTER_VOICE: Record<string, string> = {
   rahul: "Orus",
   raj: "Fenrir",
   vikram: "Enceladus",
-  kabir  sanjay: "Umbriel",
+  kabir: "Iapetus",
+  sanjay: "Umbriel",
   aryan: "Algieba",
 };
 
@@ -49,7 +50,7 @@ const EDGE_PERSONA_CONFIG: Record<string, { enVoice: string; hiVoice: string; pi
   rahul:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "+4Hz",  rate: "-2%" },
   raj:         { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "-8Hz",  rate: "-2%" },
   vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "-3Hz",  rate: "+0%" },
-  kabir:       { enVoice: "gu-IN-NiranjanNeural",hiVoice: "hi-IN-MadhurNeural", pitch: "+2Hz",  rate: "+2%" },
+  kabir: "Iapetus",
   sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural", pitch: "-2Hz",  rate: "+0%" },
   aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "hi-IN-MadhurNeural", pitch: "+3Hz",  rate: "+1%" },
 };
