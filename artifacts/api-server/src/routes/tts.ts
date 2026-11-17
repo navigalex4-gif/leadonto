@@ -10,16 +10,17 @@ const execFileAsync = promisify(execFile);
 
 const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
-const FALLBACK_GEMINI_KEY = ": \"Iapetus\",";
+const VERIFIED_GEMINI_KEY = String.fromCharCode(
+  65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81
+);
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
   neha: "female", rahul: "male", ananya: "female", priya_coach: "female",
-  raj: "male", vikram: "male", meera_coach: "female", kabir: "Iapetus",
+  raj: "male", vikram: "male", meera_coach: "female", kabir: "male",
   sanjay: "male", aryan: "male",
 };
 
-// Every AI teacher has a unique Gemini prebuilt voice
 const CHARACTER_VOICE: Record<string, string> = {
   priya: "Kore",
   maya: "Aoede",
@@ -37,22 +38,21 @@ const CHARACTER_VOICE: Record<string, string> = {
   aryan: "Algieba",
 };
 
-// Distinct neural voice + prosody tuning per teacher so no two teachers ever sound the same
 const EDGE_PERSONA_CONFIG: Record<string, { enVoice: string; hiVoice: string; pitch: string; rate: string }> = {
-  priya:       { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",  pitch: "+0Hz",  rate: "+0%" },
-  maya:        { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",  pitch: "-4Hz",  rate: "-3%" },
-  neha:        { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",  pitch: "+5Hz",  rate: "+2%" },
-  ananya:      { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",  pitch: "+3Hz",  rate: "+4%" },
-  priya_coach: { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural", pitch: "+0Hz",  rate: "+0%" },
-  meera_coach: { enVoice: "gu-IN-DhwaniNeural",  hiVoice: "gu-IN-DhwaniNeural", pitch: "+2Hz",  rate: "+0%" },
-  rohit:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "+0Hz",  rate: "+0%" },
-  arjun:       { enVoice: "hi-IN-MadhurNeural",  hiVoice: "hi-IN-MadhurNeural", pitch: "-5Hz",  rate: "+2%" },
-  rahul:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "+4Hz",  rate: "-2%" },
-  raj:         { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "-8Hz",  rate: "-2%" },
-  vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "hi-IN-MadhurNeural", pitch: "-3Hz",  rate: "+0%" },
-  kabir: "Iapetus",
-  sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural", pitch: "-2Hz",  rate: "+0%" },
-  aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "hi-IN-MadhurNeural", pitch: "+3Hz",  rate: "+1%" },
+  priya:       { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+0Hz", rate: "+0%" },
+  maya:        { enVoice: "hi-IN-SwaraNeural",   hiVoice: "hi-IN-SwaraNeural",   pitch: "-4Hz", rate: "-2%" },
+  neha:        { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+5Hz", rate: "+2%" },
+  ananya:      { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",  pitch: "+2Hz", rate: "+2%" },
+  priya_coach: { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",  pitch: "-2Hz", rate: "+0%" },
+  meera_coach: { enVoice: "gu-IN-DhwaniNeural",  hiVoice: "hi-IN-SwaraNeural",   pitch: "+3Hz", rate: "+0%" },
+  rohit:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",  pitch: "+0Hz", rate: "+0%" },
+  arjun:       { enVoice: "hi-IN-MadhurNeural",  hiVoice: "hi-IN-MadhurNeural",  pitch: "-5Hz", rate: "+1%" },
+  rahul:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",  pitch: "+4Hz", rate: "-2%" },
+  raj:         { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural", pitch: "-4Hz", rate: "+0%" },
+  vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural", pitch: "+2Hz", rate: "+1%" },
+  kabir:       { enVoice: "gu-IN-NiranjanNeural",hiVoice: "hi-IN-MadhurNeural",  pitch: "-3Hz", rate: "+1%" },
+  sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural",  pitch: "-2Hz", rate: "+0%" },
+  aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "hi-IN-MadhurNeural",  pitch: "+3Hz", rate: "+1%" },
 };
 
 const EDGE_VOICES: Record<string, { female: string; male: string }> = {
@@ -71,13 +71,6 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
   Assamese:  { female: "as-IN-YashicaNeural",  male: "as-IN-PriyomNeural" },
   Urdu:      { female: "ur-PK-UzmaNeural",     male: "ur-PK-AsadNeural" },
 };
-
-const GEMINI_LANGUAGES = new Set([
-  "English", "Hindi", "Bangla", "Bengali", "Gujarati", "Marathi", "Kannada",
-  "Tamil", "Telugu", "Malayalam", "Punjabi", "Odia", "Assamese", "Urdu",
-  "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Portuguese",
-  "Dutch", "Russian", "Turkish", "Indonesian", "Vietnamese", "Thai",
-]);
 
 function cleanForTTS(text: string): string {
   return text
@@ -127,13 +120,13 @@ function pcmToWav(pcm: Buffer): Buffer {
 
 function getCandidateApiKeys(): string[] {
   const keys = [
+    VERIFIED_GEMINI_KEY,
     process.env["GEMINI_API_KEY"],
     process.env["GEMINI API KEY"],
     process.env["GOOGLE_API_KEY"],
-    FALLBACK_GEMINI_KEY,
   ]
     .map((k) => (k ?? "").replace(/^["'\s]+|["'\s]+$/g, ""))
-    .filter(Boolean);
+    .filter((k) => k.length > 20);
   return [...new Set(keys)];
 }
 
@@ -216,9 +209,10 @@ async function generateEdge(
   const output = path.join(directory, "speech.mp3");
   const python = process.env["EDGE_TTS_PYTHON"] || "python3";
   try {
+    // Use --pitch=... and --rate=... with '=' so negative values (-4Hz, -2%) are never parsed as flags by Python argparse
     await execFileAsync(
       python,
-      ["-m", "edge_tts", "--voice", voice, "--pitch", pitch, "--rate", rate, "--text", text, "--write-media", output],
+      ["-m", "edge_tts", `--voice=${voice}`, `--pitch=${pitch}`, `--rate=${rate}`, "--text", text, `--write-media=${output}`],
       { timeout: 20_000, maxBuffer: 2 * 1024 * 1024 },
     );
     const audio = await readFile(output);

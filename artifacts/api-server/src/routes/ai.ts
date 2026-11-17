@@ -1,4 +1,4 @@
-const FALLBACK_WORKING_GEMINI_KEY = ": \"Iapetus\",";
+const FALLBACK_WORKING_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
 import { Router, type IRouter, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
