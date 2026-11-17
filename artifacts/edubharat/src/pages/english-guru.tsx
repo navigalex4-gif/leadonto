@@ -818,12 +818,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     // Priya was the old implicit default. Treat that untouched legacy profile
     // as the new Maya landing default, while preserving an explicitly chosen
     // tutor once the learner has a name/profile selection.
-    const legacyDefault = profile.preferredTutor === "priya" && profile.voiceStyle === "priya";
+    const legacyDefault = profile.preferredTutor === "priya" && (tutor?.voiceStyle || tutor?.id || 'priya') === "priya";
     if (legacyDefault) return "maya";
     // Prefer preferredTutor field; fallback to voiceStyle match
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
     if (byId) return byId.id;
-    const match = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
+    const match = TUTORS.find(t => t.voiceStyle === (tutor?.voiceStyle || tutor?.id || 'priya'));
     return match?.id ?? "maya";
   });
   const [showTutorPicker, setShowTutorPicker] = useState(false);
@@ -977,10 +977,10 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   // Sync tutor to profile when profile changes externally
   useEffect(() => {
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
-    const byStyle = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
+    const byStyle = TUTORS.find(t => t.voiceStyle === (tutor?.voiceStyle || tutor?.id || 'priya'));
     const preferred = byId ?? byStyle;
     if (preferred && preferred.id !== tutorId) setTutorId(preferred.id);
-  }, [profile.preferredTutor, profile.voiceStyle, tutorId]);
+  }, [profile.preferredTutor, (tutor?.voiceStyle || tutor?.id || 'priya'), tutorId]);
 
   const speak = useCallback((text: string, language = uiLang, onEnd?: () => void, opts: { rate?: number; nativeLanguage?: string; forceNativeLanguage?: boolean; queueSpeech?: boolean; speechStyle?: string; voiceGender?: "male" | "female"; voiceStyle?: string } = {}) => {
     const t = stripMarkdownForSpeech(text)
@@ -1045,7 +1045,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     // from the previous tutor, so it cannot speak with the wrong identity.
     aiBusyRef.current = false;
     setTutorId(id);
-    updateProfile({ voiceStyle: t.voiceStyle as typeof profile.voiceStyle, voiceGender: t.voiceGender, preferredTutor: id });
+    updateProfile({ voiceStyle: t.voiceStyle as typeof (tutor?.voiceStyle || tutor?.id || 'priya'), voiceGender: t.voiceGender, preferredTutor: id });
     // If live conversation is running, resume it with the new tutor's voice.
     // Use a natural transition — not a scripted introduction — so the handoff
     // feels like a real person stepping in mid-conversation.

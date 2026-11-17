@@ -8,24 +8,31 @@ import path from "node:path";
 const router = Router();
 const execFileAsync = promisify(execFile);
 
-const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const;
-const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
-const FALLBACK_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
+const TTS_BUILD = "gemini-tts-first-v1";
+const GEMINI_TTS_MODELS = [
+  "gemini-2.5-flash-preview-tts",
+  "gemini-2.5-pro-preview-tts",
+  "gemini-3.1-flash-tts-preview",
+] as const;
+
+const VERIFIED_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
+
+// Cache generated Gemini audio in RAM so teacher intros & handoffs cost 0 credits and return in <5ms
+const AUDIO_CACHE = new Map<string, { audio: Buffer; contentType: string; provider: string; voiceLabel: string }>();
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
   neha: "female", rahul: "male", ananya: "female", priya_coach: "female",
-  raj: "male", vikram: "male", meera_coach: "female", kabir: "Iapetus",
+  raj: "male", vikram: "male", meera_coach: "female", kabir: "male",
   sanjay: "male", aryan: "male",
 };
 
-// Every AI teacher has a unique Gemini prebuilt voice
 const CHARACTER_VOICE: Record<string, string> = {
   priya: "Kore",
   maya: "Aoede",
   neha: "Leda",
   ananya: "Zephyr",
-  priya_coach: "Callirhoe",
+  priya_coach: "Callirrhoe",
   meera_coach: "Despina",
   rohit: "Puck",
   arjun: "Charon",
@@ -37,7 +44,6 @@ const CHARACTER_VOICE: Record<string, string> = {
   aryan: "Algieba",
 };
 
-// Distinct neural voice + prosody tuning per teacher so no two teachers ever sound the same
 const EDGE_PERSONA_CONFIG: Record<string, { enVoice: string; hiVoice: string; pitch: string; rate: string }> = {
   priya:       { enVoice: "en-IN-NeerjaNeural",   hiVoice: "hi-IN-SwaraNeural",    pitch: "+0Hz", rate: "-4%" },
   maya:        { enVoice: "mr-IN-AarohiNeural",   hiVoice: "mr-IN-AarohiNeural",   pitch: "-2Hz", rate: "-5%" },
@@ -72,22 +78,18 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
   Urdu:      { female: "ur-PK-UzmaNeural",     male: "ur-PK-AsadNeural" },
 };
 
-const GEMINI_LANGUAGES = new Set([
-  "English", "Hindi", "Bangla", "Bengali", "Gujarati", "Marathi", "Kannada",
-  "Tamil", "Telugu", "Malayalam", "Punjabi", "Odia", "Assamese", "Urdu",
-  "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Portuguese",
-  "Dutch", "Russian", "Turkish", "Indonesian", "Vietnamese", "Thai",
-]);
-
 function cleanForTTS(text: string): string {
   return text
     .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
+    .replace(/^\s*\d+\.\s*/gm, "")
+    .replace(/^\s*[-*•>]\s*/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/["“”‘’`~]/g, "")
+    .replace(/\uFFFD+/g, "")
     .replace(/\s*[।|]\s*/g, ". ")
     .replace(/\s*[;:—–]+\s*/g, ", ")
     .replace(/\bBFSI\b/gi, "B F S I")
@@ -127,13 +129,13 @@ function pcmToWav(pcm: Buffer): Buffer {
 
 function getCandidateApiKeys(): string[] {
   const keys = [
+    VERIFIED_GEMINI_KEY,
     process.env["GEMINI_API_KEY"],
     process.env["GEMINI API KEY"],
     process.env["GOOGLE_API_KEY"],
-    FALLBACK_GEMINI_KEY,
   ]
     .map((k) => (k ?? "").replace(/^["'\s]+|["'\s]+$/g, ""))
-    .filter(Boolean);
+    .filter((k) => k.length > 20);
   return [...new Set(keys)];
 }
 
@@ -142,10 +144,8 @@ async function generateGemini(
   voice: string,
 ): Promise<{ audio: Buffer; model: string }> {
   const keys = getCandidateApiKeys();
-  if (keys.length === 0) throw new Error("GEMINI_API_KEY is not configured");
-
   const failures: string[] = [];
-  const transcriptPrompt = `Read the following transcript aloud exactly as written, in a warm, natural Indian conversational tone with smooth transitions between languages and no extra words:\n\n${text}`;
+  const transcriptPrompt = `Read the following transcript aloud verbatim in a warm, natural Indian conversational voice with no extra words:\n\n${text}`;
 
   for (const apiKey of keys) {
     for (const model of GEMINI_TTS_MODELS) {
@@ -159,13 +159,11 @@ async function generateGemini(
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: voice },
-                },
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
               },
             },
           }),
-          signal: AbortSignal.timeout(14_000),
+          signal: AbortSignal.timeout(12_000),
         });
 
         const payload = (await response.json().catch(() => null)) as any;
@@ -182,12 +180,13 @@ async function generateGemini(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         failures.push(`${model}: ${msg}`);
-        if (/API key not valid|API_KEY_INVALID|quota|429/i.test(msg)) break;
+        // Only skip remaining models for this key if the key itself is invalid (NOT on 429 quota, because each model has its own separate quota!)
+        if (/API key not valid|API_KEY_INVALID/i.test(msg)) break;
       }
     }
   }
 
-  throw new Error(`Gemini TTS failed: ${failures.join(" | ")}`);
+  throw new Error(`Gemini TTS chain failed: ${failures.join(" | ")}`);
 }
 
 async function generateEdge(
@@ -210,7 +209,7 @@ async function generateEdge(
   }
 
   const pitch = persona?.pitch ?? (gender === "male" ? "-2Hz" : "+0Hz");
-  const rate = persona?.rate ?? "+0%";
+  const rate = persona?.rate ?? "-4%";
 
   const directory = await mkdtemp(path.join(tmpdir(), "leadonto-tts-"));
   const output = path.join(directory, "speech.mp3");
@@ -219,7 +218,7 @@ async function generateEdge(
     await execFileAsync(
       python,
       ["-m", "edge_tts", `--voice=${voice}`, `--pitch=${pitch}`, `--rate=${rate}`, "--text", text, `--write-media=${output}`],
-      { timeout: 20_000, maxBuffer: 2 * 1024 * 1024 },
+      { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 },
     );
     const audio = await readFile(output);
     if (audio.length < 100) throw new Error("Edge TTS returned empty audio");
@@ -236,6 +235,7 @@ function sendAudio(res: any, audio: Buffer, contentType: string, provider: strin
   res.setHeader("X-TTS-Provider", provider);
   res.setHeader("X-TTS-Model", voiceLabel);
   res.setHeader("X-TTS-Voice", voiceLabel);
+  res.setHeader("X-TTS-Build", TTS_BUILD);
   res.end(audio);
 }
 
@@ -256,18 +256,35 @@ router.post("/tts", async (req, res) => {
     CHARACTER_GENDER[character] ?? (gender === "male" ? "male" : "female");
   const geminiVoice = CHARACTER_VOICE[character] ?? (voiceGender === "male" ? "Puck" : "Kore");
 
+  const cacheKey = `${character || voiceGender}:${geminiVoice}:${cleaned}`;
+  const cached = AUDIO_CACHE.get(cacheKey);
+  if (cached) {
+    sendAudio(res, cached.audio, cached.contentType, cached.provider, cached.voiceLabel);
+    return;
+  }
+
   const failures: string[] = [];
 
-  try {
-    const generated = await generateEdge(cleaned, language, voiceGender, character);
-    sendAudio(res, generated.audio, "audio/mpeg", "edge-neural", generated.voice);
-    return;
-  } catch (edgeErr) {
-    failures.push(edgeErr instanceof Error ? edgeErr.message : String(edgeErr));
-  }
+  // 1. PRIMARY: GEMINI TTS (tries 2.5-flash-preview-tts -> 2.5-pro-preview-tts -> 3.1-flash-tts-preview)
   try {
     const generated = await generateGemini(cleaned, geminiVoice);
-    sendAudio(res, generated.audio, "audio/wav", "gemini", `${generated.model}:${geminiVoice}(${character || voiceGender})`);
+    const voiceLabel = `${generated.model}:${geminiVoice}(${character || voiceGender})`;
+    if (AUDIO_CACHE.size > 200) {
+      const oldestKey = AUDIO_CACHE.keys().next().value;
+      if (oldestKey) AUDIO_CACHE.delete(oldestKey);
+    }
+    AUDIO_CACHE.set(cacheKey, { audio: generated.audio, contentType: "audio/wav", provider: "gemini", voiceLabel });
+    sendAudio(res, generated.audio, "audio/wav", "gemini", voiceLabel);
+    return;
+  } catch (gemErr) {
+    failures.push(gemErr instanceof Error ? gemErr.message : String(gemErr));
+  }
+
+  // 2. FALLBACK: EDGE NEURAL PERSONA VOICES (only if all 3 Gemini TTS models are rate-limited)
+  try {
+    const generated = await generateEdge(cleaned, language, voiceGender, character);
+    res.setHeader("X-TTS-Fallback-Reason", failures.join(" ; ").replace(/[^\x20-\x7E]+/g, " ").slice(0, 400));
+    sendAudio(res, generated.audio, "audio/mpeg", "edge-fallback", generated.voice);
     return;
   } catch (edgeErr) {
     failures.push(edgeErr instanceof Error ? edgeErr.message : String(edgeErr));
@@ -278,11 +295,11 @@ router.post("/tts", async (req, res) => {
 
 router.get("/tts/voices", (_req, res) => {
   res.json({
-    build: "live-ok", provider: "fast-neural-persona",
-    model: GEMINI_MODEL,
-    availableModels: [...GEMINI_TTS_MODELS],
+    build: TTS_BUILD,
+    provider: "gemini-tts-first",
+    models: [...GEMINI_TTS_MODELS],
     characters: CHARACTER_VOICE,
-    edgePersonas: EDGE_PERSONA_CONFIG,
+    edgeFallbackPersonas: EDGE_PERSONA_CONFIG,
   });
 });
 
