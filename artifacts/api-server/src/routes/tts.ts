@@ -8,11 +8,12 @@ import path from "node:path";
 const router = Router();
 const execFileAsync = promisify(execFile);
 
-const TTS_BUILD = "gemini-tts-first-v1";
+const TTS_BUILD = "gemini-38-priority-v2";
 const GEMINI_TTS_MODELS = [
-  "gemini-2.5-flash-preview-tts",
-  "gemini-2.5-pro-preview-tts",
+  "gemini-3.8-flash-tts",
+  "gemini-3.8-flash-lite-tts",
   "gemini-3.1-flash-tts-preview",
+  "gemini-2.5-flash-preview-tts"
 ] as const;
 
 const VERIFIED_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
