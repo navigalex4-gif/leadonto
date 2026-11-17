@@ -54,11 +54,11 @@ const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
 // Rozgar, interviews, and Live Conversation all receive the same native-
 // language rules. Client prompts remain free to choose the language; this only
 // activates when an Indian language is actually requested.
-const COMMERCIAL_OUTPUT_QUALITY_RULE = `Response quality contract:
-1. DIRECT & ACCURATE: Always answer the learner's exact latest message naturally and accurately first. If they ask a question, answer it directly. If they practice a sentence, warmly validate or gently correct it.
-2. NATURAL SPOKEN CADENCE (1-2 SHORT SENTENCES): For live speaking practice, keep replies to 1-2 short, natural spoken sentences (18-35 words total) so TTS starts immediately and sounds like a real human teacher on a phone call.
-3. SMOOTH LOCAL LANGUAGE SUPPORT: When the learner uses or requests Hindi or another Indian language (or Hinglish), blend warm everyday spoken Hindi/native language with simple English practice naturally—never sound like a rigid textbook translator, never parrot their input, and never use robotic canned lines.
-4. RESPECTFUL GRAMMAR: Use polite 'आप' grammar in Hindi and match the learner's gender respectfully.`;
+const COMMERCIAL_OUTPUT_QUALITY_RULE = `MANDATORY LIVE VOICE COACHING RULES (HIGHEST PRIORITY):
+1. Reply in ONLY 1 to 2 short, warm, natural spoken sentences (maximum 35 words total).
+2. NEVER output numbered lists (1., 2., 3.), bullet points, bold markdown (**), or blockquotes (>). Write plain spoken dialogue only.
+3. Answer the learner's latest turn directly and accurately.
+4. SMOOTH LOCAL LANGUAGE + ENGLISH PRACTICE: When the learner speaks or asks for Hindi or another local language, explain briefly in simple everyday spoken Hindi/local language (no stiff textbook words) and ALWAYS include the target English practice sentence in English (e.g., "Hi, I am Mohan, and I work as a software developer").`;
 
 const INDIAN_LANGUAGE_QUALITY_RULE = `Language quality rule: When producing an Indian-language response, write natural conversational language in its standard native script. Preserve every vowel sign, matra, diacritic, and word boundary. Never drop vowel marks, split words into isolated consonants, invent phonetic spellings, or mix grammar from another Indian language. For Hindi or Marathi, use complete, correctly joined Devanagari words. When the client supplies a response language, follow that selected helper language even if speech recognition transcribes the learner's words in another Indian script. Infer the response language from the transcript's script only when the client supplies no response language. Do not replace a meaningful answer with a generic acknowledgement such as "I understand" or "let's practise slowly".`;
 
@@ -150,7 +150,7 @@ function applyLanguageQuality(
   const effectiveResponseLanguage = resolved.responseLanguage;
   const effectiveNativeInputDetected = resolved.nativeInputDetected;
   const requestedText = `${latestStudentText(prompt)}\n${system ?? ""}`;
-  const nativePolicy = applyNativeLanguagePolicy(latestStudentText(prompt), system);
+  const nativePolicy = (applyNativeLanguagePolicy(latestStudentText(prompt) + "\n\n" + COMMERCIAL_OUTPUT_QUALITY_RULE), system);
   const explicitLanguagePolicy =
     effectiveResponseLanguage
     && effectiveResponseLanguage !== "English"

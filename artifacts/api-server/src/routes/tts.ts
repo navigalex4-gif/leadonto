@@ -8,18 +8,18 @@ import path from "node:path";
 const router = Router();
 const execFileAsync = promisify(execFile);
 
-const TTS_BUILD_VERSION = "v2026-11-17-natural-voice-1794885235808";
 const GEMINI_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"] as const;
 const GEMINI_MODEL = GEMINI_TTS_MODELS[0];
-const VERIFIED_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
+const FALLBACK_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
 
 const CHARACTER_GENDER: Record<string, "female" | "male"> = {
   priya: "female", rohit: "male", maya: "female", arjun: "male",
   neha: "female", rahul: "male", ananya: "female", priya_coach: "female",
-  raj: "male", vikram: "male", meera_coach: "female", kabir: "male",
+  raj: "male", vikram: "male", meera_coach: "female", kabir: "Iapetus",
   sanjay: "male", aryan: "male",
 };
 
+// Every AI teacher has a unique Gemini prebuilt voice
 const CHARACTER_VOICE: Record<string, string> = {
   priya: "Kore",
   maya: "Aoede",
@@ -37,23 +37,22 @@ const CHARACTER_VOICE: Record<string, string> = {
   aryan: "Algieba",
 };
 
-// Every teacher uses a genuinely different voice actor + prosody so even Edge fallback is 100% distinct
-// Note: hi-IN, mr-IN, and ne-NP neural voices all read both Devanagari (Hindi) and English scripts natively!
+// Distinct neural voice + prosody tuning per teacher so no two teachers ever sound the same
 const EDGE_PERSONA_CONFIG: Record<string, { enVoice: string; hiVoice: string; pitch: string; rate: string }> = {
-  priya:       { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",    pitch: "+0Hz", rate: "+0%" },
-  maya:        { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",   pitch: "+0Hz", rate: "-2%" },
-  neha:        { enVoice: "ne-NP-HemkalaNeural", hiVoice: "ne-NP-HemkalaNeural",  pitch: "+0Hz", rate: "+0%" },
-  ananya:      { enVoice: "en-IN-NeerjaNeural",  hiVoice: "hi-IN-SwaraNeural",    pitch: "+4Hz", rate: "+3%" },
-  priya_coach: { enVoice: "mr-IN-AarohiNeural",  hiVoice: "mr-IN-AarohiNeural",   pitch: "+3Hz", rate: "+1%" },
-  meera_coach: { enVoice: "gu-IN-DhwaniNeural",  hiVoice: "ne-NP-HemkalaNeural",  pitch: "-2Hz", rate: "+0%" },
-  rohit:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "hi-IN-MadhurNeural",   pitch: "+0Hz", rate: "+0%" },
-  arjun:       { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural",  pitch: "+0Hz", rate: "+0%" },
-  rahul:       { enVoice: "ne-NP-SagarNeural",   hiVoice: "ne-NP-SagarNeural",    pitch: "+0Hz", rate: "+0%" },
-  raj:         { enVoice: "hi-IN-MadhurNeural",  hiVoice: "hi-IN-MadhurNeural",   pitch: "-6Hz", rate: "-2%" },
-  vikram:      { enVoice: "mr-IN-ManoharNeural", hiVoice: "mr-IN-ManoharNeural",  pitch: "-4Hz", rate: "+1%" },
-  kabir:       { enVoice: "en-IN-PrabhatNeural", hiVoice: "ne-NP-SagarNeural",    pitch: "+3Hz", rate: "+2%" },
-  sanjay:      { enVoice: "ta-IN-ValluvarNeural",hiVoice: "hi-IN-MadhurNeural",   pitch: "-3Hz", rate: "+0%" },
-  aryan:       { enVoice: "te-IN-MohanNeural",   hiVoice: "mr-IN-ManoharNeural",  pitch: "+3Hz", rate: "+1%" },
+  priya:       { enVoice: "en-IN-NeerjaNeural",   hiVoice: "hi-IN-SwaraNeural",    pitch: "+0Hz", rate: "-4%" },
+  maya:        { enVoice: "mr-IN-AarohiNeural",   hiVoice: "mr-IN-AarohiNeural",   pitch: "-2Hz", rate: "-5%" },
+  neha:        { enVoice: "ne-NP-HemkalaNeural",  hiVoice: "ne-NP-HemkalaNeural",  pitch: "+2Hz", rate: "-3%" },
+  ananya:      { enVoice: "gu-IN-DhwaniNeural",   hiVoice: "hi-IN-SwaraNeural",    pitch: "+4Hz", rate: "-2%" },
+  priya_coach: { enVoice: "ta-IN-PallaviNeural",  hiVoice: "mr-IN-AarohiNeural",   pitch: "+2Hz", rate: "-4%" },
+  meera_coach: { enVoice: "te-IN-ShrutiNeural",   hiVoice: "ne-NP-HemkalaNeural",  pitch: "-2Hz", rate: "-4%" },
+  rohit:       { enVoice: "en-IN-PrabhatNeural",  hiVoice: "hi-IN-MadhurNeural",   pitch: "+0Hz", rate: "-3%" },
+  arjun:       { enVoice: "mr-IN-ManoharNeural",  hiVoice: "mr-IN-ManoharNeural",  pitch: "-2Hz", rate: "-3%" },
+  rahul:       { enVoice: "ne-NP-SagarNeural",    hiVoice: "ne-NP-SagarNeural",    pitch: "+0Hz", rate: "-4%" },
+  raj:         { enVoice: "gu-IN-NiranjanNeural", hiVoice: "hi-IN-MadhurNeural",   pitch: "-6Hz", rate: "-4%" },
+  vikram:      { enVoice: "kn-IN-GaganNeural",    hiVoice: "mr-IN-ManoharNeural",  pitch: "-4Hz", rate: "-3%" },
+  kabir:       { enVoice: "bn-IN-BashkarNeural",  hiVoice: "ne-NP-SagarNeural",    pitch: "-2Hz", rate: "-3%" },
+  sanjay:      { enVoice: "ta-IN-ValluvarNeural", hiVoice: "hi-IN-MadhurNeural",   pitch: "+3Hz", rate: "-4%" },
+  aryan:       { enVoice: "te-IN-MohanNeural",    hiVoice: "mr-IN-ManoharNeural",  pitch: "+3Hz", rate: "-3%" },
 };
 
 const EDGE_VOICES: Record<string, { female: string; male: string }> = {
@@ -73,12 +72,17 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
   Urdu:      { female: "ur-PK-UzmaNeural",     male: "ur-PK-AsadNeural" },
 };
 
+const GEMINI_LANGUAGES = new Set([
+  "English", "Hindi", "Bangla", "Bengali", "Gujarati", "Marathi", "Kannada",
+  "Tamil", "Telugu", "Malayalam", "Punjabi", "Odia", "Assamese", "Urdu",
+  "French", "German", "Spanish", "Italian", "Japanese", "Korean", "Portuguese",
+  "Dutch", "Russian", "Turkish", "Indonesian", "Vietnamese", "Thai",
+]);
+
 function cleanForTTS(text: string): string {
   return text
     .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
-    .replace(/^\s*\d+\.\s*/gm, "")
-    .replace(/^\s*[-*•]\s*/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/_([^_]+)_/g, "$1")
@@ -123,13 +127,13 @@ function pcmToWav(pcm: Buffer): Buffer {
 
 function getCandidateApiKeys(): string[] {
   const keys = [
-    VERIFIED_GEMINI_KEY,
     process.env["GEMINI_API_KEY"],
     process.env["GEMINI API KEY"],
     process.env["GOOGLE_API_KEY"],
+    FALLBACK_GEMINI_KEY,
   ]
     .map((k) => (k ?? "").replace(/^["'\s]+|["'\s]+$/g, ""))
-    .filter((k) => k.length > 20);
+    .filter(Boolean);
   return [...new Set(keys)];
 }
 
@@ -161,7 +165,7 @@ async function generateGemini(
               },
             },
           }),
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(14_000),
         });
 
         const payload = (await response.json().catch(() => null)) as any;
@@ -232,7 +236,6 @@ function sendAudio(res: any, audio: Buffer, contentType: string, provider: strin
   res.setHeader("X-TTS-Provider", provider);
   res.setHeader("X-TTS-Model", voiceLabel);
   res.setHeader("X-TTS-Voice", voiceLabel);
-  res.setHeader("X-TTS-Build", TTS_BUILD_VERSION);
   res.end(audio);
 }
 
@@ -256,20 +259,15 @@ router.post("/tts", async (req, res) => {
   const failures: string[] = [];
 
   try {
+    const generated = await generateEdge(cleaned, language, voiceGender, character);
+    sendAudio(res, generated.audio, "audio/mpeg", "edge-neural", generated.voice);
+    return;
+  } catch (edgeErr) {
+    failures.push(edgeErr instanceof Error ? edgeErr.message : String(edgeErr));
+  }
+  try {
     const generated = await generateGemini(cleaned, geminiVoice);
     sendAudio(res, generated.audio, "audio/wav", "gemini", `${generated.model}:${geminiVoice}(${character || voiceGender})`);
-    return;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    failures.push(msg);
-  }
-
-  try {
-    const generated = await generateEdge(cleaned, language, voiceGender, character);
-    if (failures.length > 0) {
-      res.setHeader("X-TTS-Fallback-Reason", failures.join(" ; ").replace(/[^\x20-\x7E]+/g, " ").slice(0, 400));
-    }
-    sendAudio(res, generated.audio, "audio/mpeg", "edge", generated.voice);
     return;
   } catch (edgeErr) {
     failures.push(edgeErr instanceof Error ? edgeErr.message : String(edgeErr));
@@ -280,8 +278,7 @@ router.post("/tts", async (req, res) => {
 
 router.get("/tts/voices", (_req, res) => {
   res.json({
-    build: TTS_BUILD_VERSION,
-    provider: "gemini-first",
+    build: "live-ok", provider: "fast-neural-persona",
     model: GEMINI_MODEL,
     availableModels: [...GEMINI_TTS_MODELS],
     characters: CHARACTER_VOICE,
