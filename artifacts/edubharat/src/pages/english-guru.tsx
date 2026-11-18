@@ -818,12 +818,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     // Priya was the old implicit default. Treat that untouched legacy profile
     // as the new Maya landing default, while preserving an explicitly chosen
     // tutor once the learner has a name/profile selection.
-    const legacyDefault = profile.preferredTutor === "priya" && (tutor?.voiceStyle || tutor?.id || 'priya') === "priya";
+    const legacyDefault = profile.preferredTutor === "priya" && profile.voiceStyle === "priya";
     if (legacyDefault) return "maya";
     // Prefer preferredTutor field; fallback to voiceStyle match
     const byId = TUTORS.find(t => t.id === profile.preferredTutor);
     if (byId) return byId.id;
-    const match = TUTORS.find(t => t.voiceStyle === (tutor?.voiceStyle || tutor?.id || 'priya'));
+    const match = TUTORS.find(t => t.voiceStyle === profile.voiceStyle);
     return match?.id ?? "maya";
   });
   const [showTutorPicker, setShowTutorPicker] = useState(false);

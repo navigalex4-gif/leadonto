@@ -55,6 +55,7 @@ const PrivacyPolicy = lazy(() => import("@/pages/privacy-policy"));
 const ShippingRefund = lazy(() => import("@/pages/shipping-refund"));
 const AboutUs = lazy(() => import("@/pages/about-us"));
 const ContactUs = lazy(() => import("@/pages/contact-us"));
+const BusinessServices = lazy(() => import("@/pages/business-services"));
 
 function Analytics() {
   const [location] = useLocation();
@@ -148,6 +149,7 @@ function Router() {
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/shipping-refund" component={ShippingRefund} />
             <Route path="/about-us" component={AboutUs} />
+            <Route path="/business-services" component={BusinessServices} />
             <Route path="/contact-us" component={ContactUs} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/admin-payments" component={AdminPayments} />
