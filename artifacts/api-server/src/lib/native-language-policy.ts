@@ -1,7 +1,7 @@
 
 function extractLatestUserTurn(raw: string): string {
   const matches = [...raw.matchAll(/(?:^|\n)\s*(?:Student|User|Learner|mohan|Mohan|[A-Za-z]+):\s*([^\n]*)/g)];
-  if (matches.length > 0) return matches.at(-1)[1].trim();
+  if (matches.length > 0) return matches.at(-1)?.[1]?.trim() ?? raw;
   const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   return lines.at(-1) ?? raw;
 }
