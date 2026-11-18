@@ -15,6 +15,7 @@ const PRODUCT_LINKS = [
 
 const FOR_LINKS = [
   { href: "/for-colleges", label: "For Colleges" },
+  { href: "/business-services", label: "Business Services" },
   { href: "/pricing", label: "Pricing" },
   { href: "/credits", label: "Buy credits" },
 ] as const;

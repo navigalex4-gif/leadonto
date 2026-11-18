@@ -20,6 +20,7 @@ import {
   CreditCard,
   Users as UsersIcon,
   Building2,
+  BriefcaseBusiness,
   Tag,
   ChevronDown,
   MessageCircle,
@@ -44,6 +45,7 @@ const PRIMARY_LINKS = PRODUCT_LINKS.slice(0, 2);
 
 const SECONDARY_LINKS = [
   { href: "/for-colleges", label: "For Colleges", icon: Building2 },
+  { href: "/business-services", label: "Business Services", icon: BriefcaseBusiness },
   { href: "/pricing", label: "Pricing", icon: Tag },
 ] as const;
 
