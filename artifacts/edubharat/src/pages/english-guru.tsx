@@ -1795,7 +1795,6 @@ Rules for spoken replies:
     const firstName = /^(?:admin|user|test|guest)$/i.test(profile.name.trim())
       ? "there"
       : profile.name?.trim().split(/\s+/)[0] || "there";
-    const teacherName = tutor.name.replace(/\s+(Ma'am|Sir)$/i, "");
     const hasStudentName = Boolean(profile.name?.trim()) && !/^(?:admin|user|test|guest)$/i.test(profile.name.trim());
     const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
     const greeting = hasStudentName
