@@ -1525,7 +1525,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
            `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${coachStudentName} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
-IDENTITY INTRODUCTION RULE: If this is your first reply in this conversation (there is no earlier tutor message), introduce yourself clearly by name in the first sentence: "Hi, I'm ${teacherShort}, your English teacher." Do not omit or bury your name. After that first introduction, never repeat it; continue naturally as the same teacher. This should feel like a relaxed live chat with a thoughtful teacher, not a scripted lesson.
+Do not begin replies with a self-introduction, teacher name, or scripted greeting. The interface already identifies you. Start with a direct, relevant response to the learner. If the learner's name is unknown, ask what they prefer to be called naturally, without delaying the lesson.
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
 
 Rules for spoken replies:
@@ -1549,8 +1549,8 @@ Rules for spoken replies:
           undefined,
             {
               endpoint: "/api/ai/conversation",
-              maxTokens: nativeInputDetected ? 180 : 100,
-               timeoutMs: nativeInputDetected ? 12_000 : 10_000,
+              maxTokens: nativeInputDetected ? 150 : 110,
+               timeoutMs: nativeInputDetected ? 8_500 : 8_000,
               responseLanguage: responseHelperLanguage,
               nativeInputDetected,
             },
@@ -1573,8 +1573,8 @@ Rules for spoken replies:
             undefined,
             {
               endpoint: "/api/ai/conversation",
-              maxTokens: 180,
-               timeoutMs: 10_000,
+              maxTokens: 150,
+               timeoutMs: 7_000,
               responseLanguage: responseHelperLanguage,
               nativeInputDetected: true,
             },
@@ -1796,7 +1796,11 @@ Rules for spoken replies:
       ? "there"
       : profile.name?.trim().split(/\s+/)[0] || "there";
     const teacherName = tutor.name.replace(/\s+(Ma'am|Sir)$/i, "");
-    const greeting = `Hi ${firstName}, I’m ${teacherName}, your English teacher. ${LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName)}`;
+    const hasStudentName = Boolean(profile.name?.trim()) && !/^(?:admin|user|test|guest)$/i.test(profile.name.trim());
+    const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
+    const greeting = hasStudentName
+      ? opening
+      : `${opening} By the way, what should I call you?`;
     aiBusyRef.current = true;
     speechRef.current.pause();
     lastAiSpeechRef.current = greeting;
