@@ -52,15 +52,6 @@ const TUTOR_TTS_DELIVERY: Record<string, string> = {
   neha: "Clear, gentle and precise. Keep pronunciation crisp while sounding like a person speaking naturally, not a pronunciation recording.",
   rahul: "Measured, clear and analytical. Use natural emphasis on key words, with no exaggerated pauses or classroom narration.",
 };
-const LIVE_OPENINGS = [
-  (name: string) => `Hi ${name}! I’m happy you’re here. How are you feeling today?`,
-  (name: string) => `Hey ${name}! Let’s make this easy and useful. What are you working on today?`,
-  (name: string) => `Welcome, ${name}! I’m listening. What is one thing you enjoy doing?`,
-  (name: string) => `Hi ${name}! No perfect answer is needed. What would you like to practise today?`,
-  (name: string) => `Hi ${name}! We’ll take it one step at a time. What are you learning these days?`,
-  (name: string) => `Hi ${name}! What would you like to talk about or practise today?`,
-  (name: string) => `Good to see you, ${name}! What would make this practice useful for you today?`,
-];
 const ENERGETIC_TUTOR_DIRECTION =
   "Sound like a real person having a thoughtful conversation, not a presenter or scripted chatbot. Listen to the exact point the learner made and respond to it directly. Use natural contractions, varied sentence lengths, and plain everyday language. Show warmth through relevant responses, not exaggerated praise or forced excitement. Avoid stock openings, repeated acknowledgements, corporate jargon, and unnecessary follow-up questions.";
 
@@ -1788,127 +1779,16 @@ Rules for spoken replies:
     return () => clearInterval(id);
   }, [liveChat]);
 
-  // Start every live session with an AI-led English greeting. Previously Live
-  // only opened the microphone and waited for the learner, which felt broken
-  // because the teacher never initiated the conversation.
+  // Start listening immediately. The AI responds to the learner's first
+  // message instead of playing a scripted opening sentence.
   const startLiveGreeting = useCallback(() => {
-    const firstName = /^(?:admin|user|test|guest)$/i.test(profile.name.trim())
-      ? "there"
-      : profile.name?.trim().split(/\s+/)[0] || "there";
-    const hasStudentName = Boolean(profile.name?.trim()) && !/^(?:admin|user|test|guest)$/i.test(profile.name.trim());
-    const opening = LIVE_OPENINGS[Math.floor(Math.random() * LIVE_OPENINGS.length)]!(firstName);
-    const greeting = hasStudentName
-      ? opening
-      : `${opening} By the way, what should I call you?`;
-    aiBusyRef.current = true;
-    speechRef.current.pause();
-    lastAiSpeechRef.current = greeting;
-    setConvHistory(h => [...h, { role: "ai", text: greeting }]);
-    setConvFlowState("ai-speaking");
-
-    const releaseGreeting = () => {
-      if (!liveChatRef.current || livePausedRef.current) return;
-      if (speakSafetyTimerRef.current) {
-        clearTimeout(speakSafetyTimerRef.current);
-        speakSafetyTimerRef.current = null;
-      }
-      aiBusyRef.current = false;
-      lastAiSpeechEndRef.current = Date.now();
-      speechRef.current.suppressUntil(Date.now() + 2500);
-      // Tightened from 650ms — matches interview-ace.tsx and real natural-pause data (~400ms median)
-      speechRef.current.blockFor(0);
-      speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
-      setConvFlowState("user-speaking");
-    };
-
-    speakSafetyTimerRef.current = setTimeout(
-      releaseGreeting,
-      Math.max(greeting.length * 60 + 4000, 10_000),
-    );
-    synth.speak(greeting, "English", releaseGreeting, {
-      voiceGender: tutor.voiceGender,
-      voiceStyle: tutor.voiceStyle,
-      speechStyle: `Live spoken conversation. ${TUTOR_TTS_DELIVERY[tutor.id] ?? "Natural, warm and attentive."} Keep the delivery connected and conversational, with very short comma pauses.`,
-      rate: ENGLISH_GURU_SPEECH_RATE,
-    });
-  }, [
-    profile.name,
-    tutor.name,
-    tutor.voiceGender,
-    tutor.voiceStyle,
-    synth,
-  ]);
-
-  const toggleLiveChat = useCallback(async () => {
-    // Unlock browser autoplay policy synchronously within the user-gesture stack.
-    // Must run before any await so Chrome still considers this a gesture-initiated play.
-    unlockAudio();
-    if (liveChat) {
-      cancelActiveTurn();
-      void endLiveBlock(liveIdRef.current ?? undefined);
-      liveIdRef.current = null;
-      liveStartedAtRef.current = null;
-      setLiveElapsedSeconds(0);
-      setLiveChat(false);
-      setLivePaused(false);
-      livePausedRef.current = false;
-      setConvFlowState("idle");
-      silenceProbeCountRef.current = 0;
-      return;
-    }
-    liveTurnGenerationRef.current += 1;
-    // Don't decide guest vs. paid until auth has resolved — otherwise a signed-in
-    // user could slip onto the free path before /api/auth/me returns.
-    if (authLoading) {
-      toast({ title: "One moment…", description: "Checking your account — please try again in a second." });
-      return;
-    }
-    // Ask for microphone access while still inside the Live button gesture.
-    // SpeechRecognition can otherwise fail silently in Chrome/Brave after a
-    // deployed-origin permission change, leaving only the AI's silence nudges.
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStream.getTracks().forEach(track => track.stop());
-      } catch {
-        toast({
-          title: "Microphone access is needed",
-          description: "Allow microphone access in your browser, then tap Live again.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    // Guests get a free 15-minute trial (no signup); signed-in users spend credits (5/hour).
-    if (!user) {
-      if (guestLiveSecondsLeft() <= 0) {
-        setShowCreditGate(true);
-        return;
-      }
-    } else {
-      const charge = await startLiveBlock();
-      if (!charge.ok) {
-        if (charge.status === 402) {
-          setShowCreditGate(true);
-        } else {
-          toast({ title: "Couldn't start live chat", description: charge.error ?? "Please try again.", variant: "destructive" });
-        }
-        return;
-      }
-      liveIdRef.current = charge.liveId ?? null;
-      liveBlocksChargedRef.current = charge.blocksCharged ?? 0;
-      liveStartedAtRef.current = charge.startedAt ?? Date.now();
-    }
-    trackFunnel("first_session_started", { feature: "english_guru_live", authenticated: Boolean(user), guest: !user });
-    liveStartedAtRef.current ||= Date.now();
-    liveChatRef.current = true;
-    livePausedRef.current = false;
-    setLiveChat(true);
+    aiBusyRef.current = false;
+    lastAiSpeechEndRef.current = Date.now();
+    speechRef.current.suppressUntil(Date.now() + 500);
+    speechRef.current.blockFor(0);
+    speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
     setConvFlowState("user-speaking");
-    gamAwardRef.current("live_start", { product: "english-guru" });
-    // The teacher initiates first; the microphone starts after the greeting.
-    startLiveGreeting();
-  }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn, startLiveGreeting]);
+  }, []);
 
   const togglePauseLiveChat = useCallback(() => {
     if (!liveChat) return;
