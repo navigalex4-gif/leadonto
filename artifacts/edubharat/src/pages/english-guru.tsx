@@ -1790,6 +1790,77 @@ Rules for spoken replies:
     setConvFlowState("user-speaking");
   }, []);
 
+  const toggleLiveChat = useCallback(async () => {
+    // Unlock browser autoplay policy synchronously within the user-gesture stack.
+    // Must run before any await so Chrome still considers this a gesture-initiated play.
+    unlockAudio();
+    if (liveChat) {
+      cancelActiveTurn();
+      void endLiveBlock(liveIdRef.current ?? undefined);
+      liveIdRef.current = null;
+      liveStartedAtRef.current = null;
+      setLiveElapsedSeconds(0);
+      setLiveChat(false);
+      setLivePaused(false);
+      livePausedRef.current = false;
+      setConvFlowState("idle");
+      silenceProbeCountRef.current = 0;
+      return;
+    }
+    liveTurnGenerationRef.current += 1;
+    // Don't decide guest vs. paid until auth has resolved — otherwise a signed-in
+    // user could slip onto the free path before /api/auth/me returns.
+    if (authLoading) {
+      toast({ title: "One moment…", description: "Checking your account — please try again in a second." });
+      return;
+    }
+    // Ask for microphone access while still inside the Live button gesture.
+    // SpeechRecognition can otherwise fail silently in Chrome/Brave after a
+    // deployed-origin permission change, leaving only the AI's silence nudges.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream.getTracks().forEach(track => track.stop());
+      } catch {
+        toast({
+          title: "Microphone access is needed",
+          description: "Allow microphone access in your browser, then tap Live again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    // Guests get a free 15-minute trial (no signup); signed-in users spend credits (5/hour).
+    if (!user) {
+      if (guestLiveSecondsLeft() <= 0) {
+        setShowCreditGate(true);
+        return;
+      }
+    } else {
+      const charge = await startLiveBlock();
+      if (!charge.ok) {
+        if (charge.status === 402) {
+          setShowCreditGate(true);
+        } else {
+          toast({ title: "Couldn't start live chat", description: charge.error ?? "Please try again.", variant: "destructive" });
+        }
+        return;
+      }
+      liveIdRef.current = charge.liveId ?? null;
+      liveBlocksChargedRef.current = charge.blocksCharged ?? 1;
+      liveStartedAtRef.current = charge.startedAt ?? Date.now();
+    }
+    trackFunnel("first_session_started", { feature: "english_guru_live", authenticated: Boolean(user), guest: !user });
+    liveStartedAtRef.current ||= Date.now();
+    liveChatRef.current = true;
+    livePausedRef.current = false;
+    setLiveChat(true);
+    setConvFlowState("user-speaking");
+    gamAwardRef.current("live_start", { product: "english-guru" });
+    // The teacher initiates first; the microphone starts after the greeting.
+    startLiveGreeting();
+  }, [liveChat, speech, user, authLoading, toast, cancelActiveTurn, startLiveGreeting]);
+
   const togglePauseLiveChat = useCallback(() => {
     if (!liveChat) return;
     const next = !livePausedRef.current;

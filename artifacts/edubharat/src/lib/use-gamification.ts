@@ -277,6 +277,7 @@ export function useGamification(streakDays: number) {
     xpForNextLevel: needed,
     dailyXp: state.dailyXp,
     dailyGoal: DAILY_GOAL_XP,
+    messages: state.messages,
     wordsLearned: state.wordsLearned,
     unlockedBadges: BADGES.filter(b => state.badges.includes(b.id)),
     nextBadges: BADGES.filter(b => !state.badges.includes(b.id)),

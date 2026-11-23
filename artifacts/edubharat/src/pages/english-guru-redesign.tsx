@@ -2,11 +2,12 @@ import { Link, useLocation } from "wouter";
 import { useMemo } from "react";
 import {
   Home, MessageSquare, Book, ChartNoAxesColumn, Globe, Flame, UserRound,
-  Mic, Check, Lock, Store, Volume2, ChevronRight, Target,
+  Mic, Check, Lock, Store, Volume2, ChevronRight, Target, Coins, ArrowRight,
 } from "lucide-react";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useProgress } from "@/lib/use-progress";
 import { useGamification } from "@/lib/use-gamification";
+import { useCredits } from "@/lib/use-credits";
 import { INDIAN_LANGUAGES } from "@/lib/constants";
 
 const nav = [
@@ -30,6 +31,7 @@ export default function EnglishGuruRedesign() {
   const { profile, updateProfile } = useStudentProfile();
   const progress = useProgress();
   const gam = useGamification(progress.streak);
+  const { balance: credits, authenticated: creditsKnown } = useCredits();
   const name = profile.name?.trim() || "मोहल";
   const xp = gam.xp;
   const goal = 60;
@@ -47,6 +49,12 @@ export default function EnglishGuruRedesign() {
         <div className="flex items-center gap-2 text-xs font-bold">
           <span className="rounded-full bg-white/10 px-3 py-2"><Flame className="mr-1 inline h-4 w-4 text-orange-300" />{progress.streak} दिन</span>
           <span className="rounded-full bg-white/10 px-3 py-2">{xp} XP</span>
+          {creditsKnown && (
+            <Link href="/buy-credits" className="hidden items-center rounded-full bg-white/10 px-3 py-2 hover:bg-white/20 sm:inline-flex">
+              <Coins className="mr-1 inline h-4 w-4 text-amber-300" />{(credits ?? 0).toLocaleString("en-IN")}
+              <span className="ml-1 font-medium text-indigo-200">credits</span>
+            </Link>
+          )}
           <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ffe2d3] text-[#96350e]"><UserRound className="h-5 w-5" /></Link>
         </div>
       </header>
@@ -75,7 +83,7 @@ export default function EnglishGuruRedesign() {
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#ffe2d3] text-2xl font-bold text-[#a43a13]">P</div>
               <div className="rounded-2xl bg-[#f3f1ee] px-4 py-3 text-base">नमस्ते {name}! आज सिर्फ़ 5 मिनट अंग्रेज़ी बोलिए। मैं आपके साथ हूँ।</div>
             </div>
-            <Link href="/english-guru/embed" className="mt-3 flex h-12 items-center justify-center gap-2 rounded-xl bg-[#c9410b] px-3 text-center text-sm font-extrabold text-white shadow-[0_4px_0_#b5aaa2] hover:bg-[#b93808]">
+            <Link href="/english-guru/practice" className="mt-3 flex h-12 items-center justify-center gap-2 rounded-xl bg-[#c9410b] px-3 text-center text-sm font-extrabold text-white shadow-[0_4px_0_#b5aaa2] hover:bg-[#b93808]">
               <Mic className="h-5 w-5" />आज का पाठ शुरू करें · Start today's lesson
             </Link>
           </section>
@@ -93,14 +101,17 @@ export default function EnglishGuruRedesign() {
                 {step.reward ? (
                   <Link href="/progress" className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-amber-500 bg-amber-100 text-amber-800 shadow-[0_5px_0_#d97706]"><Store className="h-7 w-7" /></Link>
                 ) : (
-                  <button type="button" onClick={() => step.locked ? navigate("/learning-journey") : navigate(step.active ? "/english-guru/embed?goal=introduction" : "/learning-journey")} className={`flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:scale-105 ${step.done ? "bg-[#168342] text-white" : step.active ? "bg-[#c9410b] text-white ring-8 ring-[#ffe2d3]" : "bg-[#e6e2dc] text-slate-500"}`}>
+                  <button type="button" onClick={() => step.locked ? navigate("/learning-journey") : navigate("/english-guru/practice")} className={`flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:scale-105 ${step.done ? "bg-[#168342] text-white" : step.active ? "bg-[#c9410b] text-white ring-8 ring-[#ffe2d3]" : "bg-[#e6e2dc] text-slate-500"}`}>
                     {step.done ? <Check className="h-8 w-8" /> : step.locked ? <Lock className="h-6 w-6" /> : <Mic className="h-7 w-7" />}
                   </button>
                 )}
-                <button type="button" onClick={() => navigate(step.locked ? "/learning-journey" : step.active ? "/english-guru/embed?goal=introduction" : "/learning-journey")} className="mt-1 text-center text-sm font-bold hover:text-[#bd3e0a]">{step.hi} · {step.en}</button>
+                <button type="button" onClick={() => navigate(step.locked ? "/learning-journey" : "/english-guru/practice")} className="mt-1 text-center text-sm font-bold hover:text-[#bd3e0a]">{step.hi} · {step.en}</button>
                 {step.active && <span className="mt-2 rounded-full border border-[#c9410b] bg-white px-4 py-1 text-xs font-extrabold text-[#bd3e0a]">यहाँ से शुरू · START</span>}
               </div>
             ))}
+            <Link href="/english-guru/practice" className="mt-2 flex h-12 w-full items-center justify-center gap-1 rounded-2xl bg-[#c9410b] text-sm font-extrabold text-white shadow-[0_4px_0_#b5aaa2] hover:bg-[#b93808]">
+              आगे बढ़ें · Continue <ArrowRight className="h-4 w-4" />
+            </Link>
           </section>
 
           <section className="space-y-2">

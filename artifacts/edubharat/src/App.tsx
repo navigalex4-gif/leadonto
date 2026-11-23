@@ -18,6 +18,7 @@ const AdLanding = lazy(() => import("@/pages/ad-landing"));
 const EnglishGuru = lazy(() => import("@/pages/english-guru"));
 const EnglishGuruRedesign = lazy(() => import("@/pages/english-guru-redesign"));
 const EnglishGuruWords = lazy(() => import("@/pages/english-guru-words"));
+const EnglishGuruPractice = lazy(() => import("@/pages/english-guru-practice"));
 const ToolsPro = lazy(() => import("@/pages/tools-pro"));
 const InterviewAce = lazy(() => import("@/pages/interview-ace"));
 const RozgarSamachar = lazy(() => import("@/pages/rozgar-samachar"));
@@ -71,7 +72,7 @@ function Analytics() {
 
 function RouteMetaPolicy() {
   const [location] = useLocation();
-  const noindex = /^(?:\/(?:login|profile|progress|history|credits|buy-credits|admin(?:\/|$)|b2b(?:\/|$)|b2b-interview(?:\/|$)|interview-ace(?:\/|$)|resume-intelligence(?:\/|$)|learning-journey(?:\/|$))|\/english-guru\/(?:app|embed|words)(?:\/|$))/.test(location);
+  const noindex = /^(?:\/(?:login|profile|progress|history|credits|buy-credits|admin(?:\/|$)|b2b(?:\/|$)|b2b-interview(?:\/|$)|interview-ace(?:\/|$)|resume-intelligence(?:\/|$)|learning-journey(?:\/|$))|\/english-guru\/(?:app|embed|words|practice)(?:\/|$))/.test(location);
   return noindex ? <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet> : null;
 }
 
@@ -104,6 +105,9 @@ function Router() {
       </Route>
       <Route path="/english-guru/words">
         <EnglishGuruWords />
+      </Route>
+      <Route path="/english-guru/practice">
+        <EnglishGuruPractice />
       </Route>
       <Route path="/english-guru/embed">
         <EnglishGuru embedded />
