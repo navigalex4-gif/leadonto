@@ -73,9 +73,51 @@ jobs:
             echo "::error::RAILWAY_TOKEN secret is not set. Add a Railway project token."
             exit 1
           fi
-          if [ -z "${RAILWAY_SERVICE:-}" ]; then
-            echo "::error::RAILWAY_SERVICE variable is not set. Add the Railway service name."
-            exit 1
+          RAILWAY_SERVICE="${RAILWAY_SERVICE:-leadonto}"
+          echo "Target Railway service: $RAILWAY_SERVICE"
+
+          # Railway can resolve this service reference itself. This avoids
+          # requiring a duplicate DATABASE_URL GitHub secret.
+          if [ -z "${DATABASE_URL:-}" ]; then
+            DATABASE_URL='
+
+          KEYS="ADMIN_PASSWORD_HASH ADZUNA_APP_ID ADZUNA_APP_KEY ANTHROPIC_API_KEY \
+          ANTHROPIC_BASE_URL CASHFREE_APP_ID CASHFREE_ENVIRONMENT CASHFREE_SECRET_KEY \
+          DATABASE_URL DEEPGRAM_API_KEY FIRECRAWL_API_KEY GEMINI_API_KEY GOOGLE_CLIENT_ID \
+          GOOGLE_CLIENT_SECRET GOOGLE_CALLBACK_URL GOOGLE_VERTEX_LOCATION \
+          GOOGLE_VERTEX_SERVICE_ACCOUNT_JSON GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON \
+          GROQ_API_KEY JSEARCH_API_KEY JSEARCH_API_HOST MISTRAL_API_KEY \
+          RESEND_API_KEY SESSION_SECRET"
+
+          written=0
+          skipped=0
+
+          for key in $KEYS; do
+            value="${!key:-}"
+            if [ -z "$value" ]; then
+              echo "skip  $key (no secret value)"
+              skipped=$((skipped + 1))
+              continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "would write $key (${#value} chars)"
+              continue
+            fi
+            # Value is passed through the environment and quoted, so it never
+            # appears in the log or in the process list of a sibling step.
+            railway variables --service "$RAILWAY_SERVICE" --set "$key=$value" --skip-deploys >/dev/null
+            echo "wrote $key"
+            written=$((written + 1))
+          done
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run complete. $skipped key(s) missing values. Re-run with apply=APPLY to write."
+          else
+            echo "::notice::Wrote $written variable(s); skipped $skipped empty secret(s)."
+          fi
+
+            DATABASE_URL="${DATABASE_URL}{{Postgres.DATABASE_URL}}"
+            echo "Using the Postgres service reference for DATABASE_URL"
           fi
 
           KEYS="ADMIN_PASSWORD_HASH ADZUNA_APP_ID ADZUNA_APP_KEY ANTHROPIC_API_KEY \
