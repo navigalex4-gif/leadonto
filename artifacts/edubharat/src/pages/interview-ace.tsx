@@ -29,7 +29,7 @@ import {
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
   Star, Clock, Timer, AlertCircle, Save, PhoneOff, VideoOff, Video, Target, XCircle,
   Maximize2, Minimize2,
-  RotateCw,
+  RotateCw, Lightbulb, Sparkles, Gauge,
 } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -699,6 +699,16 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+/** Compact 1–10 score chip for the live micro-feedback card. */
+function MicroScore({ label, value }: { label: string; value: number }) {
+  const tone = value >= 8 ? "bg-green-100 text-green-800" : value >= 6 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${tone}`}>
+      {label} {value}/10
+    </span>
+  );
+}
+
 function SkillBar({ icon: Icon, label, value, color }: {
   icon: React.ElementType; label: string; value: number; color: string;
 }) {
@@ -1018,6 +1028,23 @@ function InterviewAceContent() {
   const interviewGamAwardedRef = useRef(false);
   const rewardedAnswerIndexesRef = useRef(new Set<number>());
   const [completedAnswerRewards, setCompletedAnswerRewards] = useState(0);
+  // Live-room additions: an answer pacing clock (target 45–90 s), the hint
+  // drawer, and per-answer micro-feedback that never blocks the next question.
+  const [answerSeconds, setAnswerSeconds] = useState(0);
+  const answerStartRef = useRef<number | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [hint, setHint] = useState<{ cues: string[]; points: string[]; starters: string[] } | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
+  const [microFeedback, setMicroFeedback] = useState<{
+    index: number;
+    clarity: number;
+    structure: number;
+    fluency: number;
+    tip: string;
+    stronger: string;
+  } | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [strengthOpen, setStrengthOpen] = useState(false);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // No-reply watchdog: if the candidate says NOTHING for 33 s after a question is
   // asked (never even starts an answer), we conclude the interview and generate
@@ -1102,6 +1129,105 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
   const coachLocked = !!b2bParams.coach;
   const currentQ = questions[currentIdx];
   const answeredCount = questions.filter(q => q.answer).length;
+
+  // Answer pacing clock. Runs only while the candidate is actually answering
+  // (the mic is on and nothing is being processed), so it measures speaking
+  // time rather than time spent reading the question.
+  useEffect(() => {
+    if (!isRecording || phase !== "interview") {
+      answerStartRef.current = null;
+      return;
+    }
+    if (answerStartRef.current === null) answerStartRef.current = Date.now();
+    const id = setInterval(() => {
+      if (answerStartRef.current !== null) {
+        setAnswerSeconds(Math.floor((Date.now() - answerStartRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isRecording, phase]);
+
+  /** Ask for STAR cues and talking points for the current question. */
+  const openHint = useCallback(async () => {
+    const q = questions[currentIdx];
+    if (!q) return;
+    if (hint) { setHintOpen((v) => !v); return; }
+    setHintOpen(true);
+    setHintLoading(true);
+    try {
+      const text = await stream(
+        `The candidate is practising for a ${interviewRoleLabel} interview and is stuck on this question:
+
+"${q.question}"
+
+Give practical help a nervous beginner could use in the next 20 seconds. Return STRICT JSON only:
+{"cues":["Situation","Task","Action","Result"],"points":["...","...","..."],"starters":["...","...","..."]}
+- cues: the STAR-method prompts to remember, at most 4 short labels
+- points: 2–3 short bullet talking points specific to this question
+- starters: 2–3 natural English sentence starters the candidate could begin with
+No markdown, no extra keys.`,
+        `You are a calm, encouraging interview coach in India. Be concrete and brief.`,
+        undefined,
+        { endpoint: "/api/ai/stream?provider=quality", maxTokens: 400, timeoutMs: 12_000 },
+      );
+      const cleaned = text.replace(/```json\s*/g, "").replace(/```/g, "").trim();
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        const json = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+        setHint({
+          cues: Array.isArray(json.cues) ? json.cues.map(String).slice(0, 4) : [],
+          points: Array.isArray(json.points) ? json.points.map(String).slice(0, 3) : [],
+          starters: Array.isArray(json.starters) ? json.starters.map(String).slice(0, 3) : [],
+        });
+      }
+    } catch {
+      setHint({
+        cues: ["Situation", "Task", "Action", "Result"],
+        points: ["Pick one real example from your studies or work.", "Say what you did yourself.", "End with what changed."],
+        starters: ["In my last project, I…", "The situation was that…"],
+      });
+    } finally {
+      setHintLoading(false);
+    }
+  }, [questions, currentIdx, interviewRoleLabel, hint, stream]);
+
+  /** Quick, non-blocking feedback badges for the answer just given. */
+  const buildMicroFeedback = useCallback(async (questionIndex: number, spoken: string) => {
+    const q = questions[questionIndex];
+    if (!q || !spoken.trim()) return;
+    setFeedbackLoading(true);
+    try {
+      const text = await stream(
+        `Interview question: "${q.question}"
+Candidate's answer: "${spoken}"
+
+Score quickly and kindly. Return STRICT JSON only:
+{"clarity":1-10,"structure":1-10,"fluency":1-10,"tip":"one actionable sentence","stronger":"a stronger way to say their key point, under 25 words"}
+Judge clarity, STAR structure, and English fluency. Do not penalise an Indian accent. No markdown.`,
+        `You are a concise interview coach. Be specific and encouraging.`,
+        undefined,
+        { endpoint: "/api/ai/stream?provider=quality", maxTokens: 300, timeoutMs: 12_000 },
+      );
+      const cleaned = text.replace(/```json\s*/g, "").replace(/```/g, "").trim();
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        const j = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+        const clamp = (v: unknown) => Math.min(10, Math.max(1, Math.round(Number(v) || 5)));
+        setMicroFeedback({
+          index: questionIndex,
+          clarity: clamp(j.clarity),
+          structure: clamp(j.structure),
+          fluency: clamp(j.fluency),
+          tip: String(j.tip ?? "").trim(),
+          stronger: String(j.stronger ?? "").trim(),
+        });
+        setStrengthOpen(false);
+      }
+    } catch { /* feedback is optional — never block the interview */ }
+    finally { setFeedbackLoading(false); }
+  }, [questions, stream]);
   const interviewCost = interviewCreditCost(duration);
   const interviewProgress = Math.min(100, Math.round((elapsedSeconds / (duration * 60)) * 100));
 
@@ -1519,6 +1645,9 @@ ${questionFrameworkFor(typeMeta.value, interviewRoleLabel, experience, profile.i
       : q
     ));
     rewardCompletedAnswer(currentIdx);
+    // Fire-and-forget: the feedback card appears whenever it's ready and never
+    // delays the interviewer's next question.
+    void buildMicroFeedback(currentIdx, recordedAnswer);
 
     const firstName = (profile.name || "there").split(" ")[0];
 
@@ -1810,6 +1939,12 @@ Next: <the interview question only, may start with a short natural bridge>`,
     setIsRecording(false);
     clearAutoSubmitTimer();
     resetStream();
+    // Clear the previous question's aids so nothing stale carries over.
+    setAnswerSeconds(0);
+    answerStartRef.current = null;
+    setHint(null);
+    setHintOpen(false);
+    setMicroFeedback(null);
     // Guard against the 300ms window before speakCoach fires
     setCoachSpeaking(true);
      setTimeout(() => speakCoach(questions[nextIdx]!.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle }), 300);
@@ -2987,16 +3122,79 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
         {currentQ && (
           <div className="shrink-0 pb-1">
             <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2 max-w-2xl mx-auto text-center max-h-[18vh] overflow-y-auto shadow-sm">
-              <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest mb-1">
-                Question {currentIdx + 1} · {answeredCount} answered
-              </p>
+              <div className="mb-1 flex flex-wrap items-center justify-center gap-1.5">
+                <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">
+                  Question {currentIdx + 1} of {questions.length}
+                </p>
+                {isRecording && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                      answerSeconds < 45
+                        ? "bg-amber-50 text-amber-700"
+                        : answerSeconds <= 90
+                          ? "bg-green-50 text-green-700"
+                          : "bg-orange-50 text-orange-700"
+                    }`}
+                    aria-label={`Answer time ${answerSeconds} seconds`}
+                  >
+                    <span className={`h-1 w-1 rounded-full ${answerSeconds >= 45 && answerSeconds <= 90 ? "bg-green-500" : "bg-amber-500"} animate-pulse`} />
+                    {answerSeconds}s
+                    {answerSeconds >= 45 && answerSeconds <= 90 && " · good pace"}
+                    {answerSeconds > 90 && " · wrap up"}
+                  </span>
+                )}
+              </div>
               <p className="text-slate-800 text-xs sm:text-sm font-semibold leading-snug">{currentQ.question}</p>
-              <button
-                className="mt-1.5 text-primary/70 hover:text-primary text-[11px] flex items-center gap-1 mx-auto"
-                onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
-              >
-                <Volume2 className="w-3 h-3" /> Repeat question
-              </button>
+              <div className="mt-1.5 flex items-center justify-center gap-3">
+                <button
+                  className="text-primary/70 hover:text-primary text-[11px] flex items-center gap-1"
+                  onClick={() => speakCoach(currentQ.question, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle, pitch: coach.gender === "male" ? 0.88 : 1.08 })}
+                >
+                  <Volume2 className="w-3 h-3" /> Repeat
+                </button>
+                <button
+                  className="text-amber-700 hover:text-amber-800 text-[11px] flex items-center gap-1 font-semibold"
+                  onClick={() => void openHint()}
+                  aria-expanded={hintOpen}
+                >
+                  <Lightbulb className="w-3 h-3" /> Need a hint?
+                </button>
+              </div>
+
+              {hintOpen && (
+                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 text-left">
+                  {hintLoading && !hint ? (
+                    <p className="text-[11px] text-amber-800 animate-pulse">Preparing a hint…</p>
+                  ) : hint ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wide text-amber-800">
+                        STAR · {hint.cues.join(" → ")}
+                      </p>
+                      <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-amber-950">
+                        {hint.points.map((p, i) => <li key={i}>{p}</li>)}
+                      </ul>
+                      {hint.starters.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {hint.starters.map((s, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                answerRef.current = answerRef.current ? `${answerRef.current} ${s}` : s;
+                                setAnswer(answerRef.current);
+                                answerTextareaRef.current?.focus();
+                              }}
+                              className="rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3004,6 +3202,64 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 
       {/* ── Bottom answer + controls ─────────────────────────────────────── */}
       <div className="shrink-0 bg-white border-t border-slate-200 px-4 pt-2 pb-2 space-y-2 shadow-[0_-4px_16px_rgba(15,23,42,0.05)]">
+        {/* Micro-feedback for the answer just given. Collapsible, and never
+            blocks moving to the next question. */}
+        {(feedbackLoading || microFeedback) && (
+          <div className="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-slate-50">
+            <button
+              type="button"
+              onClick={() => setStrengthOpen((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left"
+              aria-expanded={strengthOpen}
+            >
+              <span className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Quick check</span>
+                {feedbackLoading && !microFeedback ? (
+                  <span className="text-[10px] text-slate-400 animate-pulse">scoring…</span>
+                ) : microFeedback ? (
+                  <>
+                    <MicroScore label="Clarity" value={microFeedback.clarity} />
+                    <MicroScore label="Structure" value={microFeedback.structure} />
+                    <MicroScore label="Fluency" value={microFeedback.fluency} />
+                  </>
+                ) : null}
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${strengthOpen ? "rotate-180" : ""}`} />
+            </button>
+            {strengthOpen && microFeedback && (
+              <div className="space-y-1.5 border-t border-slate-200 px-2.5 py-2">
+                {microFeedback.tip && (
+                  <p className="flex items-start gap-1.5 text-[11px] text-slate-700">
+                    <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
+                    {microFeedback.tip}
+                  </p>
+                )}
+                {microFeedback.stronger && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-2 py-1.5">
+                    <p className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wide text-green-800">
+                      <Sparkles className="h-2.5 w-2.5" /> Stronger way to say this
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-green-950">{microFeedback.stronger}</p>
+                    <button
+                      type="button"
+                      onClick={() => speakCoach(microFeedback.stronger, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle })}
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-green-700"
+                    >
+                      <Volume2 className="h-2.5 w-2.5" /> Listen
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setMicroFeedback(null)}
+                  className="text-[10px] font-semibold text-slate-400 hover:text-slate-600"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <Textarea
           ref={answerTextareaRef}
           placeholder="Speak naturally — mic starts automatically. You can also use your native language."
