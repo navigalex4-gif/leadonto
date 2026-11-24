@@ -73,13 +73,17 @@ jobs:
             echo "::error::RAILWAY_TOKEN secret is not set. Add a Railway project token."
             exit 1
           fi
-          RAILWAY_SERVICE="${RAILWAY_SERVICE:-leadonto}"
+          RAILWAY_SERVICE="\${RAILWAY_SERVICE:-leadonto}"
           echo "Target Railway service: $RAILWAY_SERVICE"
 
-          # Railway can resolve this service reference itself. This avoids
-          # requiring a duplicate DATABASE_URL GitHub secret.
-          if [ -z "${DATABASE_URL:-}" ]; then
-            DATABASE_URL='
+          # Use Railway's native Postgres reference when no DATABASE_URL
+          # GitHub secret is configured. Build the token in pieces so GitHub
+          # Actions does not parse it as an Actions expression.
+          if [ -z "\${DATABASE_URL:-}" ]; then
+            DATABASE_URL='$'
+            DATABASE_URL="\${DATABASE_URL}{{Postgres.DATABASE_URL}}"
+            echo "Using the Postgres service reference for DATABASE_URL"
+          fi
 
           KEYS="ADMIN_PASSWORD_HASH ADZUNA_APP_ID ADZUNA_APP_KEY ANTHROPIC_API_KEY \
           ANTHROPIC_BASE_URL CASHFREE_APP_ID CASHFREE_ENVIRONMENT CASHFREE_SECRET_KEY \
