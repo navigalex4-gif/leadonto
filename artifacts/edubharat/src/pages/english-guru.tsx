@@ -2211,9 +2211,9 @@ Rules for spoken replies:
           </div>}
 
           {/* ── LIVE CONVERSATION — top section with its own heading ── */}
-              <section id="english-guru-live" className="flex flex-col flex-1 min-h-0">
-            <Card className={`flex flex-1 flex-col overflow-hidden border-2 transition-all ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
-            <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-1 flex-col">
+              <section id="english-guru-live" className="flex flex-col min-h-0">
+            <Card className={`flex flex-col overflow-hidden border-2 transition-all ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
+            <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-col">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-8 h-8 bg-green-100 text-green-700 rounded-lg flex items-center justify-center shrink-0">
@@ -2348,7 +2348,7 @@ Rules for spoken replies:
                 </div>
               )}
               {convHistory.length === 0 && !isStreaming && !(liveChat && speech.interimTranscript) && (
-                <div className="flex min-h-0 flex-1 items-center justify-center py-4">
+                <div className="flex min-h-0 items-center justify-center py-3">
                   <div className="w-full max-w-xl rounded-2xl border border-dashed border-green-200 bg-white/70 p-4 text-center">
                     <p className="text-sm font-bold text-secondary">Start with one real speaking goal</p>
                     <p className="mt-1 text-xs text-muted-foreground">Choose a prompt or type your own. Your teacher will respond and keep the conversation moving.</p>
@@ -2377,7 +2377,7 @@ Rules for spoken replies:
                 </div>
               )}
               {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 flex-1 min-h-0 overflow-x-hidden overflow-y-auto pr-1 pt-1">
+                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 max-h-[340px] sm:max-h-[380px] min-h-[140px] overflow-x-hidden overflow-y-auto pr-1 pt-1">
                   {liveChat && speech.interimTranscript && (
                     <div className="flex min-w-0 gap-2 justify-end">
                       <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">

@@ -83,10 +83,14 @@ function getGoogleSpeechClient(): SpeechClient {
   if (!rawCredentials) {
     throw new Error("GOOGLE_CLOUD_TTS_SERVICE_ACCOUNT_JSON is not configured");
   }
-  const credentials = JSON.parse(rawCredentials) as {
-    client_email: string;
-    private_key: string;
-  };
+  let credentials: { client_email: string; private_key: string };
+  try {
+    credentials = JSON.parse(rawCredentials) as { client_email: string; private_key: string };
+  } catch {
+    // Sanitize any raw carriage returns / unescaped newlines
+    const sanitized = rawCredentials.replace(/\r/g, "").replace(/\n/g, "\\n");
+    credentials = JSON.parse(sanitized) as { client_email: string; private_key: string };
+  }
   googleSpeechClient = new SpeechClient({ credentials });
   return googleSpeechClient;
 }

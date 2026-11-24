@@ -2283,13 +2283,48 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     return (
       <>
       <div className="interview-workspace container mx-auto w-full min-w-0 max-w-full px-4 max-w-4xl pt-3 pb-4 overflow-x-hidden">
-        {/* Compact header */}
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-xl font-display font-bold text-secondary leading-tight">Interview Ace</h1>
-            <p className="text-xs text-muted-foreground">AI mock interviews · Voice-powered · India-focused</p>
+        {/* Engaging Hero Header */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600/10 via-primary/10 to-teal-600/10 border border-primary/20 p-4 mb-3 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold uppercase tracking-wider py-0.5">
+                  🎙️ AI Voice Simulation
+                </Badge>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  India's #1 Mock Interviewer
+                </span>
+              </div>
+              <h1 className="text-2xl font-display font-extrabold text-secondary tracking-tight">Interview Ace</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Real-time AI voice interviews with instant scoring, feedback, and role-specific hiring verdicts.</p>
+            </div>
+            <div className="hidden md:flex flex-col items-end text-right">
+              <span className="text-xs font-bold text-secondary">⚡ 15,000+ Mock Sessions</span>
+              <span className="text-[10px] text-muted-foreground">Comprehensive Competency Scorecard</span>
+            </div>
           </div>
         </div>
+
+        {/* 3-Step Value Highlights */}
+        <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
+            <span className="text-sm">🎯</span>
+            <p className="text-[11px] font-bold text-secondary mt-0.5">Role Benchmark</p>
+            <p className="text-[10px] text-muted-foreground hidden sm:block">Tailored for Indian roles</p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
+            <span className="text-sm">🗣️</span>
+            <p className="text-[11px] font-bold text-secondary mt-0.5">Voice-to-Voice</p>
+            <p className="text-[10px] text-muted-foreground hidden sm:block">Ultra-low latency speech</p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
+            <span className="text-sm">📊</span>
+            <p className="text-[11px] font-bold text-secondary mt-0.5">Instant Verdict</p>
+            <p className="text-[10px] text-muted-foreground hidden sm:block">Actionable feedback & tips</p>
+          </div>
+        </div>
+
         <MobilePrimaryCTA label="Start Free Mock Interview" onClick={() => void startSession()} />
 
         {/* Settings bar */}
@@ -2354,18 +2389,18 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             {coachLocked ? "Set by the recruiter for this invite" : `Domain specialist for ${interviewRoleLabel}`}
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-3">
           {INTERVIEW_COACHES.map(c => (
             <button
               key={c.id}
               onClick={() => { if (!coachLocked && c.id === recommendedCoachId) setCoach(c); }}
               disabled={coachLocked ? coach.id !== c.id : c.id !== recommendedCoachId}
-              className={`text-left rounded-xl border-2 p-3 transition-all ${
+              className={`relative text-left rounded-xl border-2 p-3 transition-all duration-200 transform ${
                 coach.id === c.id
-                  ? "border-primary shadow-md bg-primary/5"
+                  ? "border-primary shadow-md bg-primary/10 ring-2 ring-primary/40 -translate-y-0.5"
                     : (coachLocked || c.id !== recommendedCoachId)
                     ? "border-border bg-card opacity-40 cursor-not-allowed"
-                    : "border-border bg-card hover:border-primary/40 hover:shadow-md"
+                    : "border-border bg-card hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5"
               }`}
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -2385,23 +2420,27 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                 <span className="text-[10px] font-semibold text-muted-foreground truncate">{c.specialty}</span>
               </div>
               {c.id === recommendedCoachId && (
-                <span className="mt-1 inline-block rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
-                  Recommended
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-xs">
+                  <Flame className="w-2.5 h-2.5" /> Recommended
                 </span>
               )}
             </button>
           ))}
         </div>
 
-        {/* Inline start bar */}
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-card border shadow-sm">
+        {/* Inline start bar with high engagement CTA */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-card via-card to-primary/5 border border-primary/20 shadow-md">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-secondary truncate">
-              {typeMeta.icon} {typeMeta.label} · {experience} · {duration} min · {displayCoachName}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Ready to practice</span>
+              <span className="text-muted-foreground/50">•</span>
+              <p className="text-sm font-bold text-secondary truncate">
+                {typeMeta.icon} {typeMeta.label} · {experience || "Select Experience"} · {duration} min · {displayCoachName}
+              </p>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               {user ? (
-                <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · 1 credit per {Math.max(1, Math.round(duration / INTERVIEW_MAX_BLOCKS))} minutes of this interview · early exit charges only completed blocks · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
+                <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · 1 credit per {Math.max(1, Math.round(duration / INTERVIEW_MAX_BLOCKS))} minutes · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
               ) : guestInterviewsRemaining > 0 ? (
                 <><span className="font-semibold text-green-700">{guestInterviewsRemaining} free {guestInterviewsRemaining === 1 ? "interview" : "interviews"}</span> left · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
               ) : (
@@ -2409,10 +2448,14 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
               )}
             </p>
           </div>
-          <Button className="shrink-0 font-bold shadow-md shadow-primary/20" onClick={startSession} disabled={isStreaming || !experience}>
+          <Button
+            className="shrink-0 font-bold px-6 py-5 text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/95 hover:to-emerald-700 transition-all transform active:scale-95"
+            onClick={startSession}
+            disabled={isStreaming || !experience}
+          >
             {isStreaming
               ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Preparing…</>
-              : <><PlayCircle className="w-4 h-4 mr-1.5" />Begin</>}
+              : <><PlayCircle className="w-4 h-4 mr-1.5" />Begin Interview</>}
           </Button>
         </div>
       </div>

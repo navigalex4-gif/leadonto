@@ -356,7 +356,7 @@ type JSearchJob = { job_title?: string; employer_name?: string; job_location?: s
 type JSearchResponse = { data?: JSearchJob[] | { data?: JSearchJob[]; jobs?: JSearchJob[] } };
 
 async function fetchJSearch(q: string, city: string, page: number): Promise<LiveItem[]> {
-  const apiKey = process.env["JSEARCH_API_KEY"];
+  const apiKey = process.env["JSEARCH_API_KEY"] ?? process.env["JSEARCH_RAPIDAPI_KEY"];
   const host = process.env["JSEARCH_API_HOST"] || "jsearch.p.rapidapi.com";
   if (!apiKey) return [];
   const query = [q, city].filter(Boolean).join(" in ") || "jobs in India";
