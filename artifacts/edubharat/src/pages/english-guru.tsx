@@ -30,6 +30,20 @@ import {
 import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
 import { WordPowerText, WordPowerPopup, CelebrationOverlay } from "@/components/english/word-power";
+import {
+  VoiceControlBar,
+  SuggestedReplyChips,
+  TutorBubble,
+  GentleCoachStrip,
+  ScenarioChips,
+  SessionStatusPill,
+  SCENARIOS,
+  hasNativeScript,
+  type SuggestedReply,
+  type VoiceState,
+  type CoachNote,
+  type Scenario,
+} from "@/components/english/live-ui";
 import { useGamification } from "@/lib/use-gamification";
 import { wordOfTheDay, type WordPowerEntry } from "@/lib/word-power";
 
@@ -830,6 +844,13 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
   const convInputRef = useRef<HTMLTextAreaElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
+  // Suggested replies for the latest tutor turn, plus tracker for which tutor
+  // messages are showing their native translation.
+  const [suggestions, setSuggestions] = useState<SuggestedReply[]>([]);
+  const [showNativeFor, setShowNativeFor] = useState<Record<number, boolean>>({});
+  const [coachNotes, setCoachNotes] = useState<Record<number, CoachNote>>({});
+  const suggestionsRef = useRef<SuggestedReply[]>([]);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
 
   // Realtime STT uses Deepgram Nova-3 multilingual code-switching, so the
   // learner can move between English and their helper language in one turn.
@@ -1103,6 +1124,14 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     "Let’s restart gently. What was one moment from today that stood out to you?",
   ];
   const normalizeReply = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  /** Word-overlap ratio (0–1) used to spot a paraphrased repeat of an earlier reply. */
+  const similarity = (a: string, b: string) => {
+    if (!a || !b) return 0;
+    const aWords = new Set(a.split(" ").filter(Boolean));
+    const bWords = b.split(" ").filter(Boolean);
+    if (!aWords.size || !bWords.length) return 0;
+    return bWords.filter((w) => aWords.has(w)).length / Math.max(aWords.size, bWords.length);
+  };
   const collapseRepeatedSpeech = (text: string) => {
     const words = text.trim().split(/\s+/);
     // Android/server transcription can append the same short phrase twice:
@@ -1221,6 +1250,77 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   };
 
   // Live chat phrase handler
+  /**
+   * Produce the beginner aids for a completed tutor turn: 2–3 suggested
+   * replies (English + phonetic + translation) and, when the learner's own
+   * turn could be said better, a gentle coach note. Both are best-effort —
+   * any failure just means no chips, never a broken conversation.
+   */
+  const buildTurnAids = useCallback(async (
+    tutorReply: string,
+    studentSaid: string,
+    helperLanguage: string,
+    tutorIndex: number,
+  ) => {
+    if (!tutorReply.trim()) return;
+    const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+    const nativeTarget = helperLanguage === "English" ? "Hindi" : helperLanguage;
+    const spokeNative = /[ऀ-ൿঀ-৿਀-੿઀-૿଀-୿஀-௿ఀ-౿ಀ-೿ഀ-ൿ؀-ۿ]/.test(studentSaid);
+    const wantCoach = spokeNative || studentSaid.trim().split(/\s+/).filter(Boolean).length < 5;
+
+    const askAi = (system: string, prompt: string) => fetch(`${base}/api/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({ system, prompt }),
+    });
+
+    const [replyRes, coachRes] = await Promise.allSettled([
+      askAi(
+        `You help an absolute-beginner Indian English learner. Read the tutor's last message and write 3 short replies the student could say next. Rules:
+- Each English reply is at most 8 words, simple everyday English, a natural answer to the tutor.
+- "phonetic" is that English sentence spelled out in ${nativeTarget === "Hindi" ? "Devanagari" : `${nativeTarget} script`} exactly as a beginner would pronounce it.
+- "native" is the ${nativeTarget} translation of the same sentence.
+Return STRICT JSON only: {"replies":[{"en":"...","phonetic":"...","native":"..."}]}. No markdown, no extra keys.`,
+        tutorReply.slice(0, 600),
+      ),
+      wantCoach
+        ? askAi(
+            `You are a kind English coach for an Indian beginner. Given what the student said, return STRICT JSON: {"better":"...","why":"..."} where "better" is the natural English way to say the same thing (max 12 words), and "why" is ONE short warm sentence in ${nativeTarget} (native script) explaining the change. If the student's sentence is already good English, return {"better":"","why":""}. No markdown.`,
+            studentSaid.slice(0, 400),
+          )
+        : Promise.resolve(null),
+    ]);
+
+    const parse = async (r: PromiseSettledResult<Response | null>) => {
+      if (r.status !== "fulfilled" || !r.value || !r.value.ok) return null;
+      try {
+        const data = await r.value.json() as { text?: string };
+        const raw = data.text ?? "";
+        const match = raw.match(/\{[\s\S]*\}/);
+        return match ? JSON.parse(match[0]) : null;
+      } catch { return null; }
+    };
+
+    const replyJson = await parse(replyRes);
+    if (replyJson && Array.isArray(replyJson.replies)) {
+      const clean: SuggestedReply[] = replyJson.replies
+        .filter((x: unknown): x is SuggestedReply => Boolean(x && typeof (x as SuggestedReply).en === "string" && (x as SuggestedReply).en.trim()))
+        .slice(0, 3)
+        .map((x: SuggestedReply) => ({ en: x.en.trim(), phonetic: (x.phonetic ?? "").trim(), native: (x.native ?? "").trim() }));
+      if (clean.length) setSuggestions(clean);
+    }
+
+    const coachJson = await parse(coachRes);
+    if (coachJson && typeof coachJson.better === "string" && coachJson.better.trim()) {
+      setCoachNotes((prev) => ({
+        ...prev,
+        [tutorIndex - 1]: { better: coachJson.better.trim(), why: (coachJson.why ?? "").trim() },
+      }));
+    }
+  }, []);
+
   const handleConvPhrase = useCallback((phrase: string) => {
     const isSilenceProbe = phrase === SILENCE_MARKER;
     // Guard: normal phrases need content; silence probes just need the channel to be free.
@@ -1295,8 +1395,10 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
         if (!isSilenceProbe) {
           setConvHistory(h => [...h, { role: "user", text: userMsg }]);
         }
-        // Build AI context: for silence probes, inject a re-engage instruction
-        const historySlice = [...convHistoryRef.current.slice(-6)];
+        // Build AI context. A six-message window made the model forget the topic
+        // within a few turns and fall back on generic acknowledgements, so keep
+        // a fuller recent history (~7 exchanges) while still bounding tokens.
+        const historySlice = [...convHistoryRef.current.slice(-14)];
         if (!isSilenceProbe) historySlice.push({ role: "user" as const, text: userMsg });
         const recentHistory = historySlice
           .map(m => `${m.role === "user" ? "Student" : teacherShort}: ${m.text}`).join("\n");
@@ -1387,9 +1489,16 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
             ? priorLanguageTask.source
             : extractTranslationSource(userMsg, previousReferencedMessage)
           : "";
+        // A language *switch* only exists when the learner names a language
+        // DIFFERENT from the one already selected. Without this guard, any
+        // ordinary sentence containing the word "बोलिए" ("say it") was treated
+        // as a switch to the current language and answered with the same canned
+        // confirmation sentence, turn after turn — the "tutor is stuck repeating
+        // itself" bug.
         const isDirectLanguageRequest = Boolean(
           languageRequest
           && directLanguageCommand
+          && languageRequest !== uiLang
           && !translationRequested
           && !/(?:translate|meaning\s+of|what\s+(?:is|does|do|did)\s+(?:this|that))/i.test(userMsg),
         );
@@ -1520,6 +1629,8 @@ Do not begin replies with a self-introduction, teacher name, or scripted greetin
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
 
 Rules for spoken replies:
+- ALWAYS respond to the student's most recent message — the last line labelled "Student:". Answer that specific thing before anything else. Never reply to an older message or to the conversation as a whole.
+- End every reply with exactly ONE clear, easy follow-up question that a beginner could answer in a few words. Never end with a statement, and never ask two questions in a row.
 - Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
 - Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
 - If the student asks what a word means, define that word simply, give one short example, and ask them to make their own sentence. Do not respond with a generic life question.
@@ -1618,12 +1729,20 @@ Rules for spoken replies:
               ?? variedFallback(userMsg, isSilenceProbe)
             : variedFallback(userMsg, isSilenceProbe);
         }
-        const previousAiReply = [...convHistoryRef.current]
+        // Guard against repeating ANY of the last few tutor replies, not just
+        // the immediately previous one. A canned confirmation whose slight
+        // paraphrase alternates between turns would slip past a single-message
+        // comparison and still sound like a stuck recording.
+        const recentAiReplies = [...convHistoryRef.current]
           .reverse()
-          .find((item) => item.role === "ai")?.text ?? "";
+          .filter((item) => item.role === "ai")
+          .slice(0, 3)
+          .map((item) => normalizeReply(item.text));
+        const currentNormalized = normalizeReply(response);
         if (
           (turnKind === "conversation" || turnKind === "silence")
-          && normalizeReply(response) === normalizeReply(previousAiReply)
+          && currentNormalized.length > 0
+          && recentAiReplies.some((prev) => prev === currentNormalized || similarity(prev, currentNormalized) > 0.85)
         ) {
           response = variedFallback(userMsg, isSilenceProbe);
         }
@@ -1695,6 +1814,10 @@ Rules for spoken replies:
             explicitQuestionReferentRef.current = null;
           }
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
+          // Refresh beginner aids for the newest tutor turn. Both are quiet,
+          // non-blocking calls: the conversation never waits on them.
+          const repliedIndex = convHistoryRef.current.length;
+          void buildTurnAids(cleanResponse, userMsg, replyNativeLanguage, repliedIndex);
           track("English Guru", "Live Conversation");
           trackFirstValue(
             structuredLanguageSucceeded ? "english_guru_language_help" : "english_guru_reply",
@@ -1979,10 +2102,10 @@ Rules for spoken replies:
     return () => clearInterval(id);
   }, [liveChat, user, toast]);
 
-  const handleConvSend = useCallback(async () => {
-    const userMsg = convInput.trim();
+  const handleConvSend = useCallback(async (override?: string) => {
+    const userMsg = (override ?? convInput).trim();
     if (!userMsg) return;
-    setConvInput("");
+    if (!override) setConvInput("");
     await handleConvPhrase(userMsg);
   }, [convInput, handleConvPhrase]);
 
@@ -2224,13 +2347,22 @@ Rules for spoken replies:
                     <p className="text-xs text-muted-foreground">{uiLang === "English" ? "Speak in English — I reply naturally" : `Speak in English or ${uiLang} — I'll help in ${uiLang} when you're stuck`}</p>
                   </div>
                   {liveChat && (
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 font-mono text-[11px] font-bold text-green-700"
-                      aria-label={`Live conversation time ${formatLiveTime(liveElapsedSeconds)}`}
-                    >
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-                      {formatLiveTime(liveElapsedSeconds)}
-                    </span>
+                    <SessionStatusPill
+                      elapsedLabel={formatLiveTime(liveElapsedSeconds)}
+                      state={
+                        livePaused
+                          ? "paused"
+                          : convFlowState === "ai-thinking"
+                            ? "thinking"
+                            : convFlowState === "ai-speaking"
+                              ? "speaking"
+                              : convFlowState === "user-speaking"
+                                ? "listening"
+                                : "off"
+                      }
+                      creditNote={user ? `${balance ?? "…"} credits` : undefined}
+                      onExpand={() => setShowCreditGate(true)}
+                    />
                   )}
                 </div>
                 <Button
@@ -2263,7 +2395,7 @@ Rules for spoken replies:
                   )}
                 </p>
               )}
-              {liveChat && (
+              {liveChat && false && (
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   convFlowState === "user-speaking"
                     ? speech.status === "warming"
@@ -2349,30 +2481,18 @@ Rules for spoken replies:
               )}
               {convHistory.length === 0 && !isStreaming && !(liveChat && speech.interimTranscript) && (
                 <div className="flex min-h-0 items-center justify-center py-3">
-                  <div className="w-full max-w-xl rounded-2xl border border-dashed border-green-200 bg-white/70 p-4 text-center">
-                    <p className="text-sm font-bold text-secondary">Start with one real speaking goal</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Choose a prompt or type your own. Your teacher will respond and keep the conversation moving.</p>
-                    {!liveChat && (
-                      <div className="mt-3 flex flex-wrap justify-center gap-2">
-                        {[
-                          "Help me introduce myself",
-                          "Ask me a job interview question",
-                          uiLang === "English" ? "Correct my spoken English" : `Explain a difficult question in ${uiLang}`,
-                        ].map((prompt) => (
-                          <button
-                            key={prompt}
-                            type="button"
-                            onClick={() => {
-                              setConvInput(prompt);
-                              setTimeout(() => convInputRef.current?.focus(), 0);
-                            }}
-                            className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800 transition-colors hover:bg-green-100"
-                          >
-                            {prompt}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <div className="w-full max-w-xl rounded-2xl border border-dashed border-green-200 bg-white/70 p-4">
+                    <p className="text-sm font-bold text-secondary">कहाँ से शुरू करें? <span className="font-semibold text-muted-foreground">/ Pick a scenario</span></p>
+                    <p className="mt-1 text-xs text-muted-foreground">Tap a topic and Priya Ma'am will start the conversation. Choose one, or just press the mic and speak.</p>
+                    <div className="mt-3">
+                      <ScenarioChips
+                        onPick={(scenario: Scenario) => {
+                          setSuggestions(scenario.replies);
+                          void handleConvSend(scenario.firstLine);
+                        }}
+                        onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.95 })}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -2404,21 +2524,52 @@ Rules for spoken replies:
                       </div>
                     </div>
                   )}
-                  {[...convHistory].reverse().map((msg, i) => (
-                    <div key={i} className={`flex min-w-0 gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
-                         {msg.role === "user"
-                           ? msg.text
-                           : <WordPowerText
-                               text={sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English")}
-                               onWordClick={openWordCard}
-                               learnedWords={gam.wordsLearned}
-                             />}
+                  {[...convHistory].reverse().map((msg, i) => {
+                    const originalIndex = convHistory.length - 1 - i;
+                    if (msg.role === "user") {
+                      return (
+                        <div key={i} className="flex min-w-0 flex-col items-end gap-0.5">
+                          <div className="min-w-0 max-w-[90%] rounded-2xl bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground whitespace-pre-wrap break-words">
+                            {msg.text}
+                          </div>
+                          {coachNotes[originalIndex] && (
+                            <GentleCoachStrip
+                              note={coachNotes[originalIndex]!}
+                              nativeLanguage={uiLang}
+                              onTry={(text) => void handleConvSend(text)}
+                              onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
+                            />
+                          )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={i} className="flex min-w-0 gap-2 justify-start">
+                        <TutorBubble
+                          text={sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English")}
+                          nativeLanguage={uiLang}
+                          showNative={Boolean(showNativeFor[originalIndex])}
+                          onToggleNative={() => setShowNativeFor((prev) => ({ ...prev, [originalIndex]: !prev[originalIndex] }))}
+                          onPlay={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 1 })}
+                          onSlow={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.75 })}
+                          onWordClick={openWordCard}
+                          learnedWords={gam.wordsLearned}
+                        />
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
+              {/* Beginner aids for the newest tutor turn */}
+              {suggestions.length > 0 && !isStreaming && (
+                <SuggestedReplyChips
+                  replies={suggestions}
+                  nativeLanguage={uiLang}
+                  onPick={(text) => void handleConvSend(text)}
+                  onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
+                />
+              )}
+
               {!liveChat && (
                 <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                   <Textarea
@@ -2432,7 +2583,7 @@ Rules for spoken replies:
                   <div className="flex items-center gap-2">
                     <MicButton isListening={speech.isListening} isSupported={speech.isSupported}
                       onStart={() => speech.start(t => setConvInput(p => p + t))} onStop={speech.stop} />
-                    <Button className="font-bold px-4 w-full sm:w-auto" disabled={isStreaming || !convInput.trim()} onClick={handleConvSend}>
+                    <Button className="font-bold px-4 w-full sm:w-auto" disabled={isStreaming || !convInput.trim()} onClick={() => void handleConvSend()}>
                       {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
                     </Button>
                   </div>
@@ -2471,6 +2622,29 @@ Rules for spoken replies:
             </CardContent>
           </Card>
           </section>
+
+          {/* Voice-first control bar. This is the primary way into a live
+              session for a learner who cannot read English well, so it sits
+              below the transcript and stays visible. */}
+          <div className="mt-2">
+            <VoiceControlBar
+              state={
+                !liveChat
+                  ? "off"
+                  : livePaused
+                    ? "paused"
+                    : convFlowState === "ai-thinking"
+                      ? "thinking"
+                      : convFlowState === "ai-speaking"
+                        ? "speaking"
+                        : "listening"
+              }
+              audioLevel={speech.audioLevel}
+              nativeLanguage={uiLang}
+              onToggleLive={() => void toggleLiveChat()}
+              onPauseResume={togglePauseLiveChat}
+            />
+          </div>
 
         </main>
       </div>

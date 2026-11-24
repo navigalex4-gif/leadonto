@@ -146,7 +146,21 @@ async function generateGemini(
 ): Promise<{ audio: Buffer; model: string }> {
   const keys = getCandidateApiKeys();
   const failures: string[] = [];
-  const transcriptPrompt = `Read the following transcript aloud verbatim in a warm, natural Indian conversational voice with no extra words:\n\n${text}`;
+  // A warm, human-sounding director's note rather than a clipped command.
+  // Gemini TTS responds better to natural language, and this phrasing keeps it
+  // from reading the instruction itself or adding greetings and sign-offs.
+  // Native-language text (Devanagari, Tamil, etc.) must be spoken in its own
+  // language and accent — English resets the voice.
+  const isNativeScript = /[ऀ-ॿঀ-৿਀-੿઀-૿଀-୿஀-௿ఀ-౿ಀ-೿ഀ-ൿ฀-๿]/.test(text);
+  const transcriptPrompt = [
+    `Speak the lines below the way a kind, patient teacher from India would say them to a student across the table — unhurried, warm, and natural.`,
+    isNativeScript
+      ? `They are written in an Indian language: say them in that language, with its own natural accent and rhythm.`
+      : `They are written in English: say them in clear, easy-to-follow Indian English.`,
+    `Speak only these lines. Don't greet first, don't explain, and don't add anything at the end — just the lines, as if continuing a conversation already in progress.`,
+    ``,
+    text,
+  ].join("\n");
 
   for (const apiKey of keys) {
     for (const model of GEMINI_TTS_MODELS) {
