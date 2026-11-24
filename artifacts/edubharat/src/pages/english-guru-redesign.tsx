@@ -1,154 +1,230 @@
 import { Link, useLocation } from "wouter";
 import { useMemo } from "react";
 import {
-  Home, MessageSquare, Book, ChartNoAxesColumn, Globe, Flame, UserRound,
-  Mic, Check, Lock, Store, Volume2, ChevronRight, Target, Coins, ArrowRight,
+  Home, MessageSquare, Book, ChartNoAxesColumn, Globe, Flame, Mic, Check, Lock, Store, Volume2,
 } from "lucide-react";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { useProgress } from "@/lib/use-progress";
-import { useGamification } from "@/lib/use-gamification";
+import { useGamification, DAILY_GOAL_XP } from "@/lib/use-gamification";
 import { useCredits } from "@/lib/use-credits";
 import { INDIAN_LANGUAGES } from "@/lib/constants";
+import { GURU_FONT, GURU_COLORS as C } from "@/components/english/guru-theme";
 
 const nav = [
-  { href: "/english-guru/app", label: "सीखें", sub: "Learn", Icon: Home },
-  { href: "/english-guru/embed", label: "प्रिय से बात करें", sub: "Talk with Priya", Icon: MessageSquare },
-  { href: "/english-guru/words", label: "मेरे शब्द", sub: "My words", Icon: Book },
-  { href: "/progress", label: "मेरी प्रगति", sub: "Progress", Icon: ChartNoAxesColumn },
+  { href: "/english-guru/app", label: "सीखें", short: "सीखें", sub: "Learn", Icon: Home },
+  { href: "/english-guru/embed", label: "प्रिया से बात करें", short: "बात करें", sub: "Talk with Priya", Icon: MessageSquare },
+  { href: "/english-guru/words", label: "मेरे शब्द", short: "शब्द", sub: "My words", Icon: Book },
+  { href: "/progress", label: "मेरी प्रगति", short: "प्रगति", sub: "Progress", Icon: ChartNoAxesColumn },
 ];
 
+// `x` is the sideways offset (px) that gives the path its zig-zag; it is scaled
+// down on phones via --path-scale so nothing overflows a 360px screen.
 const steps = [
-  { hi: "नमस्ते", en: "Hello!", done: true },
-  { hi: "मेरा नाम…", en: "My name is…", done: true },
-  { hi: "आप कहाँ से हैं?", en: "Where are you from?", done: true },
-  { hi: "आप क्या काम करते हैं?", en: "What do you do?", active: true },
-  { hi: "गिनती", en: "Numbers", locked: true },
-  { hi: "इनाम", en: "Reward", reward: true },
-];
+  { hi: "नमस्ते", en: "Hello!", state: "done", x: 0 },
+  { hi: "मेरा नाम…", en: "My name is…", state: "done", x: -70 },
+  { hi: "आप कहाँ से हैं?", en: "Where are you from?", state: "done", x: -20 },
+  { hi: "आप क्या करते हैं?", en: "What do you do?", state: "active", x: 60 },
+  { hi: "गिनती", en: "Numbers", state: "locked", x: -10 },
+  { hi: "इनाम", en: "Reward", state: "reward", x: -70 },
+] as const;
+
+const LESSON_HREF = "/english-guru/practice";
+const RING_R = 36;
+const RING_LEN = 2 * Math.PI * RING_R;
+
+function GoalRing({ value, goal, size }: { value: number; goal: number; size: number }) {
+  const pct = Math.min(1, goal > 0 ? value / goal : 0);
+  return (
+    <svg width={size} height={size} viewBox="0 0 88 88" role="img" aria-label={`${value} of ${goal} XP today`}>
+      <circle cx="44" cy="44" r={RING_R} fill="none" stroke={C.track} strokeWidth="10" />
+      <circle
+        cx="44" cy="44" r={RING_R} fill="none" stroke={C.accent} strokeWidth="10" strokeLinecap="round"
+        strokeDasharray={RING_LEN} strokeDashoffset={RING_LEN * (1 - pct)} transform="rotate(-90 44 44)"
+      />
+      <text x="44" y="51" textAnchor="middle" fontSize="20" fontWeight="800" fill={C.ink}>{value}</text>
+    </svg>
+  );
+}
 
 export default function EnglishGuruRedesign() {
   const [, navigate] = useLocation();
   const { profile, updateProfile } = useStudentProfile();
   const progress = useProgress();
   const gam = useGamification(progress.streak);
-  const { balance: credits, authenticated: creditsKnown } = useCredits();
-  const name = profile.name?.trim() || "मोहल";
-  const xp = gam.xp;
-  const goal = 60;
-  const pct = Math.min(100, Math.round((gam.dailyXp / goal) * 100));
+  const { balance, authenticated } = useCredits();
+  const name = profile.name?.trim() || "दोस्त";
+  const initial = (profile.name?.trim()?.[0] ?? "G").toUpperCase();
+  const goal = DAILY_GOAL_XP;
+  const left = Math.max(0, goal - gam.dailyXp);
+
+  // Today first, then the next four days — matches the design's "this week" strip.
   const week = useMemo(() => Array.from({ length: 5 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - i);
-    return { label: d.toLocaleDateString("hi-IN", { weekday: "short" }), active: i === 0 || (i === 1 && progress.streak > 1) };
-  }), [progress.streak]);
+    d.setDate(d.getDate() + i);
+    const label = d.toLocaleDateString("hi-IN", { weekday: "short" });
+    const state = i === 0 ? (gam.dailyXp > 0 || progress.streak > 0 ? "done" : "today") : i === 1 ? "next" : "future";
+    return { label, state };
+  }), [gam.dailyXp, progress.streak]);
+
+  const goTo = (s: typeof steps[number]) =>
+    navigate(s.state === "active" ? LESSON_HREF : s.state === "locked" ? "/learning-journey" : "/english-guru/embed?goal=introduction");
 
   return (
-    <div className="min-h-screen bg-[#f7f5f2] text-[#191a2f] pb-24 lg:pb-0">
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between bg-[#151735] px-4 text-white lg:px-6">
-        <Link href="/english-guru/app" className="font-extrabold tracking-tight">Lead Onto <span className="font-medium text-indigo-200">English Guru</span></Link>
-        <div className="flex items-center gap-2 text-xs font-bold">
-          <span className="rounded-full bg-white/10 px-3 py-2"><Flame className="mr-1 inline h-4 w-4 text-orange-300" />{progress.streak} दिन</span>
-          <span className="rounded-full bg-white/10 px-3 py-2">{xp} XP</span>
-          {creditsKnown && (
-            <Link href="/buy-credits" className="hidden items-center rounded-full bg-white/10 px-3 py-2 hover:bg-white/20 sm:inline-flex">
-              <Coins className="mr-1 inline h-4 w-4 text-amber-300" />{(credits ?? 0).toLocaleString("en-IN")}
-              <span className="ml-1 font-medium text-indigo-200">credits</span>
-            </Link>
+    <div className="min-h-screen pb-[150px] lg:pb-0" style={{ background: C.page, color: C.ink, fontFamily: GURU_FONT }}>
+      <header className="sticky top-0 z-40 flex min-h-[52px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 text-white lg:px-6" style={{ background: C.navy }}>
+        <Link href="/english-guru/app" className="text-[17px] font-extrabold tracking-tight lg:text-xl">
+          <span className="hidden lg:inline">Lead Onto </span>
+          <span className="font-extrabold lg:font-medium" style={{ color: "#AEB3DD" }}>
+            <span className="text-white lg:hidden">English Guru</span>
+            <span className="hidden lg:inline">English Guru</span>
+          </span>
+        </Link>
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-2"><Flame className="h-4 w-4" style={{ color: "#FDBA74", fill: "#FDBA74" }} aria-hidden />{progress.streak}<span className="hidden lg:inline"> दिन</span></span>
+          <span className="rounded-full bg-white/12 px-3 py-2">{gam.xp} XP</span>
+          {authenticated && (
+            <Link href="/buy-credits" className="hidden rounded-full bg-white/12 px-3 py-2 font-semibold hover:bg-white/20 sm:inline">{(balance ?? 0).toLocaleString("en-IN")} credits</Link>
           )}
-          <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ffe2d3] text-[#96350e]"><UserRound className="h-5 w-5" /></Link>
+          <Link href="/profile" aria-label="Account" className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/40 text-base font-bold lg:h-11 lg:w-11" style={{ background: C.peach, color: "#7C2D12" }}>{initial}</Link>
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1500px] gap-4 px-3 py-4 lg:grid-cols-[210px_minmax(420px,1fr)_280px] lg:px-6">
-        <aside className="hidden lg:block">
-          <nav className="sticky top-20 space-y-2">
-            {nav.map(({ href, label, sub, Icon }, i) => (
-              <Link key={href} href={href} className={`flex items-center gap-3 rounded-xl border px-3 py-3 ${i === 0 ? "border-[#c9410b] bg-white text-[#bd3e0a]" : "border-transparent hover:border-[#e8ddd5] hover:bg-white"}`}>
-                <Icon className="h-5 w-5 shrink-0" />
-                <span><span className="block text-sm font-bold">{label}</span><span className="text-xs text-slate-500">{sub}</span></span>
-              </Link>
-            ))}
-            <div className="rounded-xl border border-[#e9e3dd] bg-white p-3">
-              <label htmlFor="guru-language" className="mb-2 flex items-center gap-2 text-sm font-bold"><Globe className="h-4 w-4" />भाषा बदलें</label>
-              <select id="guru-language" value={profile.preferredLanguage || "Hindi"} onChange={e => updateProfile({ preferredLanguage: e.target.value })} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm">
+      <div className="mx-auto flex max-w-[1320px] flex-wrap items-start gap-6 px-4 py-5 lg:px-6">
+        <nav aria-label="Main" className="sticky top-[88px] hidden w-[220px] shrink-0 flex-col gap-1.5 lg:flex">
+          {nav.map(({ href, label, sub, Icon }, i) => (
+            <Link key={href} href={href} aria-current={i === 0 ? "page" : undefined}
+              className="flex items-center gap-3 rounded-2xl border-2 px-3.5 py-3 font-semibold transition-colors hover:bg-white"
+              style={i === 0 ? { background: "#fff", borderColor: C.accent, color: C.accent, fontWeight: 700 } : { borderColor: "transparent", color: "#2A2D3A" }}>
+              <Icon className="h-6 w-6 shrink-0" aria-hidden />
+              <span className="leading-snug">{label}<span className="block text-xs font-medium" style={{ color: C.muted }}>{sub}</span></span>
+            </Link>
+          ))}
+          <div className="flex items-center gap-3 rounded-2xl px-3.5 py-3">
+            <Globe className="h-6 w-6 shrink-0" aria-hidden style={{ color: "#2A2D3A" }} />
+            <label htmlFor="guru-language" className="min-w-0 flex-1 font-semibold leading-snug">
+              भाषा बदलें
+              <select id="guru-language" value={profile.preferredLanguage || "Hindi"} onChange={e => updateProfile({ preferredLanguage: e.target.value })}
+                className="mt-0.5 block w-full rounded-lg border bg-white px-2 py-1 text-xs font-medium" style={{ borderColor: C.line, color: C.muted }}>
                 {["Hindi", "English", ...INDIAN_LANGUAGES.filter(x => x !== "Hindi")].map(x => <option key={x}>{x}</option>)}
               </select>
-            </div>
-          </nav>
-        </aside>
+            </label>
+          </div>
+        </nav>
 
-        <main className="min-w-0 space-y-4">
-          <section className="rounded-2xl border border-[#e9e2dc] bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#ffe2d3] text-2xl font-bold text-[#a43a13]">P</div>
-              <div className="rounded-2xl bg-[#f3f1ee] px-4 py-3 text-base">नमस्ते {name}! आज सिर्फ़ 5 मिनट अंग्रेज़ी बोलिए। मैं आपके साथ हूँ।</div>
+        <main className="mx-auto flex min-w-0 max-w-[640px] flex-[999_1_460px] flex-col gap-5">
+          <section className="flex flex-col gap-4 rounded-3xl border bg-white p-5" style={{ borderColor: C.line }}>
+            <div className="flex items-center gap-3.5">
+              <div className="relative h-14 w-14 shrink-0 lg:h-16 lg:w-16">
+                <div className="flex h-full w-full items-center justify-center rounded-full text-2xl font-bold" style={{ background: C.peach, color: "#9A3412" }}>P</div>
+                <span className="absolute -bottom-0.5 -right-1 rounded-full px-2 text-[11px] font-bold text-white" style={{ background: C.navy }}>AI</span>
+              </div>
+              <p className="rounded-[6px_18px_18px_18px] px-4 py-3 text-[17px] leading-[1.7]" style={{ background: "#F3F1ED" }}>नमस्ते {name}! आज सिर्फ़ 5 मिनट अंग्रेज़ी बोलिए। मैं आपके साथ हूँ।</p>
             </div>
-            <Link href="/english-guru/practice" className="mt-3 flex h-12 items-center justify-center gap-2 rounded-xl bg-[#c9410b] px-3 text-center text-sm font-extrabold text-white shadow-[0_4px_0_#b5aaa2] hover:bg-[#b93808]">
-              <Mic className="h-5 w-5" />आज का पाठ शुरू करें · Start today's lesson
+            <Link href={LESSON_HREF} className="hidden min-h-[60px] items-center justify-center gap-2.5 rounded-2xl px-4 text-center text-lg font-extrabold text-white shadow-[0_5px_0_rgba(0,0,0,0.22)] active:translate-y-[2px] active:shadow-[0_3px_0_rgba(0,0,0,0.22)] lg:flex" style={{ background: C.accent }}>
+              <Mic className="h-6 w-6" aria-hidden />आज का पाठ शुरू करें · Start today's lesson
             </Link>
           </section>
 
-          <section className="rounded-2xl bg-[#151735] p-4 text-white">
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">UNIT 1 · भाग 1</p><h1 className="mt-1 text-lg font-extrabold">अपना परिचय देना</h1><p className="text-sm text-indigo-100">Introducing yourself</p></div>
-              <span className="text-xs text-indigo-100">3 / 7 पूरे</span>
+          <section className="flex items-center justify-between gap-3 rounded-[20px] px-5 py-[18px] text-white" style={{ background: C.navy }}>
+            <div>
+              <p className="text-xs font-bold tracking-[0.8px]" style={{ color: "#AEB3DD" }}>UNIT 1 · भाग 1</p>
+              <h1 className="text-xl font-bold">अपना परिचय देना</h1>
+              <p className="text-sm" style={{ color: "#D6D9F0" }}>Introducing yourself</p>
             </div>
+            <span className="text-[13px]" style={{ color: "#D6D9F0" }}>3 / 7 पूरे</span>
           </section>
 
-          <section className="flex flex-col items-center gap-2 py-2">
-            {steps.map((step, i) => (
-              <div key={step.en} className="flex w-full flex-col items-center">
-                {step.reward ? (
-                  <Link href="/progress" className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-amber-500 bg-amber-100 text-amber-800 shadow-[0_5px_0_#d97706]"><Store className="h-7 w-7" /></Link>
+          <section aria-label="Lesson path" className="flex flex-col items-center gap-[22px] pb-3 pt-2 [--path-scale:0.8] sm:[--path-scale:1]">
+            {steps.map(s => (
+              <div key={s.en} className="flex flex-col items-center gap-1.5" style={{ transform: `translateX(calc(var(--path-scale) * ${s.x}px))` }}>
+                {s.state === "active" && <span className="rounded-xl border-2 bg-white px-4 py-1 text-sm font-extrabold" style={{ borderColor: C.accent, color: C.accent }}>यहाँ से शुरू · START</span>}
+                {s.state === "reward" ? (
+                  <Link href="/progress" aria-label="इनाम · Reward" className="flex h-[76px] w-[76px] items-center justify-center rounded-[22px] border-2 shadow-[0_6px_0_#D97706]" style={{ background: "#FEF3C7", borderColor: "#F59E0B", color: "#92400E" }}><Store className="h-8 w-8" aria-hidden /></Link>
                 ) : (
-                  <button type="button" onClick={() => step.locked ? navigate("/learning-journey") : navigate("/english-guru/practice")} className={`flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:scale-105 ${step.done ? "bg-[#168342] text-white" : step.active ? "bg-[#c9410b] text-white ring-8 ring-[#ffe2d3]" : "bg-[#e6e2dc] text-slate-500"}`}>
-                    {step.done ? <Check className="h-8 w-8" /> : step.locked ? <Lock className="h-6 w-6" /> : <Mic className="h-7 w-7" />}
+                  <button type="button" onClick={() => goTo(s)} aria-label={`${s.hi} · ${s.en}`}
+                    className={`flex items-center justify-center rounded-full text-white transition-transform hover:scale-105 ${s.state === "active" ? "h-24 w-24" : "h-[76px] w-[76px]"}`}
+                    style={s.state === "done" ? { background: C.green, boxShadow: `0 6px 0 ${C.greenDeep}` }
+                      : s.state === "active" ? { background: C.accent, boxShadow: `0 8px 0 rgba(0,0,0,0.25), 0 0 0 8px ${C.peach}` }
+                      : { background: "#E3DFD8", boxShadow: "0 6px 0 #C9C3BA", color: C.muted }}>
+                    {s.state === "done" ? <Check className="h-8 w-8" strokeWidth={3} aria-hidden /> : s.state === "locked" ? <Lock className="h-7 w-7" aria-hidden /> : <Mic className="h-10 w-10" aria-hidden />}
                   </button>
                 )}
-                <button type="button" onClick={() => navigate(step.locked ? "/learning-journey" : "/english-guru/practice")} className="mt-1 text-center text-sm font-bold hover:text-[#bd3e0a]">{step.hi} · {step.en}</button>
-                {step.active && <span className="mt-2 rounded-full border border-[#c9410b] bg-white px-4 py-1 text-xs font-extrabold text-[#bd3e0a]">यहाँ से शुरू · START</span>}
+                <span className={`text-center leading-snug ${s.state === "active" ? "text-base font-extrabold" : s.state === "done" ? "font-bold" : "font-semibold"}`} style={s.state === "locked" || s.state === "reward" ? { color: "#4A4E5A" } : undefined}>
+                  {s.hi} · {s.en}
+                </span>
               </div>
             ))}
-            <Link href="/english-guru/practice" className="mt-2 flex h-12 w-full items-center justify-center gap-1 rounded-2xl bg-[#c9410b] text-sm font-extrabold text-white shadow-[0_4px_0_#b5aaa2] hover:bg-[#b93808]">
-              आगे बढ़ें · Continue <ArrowRight className="h-4 w-4" />
-            </Link>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="font-extrabold">असली बातचीत करें <span className="text-sm font-medium text-slate-500">· Real-life practice</span></h2>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                ["चाय की दुकान पर", "At the tea shop · 3 min", "tea shop"],
-                ["नौकरी का इंटरव्यू", "Job interview · 5 min", "job interview"],
-                ["बाज़ार में", "At the market · 3 min", "market"],
-              ].map(([hi, en, goal]) => <Link key={goal} href={`/english-guru/embed?goal=${encodeURIComponent(goal)}`} className="rounded-2xl border border-[#e9e2dc] bg-white p-4 hover:border-[#c9410b]"><span className="block text-sm font-bold">{hi}</span><span className="text-xs text-slate-500">{en}</span></Link>)}
+          <section className="flex flex-col gap-3">
+            <h2 className="text-lg font-extrabold">असली बातचीत करें <span className="text-sm font-medium" style={{ color: C.muted }}>· Real-life practice</span></h2>
+            <div className="flex flex-wrap gap-3">
+              {([["चाय की दुकान पर", "At the tea shop · 3 min", "tea shop"], ["नौकरी का इंटरव्यू", "Job interview · 5 min", "job interview"], ["बाज़ार में", "At the market · 3 min", "market"]] as const).map(([hi, en, g]) => (
+                <Link key={g} href={`/english-guru/embed?goal=${encodeURIComponent(g)}`} className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-[18px] border bg-white p-4 transition-colors hover:border-[color:var(--c)]" style={{ borderColor: C.line, ["--c" as string]: C.accent }}>
+                  <span className="text-base font-bold">{hi}</span><span className="text-[13px]" style={{ color: C.muted }}>{en}</span>
+                </Link>
+              ))}
             </div>
           </section>
         </main>
 
-        <aside className="hidden space-y-3 lg:block">
-          <section className="flex items-center gap-4 rounded-2xl border border-[#e9e2dc] bg-white p-4">
-            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-[7px] border-[#c9410b] text-xl font-extrabold">{gam.dailyXp}<span className="absolute -bottom-1 -right-1 text-[9px] text-slate-500">XP</span></div>
-            <div><p className="text-sm font-extrabold">आज का लक्ष्य</p><p className="text-xs text-slate-500">Daily goal · {gam.dailyXp} / {goal} XP</p><p className="mt-1 text-xs">बस {Math.max(0, goal - gam.dailyXp)} XP और!</p></div>
+        <aside className="hidden w-[320px] shrink-0 flex-col gap-4 lg:sticky lg:top-[88px] lg:flex xl:flex-1 xl:max-w-[320px]">
+          <section className="flex items-center gap-4 rounded-[20px] border bg-white p-[18px]" style={{ borderColor: C.line }}>
+            <GoalRing value={gam.dailyXp} goal={goal} size={88} />
+            <div><p className="text-base font-extrabold">आज का लक्ष्य</p><p className="text-[13px]" style={{ color: C.muted }}>Daily goal · {gam.dailyXp} / {goal} XP</p><p className="mt-1 text-sm">{left > 0 ? `बस ${left} XP और!` : "लक्ष्य पूरा हुआ! 🎉"}</p></div>
           </section>
-          <section className="rounded-2xl border border-[#e9e2dc] bg-white p-4">
-            <h3 className="text-sm font-extrabold">इस हफ़्ते <span className="font-normal text-slate-500">· This week</span></h3>
-            <div className="mt-3 flex justify-between">{week.map((d, i) => <div key={i} className="text-center"><div className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full ${d.active ? "bg-orange-300 text-orange-900" : "bg-[#f0eeeb] text-slate-400"}`}>{d.active ? "✓" : "·"}</div><span className="text-[10px] text-slate-500">{d.label}</span></div>)}</div>
-            <p className="mt-3 text-xs text-slate-500">कल भी आइए, अपना सिलसिला (streak) बनाए रखिए।</p>
+
+          <section className="flex flex-col gap-3 rounded-[20px] border bg-white p-[18px]" style={{ borderColor: C.line }}>
+            <h3 className="font-extrabold">इस हफ़्ते <span className="text-[13px] font-medium" style={{ color: C.muted }}>· This week</span></h3>
+            <div className="flex justify-between">
+              {week.map((d, i) => (
+                <div key={i} className="flex flex-col items-center gap-1 text-xs" style={{ color: C.muted }}>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full"
+                    style={d.state === "done" ? { background: "#FDBA74", color: "#7C2D12" } : d.state === "today" || d.state === "next" ? { border: `2px dashed ${C.accent}` } : { background: C.track }}>
+                    {d.state === "done" && <Check className="h-4 w-4" strokeWidth={3} aria-hidden />}
+                  </span>{d.label}
+                </div>
+              ))}
+            </div>
+            <p className="text-[13px] leading-[1.7]" style={{ color: "#4A4E5A" }}>कल भी आइए, अपना सिलसिला (streak) बनाए रखिए।</p>
           </section>
-          <section className="rounded-2xl border border-[#e9e2dc] bg-white p-4">
-            <h3 className="text-sm font-extrabold">आज के काम <span className="font-normal text-slate-500">· Daily quests</span></h3>
-            <div className="mt-3 flex justify-between text-xs"><span>10 वाक्य बोलिए</span><span>{Math.min(gam.messages, 10)} / 10</span></div><div className="mt-1 h-2 rounded-full bg-[#f0eeeb]"><div className="h-2 rounded-full bg-green-600" style={{ width: `${Math.min(100, gam.messages * 10)}%` }} /></div>
-            <div className="mt-3 flex justify-between text-xs"><span>3 नए शब्द सीखिए</span><span>{Math.min(gam.wordsLearned.length, 3)} / 3</span></div><div className="mt-1 h-2 rounded-full bg-[#f0eeeb]"><div className="h-2 rounded-full bg-green-600" style={{ width: `${Math.min(100, gam.wordsLearned.length / 3 * 100)}%` }} /></div>
+
+          <section className="flex flex-col gap-3.5 rounded-[20px] border bg-white p-[18px]" style={{ borderColor: C.line }}>
+            <h3 className="font-extrabold">आज के काम <span className="text-[13px] font-medium" style={{ color: C.muted }}>· Daily quests</span></h3>
+            <Quest label="10 वाक्य बोलिए" value={gam.messages} max={10} />
+            <Quest label="3 नए शब्द सीखिए" value={gam.wordsLearned.length} max={3} />
           </section>
-          <Link href="/english-guru/words" className="flex items-center gap-3 rounded-2xl border border-[#e9e2dc] bg-white p-4 hover:border-[#c9410b]"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-900"><Volume2 className="h-5 w-5" /></span><span><span className="block text-xs font-bold text-slate-500">आज का शब्द</span><span className="font-extrabold">Persevere</span><span className="block text-xs text-slate-500">दृढ़ रहना · बने रहना</span></span></Link>
-          <Link href="/progress" className="flex items-center justify-between rounded-xl border border-[#e9e2dc] bg-white p-3 text-sm font-bold hover:border-[#c9410b]"><span><Target className="mr-2 inline h-4 w-4" />Progress overview</span><ChevronRight className="h-4 w-4" /></Link>
+
+          <Link href="/english-guru/words" className="flex items-center gap-3 rounded-[20px] border bg-white p-[18px] transition-colors hover:border-[color:var(--c)]" style={{ borderColor: C.line, ["--c" as string]: C.accent }}>
+            <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full" style={{ background: "#EEF0FB", color: C.navy }}><Volume2 className="h-6 w-6" aria-hidden /></span>
+            <span><span className="block text-xs font-bold tracking-[0.6px]" style={{ color: C.muted }}>आज का शब्द</span><span className="block text-xl font-extrabold">Persevere</span><span className="block text-sm" style={{ color: "#3A3D48" }}>पर्सिवीयर · लगे रहना</span></span>
+          </Link>
         </aside>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[#e7e1dc] bg-white px-1 py-2 lg:hidden">
-        {nav.map(({ href, label, Icon }, i) => <Link key={href} href={href} className={`flex flex-col items-center gap-1 py-1 text-[11px] font-semibold ${i === 0 ? "text-[#c9410b]" : "text-slate-600"}`}><Icon className="h-5 w-5" />{label}</Link>)}
+      {/* Phone: sticky Continue button above the bottom tab bar */}
+      <div className="fixed inset-x-0 bottom-[57px] z-30 px-4 py-2.5 lg:hidden" style={{ background: C.page }}>
+        <Link href={LESSON_HREF} className="flex min-h-[56px] items-center justify-center rounded-2xl text-[17px] font-extrabold text-white shadow-[0_5px_0_rgba(0,0,0,0.22)]" style={{ background: C.accent }}>आगे बढ़ें · Continue</Link>
+      </div>
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t bg-white lg:hidden" style={{ borderColor: C.line }}>
+        {nav.map(({ href, short, Icon }, i) => (
+          <Link key={href} href={href} aria-current={i === 0 ? "page" : undefined} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs" style={{ color: i === 0 ? C.accent : "#4A4E5A", fontWeight: i === 0 ? 700 : 500 }}>
+            <Icon className="h-[22px] w-[22px]" aria-hidden />{short}
+          </Link>
+        ))}
       </nav>
+    </div>
+  );
+}
+
+function Quest({ label, value, max }: { label: string; value: number; max: number }) {
+  const v = Math.min(value, max);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between text-sm"><span>{label}</span><span style={{ color: C.muted }}>{v} / {max}</span></div>
+      <div className="h-2.5 rounded-full" style={{ background: C.track }} role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={v} aria-label={label}>
+        <div className="h-2.5 rounded-full" style={{ width: `${(v / max) * 100}%`, background: C.green }} />
+      </div>
     </div>
   );
 }

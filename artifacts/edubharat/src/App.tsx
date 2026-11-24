@@ -92,7 +92,13 @@ function Router() {
   return (
     <Switch>
       {/* Product routes that keep the compact / no-footer shells they already use */}
-      <Route path="/ad/english">\n        <AdLanding variant="english" />\n      </Route>\n      <Route path="/ad/interview">\n        <AdLanding variant="interview" />\n      </Route>\n      <Route path="/english-guru">
+      <Route path="/ad/english">
+        <AdLanding variant="english" />
+      </Route>
+      <Route path="/ad/interview">
+        <AdLanding variant="interview" />
+      </Route>
+      <Route path="/english-guru">
         <Layout>
           <EnglishLanding />
         </Layout>

@@ -9,6 +9,7 @@ import { useGoogleTTS } from "@/lib/use-edge-tts";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { PageMeta } from "@/components/page-meta";
+import { GURU_FONT } from "@/components/english/guru-theme";
 
 /**
  * English Guru — “Say this sentence” speaking drill.
@@ -251,7 +252,7 @@ export default function EnglishGuruPractice() {
   }, [listening, mic.audioLevel]);
 
   return (
-    <div className="min-h-screen bg-[#f7f5f2] pb-28 text-[#191a2f]">
+    <div className="min-h-screen bg-[#f7f5f2] pb-28 text-[#191a2f]" style={{ fontFamily: GURU_FONT }}>
       <PageMeta title="Say this sentence — English Guru" description="Practise speaking English sentences with instant feedback." />
 
       <header className="sticky top-0 z-40 bg-[#f7f5f2]/95 backdrop-blur">
