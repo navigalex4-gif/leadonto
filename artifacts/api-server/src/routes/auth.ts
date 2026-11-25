@@ -134,13 +134,13 @@ async function recordLogin(userId: number, req: Request): Promise<void> {
  */
 function getCallbackURL(): string {
   const explicit = process.env["GOOGLE_CALLBACK_URL"]?.trim();
-  if (explicit) return explicit.replace(/\\/+$/, "");
+  if (explicit) return explicit.replace(/\/+$/, "");
 
   const appOrigin = (
     process.env["APP_ORIGIN"] ??
     process.env["PUBLIC_APP_ORIGIN"] ??
     ""
-  ).trim().replace(/\\/+$/, "");
+  ).trim().replace(/\/+$/, "");
   if (appOrigin) return `${appOrigin}/api/auth/google/callback`;
 
   const raw = process.env["REPLIT_DOMAINS"] ?? "";
