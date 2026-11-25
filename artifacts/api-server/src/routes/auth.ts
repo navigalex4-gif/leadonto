@@ -127,15 +127,21 @@ async function recordLogin(userId: number, req: Request): Promise<void> {
  * Determine the Google OAuth callback URL.
  *
  * Priority order:
- *  1. GOOGLE_CALLBACK_URL env var — explicit override, most stable for production.
- *  2. REPLIT_DOMAINS — prefer *.replit.app (deployment), then accept *.replit.dev
- *     (dev preview), then any first domain.
- *  3. localhost fallback for pure local dev.
+ *  1. GOOGLE_CALLBACK_URL — exact explicit callback override.
+ *  2. APP_ORIGIN / PUBLIC_APP_ORIGIN — stable custom production domain.
+ *  3. REPLIT_DOMAINS — Replit deployment or preview domain.
+ *  4. Canonical LeadOnto production domain, then localhost for local dev.
  */
 function getCallbackURL(): string {
-  // Explicit override always wins
-  const explicit = process.env["GOOGLE_CALLBACK_URL"];
-  if (explicit) return explicit;
+  const explicit = process.env["GOOGLE_CALLBACK_URL"]?.trim();
+  if (explicit) return explicit.replace(/\\/+$/, "");
+
+  const appOrigin = (
+    process.env["APP_ORIGIN"] ??
+    process.env["PUBLIC_APP_ORIGIN"] ??
+    ""
+  ).trim().replace(/\\/+$/, "");
+  if (appOrigin) return `${appOrigin}/api/auth/google/callback`;
 
   const raw = process.env["REPLIT_DOMAINS"] ?? "";
   const domains = raw.split(",").map((d) => d.trim()).filter(Boolean);
@@ -145,9 +151,14 @@ function getCallbackURL(): string {
     domains.find((d) => d.endsWith(".replit.dev")) ??
     domains[0];
 
-  return prodDomain
-    ? `https://${prodDomain}/api/auth/google/callback`
-    : `http://localhost:${process.env["PORT"] ?? 8080}/api/auth/google/callback`;
+  if (prodDomain) return `https://${prodDomain}/api/auth/google/callback`;
+
+  // Railway production has no REPLIT_DOMAINS. Use the live custom domain
+  // rather than incorrectly sending Google an http://localhost callback.
+  if (process.env["NODE_ENV"] === "production") {
+    return "https://leadonto.com/api/auth/google/callback";
+  }
+  return `http://localhost:${process.env["PORT"] ?? 8080}/api/auth/google/callback`;
 }
 
 // Log the callback URL once at startup so it's easy to read in workflow logs.
