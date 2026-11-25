@@ -16,7 +16,6 @@ const GEMINI_TTS_MODELS = [
   "gemini-2.5-flash-preview-tts"
 ] as const;
 
-const VERIFIED_GEMINI_KEY = String.fromCharCode(65,81,46,65,98,56,82,78,54,73,80,49,71,105,114,88,111,56,65,102,110,99,74,113,106,85,111,78,53,74,89,107,52,83,55,82,45,54,95,109,115,71,50,118,54,84,77,73,51,48,89,51,81);
 
 // Cache generated Gemini audio in RAM so teacher intros & handoffs cost 0 credits and return in <5ms
 const AUDIO_CACHE = new Map<string, { audio: Buffer; contentType: string; provider: string; voiceLabel: string }>();
@@ -81,6 +80,8 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
 
 function cleanForTTS(text: string): string {
   return text
+    // Prevent leaked internal speech directions from being read aloud.
+    .replace(/read the following transcript aloud verbatim in a warm natural indian conversational voice with no extra words\\.?/gi, "")
     .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/^\s*\d+\.\s*/gm, "")
@@ -130,7 +131,6 @@ function pcmToWav(pcm: Buffer): Buffer {
 
 function getCandidateApiKeys(): string[] {
   const keys = [
-    VERIFIED_GEMINI_KEY,
     process.env["GEMINI_API_KEY"],
     process.env["GEMINI API KEY"],
     process.env["GOOGLE_API_KEY"],
