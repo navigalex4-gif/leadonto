@@ -81,7 +81,7 @@ const EDGE_VOICES: Record<string, { female: string; male: string }> = {
 function cleanForTTS(text: string): string {
   return text
     // Prevent leaked internal speech directions from being read aloud.
-    .replace(/read the following transcript aloud verbatim in a warm natural indian conversational voice with no extra words\\.?/gi, "")
+    .replace(/read the following transcript aloud verbatim in a warm natural indian conversational voice with no extra words\.?/gi, "")
     .replace(/^[A-Za-z\u00C0-\u00FF'\s]{2,30}:\s*/m, "")
     .replace(/\b(?:Ack|Next):\s*/gi, "")
     .replace(/^\s*\d+\.\s*/gm, "")
