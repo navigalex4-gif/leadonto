@@ -57,12 +57,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "${RAILWAY_TOKEN:-}" ]]; then
-            echo "::error::RAILWAY_TOKEN secret is missing."
+          service="${RAILWAY_SERVICE:-leadonto}"
+
+          # Push-triggered runs are dry runs and do not need Railway credentials.
+          if [[ "$DRY_RUN" != "true" && -z "${RAILWAY_TOKEN:-}" ]]; then
+            echo "::error::RAILWAY_TOKEN secret is required when apply=APPLY."
             exit 1
           fi
-
-          service="${RAILWAY_SERVICE:-leadonto}"
           echo "Target Railway service: $service"
 
           # Use Railway's native Postgres reference when no GitHub secret is supplied.
