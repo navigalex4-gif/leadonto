@@ -97,7 +97,7 @@ app.use(express.urlencoded({ extended: true }));
 const sessionStore = databaseUrl
   ? new PgSession({
       conString: databaseUrl,
-      createTableIfMissing: true,
+      createTableIfMissing: false,
       tableName: "user_sessions",
     })
   : undefined;
@@ -192,6 +192,18 @@ app.get("/{*splat}", (req, res) => {
   } else {
     res.status(404).json({ error: "Not found" });
   }
+});
+
+// Global error handler: prevent raw Express 500 error page
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err: err?.message ?? err, stack: err?.stack, path: req.path }, "Server error");
+  if (req.path.startsWith("/api")) {
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+  // Clear any corrupted session cookie and redirect to login
+  res.clearCookie("connect.sid");
+  res.redirect("/login?error=server_error");
 });
 
 export default app;

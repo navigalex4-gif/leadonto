@@ -59,6 +59,15 @@ function regenerateSession(req: Request): Promise<void> {
   });
 }
 
+function saveSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
 function allowOtpAttempt(key: string): boolean {
   const now = Date.now();
   const current = otpAttempts.get(key);
@@ -338,6 +347,7 @@ router.get(
         await mergeGuestProgress(pendingGuestId, String(u.id));
       }
 
+      await saveSession(req);
       void recordLogin(u.id, req);
       res.redirect(returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
       return;

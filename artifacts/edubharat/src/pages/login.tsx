@@ -31,7 +31,7 @@ export default function Login() { return <><PageMeta title="Create Your Free Acc
 function LoginContent() {
   const [, navigate] = useLocation(); const search = useSearch(); const { loginWithGoogle, sendOtp, verifyOtp } = useAuth();
   const [step, setStep] = useState<"email" | "otp">("email"); const [email, setEmail] = useState(""); const [otp, setOtp] = useState(""); const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(() => { const e = new URLSearchParams(search).get("error"); if (e === "google_failed") return "Google Sign-In failed. Please try again or use Email OTP below."; if (e === "google_unavailable") return "Google Sign-In is temporarily unavailable. Email OTP below works instantly."; return ""; });
+  const [error, setError] = useState(() => { const e = new URLSearchParams(search).get("error"); if (e === "google_failed") return "Google Sign-In failed. Please try again or use Email OTP below."; if (e === "google_unavailable") return "Google Sign-In is temporarily unavailable. Email OTP below works instantly."; if (e === "server_error") return "A temporary server issue occurred. Please try signing in again."; return ""; });
   const [devCode, setDevCode] = useState<string | undefined>(); const [otpSentAt, setOtpSentAt] = useState<number | null>(null); const [config, setConfig] = useState<AuthConfig | null>(null); const [configLoaded, setConfigLoaded] = useState(false); const [configError, setConfigError] = useState(false); const [copied, setCopied] = useState(false);
   const [isEmbeddedWebView] = useState(() => detectEmbeddedWebView(navigator.userAgent));
   useEffect(() => {
