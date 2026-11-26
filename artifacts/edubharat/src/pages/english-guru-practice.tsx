@@ -10,6 +10,7 @@ import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useStudentProfile } from "@/lib/use-student-profile";
 import { PageMeta } from "@/components/page-meta";
 import { GURU_FONT } from "@/components/english/guru-theme";
+import { GuruHomeButton } from "@/components/navigation/guru-home-button";
 
 /**
  * English Guru — “Say this sentence” speaking drill.
@@ -255,15 +256,17 @@ export default function EnglishGuruPractice() {
     <div className="min-h-screen bg-[#f7f5f2] pb-28 text-[#191a2f]" style={{ fontFamily: GURU_FONT }}>
       <PageMeta title="Say this sentence — English Guru" description="Practise speaking English sentences with instant feedback." />
 
-      <header className="sticky top-0 z-40 bg-[#f7f5f2]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-          <Link href="/english-guru/app" aria-label="Close practice" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-black/5">
-            <X className="h-5 w-5" />
-          </Link>
+      <header className="sticky top-0 z-40 bg-[#f7f5f2]/95 backdrop-blur border-b border-slate-200/60">
+        <div className="mx-auto flex max-w-2xl items-center gap-2 sm:gap-3 px-3 py-2.5">
+          <GuruHomeButton
+            isDirty={index > 0 || result !== null || listening}
+            onLeave={() => { mic.stop(); tts.stop(); }}
+            variant="pill"
+          />
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e4e0da]">
             <div className="h-full rounded-full bg-[#168342] transition-[width] duration-300" style={{ width: `${Math.max(6, progress)}%` }} />
           </div>
-          <span className="flex items-center gap-1 text-sm font-extrabold text-[#d8400c]">
+          <span className="flex items-center gap-1 text-sm font-extrabold text-[#d8400c] shrink-0">
             <Flame className="h-4 w-4" />{streak}
           </span>
         </div>

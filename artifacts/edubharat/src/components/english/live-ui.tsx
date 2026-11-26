@@ -351,7 +351,7 @@ export const SCENARIOS: Scenario[] = [
     id: "intro",
     hi: "अपना परिचय",
     en: "Self Introduction",
-    firstLine: "Hi! Let's start with your introduction. Tell me your name and what you do.",
+    firstLine: "What is your name, and where are you from?",
     replies: [
       { en: "My name is Mohan.", phonetic: "माय नेम इज़ मोहन", native: "मेरा नाम मोहन है।" },
       { en: "I am a student.", phonetic: "आई एम अ स्टूडेंट", native: "मैं एक विद्यार्थी हूँ।" },
@@ -362,7 +362,7 @@ export const SCENARIOS: Scenario[] = [
     id: "daily",
     hi: "रोज़मर्रा की बातें",
     en: "Daily Life",
-    firstLine: "Let's talk about your day. What did you do this morning?",
+    firstLine: "What did you have for breakfast or tea this morning?",
     replies: [
       { en: "I woke up early.", phonetic: "आई वोक अप अर्ली", native: "मैं जल्दी उठा।" },
       { en: "I had tea and breakfast.", phonetic: "आई हैड टी एंड ब्रेकफ़स्ट", native: "मैंने चाय और नाश्ता किया।" },
@@ -373,7 +373,7 @@ export const SCENARIOS: Scenario[] = [
     id: "office",
     hi: "नौकरी और दफ़्तर",
     en: "Job & Office",
-    firstLine: "Let's practise a workplace conversation. Tell me about your job.",
+    firstLine: "Tell me about your daily work or studies. What do you do?",
     replies: [
       { en: "I work in an office.", phonetic: "आई वर्क इन एन ऑफ़िस", native: "मैं दफ़्तर में काम करता हूँ।" },
       { en: "I have a meeting at ten.", phonetic: "आई हैव अ मीटिंग एट टेन", native: "मेरी दस बजे मीटिंग है।" },
@@ -384,11 +384,33 @@ export const SCENARIOS: Scenario[] = [
     id: "travel",
     hi: "यात्रा और बाज़ार",
     en: "Travel & Shopping",
-    firstLine: "You're at a market. Ask me for something you want to buy.",
+    firstLine: "Welcome to our store! What item are you looking to buy today?",
     replies: [
       { en: "How much is this?", phonetic: "हाउ मच इज़ दिस", native: "यह कितने का है?" },
       { en: "Do you have this in another size?", phonetic: "डू यू हैव दिस इन अनदर साइज़", native: "क्या यह दूसरे साइज़ में है?" },
       { en: "Can you give me a discount?", phonetic: "कैन यू गिव मी अ डिस्काउंट", native: "क्या आप कुछ छूट दे सकते हैं?" },
+    ],
+  },
+  {
+    id: "grammar",
+    hi: "व्याकरण और वाक्य",
+    en: "Grammar & Sentence",
+    firstLine: "Let's practice past tense. Tell me one thing you did yesterday.",
+    replies: [
+      { en: "I visited my friend yesterday.", phonetic: "आई विज़िटेड माय फ्रेंड यस्टरडे", native: "कल मैं अपने दोस्त से मिला।" },
+      { en: "I watched an interesting movie.", phonetic: "आई वॉच्ड एन इंटरेस्टिंग मूवी", native: "मैंने एक दिलचस्प फ़िल्म देखी।" },
+      { en: "I completed my pending work.", phonetic: "आई कम्प्लीटेड माय पेंडिंग वर्क", native: "मैंने अपना बचा हुआ काम पूरा किया।" },
+    ],
+  },
+  {
+    id: "speaking",
+    hi: "बोलने का अभ्यास",
+    en: "Speaking Practice",
+    firstLine: "What is your favorite hobby or thing you enjoy doing in your free time?",
+    replies: [
+      { en: "My favorite hobby is reading books.", phonetic: "माय फ़ेवरेट हॉबी इज़ रीडिंग बुक्स", native: "मेरा पसंदीदा शौक किताबें पढ़ना है।" },
+      { en: "I love listening to music in free time.", phonetic: "आई लव लिसनिंग टू म्यूज़िक इन फ़्री टाइम", native: "मुझे ख़ाली समय में संगीत सुनना बहुत पसंद है।" },
+      { en: "I enjoy playing cricket with friends.", phonetic: "आई एन्जॉय प्लेइंग क्रिकेट विद फ्रेंड्स", native: "मुझे दोस्तों के साथ क्रिकेट खेलना पसंद है।" },
     ],
   },
 ];

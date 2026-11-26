@@ -5,3 +5,6 @@ dist/
 .replit
 .replit-*
 .git-old/
+
+*.tsbuildinfo
+

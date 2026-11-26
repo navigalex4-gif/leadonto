@@ -24,6 +24,7 @@ import { formatGeneratedText } from "@/lib/english-tools";
 import { CelebrationOverlay } from "@/components/english/word-power";
 import { XP_VALUES, useGamification } from "@/lib/use-gamification";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
+import { GuruHomeButton } from "@/components/navigation/guru-home-button";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
@@ -35,21 +36,19 @@ import {
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const INTERVIEW_TYPES = [
-  { value: "hr", label: "HR Interview", icon: "🤝" },
-  { value: "software", label: "Software Developer", icon: "💻" },
-  { value: "sales", label: "Sales Executive", icon: "📈" },
-  { value: "sales_manager", label: "Sales Manager", icon: "📈" },
-  { value: "business_analyst", label: "Business Analyst", icon: "📊" },
-  { value: "marketing", label: "Marketing Manager", icon: "📣" },
-  { value: "customer_service", label: "Customer Service", icon: "🎧" },
-  { value: "bpo", label: "BPO / Call Center", icon: "☎️" },
-  { value: "banking", label: "Banking / BFSI", icon: "🏦" },
-  { value: "insurance", label: "Insurance", icon: "🛡️" },
-  { value: "operations", label: "Operations", icon: "⚙️" },
-  { value: "data_analytics", label: "Data Analytics", icon: "📊" },
-  { value: "finance", label: "Finance / CA", icon: "💰" },
-  { value: "freshers", label: "Freshers / Campus", icon: "🎓" },
-  { value: "government", label: "Government / SSC / UPSC", icon: "🏛️" },
+  { value: "hr", label: "HR Round · एचआर इंटरव्यू", icon: "🤝" },
+  { value: "self_intro", label: "Self-Introduction · अपना परिचय", icon: "🙋‍♂️" },
+  { value: "communication", label: "Communication Round · संचार कौशल", icon: "🗣️" },
+  { value: "software", label: "Technical · सॉफ्टवेयर व तकनीकी", icon: "💻" },
+  { value: "banking", label: "Banking / BFSI · बैंकिंग और वित्त", icon: "🏦" },
+  { value: "sales", label: "Sales & Customer Service · सेल्स व सर्विस", icon: "📈" },
+  { value: "operations", label: "Operations & Back-Office · ऑपरेशन्स", icon: "⚙️" },
+  { value: "bpo", label: "BPO / Call Center · बीपीओ", icon: "☎️" },
+  { value: "business_analyst", label: "Business Analyst · बिजनेस एनालिस्ट", icon: "📊" },
+  { value: "marketing", label: "Marketing Manager · मार्केटिंग", icon: "📣" },
+  { value: "finance", label: "Finance / CA · अकाउंट्स व वित्त", icon: "💰" },
+  { value: "freshers", label: "Freshers / Campus · कॉलेज फ्रेशर्स", icon: "🎓" },
+  { value: "government", label: "Government / UPSC · सरकारी नौकरी", icon: "🏛️" },
 ];
 
 const EXPERIENCE_LEVELS = ["Fresher", "1-2 years", "3-5 years", "5+ years"];
@@ -1037,11 +1036,18 @@ function InterviewAceContent() {
   const [hintLoading, setHintLoading] = useState(false);
   const [microFeedback, setMicroFeedback] = useState<{
     index: number;
+    relevance: number;
+    accuracy: number;
     clarity: number;
-    structure: number;
-    fluency: number;
-    tip: string;
-    stronger: string;
+    confidence: number;
+    mistakes?: string[];
+    improvedAnswer: string;
+    hindiExplanation?: string;
+    practicalTip: string;
+    tip?: string;
+    stronger?: string;
+    structure?: number;
+    fluency?: number;
   } | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [strengthOpen, setStrengthOpen] = useState(false);
@@ -1202,12 +1208,21 @@ No markdown, no extra keys.`,
         `Interview question: "${q.question}"
 Candidate's answer: "${spoken}"
 
-Score quickly and kindly. Return STRICT JSON only:
-{"clarity":1-10,"structure":1-10,"fluency":1-10,"tip":"one actionable sentence","stronger":"a stronger way to say their key point, under 25 words"}
-Judge clarity, STAR structure, and English fluency. Do not penalise an Indian accent. No markdown.`,
-        `You are a concise interview coach. Be specific and encouraging.`,
+Score accurately for an Indian job candidate. Return STRICT JSON only:
+{
+  "relevance": 1-10,
+  "accuracy": 1-10,
+  "clarity": 1-10,
+  "confidence": 1-10,
+  "mistakes": ["specific mistake 1", "specific mistake 2"],
+  "improvedAnswer": "a stronger, natural English answer under 35 words",
+  "hindiExplanation": "सरल हिंदी में गलती समझाएं (e.g. 'I am having 2 years' की जगह 'I have 2 years' बोलिए)",
+  "practicalTip": "one practical actionable tip for the next response"
+}
+Judge relevance to question, technical accuracy, clarity of thought, and English confidence. Do not penalise an Indian accent. No markdown.`,
+        `You are a supportive, expert Indian interview coach. Give precise, constructive bilingual feedback.`,
         undefined,
-        { endpoint: "/api/ai/stream?provider=quality", maxTokens: 300, timeoutMs: 12_000 },
+        { endpoint: "/api/ai/stream?provider=quality", maxTokens: 420, timeoutMs: 12_000 },
       );
       const cleaned = text.replace(/```json\s*/g, "").replace(/```/g, "").trim();
       const start = cleaned.indexOf("{");
@@ -1215,15 +1230,28 @@ Judge clarity, STAR structure, and English fluency. Do not penalise an Indian ac
       if (start !== -1 && end > start) {
         const j = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
         const clamp = (v: unknown) => Math.min(10, Math.max(1, Math.round(Number(v) || 5)));
+        const parsedMistakes = Array.isArray(j.mistakes)
+          ? j.mistakes.map(String).filter(Boolean)
+          : typeof j.mistakes === "string" && j.mistakes.trim()
+            ? [j.mistakes.trim()]
+            : [];
+
         setMicroFeedback({
           index: questionIndex,
+          relevance: clamp(j.relevance ?? j.structure),
+          accuracy: clamp(j.accuracy ?? j.fluency),
           clarity: clamp(j.clarity),
-          structure: clamp(j.structure),
-          fluency: clamp(j.fluency),
-          tip: String(j.tip ?? "").trim(),
-          stronger: String(j.stronger ?? "").trim(),
+          confidence: clamp(j.confidence ?? 6),
+          mistakes: parsedMistakes,
+          improvedAnswer: String(j.improvedAnswer || j.stronger || "").trim(),
+          hindiExplanation: String(j.hindiExplanation || "").trim(),
+          practicalTip: String(j.practicalTip || j.tip || "").trim(),
+          tip: String(j.practicalTip || j.tip || "").trim(),
+          stronger: String(j.improvedAnswer || j.stronger || "").trim(),
+          structure: clamp(j.relevance ?? j.structure),
+          fluency: clamp(j.accuracy ?? j.fluency),
         });
-        setStrengthOpen(false);
+        setStrengthOpen(true);
       }
     } catch { /* feedback is optional — never block the interview */ }
     finally { setFeedbackLoading(false); }
@@ -2417,9 +2445,17 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
   if (phase === "setup") {
     return (
       <>
-      <div className="interview-workspace container mx-auto w-full min-w-0 max-w-full px-4 max-w-4xl pt-3 pb-4 overflow-x-hidden">
+      <div className="interview-workspace container mx-auto w-full min-w-0 max-w-full px-3 sm:px-4 max-w-4xl pt-3 pb-6 overflow-x-hidden">
+        {/* Top Header bar with Global Home Button */}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <GuruHomeButton variant="pill" />
+          <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
+            🔒 100% सुरक्षित और गोपनीय इंटरव्यू अभ्यास
+          </span>
+        </div>
+
         {/* Engaging Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600/10 via-primary/10 to-teal-600/10 border border-primary/20 p-4 mb-3 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600/10 via-primary/10 to-teal-600/10 border border-primary/20 p-4 mb-3 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -2437,6 +2473,43 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
             <div className="hidden md:flex flex-col items-end text-right">
               <span className="text-xs font-bold text-secondary">⚡ 15,000+ Mock Sessions</span>
               <span className="text-[10px] text-muted-foreground">Comprehensive Competency Scorecard</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pre-interview Briefing in Hindi (Phase 3 Requirement) */}
+        <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 p-4 sm:p-5 shadow-xs mb-3">
+          <h3 className="text-sm sm:text-base font-extrabold text-blue-950 flex items-center gap-2">
+            <span>💡 इंटरव्यू से पहले जानिए</span>
+            <span className="text-xs font-semibold text-blue-700">· What to Expect</span>
+          </h3>
+          <p className="text-xs text-blue-900/80 mt-1">
+            यह एक दोस्ताना और वास्तविक मॉक इंटरव्यू है। बिना झिझक के अपना सर्वश्रेष्ठ उत्तर दें:
+          </p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-blue-950">
+            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span>🎯</span> 1 प्रश्न एक बार में
+              </p>
+              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                इंटरव्यूअर आपसे एक-एक करके सवाल पूछेंगे। कोई हड़बड़ी नहीं, सोचकर और आत्मविश्वास से बोलें।
+              </p>
+            </div>
+            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span>📊</span> तुरंत 4-पॉइंट स्कोर
+              </p>
+              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                हर उत्तर के बाद Relevance, Accuracy, Clarity और Confidence का तुरंत स्कोर और सरल हिंदी में सुधार।
+              </p>
+            </div>
+            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span>🎤</span> शांत जगह और स्पष्ट आवाज़
+              </p>
+              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                शांत कमरे में बैठें। अंग्रेज़ी में बोलते समय अगर अटकें, तो हिंदी की मदद ले सकते हैं।
+              </p>
             </div>
           </div>
         </div>
@@ -2638,7 +2711,8 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 
     return (
       <div className="interview-workspace min-h-full container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-4xl space-y-4 sm:space-y-6 overflow-x-hidden">
-        <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-background/95 backdrop-blur-sm flex justify-start">
+        <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 bg-background/95 backdrop-blur-sm flex items-center justify-between gap-3 border-b border-slate-200">
+          <GuruHomeButton variant="pill" />
           <Button
             onClick={() => {
               endingRef.current = true;
@@ -2648,9 +2722,9 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
               setSaved(false);
               interviewGamAwardedRef.current = false;
             }}
-            className="w-full sm:w-auto font-bold shadow-md"
+            className="w-full sm:w-auto font-bold shadow-xs min-h-[44px]"
           >
-            <PlayCircle className="w-4 h-4 mr-2" />New Session
+            <PlayCircle className="w-4 h-4 mr-2" />नया इंटरव्यू · New Session
           </Button>
         </div>
         {/* Hero */}
@@ -2967,10 +3041,19 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     <div className={`fixed inset-0 bg-slate-50 text-slate-900 flex flex-col z-[9999] ${landscapeMode ? "interview-landscape" : ""}`} style={{ top: 56 }}>
 
       {/* ── Top HUD ──────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200 shadow-sm z-10">
+      <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2 bg-white border-b border-slate-200 shadow-sm z-10 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-slate-800 text-sm font-bold truncate">{displayCoachName}</span>
-          <span className="text-slate-500 text-xs truncate">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
+          <GuruHomeButton
+            variant="pill"
+            isDirty={questions.length > 0}
+            onLeave={() => {
+              endingRef.current = true;
+              speech.stop();
+              synth.stop();
+            }}
+          />
+          <span className="text-slate-800 text-xs sm:text-sm font-bold truncate">{displayCoachName}</span>
+          <span className="text-slate-500 text-xs truncate hidden sm:inline">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
         <div className="flex items-center gap-1.5 text-slate-700 text-sm font-bold shrink-0">
           <Timer className="w-4 h-4 text-orange-400" />
@@ -3212,50 +3295,88 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
               className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left"
               aria-expanded={strengthOpen}
             >
-              <span className="flex flex-wrap items-center gap-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Quick check</span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">तुरंत मूल्यांकन · Check:</span>
                 {feedbackLoading && !microFeedback ? (
-                  <span className="text-[10px] text-slate-400 animate-pulse">scoring…</span>
+                  <span className="text-[10px] text-slate-400 animate-pulse font-semibold">स्कोरिंग हो रही है… (Scoring)</span>
                 ) : microFeedback ? (
                   <>
+                    <MicroScore label="Relevance" value={microFeedback.relevance} />
+                    <MicroScore label="Accuracy" value={microFeedback.accuracy} />
                     <MicroScore label="Clarity" value={microFeedback.clarity} />
-                    <MicroScore label="Structure" value={microFeedback.structure} />
-                    <MicroScore label="Fluency" value={microFeedback.fluency} />
+                    <MicroScore label="Confidence" value={microFeedback.confidence} />
                   </>
                 ) : null}
               </span>
               <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${strengthOpen ? "rotate-180" : ""}`} />
             </button>
             {strengthOpen && microFeedback && (
-              <div className="space-y-1.5 border-t border-slate-200 px-2.5 py-2">
-                {microFeedback.tip && (
-                  <p className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                    <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-600" />
-                    {microFeedback.tip}
-                  </p>
-                )}
-                {microFeedback.stronger && (
-                  <div className="rounded-lg border border-green-200 bg-green-50 px-2 py-1.5">
-                    <p className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wide text-green-800">
-                      <Sparkles className="h-2.5 w-2.5" /> Stronger way to say this
+              <div className="space-y-2 border-t border-slate-200 px-3 py-2.5 text-left">
+                {/* Specific Mistakes */}
+                {microFeedback.mistakes && microFeedback.mistakes.length > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50/80 px-2.5 py-1.5">
+                    <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-red-800">
+                      <AlertCircle className="h-3 w-3 shrink-0" />
+                      सुधार की ज़रूरत · Specific Mistakes
                     </p>
-                    <p className="mt-0.5 text-[11px] font-semibold text-green-950">{microFeedback.stronger}</p>
+                    <ul className="mt-1 list-disc pl-4 text-[11px] font-medium text-red-950 space-y-0.5">
+                      {microFeedback.mistakes.map((m, mi) => (
+                        <li key={mi}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Key Corrections Explained in Simple Hindi */}
+                {microFeedback.hindiExplanation && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2.5 py-1.5">
+                    <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-amber-800">
+                      <Lightbulb className="h-3 w-3 shrink-0 text-amber-600" />
+                      सरल हिंदी में समझें · Hindi Explanation
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-amber-950 leading-relaxed">
+                      {microFeedback.hindiExplanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Improved Sample Answer */}
+                {(microFeedback.improvedAnswer || microFeedback.stronger) && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5">
+                    <p className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-green-800">
+                      <Sparkles className="h-3 w-3 shrink-0" />
+                      बेहतर अंग्रेज़ी उत्तर · Improved Sample Answer
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-green-950 leading-relaxed">
+                      {microFeedback.improvedAnswer || microFeedback.stronger}
+                    </p>
                     <button
                       type="button"
-                      onClick={() => speakCoach(microFeedback.stronger, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle })}
-                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-green-700"
+                      onClick={() => speakCoach(microFeedback.improvedAnswer || microFeedback.stronger!, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle })}
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-green-700 min-h-[28px] active:scale-95 transition-transform"
                     >
-                      <Volume2 className="h-2.5 w-2.5" /> Listen
+                      <Volume2 className="h-3 w-3" /> सुनें · Listen
                     </button>
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setMicroFeedback(null)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-slate-600"
-                >
-                  Dismiss
-                </button>
+
+                {/* Practical Tip */}
+                {(microFeedback.practicalTip || microFeedback.tip) && (
+                  <p className="flex items-start gap-1.5 text-[11px] text-slate-700 font-medium">
+                    <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600" />
+                    <span><strong>व्यावहारिक टिप · Tip:</strong> {microFeedback.practicalTip || microFeedback.tip}</span>
+                  </p>
+                )}
+
+                <div className="flex justify-end pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setMicroFeedback(null)}
+                    className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 px-1 py-0.5"
+                  >
+                    बंद करें · Dismiss
+                  </button>
+                </div>
               </div>
             )}
           </div>

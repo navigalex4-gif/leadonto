@@ -30,6 +30,7 @@ import {
 import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
 import { WordPowerText, WordPowerPopup, CelebrationOverlay } from "@/components/english/word-power";
+import { GuruHomeButton } from "@/components/navigation/guru-home-button";
 import {
   VoiceControlBar,
   SuggestedReplyChips,
@@ -852,6 +853,20 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const suggestionsRef = useRef<SuggestedReply[]>([]);
   useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
 
+  // Track asked questions so the AI never repeats questions
+  const askedQuestionsRef = useRef<string[]>([]);
+
+  // Phase 2: Start immediately with teacher question/exercise (no greeting/scripted intro)
+  useEffect(() => {
+    if (convHistory.length === 0) {
+      const goalParam = (requestedGoal || "intro").toLowerCase();
+      const match = SCENARIOS.find(s => s.id === goalParam || goalParam.includes(s.id) || s.en.toLowerCase().includes(goalParam)) ?? SCENARIOS[0]!;
+      setConvHistory([{ role: "ai", text: match.firstLine }]);
+      setSuggestions(match.replies);
+      askedQuestionsRef.current = [match.firstLine];
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Realtime STT uses Deepgram Nova-3 multilingual code-switching, so the
   // learner can move between English and their helper language in one turn.
   // Keep the legacy label for the hook's start-message contract; the server
@@ -1631,18 +1646,19 @@ When using Hindi or another gendered Indian-language phrase, keep the teacher's 
 Rules for spoken replies:
 - ALWAYS respond to the student's most recent message — the last line labelled "Student:". Answer that specific thing before anything else. Never reply to an older message or to the conversation as a whole.
 - End every reply with exactly ONE clear, easy follow-up question that a beginner could answer in a few words. Never end with a statement, and never ask two questions in a row.
-- Imagine you are SPEAKING, not writing. Keep it 2–3 short, punchy sentences max.
-- Use contractions always: I'm, you're, that's, let's, it's, can't, won't.
-- If the student asks what a word means, define that word simply, give one short example, and ask them to make their own sentence. Do not respond with a generic life question.
-- If the student uses an Indian-language word or transliteration inside an English sentence, explain or translate that specific word briefly before continuing. Never ignore the word.
-- If the student asks “how are you?”, answer that question directly in one short sentence before asking anything else.
-- If the student asks to learn vocabulary or English, teach 2–3 useful words or phrases immediately, with meanings and one example. Do not only ask where they want to use English.
-- Start replies smoothly with the substance of your answer. Do not open with "Oh", "Hmm", "Okay", "Got it", "Right", or another filler acknowledgement.
-- Do not repeat acknowledgement phrases before answering; move directly from understanding what the student said to the useful response or follow-up question.
-- Do not address the student as "Admin", "User", "Guest", or another system label. Use their name only when it feels natural, not as a repeated opener.
-- Ask follow-up questions based on what they just said — never repeat a question already covered in this conversation.
-- NEVER restate, rephrase, or echo your own previous message — each reply must add something genuinely new and move the conversation forward.
-- If they make a grammar mistake, quietly use the correct form in YOUR next sentence — never point it out.
+- Spoken reply length: exactly 1 to 3 short sentences. Never give long speeches or textbook lectures.
+- MISTAKE CORRECTION (Mandatory): If the student makes a mistake in grammar, verb tense, preposition, or word choice:
+  1) Explain the mistake kindly in simple conversational Hindi in ONE short sentence (e.g. "यहाँ 'I has' नहीं, 'I have' बोलिए क्योंकि 'I' के साथ 'have' आता है।").
+  2) Then show the corrected English sentence clearly (e.g. "Correct sentence: 'I have two brothers.'").
+  3) Then ask the next short question or exercise.
+- If their sentence was correct and natural: warmly acknowledge in 1 brief sentence, then ask the next question.
+- NEVER repeat a question already asked. Questions already asked in this session:
+${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n")}
+- Adapt to the student's level (${level}):
+  * Beginner: use simple common words, short sentences, and Hindi guidance when helpful.
+  * Intermediate: natural conversational pacing, better vocabulary choices.
+  * Advanced: fluency, professional idioms, and nuanced expressions.
+- Feedback and encouragement must NEVER repeat boilerplate phrases.
 - NEVER use bullet points, numbered lists, dashes, asterisks, or any formatting.
 - NEVER start your reply with your name or any label like "Teacher:".
 - Prefer pronounceable spoken forms for acronyms and workplace terms. Say "A I", "H R", "R B I", or "business to business" rather than rushing compressed letter strings.
@@ -1814,6 +1830,9 @@ Rules for spoken replies:
             explicitQuestionReferentRef.current = null;
           }
           setConvHistory(h => [...h, { role: "ai", text: cleanResponse }]);
+          if (cleanResponse.includes("?")) {
+            askedQuestionsRef.current.push(cleanResponse);
+          }
           // Refresh beginner aids for the newest tutor turn. Both are quiet,
           // non-blocking calls: the conversation never waits on them.
           const repliedIndex = convHistoryRef.current.length;
@@ -2111,6 +2130,47 @@ Rules for spoken replies:
 
   return (
     <div className={`english-workspace ${embedded ? "english-workspace-embedded" : ""} min-h-full w-full min-w-0 max-w-full overflow-x-hidden lg:h-full lg:flex lg:flex-col lg:overflow-hidden container mx-auto px-3 sm:px-4 pt-1 pb-2 ${embedded ? "" : "max-w-6xl"}`}>
+      {/* ── GLOBAL HOME & NAVIGATION BAR ── */}
+      <div className="sticky top-0 z-30 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-slate-200/90 bg-white/95 px-3 py-2 shadow-xs backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <GuruHomeButton
+            variant="pill"
+            isDirty={convHistory.length > 0 || liveChat}
+            onLeave={() => { speechRef.current?.stop(); synth.stop(); }}
+          />
+          <span className="text-xs sm:text-sm font-extrabold text-slate-800">
+            {embedded ? "English Guru Live" : "English Guru"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Select value={uiLang} onValueChange={(v) => {
+            if (v === uiLang) return;
+            setUiLang(v);
+            updateProfile({ preferredLanguage: v });
+          }}>
+            <SelectTrigger className="h-8 text-xs w-[110px] rounded-full border-dashed" aria-label="सहायक भाषा · Native language">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="English">🇬🇧 English</SelectItem>
+              <SelectItem value="Hindi">🇮🇳 Hindi</SelectItem>
+              {INDIAN_LANGUAGES.filter(l => l !== "Hindi").map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={level} onValueChange={(v) => {
+            if (v === level) return;
+            setLevel(v);
+            updateProfile({ englishLevel: v });
+          }}>
+            <SelectTrigger className="h-8 text-xs w-[95px] rounded-full border-dashed" aria-label="Level">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["Beginner", "Intermediate", "Advanced"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       {showTutorPicker && (
         <TutorSelector currentId={tutorId} onSelect={handleSelectTutor} onClose={() => setShowTutorPicker(false)} />
       )}
@@ -2488,7 +2548,11 @@ Rules for spoken replies:
                       <ScenarioChips
                         onPick={(scenario: Scenario) => {
                           setSuggestions(scenario.replies);
-                          void handleConvSend(scenario.firstLine);
+                          setConvHistory([{ role: "ai", text: scenario.firstLine }]);
+                          setConvFlowState("ai-speaking");
+                          aiBusyRef.current = true;
+                          askedQuestionsRef.current = [scenario.firstLine];
+                          void speakRef.current(scenario.firstLine, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: ENGLISH_GURU_SPEECH_RATE });
                         }}
                         onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.95 })}
                       />

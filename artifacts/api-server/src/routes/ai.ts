@@ -649,7 +649,7 @@ router.post("/ai/stream", async (req, res) => {
   }
 
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
-  const tokens = maxTokens ?? 8192;
+  const tokens = maxTokens ?? 512;
   const state = { wrote: false };
   const preferGroq = req.query.provider === "groq";
   const preferQuality = req.query.provider === "quality";
@@ -710,15 +710,16 @@ router.post("/ai/conversation", async (req, res) => {
   setSseHeaders(res);
   const state = { wrote: false };
 
+  const convTokens = maxTokens ?? 256;
   try {
     // Start with low-latency providers for live speech. Each provider is
     // attempted only when configured and healthy; failures before the first
     // token fall through to the next provider.
-    if(isQualityProviderReady("gemini")){try{await streamGemini(req,res,prompt,system,maxTokens??8192,state);return;}catch(geminiError){if(state.wrote)throw geminiError;pauseQualityProvider("gemini",geminiError);req.log.warn({err:geminiError},"Gemini conversation failed - trying Groq");}}
-      if(isQualityProviderReady("groq")){try{await streamGroq(req,res,prompt,system,maxTokens??8192,state);return;}catch(groqError){if(state.wrote)throw groqError;pauseQualityProvider("groq",groqError);req.log.warn({err:groqError},"Groq conversation failed - trying Mistral");}}
+    if(isQualityProviderReady("gemini")){try{await streamGemini(req,res,prompt,system,convTokens,state);return;}catch(geminiError){if(state.wrote)throw geminiError;pauseQualityProvider("gemini",geminiError);req.log.warn({err:geminiError},"Gemini conversation failed - trying Groq");}}
+      if(isQualityProviderReady("groq")){try{await streamGroq(req,res,prompt,system,convTokens,state);return;}catch(groqError){if(state.wrote)throw groqError;pauseQualityProvider("groq",groqError);req.log.warn({err:groqError},"Groq conversation failed - trying Mistral");}}
       if (isQualityProviderReady("mistral")) {
       try {
-        await streamMistral(req, res, prompt, system, maxTokens ?? 8192, state);
+        await streamMistral(req, res, prompt, system, convTokens, state);
         return;
       } catch (mistralError) {
         if (state.wrote) throw mistralError;
@@ -727,7 +728,7 @@ router.post("/ai/conversation", async (req, res) => {
       }
     }
     if (process.env["ANTHROPIC_API_KEY"] && isQualityProviderReady("claude")) {
-      await streamAnthropic(req, res, prompt, system, maxTokens ?? 8192, state, true);
+      await streamAnthropic(req, res, prompt, system, convTokens, state, true);
       return;
     }
     throw new Error("All conversation AI providers are unavailable");
