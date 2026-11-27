@@ -26,6 +26,7 @@ import { exportConversationPdf, exportConversationWord } from "@/lib/export-conv
 import {
   Mic, MessageCircle, Loader2, StopCircle, ChevronRight,
   Users, FileText, FileDown, XCircle, Flame, Sparkles, Trophy,
+  Radio, Play, Pause, Send, PhoneCall,
 } from "lucide-react";
 import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/lib/english-tools";
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
@@ -843,7 +844,7 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
   const [livePaused, setLivePaused] = useState(false);
   const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0);
   const [convFlowState, setConvFlowState] = useState<"idle" | "user-speaking" | "ai-thinking" | "ai-speaking">("idle");
-  const convInputRef = useRef<HTMLTextAreaElement>(null);
+  const convInputRef = useRef<HTMLInputElement>(null);
   const convScrollRef = useRef<HTMLDivElement>(null);
   // Suggested replies for the latest tutor turn, plus tracker for which tutor
   // messages are showing their native translation.
@@ -2065,6 +2066,23 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
     await handleConvPhrase(userMsg);
   }, [convInput, handleConvPhrase]);
 
+  const handleTopMicClick = useCallback(() => {
+    if (liveChat) {
+      togglePauseLiveChat();
+      return;
+    }
+    if (speech.isListening) {
+      speech.stop();
+    } else {
+      speech.start((text) => {
+        const clean = text.trim();
+        if (clean) {
+          void handleConvSend(clean);
+        }
+      });
+    }
+  }, [liveChat, speech, togglePauseLiveChat, handleConvSend]);
+
   return (
     <div className={`english-workspace ${embedded ? "english-workspace-embedded" : ""} min-h-full w-full min-w-0 max-w-full overflow-x-hidden lg:h-full lg:flex lg:flex-col lg:overflow-hidden container mx-auto px-3 sm:px-4 pt-1 pb-2 ${embedded ? "" : "max-w-6xl"}`}>
       {/* ── GLOBAL HOME & NAVIGATION BAR ── */}
@@ -2334,153 +2352,189 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
               <section id="english-guru-live" className="flex flex-col min-h-0">
             <Card className={`flex flex-col overflow-hidden border-2 transition-all ${liveChat ? "border-green-400 bg-green-50/30" : "border-green-200/70 bg-green-50/10"}`}>
             <CardContent className="pt-3 pb-3 space-y-2 flex min-h-0 flex-col">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 bg-green-100 text-green-700 rounded-lg flex items-center justify-center shrink-0">
-                    <MessageCircle className="w-4 h-4" />
+              {/* ── TOP MIC & VOICE CONTROLS (ALWAYS AT TOP OF PAGE) ── */}
+              <div className="sticky top-11 z-20 rounded-2xl border-2 border-orange-200/90 bg-white/95 p-3 shadow-sm backdrop-blur-xs">
+                {liveChat ? (
+                  /* Live Call HUD */
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-green-700 shadow-2xs">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-2xl bg-green-400 opacity-25" />
+                        <Mic className="h-5 w-5 animate-pulse" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-800">
+                            🟢 लाइव बातचीत चालू है · Live Call Active
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-600">
+                            {formatLiveTime(liveElapsedSeconds)}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-800 truncate mt-0.5">
+                          {convFlowState === "user-speaking"
+                            ? "🎤 आपकी आवाज़ सुन रहे हैं · Listening... बोलिए!"
+                            : convFlowState === "ai-thinking"
+                              ? `🤔 ${tutor.name} सोच रहे हैं... · Thinking`
+                              : convFlowState === "ai-speaking"
+                                ? `🔊 ${tutor.name} बोल रहे हैं... · Speaking`
+                                : livePaused
+                                  ? "⏸️ बातचीत रुकी हुई है · Paused"
+                                  : "तैयार · Ready"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={togglePauseLiveChat}
+                        className="font-bold text-xs h-9 px-3 rounded-xl"
+                      >
+                        {livePaused ? <><Play className="w-3.5 h-3.5 mr-1" />Resume</> : <><Pause className="w-3.5 h-3.5 mr-1" />Pause</>}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={toggleLiveChat}
+                        className="font-bold text-xs h-9 px-3 rounded-xl"
+                      >
+                        <StopCircle className="w-3.5 h-3.5 mr-1" />End Call
+                      </Button>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-bold text-secondary">Live Conversation</h2>
-                    <p className="text-xs text-muted-foreground">{uiLang === "English" ? "Speak in English — I reply naturally" : `Speak in English or ${uiLang} — I'll help in ${uiLang} when you're stuck`}</p>
+                ) : (
+                  /* Standard Mode: Big Top Mic + Input + Live Call Toggle */
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Button
+                        type="button"
+                        onClick={handleTopMicClick}
+                        disabled={!speech.isSupported}
+                        className={`font-extrabold text-sm h-11 px-5 rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 ${
+                          speech.isListening
+                            ? "bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                            : "bg-orange-600 hover:bg-orange-700 text-white"
+                        }`}
+                      >
+                        {speech.isListening ? (
+                          <>
+                            <span className="relative flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                            </span>
+                            <span>🔴 सुन रहे हैं... रोकें · Listening... Tap to Send</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-5 w-5" />
+                            <span>माइक दबाकर बोलें · Tap to Speak</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={toggleLiveChat}
+                        disabled={!speech.isSupported}
+                        className="font-bold text-xs h-10 px-3.5 rounded-xl bg-green-600 hover:bg-green-700 text-white shadow-xs ml-auto"
+                      >
+                        <Radio className="w-3.5 h-3.5 mr-1.5 animate-pulse" />
+                        <span>लाइव बातचीत शुरू करें · Start Live Call</span>
+                      </Button>
+                    </div>
+
+                    {/* Quick Text / Dictation Input Bar */}
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        ref={convInputRef}
+                        type="text"
+                        value={convInput}
+                        placeholder={uiLang === "English" ? "Or type in English here..." : `यहाँ अंग्रेज़ी या ${uiLang} में लिखें या बोलें...`}
+                        onChange={e => setConvInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            if (convInput.trim()) void handleConvSend();
+                          }
+                        }}
+                        className="h-10 text-xs sm:text-sm bg-slate-50 border-slate-200 rounded-xl flex-1"
+                      />
+                      <Button
+                        type="button"
+                        disabled={isStreaming || !convInput.trim()}
+                        onClick={() => void handleConvSend()}
+                        className="h-10 px-3.5 rounded-xl font-bold bg-slate-900 hover:bg-slate-800 text-white shrink-0"
+                      >
+                        {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500">
+                      {user ? (
+                        <>Uses <span className="font-semibold text-slate-700">1 credit per 12 min</span> · Balance: <span className="font-semibold text-slate-700">{balance ?? "…"}</span> · <Link href="/credits" className="text-orange-600 font-semibold hover:underline">Top up</Link></>
+                      ) : guestLiveLeft > 0 ? (
+                        <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial · <Link href="/login?returnTo=%2Fenglish-guru" className="text-orange-600 font-semibold hover:underline">Create free account</Link> for 20 credits</>
+                      ) : (
+                        <>Free trial used up · <Link href="/login?returnTo=%2Fenglish-guru" className="text-orange-600 font-semibold hover:underline">Create free account</Link> to keep chatting</>
+                      )}
+                    </p>
                   </div>
-                  {liveChat && (
-                    <SessionStatusPill
-                      elapsedLabel={formatLiveTime(liveElapsedSeconds)}
-                      state={
-                        livePaused
-                          ? "paused"
-                          : convFlowState === "ai-thinking"
-                            ? "thinking"
-                            : convFlowState === "ai-speaking"
-                              ? "speaking"
-                              : convFlowState === "user-speaking"
-                                ? "listening"
-                                : "off"
-                      }
-                      creditNote={user ? `${balance ?? "…"} credits` : undefined}
-                      onExpand={() => setShowCreditGate(true)}
-                    />
-                  )}
-                </div>
-                <Button
-                  onClick={toggleLiveChat}
-                  variant={liveChat ? "destructive" : "default"}
-                  size="sm"
-                  className={`font-bold shrink-0 w-full sm:w-auto ${liveChat ? "" : "bg-green-600 hover:bg-green-700"}`}
-                  disabled={!speech.isSupported}>
-                  {liveChat ? <><StopCircle className="w-4 h-4 mr-1.5" />End</> : <><Mic className="w-4 h-4 mr-1.5" />Live</>}
-                </Button>
-                {liveChat && (
-                  <Button
-                    onClick={togglePauseLiveChat}
-                    variant="outline"
-                    size="sm"
-                    className="font-bold shrink-0 w-full sm:w-auto"
-                  >
-                    {livePaused ? <><Mic className="w-4 h-4 mr-1.5" />Resume</> : <><StopCircle className="w-4 h-4 mr-1.5" />Pause</>}
-                  </Button>
                 )}
               </div>
-              {!liveChat && (
-                <p className="text-xs text-muted-foreground">
-                  {user ? (
-                    <>Uses <span className="font-semibold text-secondary">1 credit per completed 12 minutes</span> (5 credits/hour) · no upfront charge · Balance: <span className="font-semibold text-secondary">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
-                  ) : guestLiveLeft > 0 ? (
-                    <><span className="font-semibold text-green-700">{Math.ceil(guestLiveLeft / 60)} min</span> free trial left — no signup needed · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Create a free account</Link> for 20 free credits</>
-                  ) : (
-                    <>Free trial used up · <Link href="/login?returnTo=%2Fenglish-guru" className="text-primary font-semibold hover:underline">Create a free account</Link> to get 20 free credits and keep chatting</>
-                  )}
-                </p>
-              )}
-              {liveChat && false && (
-                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  convFlowState === "user-speaking"
-                    ? speech.status === "warming"
-                      ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : speech.status === "listening"
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-muted text-muted-foreground border"
-                    : convFlowState === "ai-thinking" || convFlowState === "ai-speaking"
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "bg-muted text-muted-foreground"
-                }`}>
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    convFlowState === "user-speaking"
-                      ? speech.status === "warming"
-                        ? "bg-amber-400 animate-pulse"
-                        : speech.status === "listening"
-                          ? "bg-green-500 animate-pulse"
-                          : "bg-muted-foreground animate-pulse"
-                      : convFlowState === "ai-thinking"
-                        ? "bg-yellow-500 animate-pulse"
-                        : convFlowState === "ai-speaking"
-                          ? "bg-blue-500 animate-pulse"
-                          : "bg-muted-foreground"
-                  }`} />
-                   {convFlowState === "user-speaking" && (
-                     <span className="sr-only" role="status">
-                       {speech.error ? speech.error : "Listening for your voice"}
-                     </span>
-                   )}
-                  {convFlowState === "ai-thinking" && `${tutor.name} is thinking...`}
-                  {convFlowState === "ai-speaking" && `${tutor.name} is speaking... (mic restarts when done)`}
-                  {convFlowState === "idle" && (livePaused ? "Live chat paused" : "Live chat off")}
-                   {convFlowState === "user-speaking" && speech.status === "listening" && (
-                     <span
-                       className="ml-auto flex h-2 w-16 items-center gap-0.5 overflow-hidden rounded-full bg-green-100"
-                       aria-label="Microphone listening level"
-                     >
-                       {[0.55, 0.85, 0.65, 1, 0.72, 0.92, 0.5].map((multiplier, index) => (
-                         <span
-                           key={index}
-                           className="block flex-1 rounded-full bg-green-500 transition-all"
-                           style={{ height: `${Math.max(15, Math.round(speech.audioLevel * multiplier * 100))}%` }}
-                         />
-                       ))}
-                     </span>
-                   )}
-                  {liveChat && speech.error && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto h-7 px-2 text-xs"
-                      onClick={async () => {
-                        // Re-check mic permission inside the user gesture before
-                        // restarting recognition — this surfaces a clear browser
-                        // prompt if the permission was previously denied.
-                        if (navigator.mediaDevices?.getUserMedia) {
-                          try {
-                            const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                            s.getTracks().forEach(t => t.stop());
-                          } catch {
-                            toast({
-                              title: "Microphone still blocked",
-                              description: "Go to your browser settings, allow the microphone for this site, then try again.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                        }
-                        speech.stop();
-                        speech.startContinuous(p => handleConvPhraseRef.current?.(p));
-                      }}
-                    >
-                      Retry mic
-                    </Button>
-                  )}
-                </div>
-              )}
+
               {liveChat && aiError && (
                 <div className="mx-1 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs">
                   {aiError} — tap mic to try again
                 </div>
               )}
-              {convHistory.length === 0 && !isStreaming && !(liveChat && speech.interimTranscript) && (
-                <div className="flex min-h-0 items-center justify-center py-3">
-                  <div className="w-full max-w-xl rounded-2xl border border-dashed border-green-200 bg-white/70 p-4">
+
+              {/* ── FRESH LATEST CONVERSATION (ALWAYS AT TOP) ── */}
+              <div className="flex flex-col gap-3 pt-2">
+                {/* 1. Real-time User Speech Transcription (if currently speaking) */}
+                {speech.interimTranscript && (
+                  <div className="flex justify-end">
+                    <div className="max-w-[90%] rounded-2xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs">
+                      <span className="text-[10px] uppercase font-bold text-orange-200 block mb-0.5">आप बोल रहे हैं · You are saying:</span>
+                      <p className="italic leading-relaxed whitespace-pre-wrap">{speech.interimTranscript}</p>
+                      <span className="inline-block w-1.5 h-3.5 ml-1 bg-white animate-pulse align-middle" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Real-time AI Streaming/Thinking (if currently replying) */}
+                {isStreaming && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[90%] rounded-2xl bg-slate-100 border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-2xs">
+                      <div className="flex items-center gap-1.5 mb-1 text-[10px] font-bold text-orange-700">
+                        <Sparkles className="h-3 w-3 animate-spin" />
+                        <span>{tutor.name} जवाब दे रहे हैं · Replying...</span>
+                      </div>
+                      {aiText ? (
+                        <WordPowerText
+                          text={sanitizeNativeDisplay(formatGeneratedText(aiText), uiLang !== "English")}
+                          onWordClick={openWordCard}
+                          learnedWords={gam.wordsLearned}
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
+                          <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
+                          <span>सोच रहे हैं · Thinking...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Initial scenario pickers if no history yet */}
+                {convHistory.length === 0 && !isStreaming && !speech.interimTranscript && (
+                  <div className="rounded-2xl border border-dashed border-green-300 bg-white/80 p-4 shadow-2xs">
                     <p className="text-sm font-bold text-secondary">कहाँ से शुरू करें? <span className="font-semibold text-muted-foreground">/ Pick a scenario</span></p>
-                    <p className="mt-1 text-xs text-muted-foreground">Tap a topic and Priya Ma'am will start the conversation. Choose one, or just press the mic and speak.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">ऊपर माइक दबाकर सीधे बोलें, या नीचे दिए गए किसी विषय पर क्लिक करके अभ्यास शुरू करें।</p>
                     <div className="mt-3">
                       <ScenarioChips
                         onPick={(scenario: Scenario) => {
@@ -2495,113 +2549,128 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
                       />
                     </div>
                   </div>
-                </div>
-              )}
-              {(convHistory.length > 0 || isStreaming || (liveChat && !!speech.interimTranscript)) && (
-                 <div ref={convScrollRef} className="flex w-full min-w-0 flex-col gap-3 max-h-[340px] sm:max-h-[380px] min-h-[140px] overflow-x-hidden overflow-y-auto pr-1 pt-1">
-                  {liveChat && speech.interimTranscript && (
-                    <div className="flex min-w-0 gap-2 justify-end">
-                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words bg-primary/60 text-primary-foreground italic">
-                        {speech.interimTranscript}
-                        <span className="inline-block w-0.5 h-3.5 ml-0.5 align-middle bg-primary-foreground/80 animate-pulse" />
+                )}
+
+                {/* 3. The Latest Completed Turn */}
+                {convHistory.length > 0 && (() => {
+                  const latestIdx = convHistory.length - 1;
+                  const latestMsg = convHistory[latestIdx]!;
+                  return (
+                    <div className="rounded-2xl border-2 border-orange-200/90 bg-orange-50/40 p-3 sm:p-3.5 shadow-xs">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                          ⭐ ताज़ा सवाल · Latest Question ({tutor.name})
+                        </span>
+                        {latestMsg.role === "ai" && (
+                          <span className="text-[10px] text-slate-500 font-semibold">
+                            ऊपर माइक दबाकर बोलें या नीचे सुझाव चुनें
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  )}
-                  {isStreaming && !aiText && (
-                    <div className="flex min-w-0 gap-2 justify-start">
-                      <div className="min-w-0 px-4 py-2.5 bg-muted rounded-2xl">
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
-                    </div>
-                  )}
-                  {isStreaming && aiText && (
-                    <div className="flex min-w-0 gap-2 justify-start">
-                      <div className="min-w-0 max-w-[90%] rounded-2xl px-4 py-2.5 text-sm bg-muted text-secondary whitespace-pre-wrap break-words">
-                        <WordPowerText
-                          text={sanitizeNativeDisplay(formatGeneratedText(aiText), uiLang !== "English")}
-                          onWordClick={openWordCard}
-                          learnedWords={gam.wordsLearned}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {[...convHistory].reverse().map((msg, i) => {
-                    const originalIndex = convHistory.length - 1 - i;
-                    if (msg.role === "user") {
-                      return (
-                        <div key={i} className="flex min-w-0 flex-col items-end gap-0.5">
-                          <div className="min-w-0 max-w-[90%] rounded-2xl bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground whitespace-pre-wrap break-words">
-                            {msg.text}
+
+                      {latestMsg.role === "ai" ? (
+                        <div className="space-y-2.5">
+                          <TutorBubble
+                            text={sanitizeNativeDisplay(formatGeneratedText(latestMsg.text), uiLang !== "English")}
+                            nativeLanguage={uiLang}
+                            showNative={Boolean(showNativeFor[latestIdx])}
+                            onToggleNative={() => setShowNativeFor((prev) => ({ ...prev, [latestIdx]: !prev[latestIdx] }))}
+                            onPlay={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(latestMsg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 1 })}
+                            onSlow={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(latestMsg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.75 })}
+                            onWordClick={openWordCard}
+                            learnedWords={gam.wordsLearned}
+                          />
+
+                          {/* Suggested replies for THIS latest question */}
+                          {suggestions.length > 0 && !isStreaming && (
+                            <div className="pt-1">
+                              <SuggestedReplyChips
+                                replies={suggestions}
+                                nativeLanguage={uiLang}
+                                onPick={(text) => void handleConvSend(text)}
+                                onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="max-w-[90%] rounded-2xl bg-orange-600 px-4 py-2.5 text-sm text-white shadow-xs">
+                            {latestMsg.text}
                           </div>
-                          {coachNotes[originalIndex] && (
+                          {coachNotes[latestIdx] && (
                             <GentleCoachStrip
-                              note={coachNotes[originalIndex]!}
+                              note={coachNotes[latestIdx]!}
                               nativeLanguage={uiLang}
                               onTry={(text) => void handleConvSend(text)}
                               onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
                             />
                           )}
                         </div>
-                      );
-                    }
-                    return (
-                      <div key={i} className="flex min-w-0 gap-2 justify-start">
-                        <TutorBubble
-                          text={sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English")}
-                          nativeLanguage={uiLang}
-                          showNative={Boolean(showNativeFor[originalIndex])}
-                          onToggleNative={() => setShowNativeFor((prev) => ({ ...prev, [originalIndex]: !prev[originalIndex] }))}
-                          onPlay={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 1 })}
-                          onSlow={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.75 })}
-                          onWordClick={openWordCard}
-                          learnedWords={gam.wordsLearned}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {/* Beginner aids for the newest tutor turn */}
-              {suggestions.length > 0 && !isStreaming && (
-                <SuggestedReplyChips
-                  replies={suggestions}
-                  nativeLanguage={uiLang}
-                  onPick={(text) => void handleConvSend(text)}
-                  onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
-                />
-              )}
+                      )}
+                    </div>
+                  );
+                })()}
 
-              {!liveChat && (
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
-                  <Textarea
-                    ref={convInputRef}
-                    placeholder={uiLang === "English" ? "Type in English, or press mic to speak..." : `Type in English or ${uiLang}, or press mic to speak...`}
-                    value={convInput}
-                    onChange={e => setConvInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (convInput.trim()) void handleConvSend(); } }}
-                    className="flex-1 min-h-[52px] max-h-[180px] resize-none overflow-hidden text-sm"
-                  />
-                  <div className="flex items-center gap-2">
-                    <MicButton isListening={speech.isListening} isSupported={speech.isSupported}
-                      onStart={() => speech.start(t => setConvInput(p => p + t))} onStop={speech.stop} />
-                    <Button className="font-bold px-4 w-full sm:w-auto" disabled={isStreaming || !convInput.trim()} onClick={() => void handleConvSend()}>
-                      {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
-                    </Button>
+                {/* 4. Previous Turns (Descending Older History: newest-to-oldest) */}
+                {convHistory.length > 1 && (
+                  <div className="mt-2 space-y-2 border-t border-slate-200/80 pt-3">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      पिछली बातचीत · Previous Conversation ({convHistory.length - 1})
+                    </p>
+                    <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                      {convHistory.slice(0, -1).reverse().map((msg, i) => {
+                        const originalIndex = convHistory.length - 2 - i;
+                        if (msg.role === "user") {
+                          return (
+                            <div key={i} className="flex flex-col items-end gap-0.5">
+                              <div className="max-w-[90%] rounded-2xl bg-slate-700 px-3.5 py-2 text-xs text-white">
+                                {msg.text}
+                              </div>
+                              {coachNotes[originalIndex] && (
+                                <GentleCoachStrip
+                                  note={coachNotes[originalIndex]!}
+                                  nativeLanguage={uiLang}
+                                  onTry={(text) => void handleConvSend(text)}
+                                  onListen={(text) => speakRef.current(text, "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.9 })}
+                                />
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={i} className="flex justify-start">
+                            <TutorBubble
+                              text={sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English")}
+                              nativeLanguage={uiLang}
+                              showNative={Boolean(showNativeFor[originalIndex])}
+                              onToggleNative={() => setShowNativeFor((prev) => ({ ...prev, [originalIndex]: !prev[originalIndex] }))}
+                              onPlay={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 1 })}
+                              onSlow={() => speakRef.current(sanitizeNativeDisplay(formatGeneratedText(msg.text), uiLang !== "English"), "English", undefined, { voiceGender: tutor.voiceGender, voiceStyle: tutor.voiceStyle, rate: 0.75 })}
+                              onWordClick={openWordCard}
+                              learnedWords={gam.wordsLearned}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-               {convHistory.length > 0 && (
-                 <div className="flex flex-wrap items-center gap-2">
+                )}
+              </div>
+
+              {/* Chat management actions */}
+              {convHistory.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                   <span className="text-xs font-semibold text-muted-foreground mr-1">Save chat:</span>
-                  <Button variant="outline" size="sm" className="text-xs h-8"
+                  <Button variant="outline" size="sm" className="text-xs h-8 rounded-lg"
                     onClick={() => exportConversationPdf(convHistory, { aiName: teacherShort, userName: profile.name || "You" })}>
                     <FileDown className="w-3.5 h-3.5 mr-1.5" />PDF
                   </Button>
-                  <Button variant="outline" size="sm" className="text-xs h-8"
+                  <Button variant="outline" size="sm" className="text-xs h-8 rounded-lg"
                     onClick={() => exportConversationWord(convHistory, { aiName: teacherShort, userName: profile.name || "You" })}>
                     <FileText className="w-3.5 h-3.5 mr-1.5" />Word
                   </Button>
-                   <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs"
+                  <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs text-slate-500 hover:text-slate-800"
                     onClick={() => {
                       setConvHistory([]);
                       lastSubstantiveTutorQuestionRef.current = "";
@@ -2624,28 +2693,27 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
           </Card>
           </section>
 
-          {/* Voice-first control bar. This is the primary way into a live
-              session for a learner who cannot read English well, so it sits
-              below the transcript and stays visible. */}
-          <div className="mt-2">
-            <VoiceControlBar
-              state={
-                !liveChat
-                  ? "off"
-                  : livePaused
-                    ? "paused"
-                    : convFlowState === "ai-thinking"
-                      ? "thinking"
-                      : convFlowState === "ai-speaking"
-                        ? "speaking"
-                        : "listening"
-              }
-              audioLevel={speech.audioLevel}
-              nativeLanguage={uiLang}
-              onToggleLive={() => void toggleLiveChat()}
-              onPauseResume={togglePauseLiveChat}
-            />
-          </div>
+          {!embedded && (
+            <div className="mt-2">
+              <VoiceControlBar
+                state={
+                  !liveChat
+                    ? "off"
+                    : livePaused
+                      ? "paused"
+                      : convFlowState === "ai-thinking"
+                        ? "thinking"
+                        : convFlowState === "ai-speaking"
+                          ? "speaking"
+                          : "listening"
+                }
+                audioLevel={speech.audioLevel}
+                nativeLanguage={uiLang}
+                onToggleLive={() => void toggleLiveChat()}
+                onPauseResume={togglePauseLiveChat}
+              />
+            </div>
+          )}
 
         </main>
       </div>
