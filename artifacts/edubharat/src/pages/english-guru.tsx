@@ -1073,55 +1073,12 @@ function EnglishGuruContent({ embedded = false }: { embedded?: boolean }) {
     aiBusyRef.current = false;
     setTutorId(id);
     updateProfile({ voiceStyle: t.voiceStyle as typeof profile.voiceStyle, voiceGender: t.voiceGender, preferredTutor: id });
-    // If live conversation is running, resume it with the new tutor's voice.
-    // Use a natural transition — not a scripted introduction — so the handoff
-    // feels like a real person stepping in mid-conversation.
+    // Switch tutor silently without interrupting with a long scripted speech.
     if (liveChatRef.current) {
-      const shortName = t.name.replace(/\s+(Ma'am|Sir)$/i, "");
-      const transitions = [
-        `I've got it from here! I'm ${shortName}. Please go ahead — I'm listening!`,
-        `Taking over now! ${shortName} here. Continue whenever you're ready.`,
-        `${shortName} stepping in! Right, so where were we? Go ahead!`,
-        `Here's ${shortName}! I'm all ears — carry on.`,
-      ];
-      const greeting = transitions[Math.floor(Math.random() * transitions.length)]!;
-      setConvHistory(h => [...h, { role: "ai", text: greeting }]);
-      setConvFlowState("ai-speaking");
-      // Lock the busy flag AND kill the mic BEFORE speaking so the greeting
-      // can't be picked up as user input (same pattern as handleConvPhrase).
-      aiBusyRef.current = true;
-      speechRef.current.pause();
-      lastAiSpeechRef.current = greeting;
-      // Greeting is always English → recognise the student's reply in English.
-      // Release the mic when the greeting finishes. Guarded by a safety timer so
-      // that if TTS onEnd never fires (autoplay block, audio glitch, eviction)
-      // the mic and busy flag can't stay stuck — otherwise the conversation would
-      // freeze right after a teacher switch.
-      const releaseGreeting = () => {
-        if (!liveChatRef.current || livePausedRef.current) return;
-        if (speakSafetyTimerRef.current) { clearTimeout(speakSafetyTimerRef.current); speakSafetyTimerRef.current = null; }
-        aiBusyRef.current = false;
-        if (!liveChatRef.current) return;
-        setConvFlowState("user-speaking");
-        // Pre-warm approach: spawn the recognizer after a short 500ms tail-drain
-        // delay so the mic is hot and calibrated before the user speaks, but
-        // suppress any recognised result for 2s so room echo of the greeting
-        // (which lingers on laptop/phone speakers) is never processed.
-        lastAiSpeechEndRef.current = Date.now();
-             speechRef.current.suppressUntil(Date.now() + 900);
-             // Wake recognition immediately after the audio tail; the short
-             // suppression window still protects against speaker echo.
-             speechRef.current.blockFor(0);
-      };
-      speakSafetyTimerRef.current = setTimeout(releaseGreeting, Math.max(greeting.length * 60 + 4000, 8000));
-      // Greetings are always English — voice them with the English tutor voice so
-      // a native neural voice never reads English text with the wrong accent.
-      synth.speak(stripMarkdownForSpeech(greeting), "English", releaseGreeting, {
-        voiceGender: t.voiceGender,
-        voiceStyle: t.voiceStyle,
-        speechStyle: `Live spoken conversation. ${TUTOR_TTS_DELIVERY[t.id] ?? "Natural, warm and attentive."} Keep the delivery connected and conversational, with very short comma pauses.`,
-        rate: ENGLISH_GURU_SPEECH_RATE,
-      });
+      aiBusyRef.current = false;
+      setConvFlowState("user-speaking");
+      speechRef.current.blockFor(0);
+      speechRef.current.startContinuous(p => handleConvPhraseRef.current?.(p));
     }
   }, [cancelActiveTurn, synth, updateProfile, speech, uiLang]);
 
@@ -1538,27 +1495,7 @@ Return STRICT JSON only: {"replies":[{"en":"...","phonetic":"...","native":"..."
           : "";
         resetAI();
 
-        // ── News / current-events enrichment ─────────────────────────────
-        // When the student clearly asks about real-world news or info, fetch
-        // a quick web snippet so the AI can answer confidently rather than
-        // saying "I cannot access the internet."
-        // Kept intentionally specific to avoid false-positives on common words
-        // (e.g. "result" of a grammar exercise vs. "match result").
-        const NEWS_RE = /\b(news|latest news|cricket (score|match|result|news)|ipl (score|match|result)|election (result|winner|news)|prime minister|petrol price|diesel price|gold price|dollar rate|stock market|sensex|nifty|box office|film release|weather forecast|covid|inflation rate|gdp|budget 2024|budget 2025)\b/i;
         let webContext = "";
-        if (!isSilenceProbe && NEWS_RE.test(userMsg)) {
-          try {
-            const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
-            const ctxRes = await fetch(
-              `${base}/api/ai/web-context?q=${encodeURIComponent(userMsg.slice(0, 200))}`,
-              { credentials: "include", signal: AbortSignal.timeout(1500) }
-            );
-            if (ctxRes.ok) {
-              const ctxData = await ctxRes.json() as { context: string };
-              webContext = (ctxData.context ?? "").trim();
-            }
-          } catch { /* web context is enrichment only — never block conversation */ }
-        }
         if (
           turnGeneration !== liveTurnGenerationRef.current ||
           (liveChatRef.current && livePausedRef.current)
@@ -1640,7 +1577,7 @@ Return STRICT JSON only: {"replies":[{"en":"...","phonetic":"...","native":"..."
            `${recentHistory}${translationInstruction}${silenceInstruction}\n${teacherShort}:`,
            `You are ${teacherShort}, a warm, experienced Indian English coach on a live voice call with ${coachStudentName} (${level} English level). ${embedded && requestedGoal ? `The learner chose to practise ${requestedGoal}; naturally use that context for examples and questions. ` : ""}${tutor.teachingStyle}. ${ENERGETIC_TUTOR_DIRECTION} ${TUTOR_SPEAKING_STYLES[tutor.id] ?? ""} ${languageGuidance}${nativeScriptQuality}
 
-Do not begin replies with a self-introduction, teacher name, or scripted greeting. The interface already identifies you. Start with a direct, relevant response to the learner. If the learner's name is unknown, ask what they prefer to be called naturally, without delaying the lesson.
+CRITICAL: NEVER introduce yourself, never say your name (e.g. "I'm Priya"), never describe yourself as an English coach, and NEVER give an introductory speech or greeting. The interface already identifies you. Start immediately with a direct, relevant response or question. If the learner's name is unknown, ask what they prefer to be called naturally, without delaying the lesson.
 When using Hindi or another gendered Indian-language phrase, keep the teacher's grammar aligned with your own voice gender: ${tutor.voiceGender === "female" ? "use feminine forms such as samajh jaungi, karungi, and bataungi — never masculine -unga forms for yourself." : "use masculine forms such as samajh jaunga, karunga, and bataunga — never feminine -ungi forms for yourself."}
 
 Rules for spoken replies:
@@ -1666,7 +1603,7 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
 - If asked about news, sports, films, prices, or current events: use supplied live context when available. Without current context, say briefly that the information may have changed and avoid guessing.${webContextNote}${translationInstruction}${explicitTranslationDirective}`,
           undefined,
             {
-              endpoint: "/api/ai/conversation",
+              endpoint: "/api/ai/conversation?fast=1",
               maxTokens: nativeInputDetected ? 150 : 110,
                timeoutMs: nativeInputDetected ? 8_500 : 8_000,
               responseLanguage: responseHelperLanguage,
@@ -1690,7 +1627,7 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
             `You are ${teacherShort}, a warm Indian English coach. The learner's selected helper language is ${responseHelperLanguage}. The speech transcript may contain a different Indian script; still answer in the selected helper language. Answer the actual latest message now. Return two complete, useful sentences in natural ${responseHelperLanguage} using its standard native script. Be specific and practical, not vague. Do not say only that you understand, do not ask what the learner means unless the message is genuinely unintelligible, and do not switch to English before addressing the learner in ${responseHelperLanguage}. You may add one short English practice example after the native-language answer. Never use another Indian language, transliteration, isolated script letters, markdown, or bullet points.`,
             undefined,
             {
-              endpoint: "/api/ai/conversation",
+              endpoint: "/api/ai/conversation?fast=1",
               maxTokens: 150,
                timeoutMs: 7_000,
               responseLanguage: responseHelperLanguage,

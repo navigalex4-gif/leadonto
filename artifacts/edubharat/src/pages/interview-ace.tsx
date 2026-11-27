@@ -25,12 +25,13 @@ import { CelebrationOverlay } from "@/components/english/word-power";
 import { XP_VALUES, useGamification } from "@/lib/use-gamification";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import { GuruHomeButton } from "@/components/navigation/guru-home-button";
+import { requestTranslation, type TranslationLanguage } from "@/lib/use-translation";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
   Star, Clock, Timer, AlertCircle, Save, PhoneOff, VideoOff, Video, Target, XCircle,
   Maximize2, Minimize2,
-  RotateCw, Lightbulb, Sparkles, Gauge,
+  RotateCw, Lightbulb, Sparkles, Gauge, Globe,
 } from "lucide-react";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -934,7 +935,26 @@ function InterviewAceContent() {
     speech.blockFor(450);
     setCoachSpeaking(false);
   }, [speech, synth]);
-  const { profile } = useStudentProfile();
+  const { profile, updateProfile } = useStudentProfile();
+  const [helperLanguage, setHelperLanguage] = useState<string>(() => profile.preferredLanguage || "Hindi");
+  const [questionTranslation, setQuestionTranslation] = useState<string | null>(null);
+  const [translatingQuestion, setTranslatingQuestion] = useState(false);
+
+  const handleTranslateQuestion = useCallback(async (questionText: string) => {
+    if (questionTranslation) {
+      setQuestionTranslation(null);
+      return;
+    }
+    setTranslatingQuestion(true);
+    try {
+      const res = await requestTranslation(questionText, helperLanguage as TranslationLanguage, "explain");
+      setQuestionTranslation(res);
+    } catch {
+      setQuestionTranslation("इस प्रश्न में अपने अनुभव, पढ़ाई या प्रोजेक्ट के बारे में स्पष्ट और सरल शब्दों में बताएं।");
+    } finally {
+      setTranslatingQuestion(false);
+    }
+  }, [helperLanguage, questionTranslation]);
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const gam = useGamification(0);
@@ -1015,6 +1035,7 @@ function InterviewAceContent() {
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const [currentIdx, setCurrentIdx] = useState(0);
+  useEffect(() => { setQuestionTranslation(null); }, [currentIdx]);
   const [answer, setAnswer] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [autoListenEnabled, setAutoListenEnabled] = useState(true);
@@ -3144,6 +3165,14 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
 
           {/* Interviewer picture-in-picture */}
            <div className="absolute left-3 top-3 bottom-3 right-[36%] sm:left-1/2 sm:right-auto z-10 sm:w-[48%] sm:-translate-x-1/2 rounded-xl bg-white/95 border border-slate-200 shadow-xl flex flex-col items-center justify-center gap-1 p-2 overflow-hidden">
+             {(synth.isSpeaking || coachSpeaking) && (
+               <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
+                 <span className="inline-flex items-center gap-1 rounded-full bg-orange-600 px-2 py-0.5 text-[9px] font-bold text-white shadow-xs animate-pulse">
+                   <Volume2 className="h-2.5 w-2.5" />
+                   <span>बोल रहे हैं · Speaking</span>
+                 </span>
+               </div>
+             )}
              <button
                type="button"
                className={`rounded-full transition-all duration-300 shrink-0 appearance-none border-0 bg-transparent p-0 ${synth.isSpeaking ? "cursor-pointer" : "cursor-default"}`}
@@ -3236,6 +3265,16 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                   <Volume2 className="w-3 h-3" /> Repeat
                 </button>
                 <button
+                  type="button"
+                  className="text-blue-700 hover:text-blue-800 text-[11px] flex items-center gap-1 font-semibold"
+                  onClick={() => void handleTranslateQuestion(currentQ.question)}
+                  disabled={translatingQuestion}
+                  aria-expanded={Boolean(questionTranslation)}
+                >
+                  <Globe className="w-3 h-3" />
+                  {translatingQuestion ? "अनुवाद हो रहा है…" : questionTranslation ? "अनुवाद छुपाएं" : `${helperLanguage} में समझें`}
+                </button>
+                <button
                   className="text-amber-700 hover:text-amber-800 text-[11px] flex items-center gap-1 font-semibold"
                   onClick={() => void openHint()}
                   aria-expanded={hintOpen}
@@ -3243,6 +3282,16 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                   <Lightbulb className="w-3 h-3" /> Need a hint?
                 </button>
               </div>
+
+              {questionTranslation && (
+                <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50/80 p-2.5 text-left text-blue-950">
+                  <p className="text-[10px] font-bold text-blue-800 flex items-center gap-1 mb-1">
+                    <Globe className="w-3 h-3" />
+                    <span>{helperLanguage} में प्रश्न का सरल अर्थ:</span>
+                  </p>
+                  <p className="text-xs leading-relaxed">{questionTranslation}</p>
+                </div>
+              )}
 
               {hintOpen && (
                 <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 text-left">

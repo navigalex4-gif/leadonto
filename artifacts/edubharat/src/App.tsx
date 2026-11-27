@@ -119,9 +119,7 @@ function Router() {
         <EnglishGuru embedded />
       </Route>
       <Route path="/interview-ace">
-        <Layout compact showFooter={false}>
-          <InterviewAce />
-        </Layout>
+        <InterviewAce />
       </Route>
       <Route path="/rozgar-samachar">
         <Layout compact showFooter={false}>

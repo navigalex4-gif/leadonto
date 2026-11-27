@@ -45,7 +45,7 @@ function parseAiRequest(req: Request, res: Response): {
 // These stable model IDs are available through Vertex AI and are billed to the
 // Google Cloud project attached to the service account. The API-key path is
 // retained only as a compatibility fallback for environments without Vertex.
-const GEMINI_MODEL_CHAIN = ["gemini-flash-latest", "gemini-3.7-flash", "gemini-3.5-flash"] as const;
+const GEMINI_MODEL_CHAIN = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"] as const;
 const ANTHROPIC_MODEL_CHAIN = ["claude-haiku-4-5", "claude-sonnet-4-5"] as const;
 const GROQ_MODEL = process.env["GROQ_MODEL"] || "openai/gpt-oss-20b";
 const MISTRAL_MODEL = process.env["MISTRAL_MODEL"] || "mistral-small-latest";
@@ -651,10 +651,19 @@ router.post("/ai/stream", async (req, res) => {
   const hasClaudeKey = Boolean(process.env["ANTHROPIC_API_KEY"]);
   const tokens = maxTokens ?? 512;
   const state = { wrote: false };
-  const preferGroq = req.query.provider === "groq";
+  const preferGroq = req.query.provider === "groq" || req.query.fast === "1";
   const preferQuality = req.query.provider === "quality";
 
     try {
+      if (preferGroq && isQualityProviderReady("groq")) {
+        try {
+          await streamGroq(req, res, prompt, system, tokens, state);
+          return;
+        } catch (groqErr) {
+          if (state.wrote) throw groqErr;
+          pauseQualityProvider("groq", groqErr);
+        }
+      }
       if (isQualityProviderReady("gemini")) {
         try {
           await streamGemini(req, res, prompt, system, tokens, state);
@@ -711,12 +720,37 @@ router.post("/ai/conversation", async (req, res) => {
   const state = { wrote: false };
 
   const convTokens = maxTokens ?? 256;
+  const preferGroq = req.query.provider === "groq" || req.query.fast === "1";
   try {
-    // Start with low-latency providers for live speech. Each provider is
-    // attempted only when configured and healthy; failures before the first
-    // token fall through to the next provider.
-    if(isQualityProviderReady("gemini")){try{await streamGemini(req,res,prompt,system,convTokens,state);return;}catch(geminiError){if(state.wrote)throw geminiError;pauseQualityProvider("gemini",geminiError);req.log.warn({err:geminiError},"Gemini conversation failed - trying Groq");}}
-      if(isQualityProviderReady("groq")){try{await streamGroq(req,res,prompt,system,convTokens,state);return;}catch(groqError){if(state.wrote)throw groqError;pauseQualityProvider("groq",groqError);req.log.warn({err:groqError},"Groq conversation failed - trying Mistral");}}
+    if (preferGroq && isQualityProviderReady("groq")) {
+      try {
+        await streamGroq(req, res, prompt, system, convTokens, state);
+        return;
+      } catch (groqError) {
+        if (state.wrote) throw groqError;
+        pauseQualityProvider("groq", groqError);
+      }
+    }
+    if (isQualityProviderReady("gemini")) {
+      try {
+        await streamGemini(req, res, prompt, system, convTokens, state);
+        return;
+      } catch (geminiError) {
+        if (state.wrote) throw geminiError;
+        pauseQualityProvider("gemini", geminiError);
+        req.log.warn({ err: geminiError }, "Gemini conversation failed - trying Groq");
+      }
+    }
+    if (isQualityProviderReady("groq")) {
+      try {
+        await streamGroq(req, res, prompt, system, convTokens, state);
+        return;
+      } catch (groqError) {
+        if (state.wrote) throw groqError;
+        pauseQualityProvider("groq", groqError);
+        req.log.warn({ err: groqError }, "Groq conversation failed - trying Mistral");
+      }
+    }
       if (isQualityProviderReady("mistral")) {
       try {
         await streamMistral(req, res, prompt, system, convTokens, state);
