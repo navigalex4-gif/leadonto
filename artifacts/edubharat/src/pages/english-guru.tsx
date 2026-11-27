@@ -32,6 +32,7 @@ import { stripMarkdownForSpeech, formatGeneratedText, mapEnglishLevel } from "@/
 import { MicButton, TutorSelector } from "@/components/english/shared-ui";
 import { WordPowerText, WordPowerPopup, CelebrationOverlay } from "@/components/english/word-power";
 import { GuruHomeButton } from "@/components/navigation/guru-home-button";
+import { GuruLiveMission } from "@/components/english/guru-live-mission";
 import {
   VoiceControlBar,
   SuggestedReplyChips,
@@ -2082,6 +2083,44 @@ ${askedQuestionsRef.current.slice(-10).map((q, i) => `${i + 1}. ${q}`).join("\n"
       });
     }
   }, [liveChat, speech, togglePauseLiveChat, handleConvSend]);
+
+  if (embedded) {
+    return (
+      <>
+        <GuruLiveMission
+          user={user}
+          profile={profile}
+          balance={balance}
+          guestLiveLeft={guestLiveLeft}
+          uiLang={uiLang}
+          setUiLang={setUiLang}
+          level={level}
+          setLevel={setLevel}
+          tutor={tutor}
+          tutorId={tutorId}
+          onOpenTutorPicker={() => setShowTutorPicker(true)}
+          speech={speech}
+          synth={synth}
+          speak={speak}
+          convHistory={convHistory}
+          convFlowState={convFlowState}
+          liveChat={liveChat}
+          onToggleLive={toggleLiveChat}
+          handleConvPhrase={(p) => void handleConvPhrase(p)}
+          suggestions={suggestions}
+          onAwardXp={() => gamAwardRef.current("live_minute", { product: "english-guru" })}
+          requestedGoal={requestedGoal}
+        />
+        {showTutorPicker && (
+          <TutorSelector
+            currentId={tutorId}
+            onSelect={handleSelectTutor}
+            onClose={() => setShowTutorPicker(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className={`english-workspace ${embedded ? "english-workspace-embedded" : ""} min-h-full w-full min-w-0 max-w-full overflow-x-hidden lg:h-full lg:flex lg:flex-col lg:overflow-hidden container mx-auto px-3 sm:px-4 pt-1 pb-2 ${embedded ? "" : "max-w-6xl"}`}>

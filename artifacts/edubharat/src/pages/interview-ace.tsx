@@ -26,6 +26,9 @@ import { XP_VALUES, useGamification } from "@/lib/use-gamification";
 import { interviewVerdict as verdictFor, recommendationForWeighted, ratingLabel, RECOMMENDATION_STYLES, type RecommendationLabel } from "@/lib/interview-verdict";
 import { GuruHomeButton } from "@/components/navigation/guru-home-button";
 import { requestTranslation, type TranslationLanguage } from "@/lib/use-translation";
+import { InterviewSetupScreen } from "@/components/interview/interview-setup-screen";
+import { InterviewFeedbackScreen } from "@/components/interview/interview-feedback-screen";
+import { LanguageSheet } from "@/components/shared/language-sheet";
 import {
   Loader2, Mic, MicOff, PlayCircle, ChevronRight, Download, Volume2,
   LogOut, CheckCircle2, ChevronDown, MessageCircle, Pencil, Flame, Brain,
@@ -1070,6 +1073,8 @@ function InterviewAceContent() {
     structure?: number;
     fluency?: number;
   } | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showLangSheet, setShowLangSheet] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [strengthOpen, setStrengthOpen] = useState(false);
   const autoSubmitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1273,6 +1278,7 @@ Judge relevance to question, technical accuracy, clarity of thought, and English
           fluency: clamp(j.accuracy ?? j.fluency),
         });
         setStrengthOpen(true);
+        setShowFeedbackModal(true);
       }
     } catch { /* feedback is optional — never block the interview */ }
     finally { setFeedbackLoading(false); }
@@ -2466,258 +2472,80 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
   if (phase === "setup") {
     return (
       <>
-      <div className="interview-workspace container mx-auto w-full min-w-0 max-w-full px-3 sm:px-4 max-w-4xl pt-3 pb-6 overflow-x-hidden">
-        {/* Top Header bar with Global Home Button */}
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <GuruHomeButton variant="pill" />
-          <span className="text-xs font-semibold text-slate-500 hidden sm:inline">
-            🔒 100% सुरक्षित और गोपनीय इंटरव्यू अभ्यास
-          </span>
-        </div>
+        <InterviewSetupScreen
+          user={user}
+          profile={profile}
+          selectedType={type}
+          onSelectType={(v) => {
+            setType(v);
+            setExperience("");
+            if (!b2bParams.coach) {
+              setCoachHasBeenRematched(true);
+              setCoach(recommendedCoachFor(v));
+            }
+          }}
+          selectedExperience={experience}
+          onSelectExperience={setExperience}
+          selectedDuration={duration}
+          onSelectDuration={setDuration}
+          selectedCoach={coach}
+          onSelectCoach={setCoach}
+          onBegin={() => void startSession()}
+          onOpenLanguageSheet={() => setShowLangSheet(true)}
+          helperLanguage={helperLanguage}
+          guestLeft={guestInterviewsLeft()}
+          balance={balance}
+          interviewTypes={INTERVIEW_TYPES}
+          experienceLevels={EXPERIENCE_LEVELS}
+          durations={DURATIONS}
+          coaches={INTERVIEW_COACHES}
+        />
 
-        {/* Engaging Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600/10 via-primary/10 to-teal-600/10 border border-primary/20 p-4 mb-3 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold uppercase tracking-wider py-0.5">
-                  🎙️ AI Voice Simulation
-                </Badge>
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  India's #1 Mock Interviewer
-                </span>
-              </div>
-              <h1 className="text-2xl font-display font-extrabold text-secondary tracking-tight">Interview Ace</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Real-time AI voice interviews with instant scoring, feedback, and role-specific hiring verdicts.</p>
-            </div>
-            <div className="hidden md:flex flex-col items-end text-right">
-              <span className="text-xs font-bold text-secondary">⚡ 15,000+ Mock Sessions</span>
-              <span className="text-[10px] text-muted-foreground">Comprehensive Competency Scorecard</span>
-            </div>
-          </div>
-        </div>
+        <LanguageSheet
+          open={showLangSheet}
+          onClose={() => setShowLangSheet(false)}
+          showQuestionLangSetting={true}
+          onSave={(settings) => {
+            setHelperLanguage(settings.helpLang);
+            updateProfile({ preferredLanguage: settings.helpLang });
+          }}
+        />
 
-        {/* Pre-interview Briefing in Hindi (Phase 3 Requirement) */}
-        <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 to-indigo-50/40 p-4 sm:p-5 shadow-xs mb-3">
-          <h3 className="text-sm sm:text-base font-extrabold text-blue-950 flex items-center gap-2">
-            <span>💡 इंटरव्यू से पहले जानिए</span>
-            <span className="text-xs font-semibold text-blue-700">· What to Expect</span>
-          </h3>
-          <p className="text-xs text-blue-900/80 mt-1">
-            यह एक दोस्ताना और वास्तविक मॉक इंटरव्यू है। बिना झिझक के अपना सर्वश्रेष्ठ उत्तर दें:
-          </p>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-blue-950">
-            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
-              <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                <span>🎯</span> 1 प्रश्न एक बार में
-              </p>
-              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                इंटरव्यूअर आपसे एक-एक करके सवाल पूछेंगे। कोई हड़बड़ी नहीं, सोचकर और आत्मविश्वास से बोलें।
-              </p>
-            </div>
-            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
-              <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                <span>📊</span> तुरंत 4-पॉइंट स्कोर
-              </p>
-              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                हर उत्तर के बाद Relevance, Accuracy, Clarity और Confidence का तुरंत स्कोर और सरल हिंदी में सुधार।
-              </p>
-            </div>
-            <div className="rounded-xl bg-white/95 p-3 border border-blue-100 shadow-2xs">
-              <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                <span>🎤</span> शांत जगह और स्पष्ट आवाज़
-              </p>
-              <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-                शांत कमरे में बैठें। अंग्रेज़ी में बोलते समय अगर अटकें, तो हिंदी की मदद ले सकते हैं।
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 3-Step Value Highlights */}
-        <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
-            <span className="text-sm">🎯</span>
-            <p className="text-[11px] font-bold text-secondary mt-0.5">Role Benchmark</p>
-            <p className="text-[10px] text-muted-foreground hidden sm:block">Tailored for Indian roles</p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
-            <span className="text-sm">🗣️</span>
-            <p className="text-[11px] font-bold text-secondary mt-0.5">Voice-to-Voice</p>
-            <p className="text-[10px] text-muted-foreground hidden sm:block">Ultra-low latency speech</p>
-          </div>
-          <div className="rounded-xl border border-border/80 bg-card/60 p-2 shadow-xs">
-            <span className="text-sm">📊</span>
-            <p className="text-[11px] font-bold text-secondary mt-0.5">Instant Verdict</p>
-            <p className="text-[10px] text-muted-foreground hidden sm:block">Actionable feedback & tips</p>
-          </div>
-        </div>
-
-        <MobilePrimaryCTA label="Start Free Mock Interview" onClick={() => void startSession()} />
-
-        {/* Settings bar */}
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          <span className="text-sm font-semibold text-secondary truncate">
-            {profile.name || user?.name || "Guest"}
-          </span>
-          <span className="text-muted-foreground/40">•</span>
-          <Select
-            value={type}
-            onValueChange={(v) => {
-              setType(v);
-               // Role never infers seniority. Ask the candidate again whenever
-               // they change the role so the benchmark is intentional.
-               setExperience("");
-              // Re-match the interviewer to the new type (unless a B2B invite locked it).
-              if (!b2bParams.coach) {
-                setCoachHasBeenRematched(true);
-                setCoach(recommendedCoachFor(v));
-              }
-            }}
+        {showActiveInterviewPrompt && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Interview already in progress"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
           >
-            <SelectTrigger className="h-7 text-xs w-[150px] rounded-full border-dashed">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {INTERVIEW_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select
-            value={experience}
-            onValueChange={(v) => {
-              setExperience(v);
-            }}
-          >
-            <SelectTrigger className={`h-7 text-xs w-[130px] rounded-full border-dashed ${!experience ? "border-primary text-primary" : ""}`}>
-              <SelectValue placeholder="Select experience" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPERIENCE_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {!experience && (
-            <span className="basis-full text-xs font-semibold text-primary">
-              Select your experience level for this {INTERVIEW_TYPES.find(t => t.value === type)?.label ?? "role"} interview.
-            </span>
-          )}
-          <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
-            <SelectTrigger className="h-7 text-xs w-[110px] rounded-full border-dashed">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DURATIONS.map(d => <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-red-500" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Interview already in progress</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                    A previous interview session is still open for this account. Close it here if that tab has already been closed.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowActiveInterviewPrompt(false)}>Keep it open</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void endInterview().then(() => {
+                      setShowActiveInterviewPrompt(false);
+                      toast({ title: "Previous interview closed", description: "You can start a new interview now." });
+                    });
+                  }}
+                >
+                  Close previous interview
+                </Button>
+              </div>
 
-        {/* Coach grid — compact. The selected role determines the domain specialist. */}
-        <div className="flex items-baseline gap-2 mb-2 flex-wrap">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Interviewer</p>
-          <span className="text-[10px] font-medium text-muted-foreground/70 normal-case">
-            {coachLocked ? "Set by the recruiter for this invite" : `Domain specialist for ${interviewRoleLabel}`}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-3">
-          {INTERVIEW_COACHES.map(c => (
-            <button
-              key={c.id}
-              onClick={() => { if (!coachLocked && c.id === recommendedCoachId) setCoach(c); }}
-              disabled={coachLocked ? coach.id !== c.id : c.id !== recommendedCoachId}
-              className={`relative text-left rounded-xl border-2 p-3 transition-all duration-200 transform ${
-                coach.id === c.id
-                  ? "border-primary shadow-md bg-primary/10 ring-2 ring-primary/40 -translate-y-0.5"
-                    : (coachLocked || c.id !== recommendedCoachId)
-                    ? "border-border bg-card opacity-40 cursor-not-allowed"
-                    : "border-border bg-card hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1.5">
-                <AnimatedAvatar
-                  name={c.name}
-                  subtitle={c.role}
-                  isSpeaking={false}
-                  gender={c.gender}
-                  size="md"
-                  imageSrc={c.imageSrc}
-                />
-                {coach.id === c.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto shrink-0" />}
-              </div>
-              <p className="font-bold text-xs text-secondary truncate">{c.name}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-xs">{c.icon}</span>
-                <span className="text-[10px] font-semibold text-muted-foreground truncate">{c.specialty}</span>
-              </div>
-              {c.id === recommendedCoachId && (
-                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-xs">
-                  <Flame className="w-2.5 h-2.5" /> Recommended
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Inline start bar with high engagement CTA */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-card via-card to-primary/5 border border-primary/20 shadow-md">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold text-primary uppercase tracking-wider">Ready to practice</span>
-              <span className="text-muted-foreground/50">•</span>
-              <p className="text-sm font-bold text-secondary truncate">
-                {typeMeta.icon} {typeMeta.label} · {experience || "Select Experience"} · {duration} min · {displayCoachName}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {user ? (
-                <>Up to <span className="font-semibold text-secondary">{interviewCost} credits</span> · 1 credit per {Math.max(1, Math.round(duration / INTERVIEW_MAX_BLOCKS))} minutes · Balance: <span className="font-semibold">{balance ?? "…"}</span> · <Link href="/credits" className="text-primary font-semibold hover:underline">Top up</Link></>
-              ) : guestInterviewsRemaining > 0 ? (
-                <><span className="font-semibold text-green-700">{guestInterviewsRemaining} free {guestInterviewsRemaining === 1 ? "interview" : "interviews"}</span> left · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
-              ) : (
-                <>Free interviews used up · <Link href="/login?returnTo=%2Finterview-ace" className="text-primary font-semibold hover:underline">Sign in</Link> for 20 free credits</>
-              )}
-            </p>
-          </div>
-          <Button
-            className="shrink-0 font-bold px-6 py-5 text-sm rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/95 hover:to-emerald-700 transition-all transform active:scale-95"
-            onClick={startSession}
-            disabled={isStreaming || !experience}
-          >
-            {isStreaming
-              ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Preparing…</>
-              : <><PlayCircle className="w-4 h-4 mr-1.5" />Begin Interview</>}
-          </Button>
-        </div>
-      </div>
-      {showCreditGate && <CreditGate onClose={() => setShowCreditGate(false)} isLoggedIn={!!user} />}
-      {showActiveInterviewPrompt && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-red-500" />
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Interview already in progress</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                  A previous interview session is still open for this account. Close it here if that tab has already been closed.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowActiveInterviewPrompt(false)}>Keep it open</Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void endInterview().then(() => {
-                    setShowActiveInterviewPrompt(false);
-                    toast({ title: "Previous interview closed", description: "You can start a new interview now." });
-                  });
-                }}
-              >
-                Close previous interview
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </>
     );
   }
@@ -3057,6 +2885,43 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
     );
   }
 
+  // ── Answer Feedback Mode (Canvas Board 12) ───────────────────────────────
+  if (phase === "interview" && showFeedbackModal && microFeedback) {
+    const answeredQ = questions[microFeedback.index] || currentQ;
+    return (
+      <InterviewFeedbackScreen
+        questionNumber={(microFeedback.index ?? currentIdx) + 1}
+        totalQuestions={Math.max(questions.length, (microFeedback.index ?? currentIdx) + 1)}
+        questionText={answeredQ?.question || "Interview Question"}
+        userAnswer={answeredQ?.answer || answer || "Your answer"}
+        scores={{
+          relevance: microFeedback.relevance,
+          accuracy: microFeedback.accuracy,
+          clarity: microFeedback.clarity,
+          confidence: microFeedback.confidence,
+        }}
+        mistakes={microFeedback.mistakes}
+        improvedAnswer={microFeedback.improvedAnswer}
+        hindiExplanation={microFeedback.hindiExplanation}
+        practicalTip={microFeedback.practicalTip}
+        onSpeakAgain={() => {
+          setShowFeedbackModal(false);
+          setMicroFeedback(null);
+          setAnswer("");
+          setIsRecording(true);
+        }}
+        onNextQuestion={() => {
+          setShowFeedbackModal(false);
+          setMicroFeedback(null);
+          nextQuestion();
+        }}
+        onListenSample={(txt) => {
+          speakCoach(txt, { voiceGender: coach.gender, voiceStyle: coach.voiceStyle });
+        }}
+      />
+    );
+  }
+
   // ── Interview — Video Call Mode ────────────────────────────────────────────
   return (
     <div className={`fixed inset-0 bg-slate-50 text-slate-900 flex flex-col z-[9999] ${landscapeMode ? "interview-landscape" : ""}`} style={{ top: 56 }}>
@@ -3076,11 +2941,16 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           <span className="text-slate-800 text-xs sm:text-sm font-bold truncate">{displayCoachName}</span>
           <span className="text-slate-500 text-xs truncate hidden sm:inline">· {typeMeta.icon} {typeMeta.label} · {experience}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-slate-700 text-sm font-bold shrink-0">
-          <Timer className="w-4 h-4 text-orange-400" />
-          <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500" : ""}>
-            {formatTime(elapsedSeconds)} / {duration}:00
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-200">
+            ब्लॉक {Math.min(5, Math.floor(elapsedSeconds / interviewBlockSeconds(duration)) + 1)} / 5
           </span>
+          <div className="flex items-center gap-1.5 text-slate-700 text-sm font-bold shrink-0">
+            <Timer className="w-4 h-4 text-orange-400" />
+            <span className={elapsedSeconds >= duration * 60 - 30 ? "text-red-500 font-extrabold" : ""}>
+              {formatTime(elapsedSeconds)} / {duration}:00
+            </span>
+          </div>
             <button
               type="button"
               onClick={() => void toggleLandscapeMode()}
@@ -3327,6 +3197,24 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
                   ) : null}
                 </div>
               )}
+
+              {/* STAR Answer Framework Guide Card (Canvas Board 11) */}
+              <div className="mt-2.5 rounded-xl border border-blue-200/90 bg-blue-50/70 p-2 text-left">
+                <div className="flex items-center justify-between text-[11px] text-blue-950 font-bold gap-1">
+                  <span className="text-[10px] font-extrabold text-blue-800 uppercase tracking-wider shrink-0">
+                    STAR उत्तर विधि:
+                  </span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto text-[10px] sm:text-[11px] font-medium">
+                    <span>1 स्थिति (Situation)</span>
+                    <span className="text-blue-400">➔</span>
+                    <span>2 काम (Task)</span>
+                    <span className="text-blue-400">➔</span>
+                    <span>3 ऐक्शन (Action)</span>
+                    <span className="text-blue-400">➔</span>
+                    <span>4 नतीजा (Result)</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3544,7 +3432,7 @@ ${answered.map((q, i) => `Q${i + 1}: ${q.question}\nQuestion type: ${technicalRe
           >
             {isStreaming
               ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <><ChevronRight className="w-4 h-4 mr-1" />Submit</>}
+              : <><ChevronRight className="w-4 h-4 mr-1" />पूरा हुआ · Done</>}
           </Button>
 
           {/* End call — red hang-up button */}
